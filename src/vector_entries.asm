@@ -1,0 +1,30 @@
+; entry routines for the vector overrides
+
+.FILEV_ENTRY
+{
+	RTS
+}
+.ARGSV_ENTRY
+{
+	RTS
+}
+.BGETV_ENTRY
+{
+	RTS
+}
+.BPUTV_ENTRY
+{
+	RTS
+}
+.GBPBV_ENTRY
+{
+	RTS
+}
+.FINDV_ENTRY
+{
+	RTS
+}
+.FSCV_ENTRY
+{
+	RTS
+}

@@ -38,3 +38,14 @@
     PLA
     RTS
 
+.ReturnWithA0
+    PHA                     ; Sets the value of A
+    TXA                     ; restored by RememberAXY
+    PHA                     ; after returning from calling
+    LDA     #&00            ; sub routine to 0
+    TSX
+    STA     &0109,X
+    PLA
+    TAX
+    PLA
+    RTS

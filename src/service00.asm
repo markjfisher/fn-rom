@@ -3,6 +3,16 @@
 
 .fn_servicecalls
 {
+IF _DEBUG
+    PHA
+    JSR     PrintString
+    EQUB    "Service "
+    NOP
+    JSR     PrintAXY
+    PLA
+ENDIF
+
+; TUBEHOST things here?
 
 IF _MASTER_
     BIT     PagedROM_PrivWorkspaces,X   ; ROM disabled if 01xxxxxx or 10xxxxxx
@@ -46,7 +56,7 @@ ENDIF
     LDA     data,X
     PHA
 
-    ; Restore A & X values
+; Restore A & X values
 ; IF _BP12K_
 ;     TXA
 ;     PHA
@@ -74,6 +84,7 @@ ENDIF
 ; See https://www.sprow.co.uk/bbc/library/sidewrom.pdf for the reason codes
 ;
 
+; Gradually implement these for services we wish to implement
 .data
     EQUW    service_null-1                      ; 0
 IF _MASTER_ OR _SWRAM_
@@ -107,9 +118,8 @@ ENDIF
 
 ; This needs to reach inside the current scope, so is not separated into its own file
 .SERVICE12_init_filesystem                      ; A=&12 Initialise filing system
-    ; CPY     #filesysno%                       ; Y=ID no. (4=dfs etc.)
-    ; BNE     label3
-    ; JSR     RememberAXY
-    ; JMP     CMD_CARD
-    RTS
+    CPY     #filesysno%                         ; Y=ID no. (4=dfs etc.)
+    BNE     label3
+    JSR     RememberAXY
+    JMP     CMD_FUJINET
 }

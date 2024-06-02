@@ -9,16 +9,26 @@
 INCLUDE "src/equates.asm"
 INCLUDE "src/rom_entry.asm"
 
-; Functions that other services call
+; Everything that other services call
+INCLUDE "src/data.asm"
 INCLUDE "src/go_fscv.asm"
 INCLUDE "src/remember_axy.asm"
+INCLUDE "src/utils.asm"
+INCLUDE "src/print_string.asm"
+INCLUDE "src/workspaces.asm"
+INCLUDE "src/channel_flags.asm"
+INCLUDE "src/vector_entries.asm"
+INCLUDE "src/vectors.asm"
+
+; Command definitions, and init of FujiNet
+INCLUDE "src/cmd_fujinet.asm"
 
 ; The start of ROM functionality, includes INIT code
-INCLUDE "src/fn_service_calls.asm"
+INCLUDE "src/service00.asm"
 
 ; service definitions
 INCLUDE "src/service09_help.asm"
 
-PRINT "    code ends at",~P%," (",(guard_value - P%), "bytes free )"
+PRINT "    code ends at",~P%,"(",(guard_value - P%), "bytes free)"
 
 SAVE &8000, &C000

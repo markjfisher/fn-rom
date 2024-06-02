@@ -7,6 +7,7 @@ guard_value=&C000
     ORG     &8000
     GUARD   guard_value
 
+; We aren't a lang
 .lang_entry
     BRK
     BRK
@@ -15,7 +16,6 @@ guard_value=&C000
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 .service_entry
     JMP     fn_servicecalls
-
 
 .rom_type
     EQUB    &82

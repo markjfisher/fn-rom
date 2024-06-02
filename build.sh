@@ -1,9 +1,27 @@
 #!/usr/bin/env bash
 #
-# heavily influenced by mmfs from
+# Everything in this repo is heavily influenced by and copied from mmfs at
 # https://github.com/hoglet67/MMFS
 
-# set -eux
+
+function show_help {
+  echo "Usage: $(basename $0) [options]"
+  echo ""
+  echo "   -d       # enable debug"
+  exit 1
+}
+
+ENABLE_DEBUG="FALSE"
+
+while getopts "dh" flag
+do
+  case "$flag" in
+    d) ENABLE_DEBUG="TRUE" ;;
+    h) show_help ;;
+    *) show_help ;;
+  esac
+done
+shift $((OPTIND - 1))
 
 BEEB_CLI=${BEEB_CLI:-"beeb"}
 BEEBASM=${BEEBASM:-"beebasm"}
@@ -24,6 +42,12 @@ PROJECT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 BUILD_DIR=${PROJECT_DIR}/build
 SRC_DIR=${PROJECT_DIR}/src
 
+BEEBASM_ARGS=""
+
+if [ ${ENABLE_DEBUG} -eq 1 ]; then
+  BEEBASM_ARGS="${BEEBASM_ARGS} -D _DEBUG"
+fi
+
 rm -rf ${BUILD_DIR}
 mkdir -p ${BUILD_DIR}
 
@@ -41,6 +65,7 @@ ${BEEB_CLI} info ${ssd}
 echo "MACRO SYSTEM_NAME"         > ${BUILD_DIR}/device.asm
 echo "    EQUS \"${system}\""   >> ${BUILD_DIR}/device.asm
 echo "ENDMACRO"                 >> ${BUILD_DIR}/device.asm
+echo "_DEBUG = ${ENABLE_DEBUG}" >> ${BUILD_DIR}/device.asm
 
 # <nothing>=beeb, e=electon, m=master, ...
 build_files="${SRC_DIR}/start/FN.asm ${SRC_DIR}/start/eFN.asm ${SRC_DIR}/start/mFN.asm"
@@ -48,7 +73,7 @@ build_files="${SRC_DIR}/start/FN.asm ${SRC_DIR}/start/eFN.asm ${SRC_DIR}/start/m
 for f in ${build_files}; do
   name=$(basename $(echo ${f%.asm}))
   echo "Building ${name}..."
-  ${BEEBASM} -i ${f} -o ${BUILD_DIR}/${name} -v >& ${BUILD_DIR}/${name}.log
+  ${BEEBASM} -i ${f} -o ${BUILD_DIR}/${name} ${BEEBASM_ARGS} -v >& ${BUILD_DIR}/${name}.log
 
   if [ ! -f ${BUILD_DIR}/${name} ]; then
     cat ${BUILD_DIR}/${name}.log
