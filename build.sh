@@ -42,8 +42,8 @@ echo "MACRO SYSTEM_NAME"         > ${BUILD_DIR}/device.asm
 echo "    EQUS \"${system}\""   >> ${BUILD_DIR}/device.asm
 echo "ENDMACRO"                 >> ${BUILD_DIR}/device.asm
 
-# e=electon, m=master, ...
-build_files="${SRC_DIR}/start/eFN.asm ${SRC_DIR}/start/mFN.asm"
+# <nothing>=beeb, e=electon, m=master, ...
+build_files="${SRC_DIR}/start/FN.asm ${SRC_DIR}/start/eFN.asm ${SRC_DIR}/start/mFN.asm"
 
 for f in ${build_files}; do
   name=$(basename $(echo ${f%.asm}))
