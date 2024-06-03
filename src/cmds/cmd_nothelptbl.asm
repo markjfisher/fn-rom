@@ -1,3 +1,0 @@
-.CMD_NOTHELPTBL
-    RTS
-

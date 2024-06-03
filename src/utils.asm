@@ -81,30 +81,30 @@
     RTS
 }
 
-.CopyVarsB0BA
-{
-    JSR     CopyWordB0BA
-    DEX
-    DEX                 ;restore X to entry value
-    JSR     cpybyte1            ;copy word (b0)+y to 1072+x
-.cpybyte1
-    LDA     (&B0),Y
-    STA     MA+&1072,X
-    INX
-    INY
-    RTS
-}
+; .CopyVarsB0BA
+; {
+;     JSR     CopyWordB0BA
+;     DEX
+;     DEX                 ;restore X to entry value
+;     JSR     cpybyte1            ;copy word (b0)+y to 1072+x
+; .cpybyte1
+;     LDA     (&B0),Y
+;     STA     MA+&1072,X
+;     INX
+;     INY
+;     RTS
+; }
 
-.CopyWordB0BA
-{
-    JSR     cpybyte2            ;Note: to BC,X in 0.90
-.cpybyte2
-    LDA     (&B0),Y
-    STA     &BA,X
-    INX
-    INY
-    RTS
-}
+; .CopyWordB0BA
+; {
+;     JSR     cpybyte2            ;Note: to BC,X in 0.90
+; .cpybyte2
+;     LDA     (&B0),Y
+;     STA     &BA,X
+;     INX
+;     INY
+;     RTS
+; }
 
 ; .read_fspTextPointer
 ;     JSR     Set_CurDirDrv_ToDefaults    ; **Read filename to &1000
@@ -186,61 +186,61 @@
     CLC
     JMP     GSINIT
 
-.Rdafsp_padall
-    LDX     #&01            ; Pad all with spaces
-.rdafsp_padX
-{
-    LDA     #&20            ; Pad with spaces
-.rdafsp_padloop
-    STA     MA+&1000,X
-    INX
-    CPX     #&40            ; Why &40? : Wildcards buffer!
-    BNE     rdafsp_padloop
-    LDX     #&06            ; Copy from &1000 to &C5
-.rdafsp_cpyfnloop
-    LDA     MA+&1000,X            ; 7 byte filename
-    STA     &C5,X
-    DEX
-    BPL     rdafsp_cpyfnloop
-    RTS
-}
+; .Rdafsp_padall
+;     LDX     #&01            ; Pad all with spaces
+; .rdafsp_padX
+; {
+;     LDA     #&20            ; Pad with spaces
+; .rdafsp_padloop
+;     STA     MA+&1000,X
+;     INX
+;     CPX     #&40            ; Why &40? : Wildcards buffer!
+;     BNE     rdafsp_padloop
+;     LDX     #&06            ; Copy from &1000 to &C5
+; .rdafsp_cpyfnloop
+;     LDA     MA+&1000,X            ; 7 byte filename
+;     STA     &C5,X
+;     DEX
+;     BPL     rdafsp_cpyfnloop
+;     RTS
+; }
 
-.prt_filename_Yoffset
-{
-    JSR     RememberAXY
-    LDA     MA+&0E0F,Y
-    PHP
-    AND     #&7F            ; directory
-    BNE     prt_filename_prtchr
-    JSR     Print2SpacesSPL        ; if no dir. print "  "
-    BEQ     prt_filename_nodir        ; always?
-.prt_filename_prtchr
-    JSR     PrintChrA            ; print dir
-    JSR     PrintFullStop        ; print "."
-.prt_filename_nodir
-    LDX     #&06            ; print filename
-.prt_filename_loop
-    LDA     MA+&0E08,Y
-    AND     #&7F
-    JSR     PrintChrA
-    INY
-    DEX
-    BPL     prt_filename_loop
-    JSR     Print2SpacesSPL        ; print "  "
-    LDA     #&20            ; " "
-    PLP
-    BPL     prt_filename_notlocked
-    LDA     #&4C            ; "L"
-.prt_filename_notlocked
-    JSR     PrintChrA            ; print "L" or " "
-    LDY     #&01
-}
+; .prt_filename_Yoffset
+; {
+;     JSR     RememberAXY
+;     LDA     MA+&0E0F,Y
+;     PHP
+;     AND     #&7F            ; directory
+;     BNE     prt_filename_prtchr
+;     JSR     Print2SpacesSPL        ; if no dir. print "  "
+;     BEQ     prt_filename_nodir        ; always?
+; .prt_filename_prtchr
+;     JSR     PrintChrA            ; print dir
+;     JSR     PrintFullStop        ; print "."
+; .prt_filename_nodir
+;     LDX     #&06            ; print filename
+; .prt_filename_loop
+;     LDA     MA+&0E08,Y
+;     AND     #&7F
+;     JSR     PrintChrA
+;     INY
+;     DEX
+;     BPL     prt_filename_loop
+;     JSR     Print2SpacesSPL        ; print "  "
+;     LDA     #&20            ; " "
+;     PLP
+;     BPL     prt_filename_notlocked
+;     LDA     #&4C            ; "L"
+; .prt_filename_notlocked
+;     JSR     PrintChrA            ; print "L" or " "
+;     LDY     #&01
+; }
 
-.prt_Yspaces
-    JSR     PrintSpaceSPL
-    DEY
-    BNE     prt_Yspaces
-    RTS
+; .prt_Yspaces
+;     JSR     PrintSpaceSPL
+;     DEY
+;     BNE     prt_Yspaces
+;     RTS
 
 
 .conv_Yhndl_intch_exYintch

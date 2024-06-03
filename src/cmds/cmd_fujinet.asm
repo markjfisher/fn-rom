@@ -1,3 +1,0 @@
-.CMD_FUJINET
-    RTS
-

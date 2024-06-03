@@ -1,3 +1,3 @@
-.CMD_DIN
+.CMD_FIN
     RTS
 

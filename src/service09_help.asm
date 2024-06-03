@@ -1,9 +1,11 @@
-.SERVICE09_help                                 ; A=9 *HELP
+.SERVICE09_help
 {
     JSR     RememberAXY
-    LDA     #ASC("F")
-    JSR     OSWRCH
-    LDA     #ASC("N")
-    JSR     OSWRCH
-    JMP     OSNEWL
+    LDA     (TextPointer),Y
+    LDX     #cmdtab3
+    CMP     #&0D
+    BNE     jmpunreccmd
+    TYA
+    LDY     #cmdtab3size
+    JMP     Prthelp_Xtable
 }

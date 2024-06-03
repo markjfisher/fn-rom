@@ -126,19 +126,19 @@ ENDIF
 
 .cmdaddr3
     EQUW    CMD_FUTILS-1
-    EQUW    CMD_FUJINET-1
+    EQUW    CMD_HELP_FUJINET-1 ; help command for fujinet
 IF _UTILS_ OR _ROMS_
     EQUW    CMD_UTILS-1
 ENDIF
     EQUW    CMD_NOTHELPTBL-1
 
 .cmdaddr4
-    EQUW    CMD_DABOUT-1
-    EQUW    CMD_DBOOT-&8001
-    EQUW    CMD_DCAT-&8001
-    EQUW    CMD_DDRIVE-&8001
-    EQUW    CMD_DIN-&8001
-    EQUW    CMD_DOUT-&8001
+    EQUW    CMD_FABOUT-1
+    EQUW    CMD_FBOOT-&8001
+    EQUW    CMD_FCAT-&8001
+    EQUW    CMD_FDRIVE-&8001
+    EQUW    CMD_FIN-&8001
+    EQUW    CMD_FOUT-&8001
     EQUW    NotCmdTable4-1         ; *RUN functionality
 
 .cmdaddrX
@@ -162,7 +162,7 @@ cmdtab4      = cmdtable4-cmdtable1
     LDA     (TextPointer),Y
     INY
     ORA     #&20
-    CMP     #&64            ; "d"
+    CMP     #&66            ; "f"
     BEQ     UnrecCommandTextPointer
     DEY
     JMP     NotCmdTable4
