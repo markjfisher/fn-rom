@@ -90,11 +90,11 @@ ENDIF
 IF _MASTER_ OR _SWRAM_
     EQUW    service_null-1                      ; 1 Use 21 instead for MASTER
 ELSE
-    EQUW    service_null-1                      ; 1
+    EQUW    SERVICE01_claim_absworkspace-1      ; 1
 ENDIF
-    EQUW    service_null-1                      ; 2
-    EQUW    service_null-1                      ; 3
-    EQUW    service_null-1                      ; 4
+    EQUW    SERVICE02_claim_privworkspace-1     ; 2
+    EQUW    SERVICE03_autoboot-1                ; 3
+    EQUW    SERVICE04_unrec_command-1           ; 4
     EQUW    service_null-1                      ; 5
     EQUW    service_null-1                      ; 6
     EQUW    service_null-1                      ; 7

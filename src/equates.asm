@@ -43,5 +43,11 @@ ForceReset=MA+&10D3
 ; MMC_SECTOR_VALID=VID+&B           ; 1 bytes
 ; MMC_CIDCRC=VID+&C                 ; 2 bytes
 
-filesysno%=&75                      ; Filing System Number - in MMS it was 74, is it an ID? I've incremented it 1
-filehndl%=&70                       ; First File Handle - 1
+; All our versions set this to true currently, so will need to test what not having this value does
+IF _DFS_EMUL
+    filesysno%=&04                  ; Filing System Number
+    filehndl%=&10                   ; First File Handle - 1
+ELSE
+    filesysno%=&75                  ; Filing System Number - in MMS it was 74, is it an ID? I've incremented it 1
+    filehndl%=&70                   ; First File Handle - 1 ???
+ENDIF

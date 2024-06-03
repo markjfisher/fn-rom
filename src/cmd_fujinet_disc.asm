@@ -1,3 +1,18 @@
+.CMD_DISC
+IF NOT(_MASTER_)
+; IF _BP12K_
+;     LDA   PagedRomSelector_RAMCopy
+;     AND   #&7F
+;     TAX
+; ELSE
+    LDX     PagedRomSelector_RAMCopy    ; Are *DISC,*DISK disabled?
+; ENDIF
+    LDA     PagedROM_PrivWorkspaces,X
+    AND     #&40
+    BEQ     CMD_FUJINET
+    RTS
+ENDIF
+
 ; This is the initialisation of the fujinet on the bus
 
 ; A lot in here to deal with workspaces, and os vectors

@@ -123,3 +123,11 @@ IF _DEBUG
     PLA
     RTS
 ENDIF
+
+; Print New Line
+.PrintNewLine
+    PHA
+    LDA     #&0D
+    JSR     PrintChrA
+    PLA
+    RTS
