@@ -1,5 +1,5 @@
 IF _UTILS_ OR _ROMS_
-	\ *HELP UTILS
+; *HELP UTILS
 .CMD_UTILS
 	TYA
 	LDX #cmdtab2			; cmd table 2

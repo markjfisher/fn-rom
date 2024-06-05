@@ -20,6 +20,7 @@ INCLUDE "src/workspaces.asm"
 INCLUDE "src/channel_flags.asm"
 INCLUDE "src/vector_entries.asm"
 INCLUDE "src/vectors.asm"
+INCLUDE "src/not_cmdtable4.asm"
 
 ; Command definitions, and init of FujiNet/Disk/Disc
 INCLUDE "src/cmd_fujinet_disc.asm"

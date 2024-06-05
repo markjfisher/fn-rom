@@ -1,8 +1,8 @@
 ; TODO: move this to any CMD function that has a RTS
 .NotCmdTable2
 ; TODO: move this to the *RUN function
-.NotCmdTable4
-    RTS
+; .NotCmdTable4
+;     RTS
 
 ; COMMAND TABLE 1
 ; FujiNetFS commands - typical file system commands to be implemented
@@ -158,9 +158,29 @@ cmdtab4      = cmdtable4-cmdtable1
     JSR     GSINIT_A
     LDA     (TextPointer),Y
     INY
+
+; IF _DEBUG
+;     PHA
+;     JSR     PrintString
+;     EQUB    "NCT1 1 "
+;     NOP
+;     JSR     PrintAXY
+;     PLA
+; ENDIF
+
     ORA     #&20
     CMP     #&66            ; "f"
     BEQ     UnrecCommandTextPointer
+
+; IF _DEBUG
+;     PHA
+;     JSR     PrintString
+;     EQUB    "NCT1 2 "
+;     NOP
+;     JSR     PrintAXY
+;     PLA
+; ENDIF
+
     DEY
     JMP     NotCmdTable4
 
@@ -170,6 +190,16 @@ cmdtab4      = cmdtable4-cmdtable1
 
 .UnrecCommandTextPointer
 {
+
+; IF _DEBUG
+;     PHA
+;     JSR     PrintString
+;     EQUB    "UCTP "
+;     NOP
+;     JSR     PrintAXY
+;     PLA
+; ENDIF
+
     LDA     cmdtable1,X             ; Get number of last command
     STA     &BE
     TYA                             ; X=FD+3=0 ie all commands
