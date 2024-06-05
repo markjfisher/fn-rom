@@ -24,6 +24,11 @@ INCLUDE "src/vectors.asm"
 ; Command definitions, and init of FujiNet/Disk/Disc
 INCLUDE "src/cmd_fujinet_disc.asm"
 
+; Group the HELP entries as they rely on function in cmd_help_fujinet
+INCLUDE "src/cmds/cmd_help_fujinet.asm"
+INCLUDE "src/cmds/cmd_futils.asm"
+INCLUDE "src/cmds/cmd_utils.asm"
+
 INCLUDE "src/cmds/cmd_close.asm"
 INCLUDE "src/cmds/cmd_copy.asm"
 INCLUDE "src/cmds/cmd_delete.asm"
@@ -31,16 +36,14 @@ INCLUDE "src/cmds/cmd_dir.asm"
 INCLUDE "src/cmds/cmd_fabout.asm"
 INCLUDE "src/cmds/cmd_fboot.asm"
 INCLUDE "src/cmds/cmd_fcat.asm"
+INCLUDE "src/cmds/cmd_fdir.asm"
 INCLUDE "src/cmds/cmd_fdrive.asm"
 INCLUDE "src/cmds/cmd_fin.asm"
 INCLUDE "src/cmds/cmd_fout.asm"
 INCLUDE "src/cmds/cmd_drive.asm"
-INCLUDE "src/cmds/cmd_futils.asm"
-INCLUDE "src/cmds/cmd_help_fujinet.asm"
 INCLUDE "src/cmds/cmd_info.asm"
 INCLUDE "src/cmds/cmd_lib.asm"
 INCLUDE "src/cmds/cmd_roms.asm"
-INCLUDE "src/cmds/cmd_utils.asm"
 
 ; after commands
 INCLUDE "src/cmds/print_fns.asm"

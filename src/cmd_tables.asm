@@ -24,7 +24,7 @@
 .info_cmd_index
     EQUS    "INFO"
     EQUB    &80+&02
-    EQUS    "LIB"
+    EQUS    "LIB"               ; search path functionality
     EQUB    &80+&06
 
     BRK
@@ -63,9 +63,9 @@ ENDIF
 ; HELP commands
 .cmdtable3
     EQUB    (cmdaddr3-cmdaddr1)/2-1
-    EQUS    "FUTILS"
-    EQUB    &80
     EQUS    "FUJINET"
+    EQUB    &80
+    EQUS    "FUTILS"
     EQUB    &80
 IF _UTILS_ OR _ROMS_
     EQUS    "UTILS"
@@ -78,18 +78,16 @@ ENDIF
 .cmdtable4
     EQUB    (cmdaddr4-cmdaddr1)/2-1
 
-    EQUS    "ABOUT"
-    EQUB    &80
     EQUS    "BOOT"
     EQUB    &80+&08
     EQUS    "CAT"
     EQUB    &80+&09
+    EQUS    "DIR"
+    EQUB    &80+&04
     EQUS    "DRIVE"
     EQUB    &80
     EQUS    "IN"
     EQUB    &80+&7A
-    EQUS    "OUT"
-    EQUB    &80+&0A
 
     BRK
 
@@ -111,7 +109,7 @@ IF _UTILS_
 ; BUILD/DUMP/LIST were here
 ENDIF
 IF _ROMS_
-    EQUW    CMD_ROMS-&8001
+     EQUW    CMD_ROMS-&8001
 ENDIF
     EQUW    NotCmdTable2-1
 ENDIF
@@ -125,21 +123,20 @@ ENDIF
     EQUW    NotCmdTable22-1
 
 .cmdaddr3
+    EQUW    CMD_HELP_FUJINET-1  ; help command for fujinet
     EQUW    CMD_FUTILS-1
-    EQUW    CMD_HELP_FUJINET-1 ; help command for fujinet
-IF _UTILS_ OR _ROMS_
+IF _UTILS_ OR _ROMS_            ; not sure if we have many utils separate to fujinet ones. time will tell
     EQUW    CMD_UTILS-1
 ENDIF
     EQUW    CMD_NOTHELPTBL-1
 
 .cmdaddr4
-    EQUW    CMD_FABOUT-1
     EQUW    CMD_FBOOT-&8001
     EQUW    CMD_FCAT-&8001
+    EQUW    CMD_FDIR-&8001
     EQUW    CMD_FDRIVE-&8001
     EQUW    CMD_FIN-&8001
-    EQUW    CMD_FOUT-&8001
-    EQUW    NotCmdTable4-1         ; *RUN functionality
+    EQUW    NotCmdTable4-1         ; *RUN functionality, as the last entry it's common to just try running the arg
 
 .cmdaddrX
 

@@ -175,7 +175,7 @@ ENDIF
     JSR     A_rorx4
     BNE     notOPT0                 ; branch if not opt.0
 
-.initdfs_exit
+.*initdfs_exit
     RTS
 
 ; Assumes cmd strings all in same page!

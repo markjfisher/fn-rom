@@ -44,10 +44,6 @@ SRC_DIR=${PROJECT_DIR}/src
 
 BEEBASM_ARGS=""
 
-if [ ${ENABLE_DEBUG} -eq 1 ]; then
-  BEEBASM_ARGS="${BEEBASM_ARGS} -D _DEBUG"
-fi
-
 rm -rf ${BUILD_DIR}
 mkdir -p ${BUILD_DIR}
 
