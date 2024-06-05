@@ -20,7 +20,7 @@
 	LDX &BF				; X=table offset
 	CPX #cmdtab4
 	BCC prtcmdloop			; All table 4 commands
-	LDA #&44			; start with "D"
+	LDA #&46			; start with "F". MJF: THIS WAS 'D' FOR INITIAL CHAR
 	JSR prtcmd_prtchr
 .prtcmdloop
 	INX	 			; If ?&B9=0 then print

@@ -45,7 +45,7 @@
 .CMD_NOTHELPTBL
 {
     JSR     GSINIT_A
-    BEQ     initdfs_exit        ; null str. we are abusing the load order to save a byte here, be careful of reordering code
+    BEQ     initdfs_exit        ; null str. we are abusing the load order to save a byte here by branching to an RTS, be careful of reordering code
 .cmd_nothelptlb_loop
     JSR     GSREAD_A
     BCC     cmd_nothelptlb_loop        ; if not end of str
