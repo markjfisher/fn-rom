@@ -6,12 +6,12 @@
     JMP     UnrecCommandTextPointer
 .NotCmdTable22
 IF NOT(_MASTER_)
-    ; IF _UTILS_ OR _ROMS_
+    IF _UTILS_ OR _ROMS_
         LDX #cmdtab2
         BNE jmpunreccmd
-    ; ELSE
-    ;     RTS
-    ; ENDIF
+    ELSE
+        RTS
+    ENDIF
 ELSE
     RTS
 ENDIF

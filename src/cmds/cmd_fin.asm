@@ -1,9 +1,4 @@
 .CMD_FIN
-
-IF _DEBUG
-    jsr     PrintString
-    equs    "FIN"
-ENDIF
-
-    RTS
-
+    JSR     PrintString
+    EQUS    "FIN", &80
+    RTS                     ; this is &60, so not negative, hence &80 above

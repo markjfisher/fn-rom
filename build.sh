@@ -12,11 +12,13 @@ function show_help {
 }
 
 ENABLE_DEBUG="FALSE"
+RUN_EMULATOR=0
 
-while getopts "dh" flag
+while getopts "deh" flag
 do
   case "$flag" in
     d) ENABLE_DEBUG="TRUE" ;;
+    e) RUN_EMULATOR=1 ;;
     h) show_help ;;
     *) show_help ;;
   esac
@@ -91,3 +93,7 @@ done
 
 echo ""
 ${BEEB_CLI} info ${ssd}
+
+if [ ${RUN_EMULATOR} -eq 1 ] ; then
+  ./run-em.sh
+fi

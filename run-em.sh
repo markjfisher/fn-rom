@@ -15,4 +15,5 @@ SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 SCRIPT_DIR_WINDOWS=$(cygpath -am ${SCRIPT_DIR})
 sed "s#__ROOT_DIR__#${SCRIPT_DIR_WINDOWS}#" < cfg/beebem-fn-rom.cfg > build/rom.cfg
 
+# Command line options are in Help/commandline.html, the source for which is at https://github.com/stardot/beebem-windows/blob/master/Help/commandline.html
 "${BEEBEM}" -Roms $(cygpath -am ${SCRIPT_DIR}/build/rom.cfg)

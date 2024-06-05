@@ -170,57 +170,57 @@ cmdtab4      = cmdtable4-cmdtable1
 
 .UnrecCommandTextPointer
 {
-    LDA     cmdtable1,X            ; Get number of last command
+    LDA     cmdtable1,X             ; Get number of last command
     STA     &BE
-    TYA                 ; X=FD+3=0 ie all commands
-    PHA                 ; X=start command,
+    TYA                             ; X=FD+3=0 ie all commands
+    PHA                             ; X=start command,
 
 .unrecloop1
     INC     &BE
 
-    PLA                 ; contain addr/code of prev.
+    PLA                             ; contain addr/code of prev.
     PHA
-    TAY                 ; restore Y
-    JSR     GSINIT_A            ; TextPointer+Y = cmd line
+    TAY                             ; restore Y
+    JSR     GSINIT_A                ; TextPointer+Y = cmd line
 
     INX
     LDA     cmdtable1,X
-    BEQ     gocmdcode            ; If end of table
+    BEQ     gocmdcode               ; If end of table
 
     DEX
     DEY
-    STX     &BF                ; USED IF SYNTAX ERROR
+    STX     &BF                     ; USED IF SYNTAX ERROR
 
 .unrecloop2
     INX
-    INY                 ; X=start of next string-1
+    INY                             ; X=start of next string-1
     LDA     cmdtable1,X
     BMI     endofcmd_oncmdline
 
 .unrecloop2in
-    EOR     (TextPointer),Y        ; end of table entry - matched!
+    EOR     (TextPointer),Y         ; end of table entry - matched!
     AND     #&5F
-    BEQ     unrecloop2            ; ignore case
-    DEX                 ; while chrs eq go loop2
+    BEQ     unrecloop2              ; ignore case
+    DEX                             ; while chrs eq go loop2
 
 .unrecloop3
-    INX                 ; init next loop
+    INX                             ; init next loop
     LDA     cmdtable1,X
     BPL     unrecloop3
 
-    LDA     (TextPointer),Y        ; find end of table entry
-    CMP     #&2E            ; does cmd line end with
-    BNE     unrecloop1            ; full stop?
-    INY                 ; If no, doesn't match
+    LDA     (TextPointer),Y         ; find end of table entry
+    CMP     #&2E                    ; does cmd line end with
+    BNE     unrecloop1              ; full stop?
+    INY                             ; If no, doesn't match
     BCS     gocmdcode
 
 .endofcmd_oncmdline
-    LDA     (TextPointer),Y        ; If >="." (always)
-    JSR     IsAlphaChar            ; matched table entry
+    LDA     (TextPointer),Y         ; If >="." (always)
+    JSR     IsAlphaChar             ; matched table entry
     BCC     unrecloop1
 
 .gocmdcode
-    PLA                 ; if more chars.
+    PLA                             ; if more chars.
 
 IF _DEBUG
     jsr     PrintString
@@ -234,11 +234,11 @@ ENDIF
     LDA     &BE
     ASL     A
     TAX
-    LDA     cmdaddr1+1,X        ; Forget Y
+    LDA     cmdaddr1+1,X            ; Forget Y
     BPL     dofninit
 .gocmdcode2
-    PHA                ; Push sub address and
-    LDA     cmdaddr1,X            ; return to it!
+    PHA                             ; Push sub address and
+    LDA     cmdaddr1,X              ; return to it!
     PHA
     RTS
 
