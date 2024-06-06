@@ -1,3 +1,7 @@
 .CMD_DIR
-    RTS
+    JSR     PrintString
+    EQUS    "DIR"
+    NOP
+    JSR     PrintNewLine
 
+    RTS

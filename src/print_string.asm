@@ -19,6 +19,7 @@
 .prtstr_loop
     JSR     inc_word_AE_and_load
     ; THIS COMMONLY (AB)USES THE FACT THAT "LDA" INSTRUCTIONS ARE ALL ABOVE $80 SO APPEARS NEGATIVE, SO STRINGS THAT ARE FOLLOWED BY LDA WILL SELF TERMINATE
+    ; and thus saves bytes in ROM. genious
     BMI     prtstr_return1      ; If end
     JSR     PrintChrA
     ; PrintChrA uses RememberAXY, so the final instruction is PLA

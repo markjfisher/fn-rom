@@ -1,13 +1,13 @@
 .errDISK
     JSR     ReportErrorCB        ; Disk Error
     BRK
-    EQUS 	"Disc "
+    EQUS    "Disc "
     BCC     ErrCONTINUE
 
 .errBAD
     JSR     ReportErrorCB        ; Bad Error
     BRK
-    EQUS 	"Bad "
+    EQUS    "Bad "
     BCC     ErrCONTINUE
 
 ; **** Report Error ****
@@ -15,13 +15,13 @@
 
 ; Check if writing channel buffer
 .ReportErrorCB
-    LDA     MA+&10DD            ; Error while writing
-    BNE     brk100_notbuf        ; channel buffer?
+    LDA     workspace% + &DD            ; Error while writing
+    BNE     brk100_notbuf               ; channel buffer?
     JSR     ClearEXECSPOOLFileHandle
 .brk100_notbuf
     LDA     #&FF
     STA     CurrentCat
-    STA     MA+&10DD            ; Not writing buffer
+    STA     workspace% + &DD            ; Not writing buffer
 
 .ReportError
     LDX     #&02

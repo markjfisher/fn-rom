@@ -1,3 +1,7 @@
 .CMD_DRIVE
-    RTS
+    JSR     PrintString
+    EQUS    "DRIVE"
+    NOP
+    JSR     PrintNewLine
 
+    RTS

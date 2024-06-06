@@ -1,12 +1,10 @@
 .NotCmdTable4
 
-; IF _DEBUG
-;     PHA
-;     JSR     PrintString
-;     EQUB    "NCT4 "
-;     NOP
-;     JSR     PrintAXY
-;     PLA
-; ENDIF
+IF _DEBUG
+    JSR     PrintString
+    EQUB    "NCT4 "
+    NOP
+    JSR     PrintAXY
+ENDIF
 
     RTS

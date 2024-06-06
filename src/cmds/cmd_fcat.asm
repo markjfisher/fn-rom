@@ -1,3 +1,7 @@
 .CMD_FCAT
-    RTS
+    JSR     PrintString
+    EQUS    "FCAT"
+    NOP
+    JSR     PrintNewLine
 
+    RTS

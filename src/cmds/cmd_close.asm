@@ -1,3 +1,7 @@
 .CMD_CLOSE
-    RTS
+    JSR     PrintString
+    EQUS    "CLOSE"
+    NOP
+    JSR     PrintNewLine
 
+    RTS

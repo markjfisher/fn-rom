@@ -19,7 +19,8 @@ INCLUDE "src/print_string.asm"
 INCLUDE "src/workspaces.asm"
 INCLUDE "src/channel_flags.asm"
 INCLUDE "src/vector_entries.asm"
-INCLUDE "src/vectors.asm"
+INCLUDE "src/vector_fscv.asm"
+INCLUDE "src/vector_fns/unimplemented.asm"
 INCLUDE "src/not_cmdtable4.asm"
 
 ; Command definitions, and init of FujiNet/Disk/Disc
@@ -34,13 +35,11 @@ INCLUDE "src/cmds/cmd_close.asm"
 INCLUDE "src/cmds/cmd_copy.asm"
 INCLUDE "src/cmds/cmd_delete.asm"
 INCLUDE "src/cmds/cmd_dir.asm"
-INCLUDE "src/cmds/cmd_fabout.asm"
 INCLUDE "src/cmds/cmd_fboot.asm"
 INCLUDE "src/cmds/cmd_fcat.asm"
 INCLUDE "src/cmds/cmd_fdir.asm"
 INCLUDE "src/cmds/cmd_fdrive.asm"
 INCLUDE "src/cmds/cmd_fin.asm"
-INCLUDE "src/cmds/cmd_fout.asm"
 INCLUDE "src/cmds/cmd_drive.asm"
 INCLUDE "src/cmds/cmd_info.asm"
 INCLUDE "src/cmds/cmd_lib.asm"
@@ -49,6 +48,7 @@ INCLUDE "src/cmds/cmd_roms.asm"
 ; after commands
 INCLUDE "src/cmds/print_fns.asm"
 INCLUDE "src/cmd_tables.asm"
+INCLUDE "src/vector_tables.asm"
 
 
 ; KEEP THESE IN ORDER GIVEN
@@ -58,6 +58,8 @@ INCLUDE "src/service01_claim_absworkspace.asm"
 INCLUDE "src/service02_claim_privworkspace.asm"
 INCLUDE "src/service03_autoboot.asm"
 INCLUDE "src/service04_unrec_command.asm"
+INCLUDE "src/service08_unrec_osword.asm"
+INCLUDE "src/service0a_claim_statworkspace.asm"
 
 ; service definitions
 INCLUDE "src/service09_help.asm"

@@ -1,3 +1,7 @@
 .CMD_FDIR
-    RTS
+    JSR     PrintString
+    EQUS    "FDIR"
+    NOP
+    JSR     PrintNewLine
 
+    RTS

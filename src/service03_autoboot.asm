@@ -17,18 +17,8 @@
 }
 
 .AUTOBOOT
-; Code space optimization
-; e.g. for long boot names like:
-; Model B MMFS SWRAM (FE80) Turbo L
-     LDX    #0
- .bootprloop
-     LDA    title, X
-     BEQ    bootprexit
-     JSR    OSWRCH
-     INX
-     BNE    bootprloop
- .bootprexit
-     JSR    OSNEWL
-     JSR    OSNEWL
-     LDA    &B3                         ; ?&B3=value of Y on call 3
-     JMP    initFujiNet
+    LDA     &B3                ; ?&B3=value of Y on call 3
+    JSR     PrintString
+    BOOT_NAME
+    NOP
+    JMP     initFujiNet

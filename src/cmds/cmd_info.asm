@@ -1,3 +1,7 @@
 .CMD_INFO
-    RTS
+    JSR     PrintString
+    EQUS    "INFO"
+    NOP
+    JSR     PrintNewLine
 
+    RTS

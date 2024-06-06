@@ -4,12 +4,10 @@
 .fn_servicecalls
 {
 IF _DEBUG
-    PHA
     JSR     PrintString
     EQUB    "Service "
     NOP
     JSR     PrintAXY
-    PLA
 ENDIF
 
 ; TUBEHOST things here?
@@ -98,12 +96,12 @@ ENDIF
     EQUW    service_null-1                      ; 5
     EQUW    service_null-1                      ; 6
     EQUW    service_null-1                      ; 7
-    EQUW    service_null-1                      ; 8
+    EQUW    SERVICE08_unrec_OSWORD-1            ; 8
     EQUW    SERVICE09_help-1                    ; 9
 IF _SWRAM_
     EQUW    service_null-1                      ; A
 ELSE
-    EQUW    service_null-1                      ; A
+    EQUW    SERVICE0A_claim_statworkspace-1     ; A
 ENDIF
 
 IF _MASTER_

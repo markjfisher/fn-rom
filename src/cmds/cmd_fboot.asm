@@ -1,3 +1,7 @@
 .CMD_FBOOT
-    RTS
+    JSR     PrintString
+    EQUS    "FBOOT"
+    NOP
+    JSR     PrintNewLine
 
+    RTS

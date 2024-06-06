@@ -1,3 +1,0 @@
-.CMD_FABOUT
-    RTS
-

@@ -27,27 +27,26 @@
 
 .help_dfs_loop
     LDA     #0
-    STA     &B9                ; ?&B9=0=print command (not error)
+    STA     &B9                     ; ?&B9=0=print command (not error)
     LDY     #1
     JSR     prtcmd_Print_Y_Spaces_IfNotErr    ; print "  ";
-    JSR     prtcmdAtBCadd1        ; print cmd & parameters
-    JSR     PrintNewLine        ; print
+    JSR     prtcmdAtBCadd1          ; print cmd & parameters
+    JSR     PrintNewLine            ; print
     DEC     &B7
     BNE     help_dfs_loop
-    PLA                ; restore Y
+    PLA                             ; restore Y
     TAY
 }
 .morehelp
-    LDX     #cmdtab3            ; more? Eg *HELP DFS UTILS
-    JMP     UnrecCommandTextPointer    ; start cmd @ A3 in table
-
+    LDX     #cmdtab3                ; more? Eg *HELP DFS UTILS
+    JMP     UnrecCommandTextPointer ; start cmd @ A3 in table
 
 .CMD_NOTHELPTBL
 {
     JSR     GSINIT_A
-    BEQ     initdfs_exit        ; null str. we are abusing the load order to save a byte here by branching to an RTS, be careful of reordering code
+    BEQ     initdfs_exit            ; null str. we are (ab)using the load order to save a byte here by branching to an RTS, be careful of reordering code
 .cmd_nothelptlb_loop
     JSR     GSREAD_A
-    BCC     cmd_nothelptlb_loop        ; if not end of str
-    BCS     morehelp            ; always
+    BCC     cmd_nothelptlb_loop     ; if not end of str
+    BCS     morehelp                ; always
 }

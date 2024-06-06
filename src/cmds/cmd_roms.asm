@@ -1,3 +1,7 @@
 .CMD_ROMS
-    RTS
+    JSR     PrintString
+    EQUS    "ROMS"
+    NOP
+    JSR     PrintNewLine
 
+    RTS

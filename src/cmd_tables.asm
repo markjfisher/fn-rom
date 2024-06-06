@@ -1,8 +1,6 @@
 ; TODO: move this to any CMD function that has a RTS
 .NotCmdTable2
-; TODO: move this to the *RUN function
-; .NotCmdTable4
-;     RTS
+    RTS
 
 ; COMMAND TABLE 1
 ; FujiNetFS commands - typical file system commands to be implemented
@@ -57,15 +55,17 @@ IF _DFS_EMUL
 ENDIF
     EQUS    "FUJINET"
     EQUB    &80
+    EQUS    "CARD"
+    EQUB    &80
     BRK
 
 ; COMMAND TABLE 3
 ; HELP commands
 .cmdtable3
     EQUB    (cmdaddr3-cmdaddr1)/2-1
-    EQUS    "FUJINET"
-    EQUB    &80
     EQUS    "FUTILS"
+    EQUB    &80
+    EQUS    "FUJINET"
     EQUB    &80
 IF _UTILS_ OR _ROMS_
     EQUS    "UTILS"
@@ -109,7 +109,7 @@ IF _UTILS_
 ; BUILD/DUMP/LIST were here
 ENDIF
 IF _ROMS_
-     EQUW    CMD_ROMS-&8001
+    EQUW    CMD_ROMS-&8001
 ENDIF
     EQUW    NotCmdTable2-1
 ENDIF
@@ -120,11 +120,12 @@ IF _DFS_EMUL
     EQUW    CMD_DISC-1
 ENDIF
     EQUW    CMD_FUJINET-1
+    EQUW    CMD_FUJINET-1
     EQUW    NotCmdTable22-1
 
 .cmdaddr3
-    EQUW    CMD_HELP_FUJINET-1  ; help command for fujinet
     EQUW    CMD_FUTILS-1
+    EQUW    CMD_HELP_FUJINET-1  ; help command for fujinet
 IF _UTILS_ OR _ROMS_            ; not sure if we have many utils separate to fujinet ones. time will tell
     EQUW    CMD_UTILS-1
 ENDIF
@@ -159,31 +160,14 @@ cmdtab4      = cmdtable4-cmdtable1
     LDA     (TextPointer),Y
     INY
 
-; IF _DEBUG
-;     PHA
-;     JSR     PrintString
-;     EQUB    "NCT1 1 "
-;     NOP
-;     JSR     PrintAXY
-;     PLA
-; ENDIF
-
     ORA     #&20
     CMP     #&66            ; "f"
     BEQ     UnrecCommandTextPointer
 
-; IF _DEBUG
-;     PHA
-;     JSR     PrintString
-;     EQUB    "NCT1 2 "
-;     NOP
-;     JSR     PrintAXY
-;     PLA
-; ENDIF
-
     DEY
     JMP     NotCmdTable4
 
+; This is how the non 22 commands gets picked up, via FSCV unhandled vector
 .fscv3_unreccommand
     JSR     SetTextPointerYX
     LDX     #&00
@@ -192,12 +176,10 @@ cmdtab4      = cmdtable4-cmdtable1
 {
 
 ; IF _DEBUG
-;     PHA
 ;     JSR     PrintString
 ;     EQUB    "UCTP "
 ;     NOP
 ;     JSR     PrintAXY
-;     PLA
 ; ENDIF
 
     LDA     cmdtable1,X             ; Get number of last command
@@ -225,21 +207,22 @@ cmdtab4      = cmdtable4-cmdtable1
     INX
     INY                             ; X=start of next string-1
     LDA     cmdtable1,X
-    BMI     endofcmd_oncmdline
+    BMI     endofcmd_oncmdline      ; end of table entry
 
 .unrecloop2in
-    EOR     (TextPointer),Y         ; end of table entry - matched!
-    AND     #&5F
-    BEQ     unrecloop2              ; ignore case
-    DEX                             ; while chrs eq go loop2
+    EOR     (TextPointer),Y
+    AND     #&5F                    ; ignore case
+    BEQ     unrecloop2              ; while chrs eq go loop2
+    DEX
 
+; didn't match, skip to the end of this command to try the next
 .unrecloop3
     INX                             ; init next loop
     LDA     cmdtable1,X
     BPL     unrecloop3
 
     LDA     (TextPointer),Y         ; find end of table entry
-    CMP     #&2E                    ; does cmd line end with
+    CMP     #&2E                    ; does cmd line end with (e.g. L. for LIST)
     BNE     unrecloop1              ; full stop?
     INY                             ; If no, doesn't match
     BCS     gocmdcode
@@ -252,18 +235,23 @@ cmdtab4      = cmdtable4-cmdtable1
 .gocmdcode
     PLA                             ; if more chars.
 
-IF _DEBUG
-    jsr     PrintString
-    equs    "COMMAND: "
-
-    lda     &BE
-    jsr     PrintHex
-    jsr     PrintNewLine
-ENDIF
+; IF _DEBUG
+;     PHA
+;     JSR     PrintString
+;     EQUS    "COMMAND: "
+;     LDA     &BE
+;     JSR     PrintHex
+;     LDA     #' '
+;     JSR     PrintChrA
+;     PLA
+;     JSR     PrintAXY
+; ENDIF
 
     LDA     &BE
     ASL     A
     TAX
+    ; This gets the last 2 bytes of CMDADDR(xx) and pushes address onto the stack for an indirect JMP via RTS
+    ; which is the NotCmdTable(xx) routine address
     LDA     cmdaddr1+1,X            ; Forget Y
     BPL     dofninit
 .gocmdcode2

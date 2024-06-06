@@ -1,3 +1,7 @@
 .CMD_FDRIVE
-    RTS
+    JSR     PrintString
+    EQUS    "FDRIVE"
+    NOP
+    JSR     PrintNewLine
 
+    RTS

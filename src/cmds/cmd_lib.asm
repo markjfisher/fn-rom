@@ -1,3 +1,7 @@
 .CMD_LIB
-    RTS
+    JSR     PrintString
+    EQUS    "LIB"
+    NOP
+    JSR     PrintNewLine
 
+    RTS
