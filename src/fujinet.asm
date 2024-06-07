@@ -10,7 +10,7 @@ INCLUDE "src/equates.asm"
 INCLUDE "src/rom_entry.asm"
 
 ; Everything that other services call
-; there is some minor order dependency here, e.g. vectors have to be after vector_entries. This is true of any data references.
+; there is some minor order dependency for data references, so be careful if you reorder these.
 INCLUDE "src/data.asm"
 INCLUDE "src/remember_axy.asm"
 INCLUDE "src/utils.asm"
