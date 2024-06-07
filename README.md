@@ -16,13 +16,26 @@ Building and Running in an emulator notes are below. This assumes a working setu
 - `beeb` perl scripts on path from MMFS_Utils
 - `beebasm` on the path, compiled from source, or otherwise.
 
+## entry src file
+
+If you want to view the source, the ROM code starts from [src/fujinet.asm](src/fujinet.asm).
+
+I've broken the whole src into many separate files, as it helps me isolate chunks of code, rather than 1 large file.
+
 ## building
 
-The ROMs for Beeb, Master and Electron can be built with
+There are currently 3 ROMs built; Beeb, Master and Electron with
 
 ```shell
 ./build.sh -b
 ```
+
+The files generated all go in `/build` and include:
+
+- eFN.rom        # electron version
+- mFN.rom        # master version
+- FN.rom         # bbc version
+- fujinet.ssd    # SSD 130k disk with the above ROM files
 
 To enable debug output in the ROM, include the `-d` flag
 
@@ -32,7 +45,7 @@ To enable debug output in the ROM, include the `-d` flag
 
 ## running in emulator
 
-Currently, beebem is a simple target for the ROM, and the build script targets loading the ROM into it with:
+Currently, beebem is a simple target for the ROM, and the build script targets loading the BBC version of the ROM into it with:
 
 ```shell
 ./build.sh -e
