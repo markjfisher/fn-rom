@@ -1,6 +1,6 @@
 ; FujiNet ROM for BBC Micro
 ; Main ROM header
-        .export rom_header
+        .export rom_header, rom_title, rom_version_string
 
         .import handle_service
 
@@ -17,7 +17,7 @@ rom_header:
         .byte   $01                     ; version
 
 rom_title:
-        .byte   "fujinet"
+        .byte   "FujiNet"
 
 rom_version_string:
         .byte   0, "0.01"
