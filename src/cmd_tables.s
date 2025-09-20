@@ -11,6 +11,8 @@
         .export cmd_table_help_cmds
         .export cmd_table_fs_cmds
 
+        .export parameter_table
+
         .import cmd_fs_drive
         .import cmd_fs_fboot
         .import cmd_fs_fuji
@@ -18,7 +20,7 @@
         .import cmd_help_fuji
         .import cmd_help_futils
         .import cmd_help_utils
-        .import cmd_nonfs_roms
+        .import cmd_utils_roms
         .import not_cmd_fs
         .import not_cmd_fujifs
         .import not_cmd_futils
@@ -57,9 +59,9 @@ cmd_table_utils:
 cmd_table_help:
         .byte   (cmd_table_help_cmds - cmd_table_fujifs_cmds) / 2 - 1
 
-        .byte   "FUJI", $80
-        .byte   "FUTILS", $80
-        .byte   "UTILS", $80
+        .byte   "FUJI",      $80
+        .byte   "FUTILS",    $80
+        .byte   "UTILS",     $80
         .byte   $00                     ; End of table
 
 ; COMMAND TABLE - File System INIT commands, NO HELP COMMAND
@@ -83,7 +85,7 @@ cmd_table_futils_cmds:
         .word   not_cmd_futils-1
 
 cmd_table_utils_cmds:
-        .word   cmd_nonfs_roms-1
+        .word   cmd_utils_roms-1
         .word   not_cmd_utils-1
 
 cmd_table_help_cmds:
@@ -98,19 +100,9 @@ cmd_table_fs_cmds:
 
 cmd_table_END:
 
-; command table lengths (number of functions)
-; used to print appropriate help table ()
-cmdtab_fujifs_cmds_size = (cmd_table_futils_cmds - cmd_table_fujifs_cmds) / 2 - 1
-cmdtab_futils_cmds_size = (cmd_table_utils_cmds - cmd_table_futils_cmds) / 2 - 1
-cmdtab_utils_cmds_size  = (cmd_table_help_cmds - cmd_table_utils_cmds) / 2 - 1
-cmdtab_help_cmds_size   = (cmd_table_fs_cmds - cmd_table_help_cmds) / 2 - 1
-; unused
-; cmdtab_fs_cmds_size     = (cmd_table_END - cmd_table_fs_cmds) / 2 - 1
+parameter_table:
+        .byte '<'|$80, "drive>"                 ; 1
+        .byte '<'|$80, "afsp>"                  ; 2
+        .byte '<'|$80, "dno>/<dsp>"             ; 3
 
-; offsets from cmd_table_fujifs
-; used to detect the input commands
-cmdtab_offset_fujifs = 0
-cmdtab_offset_futils = cmd_table_futils - cmd_table_fujifs
-cmdtab_offset_utils  = cmd_table_utils - cmd_table_fujifs
-cmdtab_offset_help   = cmd_table_help - cmd_table_fujifs
-cmdtab_offset_fs     = cmd_table_fs - cmd_table_fujifs
+        .byte $FF

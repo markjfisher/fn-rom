@@ -1,0 +1,75 @@
+; MOS definitions
+
+.ifndef MOS_INC
+MOS_INC = 1
+
+; OS constants
+filesysno                       = $04
+
+; OS vectors
+OSRDCH = $FFE0
+OSWRCH = $FFEE
+OSWORD = $FFF1
+OSASCI = $FFE3
+OSBYTE = $FFF4
+OSCLI  = $FFF7
+
+; OS variables
+TextPointer = $F2
+
+; ROM variables
+PagedROM_PrivWorkspaces         = $0DF0
+PagedRomSelector_RAMCopy        = $F4
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; Temporary Zeropage Variables
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+; Command workspace variables
+cws_tmp1    = $A8
+cws_tmp2    = $A9
+cws_tmp3    = $AA
+cws_tmp4    = $AB
+cws_tmp5    = $AC
+cws_tmp6    = $AD
+cws_tmp7    = $AE
+cws_tmp8    = $AF
+
+; Absolute workspace variables
+aws_tmp00   = $B0
+aws_tmp01   = $B1
+aws_tmp02   = $B2
+aws_tmp03   = $B3
+aws_tmp04   = $B4
+aws_tmp05   = $B5
+aws_tmp06   = $B6
+aws_tmp07   = $B7
+aws_tmp08   = $B8
+aws_tmp09   = $B9
+aws_tmp10   = $BA
+aws_tmp11   = $BB
+aws_tmp12   = $BC
+aws_tmp13   = $BD
+aws_tmp14   = $BE
+aws_tmp15   = $BF
+
+; Private workspace variables
+pws_tmp00   = $C0
+pws_tmp01   = $C1
+pws_tmp02   = $C2
+pws_tmp03   = $C3
+pws_tmp04   = $C4
+pws_tmp05   = $C5
+pws_tmp06   = $C6
+pws_tmp07   = $C7
+pws_tmp08   = $C8
+pws_tmp09   = $C9
+pws_tmp10   = $CA
+pws_tmp11   = $CB
+pws_tmp12   = $CC
+pws_tmp13   = $CD
+pws_tmp14   = $CE
+pws_tmp15   = $CF
+
+
+.endif

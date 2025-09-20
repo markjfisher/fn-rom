@@ -40,8 +40,8 @@ OBJECTS := $(OBJECTS:$(SRCDIR)/%=$(OBJDIR)/$(CURRENT_TARGET)/%)
 # Ensure make recompiles parts it needs to if src files change
 DEPENDS := $(OBJECTS:.o=.d)
 
-ASFLAGS += --asm-include-dir $(SRCDIR)
-CFLAGS += --include-dir $(SRCDIR)
+ASFLAGS += --asm-include-dir $(SRCDIR) --asm-include-dir $(SRCDIR)/inc
+CFLAGS += --include-dir $(SRCDIR) --include-dir $(SRCDIR)/inc
 
 .SUFFIXES:
 .PHONY: all clean release $(DISK_TASKS) $(BUILD_TASKS) $(PROGRAM_TGT)

@@ -1,5 +1,4 @@
 ; Service call handler
-        .include "fujinet.inc"
 
         .export  handle_service
 
@@ -14,11 +13,9 @@
 
         .import  remember_axy
 
-        .segment "CODE"
+        .include "mos.inc"
 
-PagedROM_PrivWorkspaces         = $0DF0
-PagedRomSelector_RAMCopy        = $F4
-filesysno                       = $04
+        .segment "CODE"
 
 handle_service:
         pha
@@ -67,6 +64,7 @@ service12_init_filesystem:
         ;  filing system ROM(s) but may be issued by any ROM.
         cpy     #filesysno
         bne     service_null
+        ; it is our filesystem number, so load the Fuji FileSystem
         jsr     remember_axy
         jmp     cmd_fs_fuji
 

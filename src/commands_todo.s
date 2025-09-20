@@ -5,12 +5,14 @@
         .export cmd_help_fuji
         .export cmd_help_futils
         .export cmd_help_utils
-        .export cmd_nonfs_roms
+        .export cmd_utils_roms
         .export not_cmd_fs
         .export not_cmd_fujifs
         .export not_cmd_futils
         .export not_cmd_help
         .export not_cmd_utils
+
+        .segment "CODE"
 
 cmd_fs_drive:
 cmd_fs_fboot:
@@ -19,7 +21,7 @@ cmd_fs_info:
 cmd_help_fuji:
 cmd_help_futils:
 cmd_help_utils:
-cmd_nonfs_roms:
+cmd_utils_roms:
 not_cmd_fs:
 not_cmd_fujifs:
 not_cmd_futils:
