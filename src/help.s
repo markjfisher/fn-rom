@@ -1,3 +1,4 @@
+        .export cmd_help_fuji
         .export print_help_table
 
         .import a_rorx4
@@ -15,6 +16,17 @@
         .include "fujinet.inc"
 
         .segment "CODE"
+
+; *HELP FUJI
+; this runs into print_help_table, so we can save a byte
+
+cmd_help_fuji:
+        tya
+        ldx     #cmdtab_offset_fujifs
+        ldy     #cmdtab_fujifs_cmds_size
+
+        ; fall through to print_help_table
+
 
 ; A = offset to char on command line (was the Y value from GSINIT)
 ; X = offset to help for strings for appropriate table (e.g. cmdtab_help_cmds_size)

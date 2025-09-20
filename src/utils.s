@@ -2,6 +2,7 @@
         .export  osbyte_YFF
         .export  a_rorx4
         .export  a_rorx3
+        .export  GSINIT_A
 
         .include "mos.inc"
 
@@ -14,9 +15,13 @@ osbyte_YFF:
         jmp     OSBYTE
 
 a_rorx4:
-    LSR     A
+        lsr     a
 a_rorx3:
-    LSR     A
-    LSR     A
-    LSR     A
-    RTS
+        lsr     a
+        lsr     a
+        lsr     a
+        rts
+
+GSINIT_A:
+        clc
+        jmp     GSINIT

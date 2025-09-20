@@ -7,6 +7,7 @@ MOS_INC = 1
 filesysno                       = $04
 
 ; OS vectors
+GSINIT = $FFC2
 OSRDCH = $FFE0
 OSWRCH = $FFEE
 OSWORD = $FFF1
