@@ -1,7 +1,7 @@
 ; Service call 09 - Help
         .export service09_help
-        .import print_string, print_newline, print_char, cmd_table3, cmd_table3_size
-        .import remember_axy
+        .import print_string, print_string_ax, print_char, cmd_table_help, cmd_table3_size
+        .import remember_axy, rom_title, rom_version_string
 
         .segment "CODE"
 
@@ -25,21 +25,37 @@ check_command:
         rts
 
 print_basic_help:
-        ; Print system name and version (MMFS style with inline strings)
-        jsr     print_string
-        .byte   $0D
-        .byte   "FujiNet"
-        .byte   $20, "0.01"
-        .byte   $0D, $80
-
+        ; Print newline first
+        lda     #13
+        jsr     print_char
+        
+        ; Print system name and version using ROM header strings
+        lda     #<rom_title
+        ldx     #>rom_title
+        jsr     print_string_ax
+        
+        ; Print space
+        lda     #32
+        jsr     print_char
+        
+        ; Print version (skip the 0 byte by adding 1 to location)
+        lda     #<(rom_version_string + 1)
+        ldx     #>(rom_version_string + 1)
+        jsr     print_string_ax
+        
+        ; Print newline
+        lda     #13
+        jsr     print_char
+        
         ; Print available commands from table with proper indentation
-        ; fall through
+        ; jsr     print_help_commands
+        ; rts
 
 print_help_commands:
-        ; Print help commands from cmd_table3 (like MMFS help_dfs_loop)
-        lda     #<cmd_table3
+        ; Print help commands from cmd_table_help (like MMFS help_dfs_loop)
+        lda     #<cmd_table_help
         sta     $AE
-        lda     #>cmd_table3
+        lda     #>cmd_table_help
         sta     $AF
         ldy     #0
         

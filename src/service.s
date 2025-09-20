@@ -10,7 +10,7 @@
         .import  service08_unrec_osword
         .import  service09_help
         .import  service0A_claim_statworkspace
-        .import  cmd_fujinet
+        .import  cmd_fs_fuji
 
         .import  remember_axy
 
@@ -68,7 +68,7 @@ service12_init_filesystem:
         cpy     #filesysno
         bne     service_null
         jsr     remember_axy
-        jmp     cmd_fujinet
+        jmp     cmd_fs_fuji
 
 .rodata
 

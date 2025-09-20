@@ -1,11 +1,10 @@
 ; Print utilities for FujiNet ROM
-        .export  print_string, print_char
-        ; .export  print_newline, print_hex_byte
+        .export  print_string, print_string_ax, print_char
         .import  remember_axy, OSBYTE, OSASCI
 
         .segment "CODE"
 
-; Print a string terminated by bit 7 set
+; Print a string terminated by bit 7 set (MMFS style)
 ; String address is on stack, uses ZP $AE $AF $B3
 ; Exit: AXY preserved, C=0
 print_string:
@@ -37,6 +36,29 @@ not_80:
 print_return2:
         clc
         jmp     ($AE)               ; Return to caller
+
+; Print a string terminated by bit 7 set using A/X as address
+; A = low byte of string address
+; X = high byte of string address
+; Exit: AXY preserved
+print_string_ax:
+        sta     $AE                 ; Use BBC filing system workspace
+        stx     $AF
+        pha                         ; Save A & Y
+        tya
+        pha
+        ldy     #0
+print_ax_loop:
+        lda     ($AE),y
+        bmi     print_ax_done       ; If bit 7 set (end of string)
+        jsr     print_char
+        iny
+        bne     print_ax_loop
+print_ax_done:
+        pla                         ; Restore A & Y
+        tay
+        pla
+        rts
 
 ; Increment word at $AE and load byte
 inc_word_AE_and_load:
