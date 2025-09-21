@@ -3,6 +3,7 @@
         .export  a_rorx4
         .export  a_rorx3
         .export  GSINIT_A
+        .export  set_text_pointer_yx
 
         .include "mos.inc"
 
@@ -25,3 +26,9 @@ a_rorx3:
 GSINIT_A:
         clc
         jmp     GSINIT
+
+set_text_pointer_yx:
+        stx     TextPointer
+        sty     TextPointer+1
+        ldy     #$00
+        rts

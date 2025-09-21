@@ -3,7 +3,7 @@
         .export service04_unrec_command
         .export not_cmd_fs
 
-        .import remember_axy, GSINIT_A, SetTextPointerYX
+        .import remember_axy, GSINIT_A, set_text_pointer_yx
         .import print_help_table
         .import cmd_table_fujifs, cmd_table_futils, cmd_table_utils, cmd_table_help, cmd_table_fs
         .import cmd_table_fujifs_cmds, cmd_table_futils_cmds, cmd_table_utils_cmds, cmd_table_help_cmds, cmd_table_fs_cmds
@@ -55,6 +55,23 @@ check_command:
 not_cmd_fs:
         ldx     #cmdtab_offset_utils     ; Try UTILS commands
         bne     check_command
+
+
+not_cmd_fujifs:
+        ldx     #cmdtab_offset_futils    ; Try FUTILS commands
+        jsr     GSINIT_A
+        lda     (TextPointer),y
+        iny
+        ora     #$20
+        cmp     #'F'
+        beq     unrec_command_text_pointer
+        dey
+        jmp     not_cmd_futils
+
+.fscv3_unreccommand:
+        jsr     set_text_pointer_yx
+        ldx     #$00
+        ; fall through to unrec_command_text_pointer
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

@@ -75,25 +75,30 @@ cmd_table_fs:
 ; COMMAND FUNCTIONS
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+; OLD: cmdtable1
 cmd_table_fujifs_cmds:
         .word   cmd_fs_drive-1
         .word   cmd_fs_info-1
         .word   not_cmd_fujifs-1
 
+; OLD: cmdtable4
 cmd_table_futils_cmds:
         .word   cmd_fs_fboot-1
         .word   not_cmd_futils-1
 
+; OLD: cmdtable2
 cmd_table_utils_cmds:
         .word   cmd_utils_roms-1
         .word   not_cmd_utils-1
 
+; OLD: cmdtable3
 cmd_table_help_cmds:
         .word   cmd_help_fuji-1
         .word   cmd_help_futils-1
         .word   cmd_help_utils-1
         .word   not_cmd_help-1
 
+; OLD: cmdtable22
 cmd_table_fs_cmds:
         .word   cmd_fs_fuji-1
         .word   not_cmd_fs-1
