@@ -1,15 +1,102 @@
 ; Print utilities for FujiNet ROM
+        .export  err_bad
         .export  print_char
+        .export  print_fullstop
+        .export  print_hex
         .export  print_newline
+        .export  print_nibble
+        .export  print_nib_fullstop
+        .export  print_space
         .export  print_string
         .export  print_string_ax
 
+.ifdef FN_DEBUG
+        .export  print_axy
+.endif
+
+        .import  a_rorx4
+        .import  clear_execspool_file_handle
         .import  osbyte_X0YFF
         .import  remember_axy
 
         .include "mos.inc"
 
+current_cat     = $1082
+
         .segment "CODE"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; RESET LEDS
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+reset_leds:
+        jsr     remember_axy
+        lda     #$76
+        jmp     osbyte_X0YFF
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; ERROR HANDLERS
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+err_disk:
+        jsr     report_error_cb         ; Disk Error
+        .byte   0
+        .byte   "Disc "
+        bcc     err_continue
+
+err_bad:
+        jsr     report_error_cb         ; Bad Error
+        .byte   0
+        .byte   "Bad "
+        bcc     err_continue
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; REPORT ERROR CB
+;
+; Check if writing channel buffer
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+report_error_cb:
+        ; TODO: Check if writing channel buffer
+        lda     $10DD                   ; Error while writing
+        bne     @brk100_notbuf          ; channel buffer?
+        jsr     clear_execspool_file_handle
+@brk100_notbuf:
+        lda     #$FF
+        sta     current_cat
+        sta     $10DD                   ; Not writing buffer
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; REPORT ERROR
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+report_error:
+        ldx     #$02
+        lda     #$00                    ; "BRK"
+        sta     $0100
+
+err_continue:
+        jsr     reset_leds
+
+@report_error2:
+        pla                             ; Word cws_tmp7 = Calling address + 1
+        sta     cws_tmp7
+        pla
+        sta     cws_tmp8
+
+        ldy     #$00
+        jsr     inc_cws0708_and_load
+        sta     $0101                   ; Error number
+        dex
+
+@errstr_loop:
+        inx
+        jsr     inc_cws0708_and_load
+        sta     $0100,x
+        bmi     print_return2           ; Bit 7 set, return
+        bne     @errstr_loop
+        ; jsr     tube_release  ; TODO: add this back in
+        jmp     $0100
 
 ; Print newline
 print_newline:
@@ -19,6 +106,8 @@ print_newline:
         pla
         rts
 
+; print_nibble_print_string:
+;         jsr     print_nibble
 
 ; Print a string terminated by bit 7 set (MMFS style)
 ; String address is on stack, uses ZP $AE $AF $B3
@@ -36,16 +125,11 @@ print_string:
         ldy     #0
 print_loop:
         jsr     inc_cws0708_and_load
+        ; use NOP as a terminator to a string if the next instruction isn't a high byte.
         bmi     print_return1           ; If bit 7 set (end of string)
         jsr     print_char
         bpl     print_loop              ; Always true
 print_return1:
-        ; check if it's exactly #$80, if so incremement AE 1 more to avoid jumping to an end of string marker
-        ; in case next instruction doesn't have high bit set. This allows for string prints followed by JMP, as they can self terminate.
-        cmp     #$80
-        bne     @not_80
-        jsr     inc_cws0708_and_load
-@not_80:
         pla                             ; Restore A & Y
         tay
         pla
@@ -90,6 +174,16 @@ inc_cws0708_and_load:
         lda     (cws_tmp7),y
         rts
 
+print_space:
+        lda     #' '
+        bne     print_char
+
+print_nib_fullstop:
+        jsr     print_nibble
+print_fullstop:
+        lda     #'.'
+        ; fall into print_char
+
 ; Print a single character
 ; A = character to print
 print_char:
@@ -113,3 +207,48 @@ print_char:
 osbyte03_Xoutstream:
         lda     #3
         jmp     OSBYTE
+
+print_hex:
+        pha
+        jsr     a_rorx4
+        jsr     print_nibble
+        pla
+
+print_nibble:
+        jsr     nib_to_asc
+        bne     print_char
+
+nib_to_asc:
+        and     #$0F
+        cmp     #$0A
+        bcc     @nib_asc
+        adc     #$06
+@nib_asc:
+        adc     #$30
+        rts
+
+.ifdef FN_DEBUG
+print_axy:
+        pha
+        jsr     print_string
+        .byte   "A="
+        nop     ; doubles up as end of string AND a nop!
+        jsr     print_hex
+
+        jsr     print_string
+        .byte   ";X="
+        txa
+        jsr     print_hex
+
+        jsr     print_string
+        .byte   ";Y="
+        tya
+        jsr     print_hex
+
+        jsr     print_string
+        .byte   $0D
+        nop
+
+        pla
+        rts
+.endif

@@ -1,4 +1,5 @@
         .export cmd_help_fuji
+        .export morehelp
         .export print_help_table
 
         .import a_rorx4
@@ -8,6 +9,7 @@
         .import remember_axy
         .import rom_title
         .import rom_version_string
+        .import unrec_command_text_pointer
 
         .import parameter_table
 
@@ -72,8 +74,10 @@ print_help_table:
         bne     @loop
         pla
         tay
-        ; TODO: we could loop for more printing here...
-        rts
+
+morehelp:
+        ldx     #cmdtab_offset_help
+        jmp     unrec_command_text_pointer
 
 prtcmd_at_bc_add_1:
         lda     #$07

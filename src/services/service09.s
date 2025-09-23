@@ -1,12 +1,34 @@
 ; Service call 09 - Help and Service call 04 - Unrecognized Command
-        .export service09_help
-        .export service04_unrec_command
+        .export fscv3_unreccommand
         .export not_cmd_fs
+        .export not_cmd_fujifs
+        .export not_cmd_help
+        .export service04_unrec_command
+        .export service09_help
+        .export unrec_command_text_pointer
 
-        .import remember_axy, GSINIT_A, set_text_pointer_yx
+        .import GSINIT_A
+        .import GSREAD_A
+        .import cmd_table_fs
+        .import cmd_table_fs_cmds
+        .import cmd_table_fujifs
+        .import cmd_table_fujifs_cmds
+        .import cmd_table_futils
+        .import cmd_table_futils_cmds
+        .import cmd_table_help
+        .import cmd_table_help_cmds
+        .import cmd_table_utils
+        .import cmd_table_utils_cmds
+        .import morehelp
+        .import not_cmd_futils
         .import print_help_table
-        .import cmd_table_fujifs, cmd_table_futils, cmd_table_utils, cmd_table_help, cmd_table_fs
-        .import cmd_table_fujifs_cmds, cmd_table_futils_cmds, cmd_table_utils_cmds, cmd_table_help_cmds, cmd_table_fs_cmds
+        .import print_string
+        .import remember_axy
+        .import set_text_pointer_yx
+
+.ifdef FN_DEBUG
+        .import print_axy
+.endif
 
         .include "mos.inc"
         .include "fujinet.inc"
@@ -24,7 +46,12 @@
 
 service09_help:
         jsr     remember_axy       ; Preserve A, X, Y
-        
+
+.ifdef FN_DEBUG
+        jsr     print_string
+        .byte   "D: service09", $0D
+.endif
+
         ; Check if this is just *HELP (no arguments)
         ; Y contains offset to first non-space char
         lda     (TextPointer),y         ; Get character at (TextPointer)+Y
@@ -47,17 +74,34 @@ service09_help:
 
 service04_unrec_command:
         jsr     remember_axy
+
+.ifdef FN_DEBUG
+        jsr     print_string
+        .byte   "D: service04", $0D
+.endif
+
         ldx     #cmdtab_offset_fs        ; Start with file system commands
 
 check_command:
         jmp     unrec_command_text_pointer
 
 not_cmd_fs:
+.ifdef FN_DEBUG
+        jsr     print_string
+        .byte   "D: not_cmd_fs", $0D
+.endif
+
+
         ldx     #cmdtab_offset_utils     ; Try UTILS commands
         bne     check_command
 
-
 not_cmd_fujifs:
+.ifdef FN_DEBUG
+        jsr     print_string
+        .byte   "D: not_cmd_fujifs", $0D
+.endif
+
+
         ldx     #cmdtab_offset_futils    ; Try FUTILS commands
         jsr     GSINIT_A
         lda     (TextPointer),y
@@ -68,20 +112,43 @@ not_cmd_fujifs:
         dey
         jmp     not_cmd_futils
 
-.fscv3_unreccommand:
+not_cmd_help:
+.ifdef FN_DEBUG
+        jsr     print_string
+        .byte   "D: not_cmd_help", $0D
+        nop
+.endif
+        jsr     GSINIT_A
+        bne     @cmd_not_help_loop
+        rts
+
+@cmd_not_help_loop:
+        jsr     GSREAD_A
+        bcc     @cmd_not_help_loop
+        jmp     morehelp
+
+fscv3_unreccommand:
         jsr     set_text_pointer_yx
         ldx     #$00
         ; fall through to unrec_command_text_pointer
 
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; UNRECOGNIZED COMMAND TEXT POINTER
 ;
-; This function tries to match the command line against our command tables.
-; X = table offset to start with
+; This function tries to match the command line against the command tables.
+; X = offset to first byte of cmd table, e.g. cmdtab_offset_futils
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 unrec_command_text_pointer:
+.ifdef FN_DEBUG
+        jsr     print_string
+        .byte   "D: unrec_tp", $0D
+        nop
+        nop
+        jsr     print_axy
+.endif
+
+
         lda     cmd_table_fujifs, x
         sta     aws_tmp14
         tya                             ; Save Y (command line position)
@@ -95,6 +162,7 @@ unrec_command_text_pointer:
         tay
         jsr     GSINIT_A                ; Reset text pointer
 
+        ; start looking at the string commands
         inx
         lda     cmd_table_fujifs, x
         beq     @gocmdcode               ; If end of table
@@ -143,12 +211,12 @@ unrec_command_text_pointer:
 
 @gocmdcode2:
         pha                             ; Push high byte
-        lda     cmd_table_fujifs_cmds+1, x
+        lda     cmd_table_fujifs_cmds, x
         pha                             ; Push low byte
         rts                             ; Jump to function
 
 @dommcinit:
-        ;jsr     MMC_BEGIN2
+        ;jsr     MMC_BEGIN2 ; TODO do we need this?
         ora     #$80
         bne     @gocmdcode2
 

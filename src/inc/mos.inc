@@ -5,9 +5,11 @@ MOS_INC = 1
 
 ; OS constants
 filesysno                       = $04
+filehndl                        = $10
 
 ; OS vectors
 GSINIT = $FFC2
+GSREAD = $FFC5
 OSRDCH = $FFE0
 OSWRCH = $FFEE
 OSWORD = $FFF1

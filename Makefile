@@ -11,6 +11,8 @@ DISK_TASKS =
 CC := cl65
 LDFLAGS := -C cfg/fujinet-rom.cfg
 
+ASFLAGS := --asm-define FN_DEBUG=1
+
 SRCDIR := src
 BUILD_DIR := build
 OBJDIR := obj
