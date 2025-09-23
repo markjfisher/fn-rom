@@ -6,6 +6,8 @@
         .export service04_unrec_command
         .export service09_help
         .export unrec_command_text_pointer
+        .export cmd_help_futils
+        .export cmd_help_utils
 
         .import GSINIT_A
         .import GSREAD_A
@@ -233,3 +235,27 @@ is_alpha_char:
 @exit2:
         pla
         rts
+
+cmd_help_futils:
+.ifdef FN_DEBUG
+        jsr     print_string
+        .byte   "D: cmd_help_futils", $0D
+        nop
+.endif
+        tya
+        ldx     #cmdtab_offset_futils
+        ldy     #cmdtab_futils_cmds_size
+do_print_help_table:
+        jmp     print_help_table
+
+; THIS NEEDS TO BE IMPLEMENTED CORRECTLY TO DISPLAY THE *HELP UTILS COMMANDS
+cmd_help_utils:
+.ifdef FN_DEBUG
+        jsr     print_string
+        .byte   "D: cmd_help_utils", $0D
+        nop
+.endif
+        tya
+        ldx     #cmdtab_offset_utils
+        ldy     #cmdtab_utils_cmds_size
+        bne     do_print_help_table

@@ -43,6 +43,7 @@ cmd_table_fujifs:
 
 ; These are prefixed with "F", e.g. "FBOOT" etc [FILE SYSTEM COMMANDS], help = "*HELP FUTILS"
 cmd_table_futils:
+        ; 02
         .byte   (cmd_table_futils_cmds - cmd_table_fujifs_cmds) / 2 - 1
 
         .byte   "BOOT",      $80+$03    ; <dno>/<dsp>
@@ -50,6 +51,7 @@ cmd_table_futils:
 
 ; COMMAND TABLE - Utils commands [NON-FS COMMANDS], help = "*HELP UTILS"
 cmd_table_utils:
+        ; 04
         .byte   (cmd_table_utils_cmds - cmd_table_fujifs_cmds) / 2 - 1
 
         .byte   "ROMS",      $80
@@ -57,6 +59,7 @@ cmd_table_utils:
 
 ; COMMAND TABLE - Help commands [HELP COMMANDS], help = "*HELP"
 cmd_table_help:
+        ; 06
         .byte   (cmd_table_help_cmds - cmd_table_fujifs_cmds) / 2 - 1
 
         .byte   "FUJI",      $80
@@ -66,6 +69,7 @@ cmd_table_help:
 
 ; COMMAND TABLE - File System INIT commands, NO HELP COMMAND
 cmd_table_fs:
+        ; 0A
         .byte   (cmd_table_fs_cmds - cmd_table_fujifs_cmds) / 2 - 1
 
         .byte   "FUJI", $80
