@@ -8,21 +8,27 @@ filesysno                       = $04
 filehndl                        = $10
 
 ; OS vectors
-GSINIT = $FFC2
-GSREAD = $FFC5
-OSRDCH = $FFE0
-OSWRCH = $FFEE
-OSWORD = $FFF1
-OSASCI = $FFE3
-OSBYTE = $FFF4
-OSCLI  = $FFF7
+OSRDRM=$FFB9
+GSINIT=$FFC2
+GSREAD=$FFC5
+OSFIND=$FFCE
+OSGBPB=$FFD1
+OSBPUT=$FFD4
+OSBGET=$FFD7
+OSARGS=$FFDA
+OSFILE=$FFDD
+OSRDCH=$FFE0
+OSASCI=$FFE3
+OSNEWL=$FFE7
+OSWRCH=$FFEE
+OSWORD=$FFF1
+OSBYTE=$FFF4
+OSCLI =$FFF7
 
-; OS variables
-TextPointer = $F2
-
-; ROM variables
-PagedROM_PrivWorkspaces         = $0DF0
+TextPointer                     = $F2
 PagedRomSelector_RAMCopy        = $F4
+
+PagedROM_PrivWorkspaces         = $0DF0
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Temporary Zeropage Variables
@@ -97,5 +103,7 @@ MMC_CIDCRC          = VID2+$0E
 CHECK_CRC7          = VID2+$10
 
 OWCtlBlock          = $10B0
+
+FSCV                = $021E
 
 .endif

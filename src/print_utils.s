@@ -1,5 +1,6 @@
 ; Print utilities for FujiNet ROM
         .export  err_bad
+        .export  err_disk
         .export  print_char
         .export  print_fullstop
         .export  print_hex

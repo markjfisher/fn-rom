@@ -5,9 +5,12 @@
         .export init_fuji
 
         .import a_rorx4
+        .import calculate_crc7
         .import osbyte_X0YFF
         .import return_with_a0
         .import print_string
+        .import tube_check_if_present
+        .import channel_flags_clear_bits
 
         .include "mos.inc"
         .include "fujinet.inc"
@@ -196,37 +199,41 @@ oscli_OPT2:
 jmp_OSCLI:
         jmp     OSCLI
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; STUB FUNCTIONS - These need to be implemented
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
 go_fscv:
-        ; TODO: Implement FSCV call
-        rts
+        jmp     (FSCV)
 
 set_private_workspace_pointer_b0:
-        ; TODO: Implement private workspace pointer setup
+        lda     #$00
+        sta     aws_tmp00
+        ldx     PagedRomSelector_RAMCopy
+        lda     PagedROM_PrivWorkspaces, x
+        and     #$3F                            ; not master. TODO: fix if we have a master
+        sta     aws_tmp01
         rts
 
 claim_static_workspace:
-        ; TODO: Implement static workspace claim
-        rts
+        ldx     #$0A
+        lda     #$8F
+        jsr     OSBYTE                          ; issue service request &A
 
-calculate_crc7:
-        ; TODO: Implement CRC7 calculation
-        lda     #$00
-        rts
-
-channel_flags_clear_bits:
-        ; TODO: Implement channel flags clear
+        jsr     set_private_workspace_pointer_b0
+        ldy     #<ForceReset
+        lda     #$FF
+        sta     (aws_tmp00),y                   ; Data valid in SWS
+        sta     ForceReset
+        iny
+        sta     (aws_tmp00),y                   ; Set pws is "empty"
         rts
 
 vid_reset:
-        ; TODO: Implement VID reset
-        rts
-
-tube_check_if_present:
-        ; TODO: Implement tube check
+        ldy     #(CHECK_CRC7-VID-1)
+        lda     #$00
+@loop:
+        sta     VID,y
+        dey
+        bpl     @loop
+        lda     #$01
+        sta     CHECK_CRC7
         rts
 
 mmc_begin2:

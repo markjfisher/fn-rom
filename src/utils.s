@@ -3,11 +3,13 @@
         .export  a_rorx5
         .export  a_rolx4
         .export  a_rolx5
+        .export  calculate_crc7
         .export  GSINIT_A
         .export  GSREAD_A
         .export  osbyte_X0YFF
         .export  osbyte_YFF
         .export  set_text_pointer_yx
+        .export  tube_check_if_present
 
         .import  err_bad
 
@@ -67,4 +69,54 @@ GSREAD_A:
         beq     err_bad_name
 @exit:
         plp
+        rts
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; Calculate CRC7
+; Exit: A=CRC7, X=0, Y=FF
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+calculate_crc7:
+        ldy     #(CHECK_CRC7-VID-1)
+        lda     #$00
+@loop1:
+        eor     VID,y
+        asl     a
+        ldx     #$07
+@loop2:
+        bcc     @c7b7z1
+        eor     #$12
+@c7b7z1:
+        asl     a
+        dex
+        bne     @loop2
+        bcc     @c7b7z2
+        eor     #$12
+@c7b7z2:
+        dey
+        bpl     @loop1
+        ora     #$01
+        rts
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; Tube check if present
+; Exit: A=0 if tube present, $FF if not
+
+; from New Advanced User Guide:
+;  Before attempting to use any of the Tube routines an OSBYTE call with
+;  A=&EA, X=0 and Y=&FF should be made to establish whether a Tube is
+;  present on the machine. The X register will be returned with the value
+;  &FF if a Tube is present and with zero otherwise.
+;
+; This function converts the result to A=0 if tube present, $FF if not,
+; and sets TubePresentIf0 to this value, i.e. "Tube present if this value is zero"
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+tube_check_if_present:
+        lda     #$EA
+        ldx     #$00
+        ldy     #$FF
+        jsr     OSBYTE
+        txa
+        eor     #$FF
+        sta     TubePresentIf0
         rts
