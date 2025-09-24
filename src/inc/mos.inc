@@ -74,5 +74,28 @@ pws_tmp13   = $CD
 pws_tmp14   = $CE
 pws_tmp15   = $CF
 
+CurrentCat          = $1082
+CurrentDrv          = $1083
+MMC_STATE           = $1084
+
+; File system constants
+FSMessagesOnIfZero  = $10C6
+CMDEnabledIf1       = $10C7
+DEFAULT_DIR         = $10C9
+DEFAULT_DRIVE       = $10CA
+LIB_DIR             = $10CB
+LIB_DRIVE           = $10CC
+PAGE                = $10CF
+RAMBufferSize       = $10D0
+ForceReset          = $10D3
+TubePresentIf0      = $10D6
+CardSort            = $10DE
+
+VID                 = $10E0
+VID2                = VID
+MMC_CIDCRC          = VID2+$0E
+CHECK_CRC7          = VID2+$10
+
+OWCtlBlock          = $10B0
 
 .endif

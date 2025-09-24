@@ -1,6 +1,5 @@
         .export cmd_fs_drive
         .export cmd_fs_fboot
-        .export cmd_fs_fuji
         .export cmd_fs_info
         ; .export cmd_help_futils
         ; .export cmd_help_utils
@@ -14,7 +13,6 @@
 
 cmd_fs_drive:
 cmd_fs_fboot:
-cmd_fs_fuji:
 cmd_fs_info:
         rts
 
