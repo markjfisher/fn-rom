@@ -11,6 +11,13 @@
         .import print_string
         .import tube_check_if_present
         .import channel_flags_clear_bits
+        .import filev_entry
+        .import argsv_entry
+        .import bgetv_entry
+        .import bputv_entry
+        .import gbpbv_entry
+        .import findv_entry
+        .import fscv_entry
 
         .include "mos.inc"
         .include "fujinet.inc"
@@ -39,8 +46,24 @@ init_fuji:
         .byte   "Starting FujiNet", $0D
 .endif
 
+        ; Save current FSCV before we overwrite it
+        lda     FSCV
+        sta     aws_tmp02
+        lda     FSCV+1
+        sta     aws_tmp03
+
+.ifdef FN_DEBUG
+        jsr     print_string
+        .byte   "Calling old FSCV", $0D
+.endif
+
         lda     #$06
         jsr     go_fscv               ; new filing system
+
+.ifdef FN_DEBUG
+        jsr     print_string
+        .byte   "Copying vectors", $0D
+.endif
 
         ; Copy vectors/extended vectors
         ldx     #$0D                  ; copy vectors
@@ -49,6 +72,11 @@ init_fuji:
         sta     $0212,x
         dex
         bpl     @vect_loop
+
+.ifdef FN_DEBUG
+        jsr     print_string
+        .byte   "Vectors copied", $0D
+.endif
 
         lda     #$A8                  ; copy extended vectors
         jsr     osbyte_X0YFF
@@ -253,9 +281,35 @@ load_cur_drv_cat:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 vectors_table:
-        ; TODO: Define vector table
-        .res    14, $00
+        ; Filing system vectors (14 bytes) - OS vector addresses
+        .word   $FF1B                 ; FILEV
+        .word   $FF1E                 ; ARGSV  
+        .word   $FF21                 ; BGETV
+        .word   $FF24                 ; BPUTV
+        .word   $FF27                 ; GBPBV
+        .word   $FF2A                 ; FINDV
+        .word   $FF2D                 ; FSCV
 
 extendedvectors_table:
-        ; TODO: Define extended vector table
-        .res    56, $00
+        ; Extended vectors (21 bytes = 7 entries * 3 bytes each)
+        ; Each entry: 2 bytes vector, 1 byte BRK
+        .word   filev_entry - 1       ; FILEV extended
+        .byte   $00                   ; BRK
+        
+        .word   argsv_entry - 1       ; ARGSV extended  
+        .byte   $00                   ; BRK
+        
+        .word   bgetv_entry - 1       ; BGETV extended
+        .byte   $00                   ; BRK
+        
+        .word   bputv_entry - 1       ; BPUTV extended
+        .byte   $00                   ; BRK
+        
+        .word   gbpbv_entry - 1       ; GBPBV extended
+        .byte   $00                   ; BRK
+        
+        .word   findv_entry - 1       ; FINDV extended
+        .byte   $00                   ; BRK
+        
+        .word   fscv_entry - 1        ; FSCV extended
+        .byte   $00                   ; BRK

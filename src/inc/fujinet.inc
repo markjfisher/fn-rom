@@ -50,8 +50,8 @@ cmdtab_offset_fs     = <(cmd_table_fs - cmd_table_fujifs)
 ; This provides a consistent interface across all implementations
 data_ptr = aws_tmp08
 
-; FujiNet state variables
-fuji_state                      = $10E0  ; Device state
-fuji_current_disk               = $10E1  ; Current mounted disk
+; FujiNet state variables (using unused workspace locations)
+fuji_state                      = $10F0  ; Device state
+fuji_current_disk               = $10F1  ; Current mounted disk
 
 .endif

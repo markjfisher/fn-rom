@@ -14,6 +14,7 @@
         .import  remember_axy
 
         .include "mos.inc"
+        .include "fujinet.inc"
 
         .segment "CODE"
 
