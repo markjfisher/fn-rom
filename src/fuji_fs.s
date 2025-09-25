@@ -20,23 +20,16 @@
         .import reset_leds
         .import remember_axy
         .import a_rorx4
+        .import fuji_read_block_data
+        .import fuji_write_block_data
+        .import fuji_read_catalogue_data
+        .import fuji_write_catalogue_data
+        .import fuji_read_disc_title_data
 
-        .include "mos.inc"
         .include "fujinet.inc"
 
         .segment "CODE"
 
-; Network protocol constants will be defined in fuji_serial.s
-
-; FujiNet state variables
-fuji_state                     = $10E0  ; Device state
-fuji_current_disk              = $10E1  ; Current mounted disk
-
-; Sector and data pointers (using existing MMFS variables)
-; sec = aws_tmp02 (3-byte sector number)
-; seccount = aws_tmp05 (2-byte sector count)  
-; byteslastsec = aws_tmp07 (bytes in last sector)
-; datptr = aws_tmp08 (2-byte data pointer)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; FUJI_INIT - Initialize FujiNet device
@@ -71,7 +64,7 @@ fuji_init:
 fuji_read_block:
         jsr     remember_axy
         jsr     fuji_begin_transaction
-        jsr     fuji_serial_read_block
+        jsr     fuji_read_block_data
         jmp     fuji_end_transaction
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -81,83 +74,80 @@ fuji_read_block:
 fuji_write_block:
         jsr     remember_axy
         jsr     fuji_begin_transaction
-        jsr     fuji_serial_write_block
+        jsr     fuji_write_block_data
         jmp     fuji_end_transaction
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; FUJI_READ_CATALOGUE - Read the catalogue (sectors 0xE and 0xF)
+; FUJI_READ_CATALOGUE - Read the disc catalogue (512-byte directory)
+; The catalogue contains:
+; - Bytes 0-7: Disc title (first 8 chars)
+; - Bytes 248-255: Disc title (last 8 chars, if title > 8 chars)
+; - Bytes 8-247: File directory entries (8 bytes each)
+; - Each file entry: filename, load/exec addresses, length, attributes
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 fuji_read_catalogue:
-        ; Set up catalogue sectors (0xE and 0xF)
+        ; Set up catalogue buffer at page 0x0E (512 bytes)
         lda     #$00
-        sta     aws_tmp08
-        lda     #$0E                    ; Catalogue at page 0x0E
-        sta     aws_tmp09
+        sta     data_ptr
+        lda     #$0E                    ; Catalogue buffer at page 0x0E
+        sta     data_ptr+1
         
-        ; Read 2 sectors (512 bytes) for catalogue
-        lda     #$0E                    ; Start sector
-        sta     aws_tmp02
-        lda     #$00
-        sta     aws_tmp03
-        sta     aws_tmp04
-        lda     #$02                    ; 2 sectors
-        sta     aws_tmp05
-        lda     #$00
-        sta     aws_tmp06
+        ; For FujiNet, we need to request the disc catalogue from the network
+        ; This is NOT reading physical sectors - it's requesting directory info
+        ; TODO: Implement network request for disc catalogue
+        ; For now, this is a placeholder that would:
+        ; 1. Send "GET_CATALOGUE" command to FujiNet
+        ; 2. Receive 512-byte catalogue data
+        ; 3. Store it in the buffer at 0x0E00-0x0FFF
         
-        jsr     fuji_read_block
+        jsr     fuji_read_catalogue_data
         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; FUJI_WRITE_CATALOGUE - Write the catalogue
+; FUJI_WRITE_CATALOGUE - Write the disc catalogue back to network
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 fuji_write_catalogue:
-        ; Set up catalogue sectors (0xE and 0xF)
+        ; Set up catalogue buffer at page 0x0E (512 bytes)
         lda     #$00
-        sta     aws_tmp08
-        lda     #$0E                    ; Catalogue at page 0x0E
-        sta     aws_tmp09
+        sta     data_ptr
+        lda     #$0E                    ; Catalogue buffer at page 0x0E
+        sta     data_ptr+1
         
-        ; Write 2 sectors (512 bytes) for catalogue
-        lda     #$0E                    ; Start sector
-        sta     aws_tmp02
-        lda     #$00
-        sta     aws_tmp03
-        sta     aws_tmp04
-        lda     #$02                    ; 2 sectors
-        sta     aws_tmp05
-        lda     #$00
-        sta     aws_tmp06
+        ; For FujiNet, we need to send the updated catalogue to the network
+        ; This is NOT writing physical sectors - it's updating directory info
+        ; TODO: Implement network request to update disc catalogue
+        ; For now, this is a placeholder that would:
+        ; 1. Send "PUT_CATALOGUE" command to FujiNet
+        ; 2. Send 512-byte catalogue data from buffer 0x0E00-0x0FFF
+        ; 3. Confirm successful update
         
-        jsr     fuji_write_block
+        jsr     fuji_write_catalogue_data
         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; FUJI_READ_DISC_TITLE - Read disc title from first sector
+; FUJI_READ_DISC_TITLE - Read disc title from catalogue
+; For FujiNet, this reads the disc title from the catalogue buffer
+; (bytes 0-7 and 248-255 of the 512-byte catalogue)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 fuji_read_disc_title:
-        ; Set up sector 0
+        ; Set up buffer for disc title (16 bytes max)
         lda     #$00
-        sta     aws_tmp02
-        sta     aws_tmp03
-        sta     aws_tmp04
-        
-        ; Set up buffer for disc title
-        lda     #$00
-        sta     aws_tmp08
+        sta     data_ptr
         lda     #$10                    ; Buffer at page 0x10
-        sta     aws_tmp09
+        sta     data_ptr+1
         
-        ; Read 1 sector
-        lda     #$01
-        sta     aws_tmp05
-        lda     #$00
-        sta     aws_tmp06
+        ; For FujiNet, we need to request just the disc title
+        ; This is NOT reading a physical sector - it's requesting title info
+        ; TODO: Implement network request for disc title
+        ; For now, this is a placeholder that would:
+        ; 1. Send "GET_DISC_TITLE" command to FujiNet
+        ; 2. Receive disc title string (up to 16 chars)
+        ; 3. Store it in the buffer at 0x1000-0x100F
         
-        jsr     fuji_read_block
+        jsr     fuji_read_disc_title_data
         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -168,7 +158,7 @@ fuji_begin_transaction:
         ; Save workspace variables
         ldx     #$0F
 @save_loop:
-        lda     $BC,x
+        lda     aws_tmp12,x
         sta     $1090,x
         dex
         bpl     @save_loop
@@ -202,7 +192,7 @@ fuji_end_transaction:
         ldx     #$0F
 @restore_loop:
         lda     $1090,x
-        sta     $BC,x
+        sta     aws_tmp12,x
         dex
         bpl     @restore_loop
         rts
@@ -219,15 +209,14 @@ fuji_check_device_status:
         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; SERIAL LAYER FUNCTIONS
-; These will be implemented in fuji_serial.s
+; DATA LAYER FUNCTIONS
+; These are implemented in fuji_serial.s (or other interface modules)
+; The function names are implementation-agnostic
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-; Placeholder functions - to be implemented in fuji_serial.s
-fuji_serial_read_block:
-        ; TODO: Read block from FujiNet via serial
-        rts
-
-fuji_serial_write_block:
-        ; TODO: Write block to FujiNet via serial
-        rts
+; These functions are implemented in the interface layer:
+; - fuji_read_block_data
+; - fuji_write_block_data  
+; - fuji_read_catalogue_data
+; - fuji_write_catalogue_data
+; - fuji_read_disc_title_data

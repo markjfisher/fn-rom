@@ -4,6 +4,10 @@
 PROGRAM = fujinet
 CURRENT_TARGET = bbc
 
+# Interface selection - can be overridden on command line
+# Options: SERIAL (default), USERPORT, 1MHZ, DUMMY
+BUILD_INTERFACE ?= DUMMY
+
 # Ensure WSL2 Ubuntu and other linuxes use bash by default instead of /bin/sh, which does not always like the shell commands.
 SHELL := /usr/bin/env bash
 DISK_TASKS =
@@ -12,6 +16,19 @@ CC := cl65
 LDFLAGS := -C cfg/fujinet-rom.cfg
 
 ASFLAGS := --asm-define FN_DEBUG=1
+
+# Define the appropriate interface based on BUILD_INTERFACE
+ifeq ($(BUILD_INTERFACE),SERIAL)
+ASFLAGS += --asm-define FUJINET_INTERFACE_SERIAL
+else ifeq ($(BUILD_INTERFACE),USERPORT)
+ASFLAGS += --asm-define FUJINET_INTERFACE_USERPORT
+else ifeq ($(BUILD_INTERFACE),1MHZ)
+ASFLAGS += --asm-define FUJINET_INTERFACE_1MHZ
+else ifeq ($(BUILD_INTERFACE),DUMMY)
+ASFLAGS += --asm-define FUJINET_INTERFACE_DUMMY
+else
+$(error Invalid BUILD_INTERFACE: $(BUILD_INTERFACE). Must be SERIAL, USERPORT, 1MHZ, or DUMMY)
+endif
 
 SRCDIR := src
 BUILD_DIR := build

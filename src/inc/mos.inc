@@ -25,11 +25,6 @@ OSWORD=$FFF1
 OSBYTE=$FFF4
 OSCLI =$FFF7
 
-TextPointer                     = $F2
-PagedRomSelector_RAMCopy        = $F4
-
-PagedROM_PrivWorkspaces         = $0DF0
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Temporary Zeropage Variables
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -80,11 +75,18 @@ pws_tmp13   = $CD
 pws_tmp14   = $CE
 pws_tmp15   = $CF
 
-CurrentCat          = $1082
-CurrentDrv          = $1083
-MMC_STATE           = $1084
+TextPointer                     = $F2
+PagedRomSelector_RAMCopy        = $F4
+PagedROM_PrivWorkspaces         = $0DF0
 
-; File system constants
+FSCV                = $021E
+
+CurrentDrv          = $CD
+CurrentCat          = $1082
+
+TubeNoTransferIf0   = $10AE
+MMC_STATE           = $10AF
+OWCtlBlock          = $10B0
 FSMessagesOnIfZero  = $10C6
 CMDEnabledIf1       = $10C7
 DEFAULT_DIR         = $10C9
@@ -101,9 +103,5 @@ VID                 = $10E0
 VID2                = VID
 MMC_CIDCRC          = VID2+$0E
 CHECK_CRC7          = VID2+$10
-
-OWCtlBlock          = $10B0
-
-FSCV                = $021E
 
 .endif

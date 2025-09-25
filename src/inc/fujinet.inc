@@ -1,5 +1,7 @@
 ; FujiNet ROM definitions and constants
 
+        .include "mos.inc"
+
         .import cmd_table_fujifs
         .import cmd_table_futils
         .import cmd_table_utils
@@ -44,5 +46,12 @@ cmdtab_offset_help   = <(cmd_table_help - cmd_table_fujifs)
 ; OLD: cmdtab22
 cmdtab_offset_fs     = <(cmd_table_fs - cmd_table_fujifs)
 
+; Shared data pointer for all FujiNet interface implementations
+; This provides a consistent interface across all implementations
+data_ptr = aws_tmp08
+
+; FujiNet state variables
+fuji_state                      = $10E0  ; Device state
+fuji_current_disk               = $10E1  ; Current mounted disk
 
 .endif
