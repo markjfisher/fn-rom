@@ -104,4 +104,6 @@ VID2                = VID
 MMC_CIDCRC          = VID2+$0E
 CHECK_CRC7          = VID2+$10
 
+FilesX8             = $0F05
+
 .endif

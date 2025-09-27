@@ -20,6 +20,10 @@
         .import remember_axy
         .import print_string
         .import print_axy
+        .import fuji_read_catalog
+        .import print_char
+        .import print_hex
+        .import print_newline
 
         .include "fujinet.inc"
 
@@ -221,7 +225,13 @@ fscv5_starCAT:
         nop
         jsr     print_axy
 .endif
-        ; TODO: Implement actual *CAT functionality
+        
+        ; Load catalog from our dummy interface
+        jsr     fuji_read_catalog
+        
+        ; Print catalog (following MMFS pattern)
+        jsr     print_catalog_mmfs_style
+        
         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -313,4 +323,149 @@ extendedvectors_table:
         
         .word   fscv_entry            ; FSCV extended
         .byte   $00                   ; BRK
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; PRINT_CATALOG_MMFS_STYLE - Print catalog following MMFS pattern
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+print_catalog_mmfs_style:
+        ; Print disk title (first 8 bytes)
+        ldy     #$00
+@title_loop:
+        lda     $0E00,y
+        jsr     print_char
+        iny
+        cpy     #$08
+        bne     @title_loop
+        
+        ; Print cycle number in parentheses
+        jsr     print_string
+        .byte   " (", $80
+        nop
+        lda     $0F04
+        jsr     print_hex
+        jsr     print_string
+        .byte   ")", $80
+        nop
+        jsr     print_newline
+        
+        ; Print "Drive X"
+        jsr     print_string
+        .byte   "Drive ", $80
+        nop
+        lda     CurrentDrv
+        jsr     print_hex
+        
+        ; Print 13 spaces
+        ldy     #$0D
+@spaces_loop:
+        lda     #' '
+        jsr     print_char
+        dey
+        bne     @spaces_loop
+        
+        ; Print "Option X (LOAD)"
+        jsr     print_string
+        .byte   "Option ", $80
+        nop
+        lda     $0F06
+        jsr     print_hex
+        jsr     print_string
+        .byte   " (LOAD)", $80
+        nop
+        jsr     print_newline
+        
+        ; Print "Dir. :X.$"
+        jsr     print_string
+        .byte   "Dir. :", $80
+        nop
+        lda     DEFAULT_DRIVE
+        jsr     print_hex
+        lda     #'.'
+        jsr     print_char
+        lda     DEFAULT_DIR
+        jsr     print_char
+        
+        ; Print 11 spaces
+        ldy     #$0B
+@spaces_loop2:
+        lda     #' '
+        jsr     print_char
+        dey
+        bne     @spaces_loop2
+        
+        ; Print "Lib. :X.$"
+        jsr     print_string
+        .byte   "Lib. :", $80
+        nop
+        lda     LIB_DRIVE
+        jsr     print_hex
+        lda     #'.'
+        jsr     print_char
+        lda     LIB_DIR
+        jsr     print_char
+        jsr     print_newline
+        
+        ; Print file list
+        ldy     #$00
+@file_loop:
+        cpy     FilesX8
+        bcs     @done
+        
+        ; Check if file is marked (bit 7 set)
+        lda     $0E08,y
+        bmi     @next_file
+        
+        ; Print filename
+        jsr     print_filename_at_y
+        
+        ; Mark file as printed
+        lda     $0E08,y
+        ora     #$80
+        sta     $0E08,y
+        
+@next_file:
+        ; Move to next file (8 bytes per entry)
+        tya
+        clc
+        adc     #$08
+        tay
+        jmp     @file_loop
+        
+@done:
+        jsr     print_newline
+        rts
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; PRINT_FILENAME_AT_Y - Print filename at catalog offset Y
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+print_filename_at_y:
+        ; Print 2 spaces
+        lda     #' '
+        jsr     print_char
+        lda     #' '
+        jsr     print_char
+        
+        ; Print filename (7 bytes)
+        ldx     #$00
+@name_loop:
+        lda     $0E08,y
+        jsr     print_char
+        iny
+        inx
+        cpx     #$07
+        bne     @name_loop
+        
+        ; Print directory character
+        lda     $0E08,y
+        jsr     print_char
+        
+        ; Restore Y to start of file entry
+        tya
+        sec
+        sbc     #$07
+        tay
+        
+        rts
 

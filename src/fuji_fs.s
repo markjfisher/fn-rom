@@ -17,8 +17,8 @@
         .import remember_axy
         .import fuji_read_block_data
         .import fuji_write_block_data
-        .import fuji_read_catalogue_data
-        .import fuji_write_catalogue_data
+        .import fuji_read_catalog_data
+        .import fuji_write_catalog_data
         .import fuji_read_disc_title_data
 
         .include "fujinet.inc"
@@ -96,7 +96,7 @@ fuji_read_catalogue:
         ; 2. Receive 512-byte catalogue data
         ; 3. Store it in the buffer at 0x0E00-0x0FFF
         
-        jsr     fuji_read_catalogue_data
+        jsr     fuji_read_catalog_data
         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -118,7 +118,7 @@ fuji_write_catalogue:
         ; 2. Send 512-byte catalogue data from buffer 0x0E00-0x0FFF
         ; 3. Confirm successful update
         
-        jsr     fuji_write_catalogue_data
+        jsr     fuji_write_catalog_data
         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -212,6 +212,6 @@ fuji_check_device_status:
 ; These functions are implemented in the interface layer:
 ; - fuji_read_block_data
 ; - fuji_write_block_data  
-; - fuji_read_catalogue_data
-; - fuji_write_catalogue_data
+; - fuji_read_catalog_data
+; - fuji_write_catalog_data
 ; - fuji_read_disc_title_data

@@ -8,9 +8,10 @@
 
         .export fuji_read_block_data
         .export fuji_write_block_data
-        .export fuji_read_catalogue_data
-        .export fuji_write_catalogue_data
+        .export fuji_read_catalog_data
+        .export fuji_write_catalog_data
         .export fuji_read_disc_title_data
+        .export fuji_read_catalog
 
         .import remember_axy
         .import err_disk
@@ -23,42 +24,74 @@
 dummy_disc_title:
         .byte "TESTDISC", 0
 
-; Dummy catalogue data (512 bytes)
-; This simulates a BBC Micro disc catalogue with a few test files
+; Dummy catalogue data (512 bytes = 2 sectors of 256 bytes each)
+; This simulates a BBC Micro disc catalogue following DFS format
+; Sector 0: Catalog header + file names
+; Sector 1: Catalog info + file details
 dummy_catalogue:
-        ; Disc title (bytes 0-7)
+        ; SECTOR 0 (bytes 0-255)
+        ; Catalog header entry 0 (bytes 0-7): Disk title first 8 bytes
         .byte "TESTDISC"
-        ; Disc title continuation (bytes 248-255) 
-        .byte $00, $00, $00, $00, $00, $00, $00, $00
-        ; File entries (8 bytes each)
-        ; File 1: HELLO
-        .byte "HELLO   "  ; Filename (8 chars, space-padded)
-        .byte $00, $00    ; Load address (2 bytes)
-        .byte $00, $00    ; Exec address (2 bytes)
-        .byte $05, $00    ; Length (2 bytes) - 5 bytes
-        .byte $00         ; Attributes
-        ; File 2: WORLD
-        .byte "WORLD   "  ; Filename
-        .byte $00, $00    ; Load address
-        .byte $00, $00    ; Exec address
-        .byte $06, $00    ; Length - 6 bytes
-        .byte $00         ; Attributes
-        ; File 3: TEST
-        .byte "TEST    "  ; Filename
-        .byte $00, $00    ; Load address
-        .byte $00, $00    ; Exec address
-        .byte $04, $00    ; Length - 4 bytes
-        .byte $00         ; Attributes
-        ; Fill rest with zeros (end of catalogue)
+
+        ; File entry 1 (bytes 8-15): Filename + directory
+        .byte "HELLO  ", $00  ; Filename (7 bytes) + directory (1 byte)
+
+        ; File entry 2 (bytes 16-23): Filename + directory
+        .byte "WORLD  ", $00  ; Filename (7 bytes) + directory (1 byte)
+
+        ; File entry 3 (bytes 24-31): Filename + directory
+        .byte "TEST   ", $00  ; Filename (7 bytes) + directory (1 byte)
+
+        ; Fill rest of sector 0 with zeros
+        .res 256 - (* - dummy_catalogue), $00
+
+        ; SECTOR 1 (bytes 256-511)
+        ; Catalog header entry 0 (bytes 256-263): Disk title last 4 bytes + cycle + count + options
+        .byte "    "     ; Last 4 bytes of disk title (padded with spaces)
+        .byte $01        ; Cycle number (byte 260)
+        .byte $18        ; (Number of catalog entries)*8 = 3*8 = 24 = $18
+        .byte $00        ; Boot option (byte 262)
+        .byte $00        ; Disk size low byte (byte 263)
+
+        ; File entry 1 (bytes 264-271): HELLO - File details
+        .byte $00, $19   ; Load address (bytes 264-265) = $1900
+        .byte $00, $19   ; Exec address (bytes 266-267) = $1900
+        .byte $20, $00   ; File length (bytes 268-269) = 32 bytes
+        .byte $00        ; Extended attributes (byte 270) = $00
+        .byte $04        ; Start sector (byte 271) = sector 4
+
+        ; File entry 2 (bytes 272-279): WORLD - File details  
+        .byte $00, $19   ; Load address = $1900
+        .byte $00, $19   ; Exec address = $1900
+        .byte $30, $00   ; File length = 48 bytes
+        .byte $00        ; Extended attributes = $00
+        .byte $03        ; Start sector = sector 3
+
+        ; File entry 3 (bytes 280-287): TEST - File details
+        .byte $00, $19   ; Load address = $1900
+        .byte $00, $19   ; Exec address = $1900
+        .byte $10, $00   ; File length = 16 bytes
+        .byte $00        ; Extended attributes = $00
+        .byte $02        ; Start sector = sector 2
+
+        ; Fill rest of sector 1 with zeros
         .res 512 - (* - dummy_catalogue), $00
 
-; Dummy file data
-dummy_hello_data:
-        .byte "Hello"
-dummy_world_data:
-        .byte "World!"
-dummy_test_data:
-        .byte "Test"
+; Dummy file data - 3 sectors of 256 bytes each
+; Sector 2: TEST file (16 bytes + padding)
+dummy_sector2_data:
+        .byte "Hello from TEST", $0D  ; 16 bytes of actual data
+        .res 256 - 16, $00             ; Fill rest with zeros
+
+; Sector 3: WORLD file (48 bytes + padding)  
+dummy_sector3_data:
+        .byte "Hello from WORLD! This is a longer message.1234", $0D  ; 48 bytes
+        .res 256 - 48, $00             ; Fill rest with zeros
+
+; Sector 4: HELLO file (32 bytes + padding)
+dummy_sector4_data:
+        .byte "Hello from HELLO This is a test", $0D  ; 32 bytes
+        .res 256 - 32, $00             ; Fill rest with zeros
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; FUJI_READ_BLOCK_DATA - Read data block from dummy interface
@@ -68,19 +101,20 @@ dummy_test_data:
 
 fuji_read_block_data:
         jsr     remember_axy
-        
-        ; For dummy interface, we'll just copy some test data
+
+        ; For dummy interface, read from our sector data
         ; In a real implementation, this would read from network
-        
-        ; Simple test: copy dummy data to buffer
+
+        ; TODO: Implement proper sector reading based on sector number
+        ; For now, just copy some test data to buffer
         ldy     #0
 @copy_loop:
-        lda     dummy_hello_data,y
+        lda     dummy_sector2_data,y
         sta     (data_ptr),y
         iny
-        cpy     #5        ; Copy 5 bytes ("Hello")
+        cpy     #16       ; Copy 16 bytes from TEST file
         bne     @copy_loop
-        
+
         clc
         rts
 
@@ -92,56 +126,60 @@ fuji_read_block_data:
 
 fuji_write_block_data:
         jsr     remember_axy
-        
+
         ; For dummy interface, we'll just acknowledge the write
         ; In a real implementation, this would send data to network
-        
+
         ; Simple test: just return success
         clc
         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; FUJI_READ_CATALOGUE_DATA - Read catalogue from dummy interface
+; FUJI_READ_CATALOG_DATA - Read catalog from dummy interface
 ; Input: data_ptr points to 512-byte catalogue buffer
 ; Output: Catalogue data in buffer, Carry=0 if success, Carry=1 if error
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-fuji_read_catalogue_data:
+fuji_read_catalog_data:
         jsr     remember_axy
-        
-        ; Copy dummy catalogue data to buffer
+
+        ; Copy dummy catalogue data to buffer (512 bytes)
         ldy     #0
 @copy_loop:
         lda     dummy_catalogue,y
         sta     (data_ptr),y
         iny
-        cpy     #$FF      ; Copy 255 bytes first
-        bne     @copy_loop
-        
-        ; Copy remaining bytes
+        bne     @copy_loop    ; Copy first 256 bytes
+
+        ; Increment high byte of data_ptr
+        inc     data_ptr+1
+
+        ; Copy second 256 bytes
         ldy     #0
 @copy_loop2:
-        lda     dummy_catalogue+$FF,y
-        sta     (data_ptr+1),y
+        lda     dummy_catalogue+256,y
+        sta     (data_ptr),y
         iny
-        cpy     #$01      ; Copy remaining 1 byte
-        bne     @copy_loop2
-        
+        bne     @copy_loop2   ; Copy second 256 bytes
+
+        ; Restore data_ptr
+        dec     data_ptr+1
+
         clc
         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; FUJI_WRITE_CATALOGUE_DATA - Write catalogue to dummy interface
+; FUJI_WRITE_CATALOG_DATA - Write catalog to dummy interface
 ; Input: data_ptr points to 512-byte catalogue buffer
 ; Output: Carry=0 if success, Carry=1 if error
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-fuji_write_catalogue_data:
+fuji_write_catalog_data:
         jsr     remember_axy
-        
+
         ; For dummy interface, we'll just acknowledge the write
         ; In a real implementation, this would send catalogue to network
-        
+
         ; Simple test: just return success
         clc
         rts
@@ -154,7 +192,7 @@ fuji_write_catalogue_data:
 
 fuji_read_disc_title_data:
         jsr     remember_axy
-        
+
         ; Copy dummy disc title to buffer
         ldy     #0
 @copy_loop:
@@ -164,8 +202,31 @@ fuji_read_disc_title_data:
         iny
         cpy     #16       ; Max 16 bytes
         bne     @copy_loop
-        
+
 @done:
+        clc
+        rts
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; FUJI_READ_CATALOG - Read catalog and store in BBC catalog area
+; This is a high-level function that loads catalog into $0E00-$0FFF
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+fuji_read_catalog:
+        jsr     remember_axy
+
+        ; Set data_ptr to point to BBC catalog area ($0E00)
+        lda     #<$0E00
+        sta     data_ptr
+        lda     #>$0E00
+        sta     data_ptr+1
+
+        ; Call the low-level catalog read function
+        jsr     fuji_read_catalog_data
+
+        ; The cycle number and boot option are already in the catalog data
+        ; at $0F04 and $0F06, so we don't need to copy them anywhere
+
         clc
         rts
 
