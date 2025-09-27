@@ -3,14 +3,19 @@
 
         .export cmd_fs_fuji
         .export init_fuji
+        .export set_private_workspace_pointer_b0
 
         .import a_rorx4
         .import calculate_crc7
-        .import osbyte_X0YFF
-        .import return_with_a0
-        .import print_string
-        .import tube_check_if_present
         .import channel_flags_clear_bits
+        .import dump_zp_workspace
+        .import osbyte_X0YFF
+        .import print_hex
+        .import print_newline
+        .import print_string
+        .import return_with_a0
+        .import tube_check_if_present
+
         .import filev_entry
         .import argsv_entry
         .import bgetv_entry
@@ -18,6 +23,8 @@
         .import gbpbv_entry
         .import findv_entry
         .import fscv_entry
+        .import vectors_table
+        .import extendedvectors_table
 
         .include "mos.inc"
         .include "fujinet.inc"
@@ -44,17 +51,20 @@ init_fuji:
 .ifdef FN_DEBUG
         jsr     print_string
         .byte   "Starting FujiNet", $0D
+        nop
 .endif
 
         ; Save current FSCV before we overwrite it
-        lda     FSCV
-        sta     aws_tmp02
-        lda     FSCV+1
-        sta     aws_tmp03
+        ; Use aws_tmp04/aws_tmp05 to avoid conflict with print_string
+        ; lda     FSCV
+        ; sta     aws_tmp04
+        ; lda     FSCV+1
+        ; sta     aws_tmp05
 
 .ifdef FN_DEBUG
         jsr     print_string
         .byte   "Calling old FSCV", $0D
+        nop
 .endif
 
         lda     #$06
@@ -76,12 +86,28 @@ init_fuji:
 .ifdef FN_DEBUG
         jsr     print_string
         .byte   "Vectors copied", $0D
+        nop
+        
+        ; Debug: Show what FSCV vector was installed
+        jsr     print_string
+        .byte   "FSCV vector: $"
+        nop
+        lda     $021F
+        jsr     print_hex
+        lda     $021E
+        jsr     print_hex
+        jsr     print_newline
 .endif
 
         lda     #$A8                  ; copy extended vectors
         jsr     osbyte_X0YFF
         sty     aws_tmp01
         stx     aws_tmp00
+
+.ifdef FN_DEBUG
+        jsr     print_string
+        .byte   "Got extended vector page", $0D
+.endif
 
         ldx     #$07
         ldy     #$1B
@@ -98,8 +124,14 @@ init_fuji:
         dex
         bne     @extendedvec_loop
 
+.ifdef FN_DEBUG
+        jsr     print_string
+        .byte   "Extended vectors copied", $0D
+.endif
+        ; X=0, Y=$30
+
         sty     CurrentCat            ; curdrvcat<>0
-        sty     CurrentDrv            ; TODO: why do we set this twice?
+        sty     CurrentCat+1          ; this has a "?"" in MMFS src... who knows why?
         stx     CurrentDrv            ; curdrv=0
         stx     MMC_STATE             ; Uninitialised
 
@@ -107,17 +139,67 @@ init_fuji:
         lda     #$8F
         jsr     OSBYTE
 
+.ifdef FN_DEBUG
+        jsr     print_string
+        .byte   "Vectors claimed", $0D
+        nop
+.endif
+
+        ; Select our filing system as active
+        lda     #$12                  ; Select filing system
+        ldy     #filesysno            ; Our filing system number
+        jsr     OSBYTE
+
+.ifdef FN_DEBUG
+        jsr     print_string
+        .byte   "Filing system selected", $0D
+        nop
+.endif
+
         ; If soft break and pws "full" and not booting a disk
         ; then copy pws to sws
         ; else reset fs to defaults.
 
+.ifdef FN_DEBUG
+        jsr     print_string
+        .byte   "Before workspace check", $0D
+        nop
+        jsr     dump_zp_workspace
+.endif
+
         jsr     set_private_workspace_pointer_b0
+
+.ifdef FN_DEBUG
+        jsr     print_string
+        .byte   "After set_private_workspace_pointer_b0", $0D
+        nop
+        jsr     dump_zp_workspace
+.endif
+
         ldy     #<ForceReset          ; D3
         lda     (aws_tmp00),y         ; A=PWSP+$D3 (-ve=soft break)
+
+.ifdef FN_DEBUG
+        jsr     print_string
+        .byte   "ForceReset value: "
+        nop
+        jsr     print_hex
+        jsr     print_newline
+.endif
+
         bpl     initdfs_reset         ; Branch if power up or hard break
 
         ldy     #<(ForceReset+1)      ; D4
         lda     (aws_tmp00),y         ; A=PWSP+$D4
+
+.ifdef FN_DEBUG
+        jsr     print_string
+        .byte   "ForceReset+1 value: "
+        nop
+        jsr     print_hex
+        jsr     print_newline
+.endif
+
         bmi     initdfs_noreset       ; Branch if PWSP "empty"
 
         jsr     claim_static_workspace
@@ -276,40 +358,3 @@ load_cur_drv_cat:
         ; TODO: Implement load current drive catalog
         rts
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; VECTOR TABLES
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-vectors_table:
-        ; Filing system vectors (14 bytes) - OS vector addresses
-        .word   $FF1B                 ; FILEV
-        .word   $FF1E                 ; ARGSV  
-        .word   $FF21                 ; BGETV
-        .word   $FF24                 ; BPUTV
-        .word   $FF27                 ; GBPBV
-        .word   $FF2A                 ; FINDV
-        .word   $FF2D                 ; FSCV
-
-extendedvectors_table:
-        ; Extended vectors (21 bytes = 7 entries * 3 bytes each)
-        ; Each entry: 2 bytes vector, 1 byte BRK
-        .word   filev_entry - 1       ; FILEV extended
-        .byte   $00                   ; BRK
-        
-        .word   argsv_entry - 1       ; ARGSV extended  
-        .byte   $00                   ; BRK
-        
-        .word   bgetv_entry - 1       ; BGETV extended
-        .byte   $00                   ; BRK
-        
-        .word   bputv_entry - 1       ; BPUTV extended
-        .byte   $00                   ; BRK
-        
-        .word   gbpbv_entry - 1       ; GBPBV extended
-        .byte   $00                   ; BRK
-        
-        .word   findv_entry - 1       ; FINDV extended
-        .byte   $00                   ; BRK
-        
-        .word   fscv_entry - 1        ; FSCV extended
-        .byte   $00                   ; BRK

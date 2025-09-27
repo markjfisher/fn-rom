@@ -13,6 +13,7 @@
 
 .ifdef FN_DEBUG
         .export  print_axy
+        .export  dump_zp_workspace
 .endif
 
         .import  a_rorx4
@@ -119,7 +120,7 @@ print_string:
         sta     cws_tmp7
         pla
         sta     cws_tmp8
-        lda     cws_tmp3
+        lda     aws_tmp03
         pha                             ; Save A & Y
         tya
         pha
@@ -251,5 +252,74 @@ print_axy:
         nop
 
         pla
+        rts
+
+; Dump ZP workspace areas (A8-CF) as a hex table
+; Format:    0  1  2  3  4  5  6  7
+;         A8: XX XX XX XX XX XX XX XX
+;         B0: XX XX XX XX XX XX XX XX
+;         B8: XX XX XX XX XX XX XX XX
+;         C0: XX XX XX XX XX XX XX XX
+;         C8: XX XX XX XX XX XX XX XX
+dump_zp_workspace:
+        pha
+        txa
+        pha
+        tya
+        pha
+
+        ; Print header row
+        jsr     print_string
+        .byte   "    0  1  2  3  4  5  6  7", $0D
+
+        ; Dump A8-AF
+        lda     #$A8
+        jsr     dump_hex_row
+
+        ; Dump B0-B7
+        lda     #$B0
+        jsr     dump_hex_row
+
+        ; Dump B8-BF
+        lda     #$B8
+        jsr     dump_hex_row
+
+        ; Dump C0-C7
+        lda     #$C0
+        jsr     dump_hex_row
+
+        ; Dump C8-CF
+        lda     #$C8
+        jsr     dump_hex_row
+
+        pla
+        tay
+        pla
+        tax
+        pla
+        rts
+
+; Dump 8 bytes starting from address in A
+; A = start address (e.g., $A8, $B0, etc.)
+dump_hex_row:
+        jsr     print_hex               ; Print row header (first nibble)
+        jsr     print_string
+        .byte   ": "
+        nop
+
+        ; the above leaves A correct
+        tay                             ; Use Y as offset from $A8
+        
+        ldx     #0                      ; Loop counter
+@loop:
+        lda     $A8,y                   ; Load byte using direct addressing
+        jsr     print_hex
+        jsr     print_space
+        iny                             ; Next byte
+        inx                             ; Increment counter
+        cpx     #8                      ; 8 bytes per row
+        bne     @loop
+        
+        jsr     print_newline
         rts
 .endif

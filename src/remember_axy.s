@@ -14,6 +14,7 @@
 
         .export remember_axy
         .export return_with_a0
+        .export rAXY_restore            ; useful for trace logging
 
         .segment "CODE"
 
@@ -37,21 +38,21 @@ remember_axy:
         ; recall of state after the wrapped function is called.
 
         ldy     #$05        
-rAXY_loop:
+@rAXY_loop:
         tsx                     ; Get current stack pointer
         lda     $0107,x         ; Read from stack area
         pha                     ; Push to stack (changes SP)
         dey
-        bne     rAXY_loop
+        bne     @rAXY_loop
         
         ; Now shift 10 bytes up the stack to get the shape we require
         ldy     #$0A
-rAXY_loop2:
+@rAXY_loop2:
         lda     $0109,x
         sta     $010B,x
         dex
         dey
-        bne     rAXY_loop2
+        bne     @rAXY_loop2
         ; last 2 bytes of stack after moving everything up by 2 need removing
         pla
         pla

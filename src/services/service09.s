@@ -80,6 +80,7 @@ service04_unrec_command:
 .ifdef FN_DEBUG
         jsr     print_string
         .byte   "D: service04", $0D
+        nop
 .endif
 
         ldx     #cmdtab_offset_fs        ; Start with file system commands
@@ -91,6 +92,7 @@ not_cmd_fs:
 .ifdef FN_DEBUG
         jsr     print_string
         .byte   "D: not_cmd_fs", $0D
+        nop
 .endif
 
 
@@ -101,6 +103,7 @@ not_cmd_fujifs:
 .ifdef FN_DEBUG
         jsr     print_string
         .byte   "D: not_cmd_fujifs", $0D
+        nop
 .endif
 
 
@@ -145,6 +148,7 @@ unrec_command_text_pointer:
 .ifdef FN_DEBUG
         jsr     print_string
         .byte   "D: unrec_tp", $0D
+        ; do 2 so the disassebler aligns
         nop
         nop
         jsr     print_axy

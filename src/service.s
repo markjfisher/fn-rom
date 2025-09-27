@@ -1,6 +1,7 @@
 ; Service call handler
 
         .export  handle_service
+        .export  service12_init_filesystem
 
         .import  service01_claim_absworkspace
         .import  service02_claim_privworkspace

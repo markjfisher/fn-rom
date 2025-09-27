@@ -13,13 +13,8 @@
         .export fuji_check_device_status
 
         .import print_string
-        .import print_hex
-        .import print_newline
         .import err_disk
-        .import err_bad
-        .import reset_leds
         .import remember_axy
-        .import a_rorx4
         .import fuji_read_block_data
         .import fuji_write_block_data
         .import fuji_read_catalogue_data

@@ -5,9 +5,17 @@
         .export argsv_entry
         .export bgetv_entry
         .export bputv_entry
-        .export gbpbv_entry  
+        .export gbpbv_entry
         .export findv_entry
         .export fscv_entry
+        .export close_all_files
+        .export close_files_yhandle
+        .export vectors_table
+        .export extendedvectors_table
+
+        .export fscv_os_about_to_proc_cmd
+        .export fscv5_starCAT
+        .export fscv_entry_jumping_to_function
 
         .import remember_axy
         .import print_string
@@ -83,22 +91,42 @@ bputv_entry:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 fscv_entry:
-        cmp     #$0C
-        bcs     @unknown_op
-        
 .ifdef FN_DEBUG
         jsr     remember_axy
+        jsr     print_string
+        .byte   "FSCV_ENTRY_CALLED "
+        nop
+        jsr     print_axy
+.endif
+
+        cmp     #$0C
+        bcs     unknown_op
+        stx     aws_tmp05              ; Save X
+.ifdef FN_DEBUG
         jsr     print_string
         .byte   "FSCV "
         nop
         jsr     print_axy
 .endif
+        tax
+        lda     fscv_table2,x         ; High byte first
+        pha
+        lda     fscv_table1,x         ; Low byte second
+        pha
+        txa
+        ldx     aws_tmp05             ; Restore X
 
-        ; For now, just return without doing anything
-        ; This prevents crashes but doesn't implement functionality
+fscv_entry_jumping_to_function:
         rts
 
-@unknown_op:
+unknown_op:
+.ifdef FN_DEBUG
+        jsr     remember_axy
+        jsr     print_string
+        .byte   "FSCV_UNKNOWN_OP "
+        nop
+        jsr     print_axy
+.endif
         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -158,10 +186,10 @@ fscv_table1:
         .byte   <(fscv_placeholder - 1)    ; 2: *RUN
         .byte   <(fscv_placeholder - 1)    ; 3: Unrecognized command
         .byte   <(fscv_placeholder - 1)    ; 4: *RUN
-        .byte   <(fscv_placeholder - 1)    ; 5: *CAT
+        .byte   <(fscv5_starCAT - 1)       ; 5: *CAT
         .byte   <(fscv_placeholder - 1)    ; 6: Shutdown filing system
         .byte   <(fscv_placeholder - 1)    ; 7: Handle range
-        .byte   <(fscv_placeholder - 1)    ; 8: OS about to process command
+        .byte   <(fscv_os_about_to_proc_cmd - 1)    ; 8: OS about to process command
         .byte   <(fscv_placeholder - 1)    ; 9: *EX
         .byte   <(fscv_placeholder - 1)    ; 10: *INFO
         .byte   <(fscv_placeholder - 1)    ; 11: *RUN
@@ -173,13 +201,49 @@ fscv_table2:
         .byte   >(fscv_placeholder - 1)    ; 2: *RUN
         .byte   >(fscv_placeholder - 1)    ; 3: Unrecognized command
         .byte   >(fscv_placeholder - 1)    ; 4: *RUN
-        .byte   >(fscv_placeholder - 1)    ; 5: *CAT
+        .byte   >(fscv5_starCAT - 1)       ; 5: *CAT
         .byte   >(fscv_placeholder - 1)    ; 6: Shutdown filing system
         .byte   >(fscv_placeholder - 1)    ; 7: Handle range
-        .byte   >(fscv_placeholder - 1)    ; 8: OS about to process command
+        .byte   >(fscv_os_about_to_proc_cmd - 1)    ; 8: OS about to process command
         .byte   >(fscv_placeholder - 1)    ; 9: *EX
         .byte   >(fscv_placeholder - 1)    ; 10: *INFO
         .byte   >(fscv_placeholder - 1)    ; 11: *RUN
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; FSCV5_STARCAT - Handle *CAT command
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+fscv5_starCAT:
+.ifdef FN_DEBUG
+        jsr     remember_axy
+        jsr     print_string
+        .byte   "FSCV5_STARCAT called", $0D
+        nop
+        jsr     print_axy
+.endif
+        ; TODO: Implement actual *CAT functionality
+        rts
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; fscv_os_about_to_proc_cmd - OS about to process command
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+fscv_os_about_to_proc_cmd:
+.ifdef FN_DEBUG
+        jsr     print_string
+        .byte   "FSCV8_OSABOUTTOPROCCMD called", $0D
+        nop
+.endif
+        ; Set CMDEnabledIf1 flag
+        bit     CMDEnabledIf1
+        bmi     @parameter_fsp
+        dec     CMDEnabledIf1
+@parameter_fsp:
+        lda     #$FF
+        sta     $10CE
+@param_out:
+        sta     $10CD
+        rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; FSCV_PLACEHOLDER - Placeholder for all FSCV operations
@@ -194,4 +258,59 @@ fscv_placeholder:
         jsr     print_axy
 .endif
         rts
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; FILE OPERATIONS
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+; Close all open files
+close_all_files:
+        ; TODO: Implement close all files
+        ; This should iterate through all open file handles and close them
+        rts
+
+; Close files by handle
+; Y = file handle to close
+close_files_yhandle:
+        ; TODO: Implement close files by handle
+        ; This should close the specific file handle in Y
+        rts
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; VECTOR TABLES
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+vectors_table:
+        ; Filing system vectors (14 bytes) - OS vector addresses
+        .word   $FF1B                 ; FILEV
+        .word   $FF1E                 ; ARGSV  
+        .word   $FF21                 ; BGETV
+        .word   $FF24                 ; BPUTV
+        .word   $FF27                 ; GBPBV
+        .word   $FF2A                 ; FINDV
+        .word   $FF2D                 ; FSCV
+
+extendedvectors_table:
+        ; Extended vectors (21 bytes = 7 entries * 3 bytes each)
+        ; Each entry: 2 bytes vector, 1 byte BRK
+        .word   filev_entry           ; FILEV extended
+        .byte   $00                   ; BRK
+        
+        .word   argsv_entry           ; ARGSV extended  
+        .byte   $00                   ; BRK
+        
+        .word   bgetv_entry           ; BGETV extended
+        .byte   $00                   ; BRK
+        
+        .word   bputv_entry           ; BPUTV extended
+        .byte   $00                   ; BRK
+        
+        .word   gbpbv_entry           ; GBPBV extended
+        .byte   $00                   ; BRK
+        
+        .word   findv_entry           ; FINDV extended
+        .byte   $00                   ; BRK
+        
+        .word   fscv_entry            ; FSCV extended
+        .byte   $00                   ; BRK
 
