@@ -24,6 +24,9 @@
         .import print_char
         .import print_hex
         .import print_newline
+        .import fscv10_starINFO
+        .import unrec_command_text_pointer
+        .import fscv3_unreccommand
 
         .include "fujinet.inc"
 
@@ -188,14 +191,14 @@ fscv_table1:
         .byte   <(fscv_placeholder - 1)    ; 0: *OPT
         .byte   <(fscv_placeholder - 1)    ; 1: EOF Y handler
         .byte   <(fscv_placeholder - 1)    ; 2: *RUN
-        .byte   <(fscv_placeholder - 1)    ; 3: Unrecognized command
+        .byte   <(fscv3_unreccommand - 1)  ; 3: Unrecognized command
         .byte   <(fscv_placeholder - 1)    ; 4: *RUN
         .byte   <(fscv5_starCAT - 1)       ; 5: *CAT
         .byte   <(fscv_placeholder - 1)    ; 6: Shutdown filing system
         .byte   <(fscv_placeholder - 1)    ; 7: Handle range
         .byte   <(fscv_os_about_to_proc_cmd - 1)    ; 8: OS about to process command
         .byte   <(fscv_placeholder - 1)    ; 9: *EX
-        .byte   <(fscv_placeholder - 1)    ; 10: *INFO
+        .byte   <(fscv10_starINFO - 1)     ; 10: *INFO
         .byte   <(fscv_placeholder - 1)    ; 11: *RUN
 
 fscv_table2:
@@ -203,14 +206,14 @@ fscv_table2:
         .byte   >(fscv_placeholder - 1)    ; 0: *OPT
         .byte   >(fscv_placeholder - 1)    ; 1: EOF Y handler
         .byte   >(fscv_placeholder - 1)    ; 2: *RUN
-        .byte   >(fscv_placeholder - 1)    ; 3: Unrecognized command
+        .byte   >(fscv3_unreccommand - 1)  ; 3: Unrecognized command
         .byte   >(fscv_placeholder - 1)    ; 4: *RUN
         .byte   >(fscv5_starCAT - 1)       ; 5: *CAT
         .byte   >(fscv_placeholder - 1)    ; 6: Shutdown filing system
         .byte   >(fscv_placeholder - 1)    ; 7: Handle range
         .byte   >(fscv_os_about_to_proc_cmd - 1)    ; 8: OS about to process command
         .byte   >(fscv_placeholder - 1)    ; 9: *EX
-        .byte   >(fscv_placeholder - 1)    ; 10: *INFO
+        .byte   >(fscv10_starINFO - 1)     ; 10: *INFO
         .byte   >(fscv_placeholder - 1)    ; 11: *RUN
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

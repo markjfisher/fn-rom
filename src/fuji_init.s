@@ -1,7 +1,6 @@
 ; FujiNet file system initialization
 ; Translated from MMFS mmfs100.asm lines 2943-3139
 
-        .export cmd_fs_fuji
         .export init_fuji
         .export set_private_workspace_pointer_b0
 
@@ -38,11 +37,8 @@ BootOptions:
         .byte   "E.!BOOT", $0D
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; CMD_FS_FUJI - Initialize FujiNet file system
+; INIT_FUJI - Initialize FujiNet file system
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-cmd_fs_fuji:
-        lda     #$FF
 
 init_fuji:
         jsr     return_with_a0        ; On entry: if A=0 then boot file
@@ -54,26 +50,8 @@ init_fuji:
         nop
 .endif
 
-        ; Save current FSCV before we overwrite it
-        ; Use aws_tmp04/aws_tmp05 to avoid conflict with print_string
-        ; lda     FSCV
-        ; sta     aws_tmp04
-        ; lda     FSCV+1
-        ; sta     aws_tmp05
-
-.ifdef FN_DEBUG
-        jsr     print_string
-        .byte   "Calling old FSCV", $0D
-        nop
-.endif
-
         lda     #$06
         jsr     go_fscv               ; new filing system
-
-.ifdef FN_DEBUG
-        jsr     print_string
-        .byte   "Copying vectors", $0D
-.endif
 
         ; Copy vectors/extended vectors
         ldx     #$0D                  ; copy vectors
@@ -83,31 +61,10 @@ init_fuji:
         dex
         bpl     @vect_loop
 
-.ifdef FN_DEBUG
-        jsr     print_string
-        .byte   "Vectors copied", $0D
-        nop
-        
-        ; Debug: Show what FSCV vector was installed
-        jsr     print_string
-        .byte   "FSCV vector: $"
-        nop
-        lda     $021F
-        jsr     print_hex
-        lda     $021E
-        jsr     print_hex
-        jsr     print_newline
-.endif
-
         lda     #$A8                  ; copy extended vectors
         jsr     osbyte_X0YFF
         sty     aws_tmp01
         stx     aws_tmp00
-
-.ifdef FN_DEBUG
-        jsr     print_string
-        .byte   "Got extended vector page", $0D
-.endif
 
         ldx     #$07
         ldy     #$1B
@@ -124,12 +81,7 @@ init_fuji:
         dex
         bne     @extendedvec_loop
 
-.ifdef FN_DEBUG
-        jsr     print_string
-        .byte   "Extended vectors copied", $0D
-.endif
         ; X=0, Y=$30
-
         sty     CurrentCat            ; curdrvcat<>0
         sty     CurrentCat+1          ; this has a "?"" in MMFS src... who knows why?
         stx     CurrentDrv            ; curdrv=0
@@ -138,12 +90,6 @@ init_fuji:
         ldx     #$0F                  ; vectors claimed!
         lda     #$8F
         jsr     OSBYTE
-
-.ifdef FN_DEBUG
-        jsr     print_string
-        .byte   "Vectors claimed", $0D
-        nop
-.endif
 
         ; Select our filing system as active
         lda     #$12                  ; Select filing system
@@ -160,45 +106,29 @@ init_fuji:
         ; then copy pws to sws
         ; else reset fs to defaults.
 
-.ifdef FN_DEBUG
-        jsr     print_string
-        .byte   "Before workspace check", $0D
-        nop
-        jsr     dump_zp_workspace
-.endif
+; .ifdef FN_DEBUG
+;         jsr     print_string
+;         .byte   "Before workspace check", $0D
+;         nop
+;         jsr     dump_zp_workspace
+; .endif
 
         jsr     set_private_workspace_pointer_b0
 
-.ifdef FN_DEBUG
-        jsr     print_string
-        .byte   "After set_private_workspace_pointer_b0", $0D
-        nop
-        jsr     dump_zp_workspace
-.endif
+; .ifdef FN_DEBUG
+;         jsr     print_string
+;         .byte   "After set_private_workspace_pointer_b0", $0D
+;         nop
+;         jsr     dump_zp_workspace
+; .endif
 
         ldy     #<ForceReset          ; D3
         lda     (aws_tmp00),y         ; A=PWSP+$D3 (-ve=soft break)
-
-.ifdef FN_DEBUG
-        jsr     print_string
-        .byte   "ForceReset value: "
-        nop
-        jsr     print_hex
-        jsr     print_newline
-.endif
 
         bpl     initdfs_reset         ; Branch if power up or hard break
 
         ldy     #<(ForceReset+1)      ; D4
         lda     (aws_tmp00),y         ; A=PWSP+$D4
-
-.ifdef FN_DEBUG
-        jsr     print_string
-        .byte   "ForceReset+1 value: "
-        nop
-        jsr     print_hex
-        jsr     print_newline
-.endif
 
         bmi     initdfs_noreset       ; Branch if PWSP "empty"
 

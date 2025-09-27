@@ -1,8 +1,5 @@
 ; Service call 09 - Help and Service call 04 - Unrecognized Command
         .export fscv3_unreccommand
-        .export not_cmd_fs
-        .export not_cmd_fujifs
-        .export not_cmd_help
         .export service04_unrec_command
         .export service09_help
         .export unrec_command_text_pointer
@@ -88,24 +85,8 @@ service04_unrec_command:
 check_command:
         jmp     unrec_command_text_pointer
 
-not_cmd_fs:
-.ifdef FN_DEBUG
-        jsr     print_string
-        .byte   "D: not_cmd_fs", $0D
-        nop
-.endif
-
-
         ldx     #cmdtab_offset_utils     ; Try UTILS commands
         bne     check_command
-
-not_cmd_fujifs:
-.ifdef FN_DEBUG
-        jsr     print_string
-        .byte   "D: not_cmd_fujifs", $0D
-        nop
-.endif
-
 
         ldx     #cmdtab_offset_futils    ; Try FUTILS commands
         jsr     GSINIT_A
@@ -116,16 +97,6 @@ not_cmd_fujifs:
         beq     unrec_command_text_pointer
         dey
         jmp     not_cmd_futils
-
-not_cmd_help:
-.ifdef FN_DEBUG
-        jsr     print_string
-        .byte   "D: not_cmd_help", $0D
-        nop
-.endif
-        jsr     GSINIT_A
-        bne     @cmd_not_help_loop
-        rts
 
 @cmd_not_help_loop:
         jsr     GSREAD_A
