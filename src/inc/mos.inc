@@ -81,6 +81,7 @@ PagedROM_PrivWorkspaces         = $0DF0
 
 FSCV                = $021E
 
+DirectoryParam      = $CC
 CurrentDrv          = $CD
 CurrentCat          = $1082
 

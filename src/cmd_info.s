@@ -3,19 +3,19 @@
 
         .export fscv10_starINFO
         .export cmd_fs_info
-        .export print_filename_yoffset
-        .export print_info_line_yoffset
+        ; .export print_filename_yoffset
+        ; .export print_info_line_yoffset
 
 
-        .import print_string
+        .import fuji_read_catalog
+        .import print_2_spaces_spl
         .import print_axy
-        .import remember_axy
         .import print_char
         .import print_fullstop
         .import print_hex
-        .import print_newline
-        .import print_space
-        .import fuji_read_catalog
+        .import print_space_spl
+        .import print_string
+        .import remember_axy
 
         .include "fujinet.inc"
 
@@ -28,20 +28,19 @@
 
 fscv10_starINFO:
 .ifdef FN_DEBUG
-        jsr     remember_axy
         jsr     print_string
         .byte   "FSCV10_STARINFO called", $0D
         nop
         jsr     print_axy
 .endif
-        
+
         ; Set up text pointer and command index (following MMFS pattern)
         ; TODO: Implement SetTextPointerYX equivalent
         ; For now, just set up the command index
         lda     #$01                    ; INFO command index in cmd_table_fujifs
         sta     aws_tmp00               ; Store command index for CMD_INFO
-        
-        ; Fall through to CMD_INFO implementation (no JMP needed!)
+
+        ; Fall through
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; CMD_FS_INFO - Handle *INFO command
@@ -52,276 +51,323 @@ fscv10_starINFO:
 
 cmd_fs_info:
 .ifdef FN_DEBUG
-        jsr     remember_axy
         jsr     print_string
         .byte   "CMD_FS_INFO called", $0D
         nop
         jsr     print_axy
-.endif
-        
+.endif  
         ; Load catalog first
         jsr     fuji_read_catalog
-        
-        ; Parse command line for specific filename
-        jsr     parse_filename_from_command_line
-        
-        ; If no filename specified, show all files
-        lda     aws_tmp00               ; Check if filename was found
-        beq     @show_all_files
-        
-        ; Find and show specific file
-        jsr     find_file_by_name
-        bcc     @file_found
-        jsr     print_string
-        .byte   "File not found", $0D
-        nop
+
+        ; Direct translation of MMFS CMD_INFO (lines 664-670)
+        jsr     parameter_afsp_param_syntaxerrorifnull_getcatentry_fsptxtp
+
+@cmd_info_loop:
+        jsr     prt_infoline_yoffset
+        jsr     get_cat_nextentry
+        bcs     @cmd_info_loop
         rts
-        
-@file_found:
-        ; Y now contains the offset to the file entry
-        jsr     print_info_line_yoffset
-        jsr     print_newline
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; MMFS TRANSLATION FUNCTIONS
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+; parameter_afsp_Param_SyntaxErrorIfNull_getcatentry_fspTxtP
+; Direct translation of MMFS line 620-630
+parameter_afsp_param_syntaxerrorifnull_getcatentry_fsptxtp:
+        jsr     parameter_afsp
+        jsr     param_syntaxerrorifnull
+        jsr     read_fsptextpointer
+        bmi     getcatentry             ; always
         rts
-        
-@show_all_files:
-        ; Show all files
-        ldy     #$00                    ; Start with first file
-        
-@info_loop:
-        cpy     FilesX8                 ; Check if we've processed all files
-        bcs     @done
-        
-        ; Print info for this file
-        jsr     print_info_line_yoffset
-        
-@next_file:
-        ; Move to next file (8 bytes per entry)
-        tya
-        clc
+
+getcatentry:
+        jsr     get_cat_firstentry80
+        rts
+
+; get_cat_firstentry80 (MMFS line 672-676)
+get_cat_firstentry80:
+        jsr     checkcurdrvcat          ; Get cat entry
+        ldx     #$00                    ; now first byte @ &1000+X
+        beq     getcatentry2            ; always
+
+; get_cat_nextentry (MMFS line 678-680)
+get_cat_nextentry:
+        ldx     #$00                    ; Entry: wrd &B6 -> first entry
+        beq     getcatsetupb7           ; always
+
+getcatentry2:
+        lda     #$00                    ; word &B6 = &E00 = PTR
+        sta     aws_tmp02               ; &B6 -> aws_tmp02
+getcatsetupb7:
+        lda     #$0E                    ; string at &E00+A
+        sta     aws_tmp03               ; &B7 -> aws_tmp03
+getcatloop2:
+        ldy     #$00
+        lda     aws_tmp02               ; &B6
+        cmp     FilesX8                 ; ( MA+&F05) number of files *8
+        bcs     matfn_exitc0            ; If >FilesX8 Exit with C=0
         adc     #$08
-        tay
-        jmp     @info_loop
-        
-@done:
-        jsr     print_newline
+        sta     aws_tmp02               ; word &B6 += 8
+        jsr     matchfilename
+        bcc     getcatloop2             ; not a match, try next file
+        lda     DirectoryParam
+        ldy     #$07
+        jsr     matchchr
+        bne     getcatloop2             ; If directory doesn't match
+        ldy     aws_tmp02               ; &B6
+        sec                             ; Return, Y=offset-8, C=1
+        jmp     y_sub8
+
+; Y_sub8 (MMFS line 715-723)
+y_sub8:
+        dey
+        dey
+        dey
+        dey
+        dey
+        dey
+        dey
+        dey
         rts
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; PRINT_INFO_LINE_YOFFSET - Print one line of file info
-; Y = catalog offset for file entry
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; MatchFilename (MMFS line 728-756)
+matchfilename:
+        jsr     remember_axy            ; Match filename at &1000+X
+matfn_loop1:
+        lda     $1000,x                 ; with that at (&B6)
+        cmp     $10CE                   ; wildcard character
+        bne     matfn_nomatch           ; e.g. If="*"
+        inx
+matfn_loop2:
+        jsr     matchfilename
+        bcs     matfn_exit              ; If match then exit with C=1
+        iny
+        cpy     #$07
+        bcc     matfn_loop2             ; If Y<7
+matfn_loop3:
+        lda     $1000,x                 ; Check next char is a space!
+        cmp     #$20
+        bne     matfn_exitc0            ; If exit with c=0 (no match)
+        rts                             ; exit with C=1
 
-print_info_line_yoffset:
-        jsr     remember_axy
-        
-        ; Print filename with directory and lock status
-        jsr     print_filename_yoffset
-        
-        ; Save Y offset
-        tya
+matfn_nomatch:
+        cpy     #$07
+        bcs     matfn_loop3             ; If Y>=7
+        jsr     matchchr
+        bne     matfn_exitc0
+        inx
+        iny
+        bne     matfn_loop1             ; next chr
+
+matfn_exitc0:
+        clc                             ; exit with C=0
+matfn_exit:
+        rts
+
+; MatchChr (MMFS line 762-776)
+matchchr:
+        cmp     $10CE                   ; wildcard character
+        beq     matchr_exit             ; eg. If "*"
+        cmp     $10CD                   ; wildcard character
+        beq     matchr_exit             ; eg. If "#"
+        jsr     isalphachar
+        eor     (aws_tmp02),y           ; (&B6),Y
+        bcs     matchr_notalpha         ; IF not alpha char
+        and     #$5F
+matchr_notalpha:
+        and     #$7F
+matchr_exit:
+        rts                             ; If n=1 then matched
+
+; IsAlphaChar (MMFS line 808-821)
+isalphachar:
         pha
-        
-        ; Print "  " (two spaces)
-        jsr     print_space
-        
-        ; Read mixed byte (offset 106) for high bits
-        lda     $0F0E,y                 ; Mixed byte (offset 106)
-        pha                             ; Save for later use
-        
-        ; Extract load address high bits (b3-b2)
-        and     #$0C                    ; Mask b3-b2
-        lsr                             ; Shift to b1-b0
-        lsr
-        sta     aws_tmp00               ; Store load address b17-b16
-        
-        ; Print load address (3 bytes) - MMFS style
-        lda     aws_tmp00               ; Load address b17-b16
-        cmp     #$03                    ; Check if high bits = 3
-        bne     @load_not_host
-        lda     #$FF                    ; If high bits = 3, use FF
-        jsr     print_hex
-        bne     @load_skip_high_bits
-@load_not_host:
-        lda     aws_tmp00               ; Load address b17-b16
-        jsr     print_hex
-@load_skip_high_bits:
-        lda     $0F09,y                 ; Load address high byte (b15-b8)
-        jsr     print_hex
-        lda     $0F08,y                 ; Load address low byte (b7-b0)
-        jsr     print_hex
-        
-        ; Print space
-        lda     #' '
-        jsr     print_char
-        
-        ; Extract exec address high bits (b7-b6)
-        pla                             ; Restore mixed byte
-        pha                             ; Save again
-        and     #$C0                    ; Mask b7-b6
-        lsr                             ; Shift to b5-b4
-        lsr
-        lsr
-        lsr
-        lsr
-        lsr
-        sta     aws_tmp01               ; Store exec address b17-b16
-        
-        ; Print exec address (3 bytes) - MMFS style
-        lda     aws_tmp01               ; Exec address b17-b16
-        cmp     #$03                    ; Check if high bits = 3
-        bne     @exec_not_host
-        lda     #$FF                    ; If high bits = 3, use FF
-        jsr     print_hex
-        jmp     @exec_skip_high_bits
-@exec_not_host:
-        lda     aws_tmp01               ; Exec address b17-b16
-        jsr     print_hex
-@exec_skip_high_bits:
-        lda     $0F0B,y                 ; Exec address high byte (b15-b8)
-        jsr     print_hex
-        lda     $0F0A,y                 ; Exec address low byte (b7-b0)
-        jsr     print_hex
-        
-        ; Print space
-        lda     #' '
-        jsr     print_char
-        
-        ; Extract file length high bits (b5-b4)
-        pla                             ; Restore mixed byte
-        pha                             ; Save again
-        and     #$30                    ; Mask b5-b4
-        lsr                             ; Shift to b3-b2
-        lsr
-        lsr
-        lsr
-        sta     aws_tmp02               ; Store file length b17-b16
-        
-        ; Print file length (3 bytes) - MMFS style
-        lda     aws_tmp02               ; File length b17-b16
-        cmp     #$03                    ; Check if high bits = 3
-        bne     @length_not_host
-        lda     #$FF                    ; If high bits = 3, use FF
-        jsr     print_hex
-        jmp     @length_skip_high_bits
-@length_not_host:
-        lda     aws_tmp02               ; File length b17-b16
-        jsr     print_hex
-@length_skip_high_bits:
-        lda     $0F0D,y                 ; File length high byte (b15-b8)
-        jsr     print_hex
-        lda     $0F0C,y                 ; File length low byte (b7-b0)
-        jsr     print_hex
-        
-        ; Print space
-        lda     #' '
-        jsr     print_char
-        
-        ; Extract start sector high bits (b1-b0) and combine with low byte
-        pla                             ; Restore mixed byte
-        and     #$03                    ; Mask b1-b0 (start sector b9-b8)
-        sta     aws_tmp03               ; Store start sector b9-b8
-        lda     $0F0F,y                 ; Start sector b7-b0
-        sta     aws_tmp04               ; Store start sector b7-b0
-        
-        ; Print start sector (2 bytes) - 10-bit value
-        lda     aws_tmp03               ; Start sector b9-b8
-        jsr     print_hex
-        lda     aws_tmp04               ; Start sector b7-b0
-        jsr     print_hex
-        
-        ; Restore Y offset
+        and     #$5F                    ; Uppercase
+        cmp     #$41
+        bcc     isalpha1                ; If <"A"
+        cmp     #$5B
+        bcc     isalpha2                ; If <="Z"
+isalpha1:
+        sec
+isalpha2:
+        pla
+        rts
+
+; prt_InfoLine_Yoffset (MMFS line 826-855)
+prt_infoline_yoffset:
+        jsr     remember_axy            ; Print info
+        jsr     prt_filename_yoffset
+        tya                             ; Save offset
+        pha
+        lda     #$60                    ; word &B0=1060
+        sta     aws_tmp00               ; &B0 -> aws_tmp00
+        lda     #$10
+        sta     aws_tmp01               ; &B1 -> aws_tmp01
+        jsr     readfileattribstob0_yoffset ; create no. str
+        ldy     #$02
+        jsr     print_space_spl              ; print " " (one space)
+        jsr     printhex3byte           ; Load address
+        jsr     printhex3byte           ; Exec address
+        jsr     printhex3byte           ; Length
         pla
         tay
-        
-        ; Print newline
-        jsr     print_newline
+        lda     $0F0E,y                 ; First sector high bits
+        and     #$03
+        jsr     printnibble
+        lda     $0F0F,y                 ; First sector low byte
+        jsr     print_hex
+        jmp     printnewline
+
+; PrintHex3Byte (MMFS line 857-868)
+printhex3byte:
+        ldx     #$03                    ; eg print "123456 "
+printhex3byte_loop:
+        lda     $1062,y
+        jsr     print_hex
+        dey
+        dex
+        bne     printhex3byte_loop
+        jsr     y_add7
+        jmp     print_2_spaces_spl
+
+; ReadFileAttribsToB0_Yoffset (MMFS line 872-932)
+readfileattribstob0_yoffset:
+        jsr     remember_axy            ; Decode file attribs
+        tya
+        pha                             ; bytes 2-11
+        tax                             ; X=cat offset
+        ldy     #$12                    ; Y=(B0) offset
+        lda     #$00                    ; Clear pwsp+2 to pwsp+&11
+readfileattribs_clearloop:
+        dey
+        sta     (aws_tmp00),y           ; (&B0),Y
+        cpy     #$02
+        bne     readfileattribs_clearloop
+readfileattribs_copyloop:
+        jsr     readfileattribs_copy2bytes ; copy low bytes of
+        iny                             ; load/exec/length
+        iny
+        cpy     #$0E
+        bne     readfileattribs_copyloop
+        pla
+        tax
+        lda     $0E0F,x
+        bpl     readfileattribs_notlocked ; If not locked
+        lda     #$08
+        sta     (aws_tmp00),y           ; pwsp+&E=8
+readfileattribs_notlocked:
+        lda     $0F0E,x                 ; mixed byte
+        ldy     #$04                    ; load address high bytes
+        jsr     readfileattribs_addrhbytes
+        ldy     #$0C                    ; file length high bytes
+        lsr
+        lsr
+        pha
+        and     #$03
+        sta     (aws_tmp00),y
+        pla
+        ldy     #$08                    ; exec address high bytes
+readfileattribs_addrhbytes:
+        lsr
+        lsr                             ; /4
+        pha
+        and     #$03
+        cmp     #$03                    ; done slightly diff. to 8271
+        bne     readfileattribs_nothost
+        lda     #$FF
+        sta     (aws_tmp00),y
+        iny
+readfileattribs_nothost:
+        sta     (aws_tmp00),y
+readfileattribs_exits:
+        pla
+        rts
+readfileattribs_copy2bytes:
+        jsr     readfileattribs_copy1byte
+readfileattribs_copy1byte:
+        lda     $0F08,x
+        sta     (aws_tmp00),y
+        inx
+        iny
         rts
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; PARSE_FILENAME_FROM_COMMAND_LINE - Parse filename from command line
-; Returns: aws_tmp00 = 0 if no filename, 1 if filename found
-;          aws_tmp01-aws_tmp07 = filename (up to 7 chars)
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-parse_filename_from_command_line:
-        ; For now, just return 0 (no filename)
-        ; TODO: Implement proper command line parsing
-        lda     #$00
-        sta     aws_tmp00
+; Helper functions needed by MMFS translation
+parameter_afsp:
+        ; TODO: Implement parameter parsing
         rts
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; FIND_FILE_BY_NAME - Find file by name in catalog
-; Input: aws_tmp01-aws_tmp07 = filename to find
-; Returns: C=1 if not found, C=0 if found (Y = file entry offset)
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-find_file_by_name:
-        ; For now, just return not found
-        ; TODO: Implement file name matching
-        sec
+param_syntaxerrorifnull:
+        ; TODO: Implement syntax error checking
         rts
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; PRINT_FILENAME_YOFFSET - Print filename with directory and lock status
-; Y = catalog offset for file entry
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+read_fsptextpointer:
+        ; TODO: Implement text pointer reading
+        lda     #$FF                    ; Set negative flag
+        rts
 
-print_filename_yoffset:
-        jsr     remember_axy
-        
-        ; Y is the offset into the file details (starting at $0F08)
-        ; We need to convert this to filename offset (starting at $0E08)
-        ; File details start at offset 264, filename entries start at offset 8
-        ; Both use the same indexing: Y=0 for file 0, Y=8 for file 1, etc.
-        ; So filename offset = Y + 8
+checkcurdrvcat:
+        ; TODO: Implement current drive catalog check
+        rts
+
+
+y_add7:
+        ; Add 7 to Y
         tya
         clc
-        adc     #$08                    ; Add 8 to get filename offset
+        adc     #$07
         tay
-        
-        ; Check directory character (byte 7 of filename entry)
-        lda     $0E07,y                 ; Directory byte (offset 7 within filename entry)
-        pha                             ; Save for lock status check
-        and     #$7F                    ; Remove lock bit
-        bne     @print_dir              ; If directory != 0, print it
-        
-        ; No directory, print "  "
-        jsr     print_space
-        jsr     print_space
-        bne     @print_name             ; A is ' '
+        rts
 
-@print_dir:
-        ; Print directory character
+printnibble:
+        ; Print single hex nibble
+        and     #$0F
+        cmp     #$0A
+        bcc     @digit
+        adc     #$06
+@digit:
+        adc     #$30
         jsr     print_char
-        jsr     print_fullstop
-        
-@print_name:
-        ; Print filename (7 bytes) - Y is now at start of filename entry
-        ldx     #$06                    ; 7 characters (0-6)
-@name_loop:
-        lda     $0E00,y                 ; Filename byte
+        rts
+
+printnewline:
+        ; Print newline
+        lda     #$0D
+        jsr     print_char
+        rts
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; MISSING FUNCTIONS NEEDED BY MMFS TRANSLATION
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+; prt_filename_yoffset - Print filename with directory and lock status
+; Direct translation of MMFS prt_filename_Yoffset (lines 551-580)
+prt_filename_yoffset:
+        jsr     remember_axy
+        lda     $0E0F,y                 ; Directory byte
+        php                             ; Save flags (including lock bit)
+        and     #$7F                    ; Remove lock bit, keep directory
+        bne     @prt_filename_prtchr    ; If directory != 0, print it
+        jsr     print_2_spaces_spl           ; Print "  " (two spaces)
+        beq     @prt_filename_nodir     ; always
+@prt_filename_prtchr:
+        jsr     print_char              ; Print directory character
+        jsr     print_fullstop          ; Print "."
+@prt_filename_nodir:
+        ldx     #$06                    ; Print filename (7 characters)
+@prt_filename_loop:
+        lda     $0E08,y                 ; Filename byte
+        and     #$7F                    ; Remove high bit
         jsr     print_char
         iny
         dex
-        bpl     @name_loop
-        
-        ; Print "  " (two spaces)
-        jsr     print_space
-        jsr     print_space
-        
-        ; Check lock status
-        pla                             ; Restore directory byte
-        bpl     @not_locked             ; If bit 7 clear, not locked
-        ; File is locked, print "L"
-        lda     #'L'
-        jsr     print_char
-        bne     @done
-        
-@not_locked:
-        ; File not locked, print " "
-        jsr     print_space
-        
-@done:
+        bpl     @prt_filename_loop
+        jsr     print_2_spaces_spl           ; Print "  " (two spaces)
+        lda     #' '                    ; Default to space
+        plp                             ; Restore flags
+        bpl     @prt_filename_notlocked ; If not locked, print space
+        lda     #'L'                    ; If locked, print "L"
+@prt_filename_notlocked:
+        jsr     print_char              ; Print "L" or " "
         ldy     #$01                    ; Restore Y to start of file entry
         rts

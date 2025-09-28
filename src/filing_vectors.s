@@ -39,7 +39,6 @@
 
 filev_entry:
 .ifdef FN_DEBUG
-        jsr     remember_axy
         jsr     print_string
         .byte   "FILEV "
         nop
@@ -54,7 +53,6 @@ filev_entry:
 
 argsv_entry:
 .ifdef FN_DEBUG
-        jsr     remember_axy
         jsr     print_string
         .byte   "ARGSV "
         nop
@@ -69,7 +67,6 @@ argsv_entry:
 
 bgetv_entry:
 .ifdef FN_DEBUG
-        jsr     remember_axy
         jsr     print_string
         .byte   "BGETV "
         nop
@@ -84,7 +81,6 @@ bgetv_entry:
 
 bputv_entry:
 .ifdef FN_DEBUG
-        jsr     remember_axy
         jsr     print_string
         .byte   "BPUTV "
         nop
@@ -99,7 +95,6 @@ bputv_entry:
 
 fscv_entry:
 .ifdef FN_DEBUG
-        jsr     remember_axy
         jsr     print_string
         .byte   "FSCV_ENTRY_CALLED "
         nop
@@ -128,7 +123,6 @@ fscv_entry_jumping_to_function:
 
 unknown_op:
 .ifdef FN_DEBUG
-        jsr     remember_axy
         jsr     print_string
         .byte   "FSCV_UNKNOWN_OP "
         nop
@@ -146,7 +140,6 @@ gbpbv_entry:
         bcs     @unknown_op
         
 .ifdef FN_DEBUG
-        jsr     remember_axy
         jsr     print_string
         .byte   "GBPBV "
         nop
@@ -172,7 +165,6 @@ gbpbv_entry:
 
 findv_entry:
 .ifdef FN_DEBUG
-        jsr     remember_axy
         jsr     print_string
         .byte   "FINDV "
         nop
@@ -222,7 +214,6 @@ fscv_table2:
 
 fscv5_starCAT:
 .ifdef FN_DEBUG
-        jsr     remember_axy
         jsr     print_string
         .byte   "FSCV5_STARCAT called", $0D
         nop
@@ -264,7 +255,6 @@ fscv_os_about_to_proc_cmd:
 
 fscv_placeholder:
 .ifdef FN_DEBUG
-        jsr     remember_axy
         jsr     print_string
         .byte   "FSCV_PLACEHOLDER "
         nop

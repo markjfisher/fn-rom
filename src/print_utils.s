@@ -8,6 +8,8 @@
         .export  print_nibble
         .export  print_nib_fullstop
         .export  print_space
+        .export  print_space_spl
+        .export  print_2_spaces_spl
         .export  print_string
         .export  print_string_ax
 
@@ -176,6 +178,19 @@ inc_cws0708_and_load:
         lda     (cws_tmp7),y
         rts
 
+print_2_spaces_spl:
+        ; Print two spaces (MMFS Print2SpacesSPL style)
+        jsr     print_space_spl
+print_space_spl:
+        ; Print single space using OSWRCH (MMFS PrintSpaceSPL style)
+        pha                             ; Save A
+        lda     #$20                    ; Space character
+        jsr     OSWRCH                  ; Direct output, no spool manipulation
+        pla                             ; Restore A
+        clc                             ; C=0
+        rts
+
+
 print_space:
         lda     #' '
         bne     print_char
@@ -198,7 +213,7 @@ print_char:
         pha
         ora     #$10                ; Force bit 4 (disable spooled output)
         tax
-        jsr     osbyte03_Xoutstream ; Disable spooled output
+        jsr     @osbyte03_Xoutstream ; Disable spooled output
 
         pla
         tax
@@ -206,7 +221,7 @@ print_char:
         jsr     OSASCI              ; Output character
         ; Restore previous setting, ... fall through
 
-osbyte03_Xoutstream:
+@osbyte03_Xoutstream:
         lda     #3
         jmp     OSBYTE
 
