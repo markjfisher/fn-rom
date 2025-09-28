@@ -34,13 +34,13 @@ dummy_catalogue:
         .byte "TESTDISC"
 
         ; File entry 1 (bytes 8-15): Filename + directory
-        .byte "HELLO  ", $00  ; Filename (7 bytes) + directory (1 byte)
+        .byte "HELLO  ", $24  ; Filename (7 bytes) + directory "$" (unlocked)
 
         ; File entry 2 (bytes 16-23): Filename + directory
-        .byte "WORLD  ", $00  ; Filename (7 bytes) + directory (1 byte)
+        .byte "WORLD  ", $A4  ; Filename (7 bytes) + directory "$" (locked - high bit set)
 
         ; File entry 3 (bytes 24-31): Filename + directory
-        .byte "TEST   ", $00  ; Filename (7 bytes) + directory (1 byte)
+        .byte "TEST   ", $24  ; Filename (7 bytes) + directory "$" (unlocked)
 
         ; Fill rest of sector 0 with zeros
         .res 256 - (* - dummy_catalogue), $00
@@ -55,23 +55,23 @@ dummy_catalogue:
 
         ; File entry 1 (bytes 264-271): HELLO - File details
         .byte $00, $19   ; Load address (bytes 264-265) = $1900
-        .byte $00, $19   ; Exec address (bytes 266-267) = $1900
+        .byte $00, $1A   ; Exec address (bytes 266-267) = $1A00
         .byte $20, $00   ; File length (bytes 268-269) = 32 bytes
-        .byte $00        ; Extended attributes (byte 270) = $00
+        .byte $CC        ; Mixed byte (byte 270) - load=3, exec=3, length=3, sector=0
         .byte $04        ; Start sector (byte 271) = sector 4
 
         ; File entry 2 (bytes 272-279): WORLD - File details  
-        .byte $00, $19   ; Load address = $1900
-        .byte $00, $19   ; Exec address = $1900
+        .byte $00, $1B   ; Load address = $1B00
+        .byte $00, $1C   ; Exec address = $1C00
         .byte $30, $00   ; File length = 48 bytes
-        .byte $00        ; Extended attributes = $00
+        .byte $00        ; Mixed byte - all high bits = 0
         .byte $03        ; Start sector = sector 3
 
         ; File entry 3 (bytes 280-287): TEST - File details
-        .byte $00, $19   ; Load address = $1900
-        .byte $00, $19   ; Exec address = $1900
+        .byte $00, $1D   ; Load address = $1D00
+        .byte $00, $1E   ; Exec address = $1E00
         .byte $10, $00   ; File length = 16 bytes
-        .byte $00        ; Extended attributes = $00
+        .byte $00        ; Mixed byte - all high bits = 0
         .byte $02        ; Start sector = sector 2
 
         ; Fill rest of sector 1 with zeros
