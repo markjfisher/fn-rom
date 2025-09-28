@@ -16,6 +16,7 @@
         .import print_space_spl
         .import print_string
         .import remember_axy
+        .import GSINIT_A
 
         .include "fujinet.inc"
 
@@ -293,21 +294,51 @@ readfileattribs_copy1byte:
         rts
 
 ; Helper functions needed by MMFS translation
+
+; parameter_afsp - Set up wildcard characters (MMFS line 4290-4294)
 parameter_afsp:
-        ; TODO: Implement parameter parsing
+        lda     #'*'
+        sta     $10CE
+        lda     #'#'
+        sta     $10CD
         rts
 
+; param_syntaxerrorifnull - Check for syntax error if no parameters (MMFS line 5553-5556)
 param_syntaxerrorifnull:
-        ; TODO: Implement syntax error checking
+        jsr     GSINIT_A                ; Initialize parameter parsing
+        beq     @err_syntax             ; If no parameters, syntax error
         rts
+@err_syntax:
+        jmp     err_syntax              ; TODO: Implement error handling
 
+; read_fsptextpointer - Read filename from text pointer (MMFS line 452-504)
 read_fsptextpointer:
-        ; TODO: Implement text pointer reading
-        lda     #$FF                    ; Set negative flag
+        jsr     set_curdirrv_to_defaults ; Set current directory and drive
+        jmp     rdafsp_entry            ; Jump to filename parsing
+
+; checkcurdrvcat - Check if current drive catalog is loaded (MMFS line 7255-7259)
+checkcurdrvcat:
+        lda     CurrentCat              ; Get current catalog drive
+        cmp     CurrentDrv              ; Compare with current drive
+        bne     loadcurdrvcat           ; If different, load catalog
         rts
 
-checkcurdrvcat:
-        ; TODO: Implement current drive catalog check
+; Additional helper functions needed
+set_curdirrv_to_defaults:
+        ; TODO: Implement set current directory and drive to defaults
+        rts
+
+loadcurdrvcat:
+        ; TODO: Implement load current drive catalog
+        rts
+
+err_syntax:
+        ; TODO: Implement syntax error
+        rts
+
+rdafsp_entry:
+        ; TODO: Implement filename parsing entry point
+        lda     #$FF                    ; Set negative flag (no filename)
         rts
 
 
