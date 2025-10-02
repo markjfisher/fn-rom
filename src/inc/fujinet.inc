@@ -37,13 +37,13 @@ cmdtab_help_cmds_size   = <((cmd_table_fs_cmds - cmd_table_help_cmds) / 2 - 1)
 ; used to detect the input commands
 cmdtab_offset_fujifs = 0
 
-; OLD: cmdtab4
+; OLD: cmdtab4 (0D)
 cmdtab_offset_futils = <(cmd_table_futils - cmd_table_fujifs)
-; OLD: cmdtab2
+; OLD: cmdtab2 (14)
 cmdtab_offset_utils  = <(cmd_table_utils - cmd_table_fujifs)
-; OLD: cmdtab3
+; OLD: cmdtab3 (1B)
 cmdtab_offset_help   = <(cmd_table_help - cmd_table_fujifs)
-; OLD: cmdtab22
+; OLD: cmdtab22 (2F)
 cmdtab_offset_fs     = <(cmd_table_fs - cmd_table_fujifs)
 
 ; Shared data pointer for all FujiNet interface implementations

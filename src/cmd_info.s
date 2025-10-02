@@ -7,6 +7,8 @@
         .export get_cat_entry
         .export GSREAD_A
 
+        .import cmd_table_fujifs
+        .import cmd_table_info
         .import fuji_read_catalog
         .import is_alpha_char
         .import err_bad
@@ -23,6 +25,7 @@
         .import remember_axy
         .import GSINIT_A
         .import report_error
+        .import set_text_pointer_yx
         .import y_add7
         .import prtcmd_at_bc_add_1
         .import prtcmd_prtchr
@@ -44,13 +47,12 @@ fscv10_starINFO:
         jsr     print_axy
 .endif
 
-        ; Set up text pointer and command index (following MMFS pattern)
-        ; TODO: Implement SetTextPointerYX equivalent
-        ; For now, just set up the command index
-        lda     #$01                    ; INFO command index in cmd_table_fujifs
-        sta     aws_tmp00               ; Store command index for CMD_INFO
+        jsr     set_text_pointer_yx
+        lda     #<(cmd_table_info - cmd_table_fujifs - 1) ; aws_tmp15 (BF) needs to point to the INFO command
+        sta     aws_tmp15               ; equivalent of .Param_SyntaxErrorIfNull
 
-        ; Fall through
+
+        ; Fall through to cmd_fs_info (old .CMD_INFO)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; CMD_FS_INFO - Handle *INFO command
