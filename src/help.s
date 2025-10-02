@@ -1,15 +1,22 @@
         .export cmd_help_fuji
         .export morehelp
+        .export not_cmd_help
         .export print_help_table
+        .export prtcmd_at_bc_add_1
+        .export prtcmd_prtchr
 
         .import a_rorx4
         .import print_string_ax
+        .import print_axy
         .import print_char
         .import print_newline
+        .import print_string
         .import remember_axy
         .import rom_title
         .import rom_version_string
         .import unrec_command_text_pointer
+        .import GSINIT_A
+        .import GSREAD_A
 
         .import parameter_table
 
@@ -75,8 +82,24 @@ print_help_table:
         pla
         tay
 
+; this is equivalent of CMD_NOTHELPTBL
+not_cmd_help:
+.ifdef FN_DEBUG
+        jsr     print_string
+        .byte   "NOT_CMD_HELP called", $0D
+        nop
+        jsr     print_axy
+.endif
+        jsr     GSINIT_A
+        beq     @not_cmd_help_loop
+        rts
+@not_cmd_help_loop:
+        jsr     GSREAD_A
+        bcc     @not_cmd_help_loop
+        ; fall through to morehelp
+
 morehelp:
-        ldx     #cmdtab_offset_help
+        ldx     #cmdtab_offset_help             ; equivalent of .cmdtab3
         jmp     unrec_command_text_pointer
 
 prtcmd_at_bc_add_1:

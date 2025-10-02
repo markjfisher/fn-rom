@@ -57,6 +57,7 @@ aws_tmp13   = $BD
 aws_tmp14   = $BE
 aws_tmp15   = $BF
 
+
 ; Private workspace variables
 pws_tmp00   = $C0
 pws_tmp01   = $C1
@@ -94,6 +95,8 @@ DEFAULT_DIR         = $10C9
 DEFAULT_DRIVE       = $10CA
 LIB_DIR             = $10CB
 LIB_DRIVE           = $10CC
+Wild_Hash           = $10CD              ; Wildcard character
+Wild_Star           = $10CE              ; Wildcard character
 PAGE                = $10CF
 RAMBufferSize       = $10D0
 ForceReset          = $10D3
@@ -106,5 +109,8 @@ MMC_CIDCRC          = VID2+$0E
 CHECK_CRC7          = VID2+$10
 
 FilesX8             = $0F05
+
+; MMFS-compatible memory addresses
+FilenameBuffer      = $1000              ; Filename buffer
 
 .endif

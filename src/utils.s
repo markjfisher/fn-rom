@@ -5,13 +5,12 @@
         .export  a_rolx5
         .export  calculate_crc7
         .export  GSINIT_A
-        .export  GSREAD_A
+        .export  is_alpha_char
         .export  osbyte_X0YFF
         .export  osbyte_YFF
         .export  set_text_pointer_yx
         .export  tube_check_if_present
-
-        .import  err_bad
+        .export  y_add7
 
         .include "mos.inc"
 
@@ -50,25 +49,6 @@ set_text_pointer_yx:
         stx     TextPointer
         sty     TextPointer+1
         ldy     #$00
-        rts
-
-err_bad_name:
-        jsr     err_bad
-        .byte   $CC
-        .byte   "name", 0
-
-GSREAD_A:
-        jsr     GSREAD
-        php
-        and     #$7F
-        cmp     #$0D        ; Return?
-        beq     @exit
-        cmp     #$20        ; Control character? (I.e. <&20)
-        bcc     err_bad_name
-        cmp     #$7F        ; Backspace?
-        beq     err_bad_name
-@exit:
-        plp
         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -119,4 +99,25 @@ tube_check_if_present:
         txa
         eor     #$FF
         sta     TubePresentIf0
+        rts
+
+y_add7:
+        ; Add 7 to Y
+        tya
+        clc
+        adc     #$07
+        tay
+        rts
+
+is_alpha_char:
+        pha
+        and     #$5F
+        cmp     #$41
+        bcc     @exit1                ; If <"A"
+        cmp     #$5B
+        bcc     @exit2                ; If <="Z"
+@exit1:
+        sec
+@exit2:
+        pla
         rts

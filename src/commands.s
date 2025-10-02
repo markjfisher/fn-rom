@@ -8,7 +8,6 @@
         .export not_cmd_fs
         .export not_cmd_fujifs
         .export not_cmd_futils
-        .export not_cmd_help
         .export not_cmd_utils
 
         .import print_string
@@ -119,14 +118,6 @@ not_cmd_futils:
 .endif
         rts
 
-not_cmd_help:
-.ifdef FN_DEBUG
-        jsr     print_string
-        .byte   "NOT_CMD_HELP called", $0D
-        nop
-        jsr     print_axy
-.endif
-        rts
 
 not_cmd_utils:
 .ifdef FN_DEBUG

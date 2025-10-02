@@ -8,10 +8,13 @@
         .export gbpbv_entry
         .export findv_entry
         .export fscv_entry
+
         .export close_all_files
         .export close_files_yhandle
-        .export vectors_table
         .export extendedvectors_table
+        .export parameter_afsp
+        .export parameter_fsp
+        .export vectors_table
 
         .export fscv_os_about_to_proc_cmd
         .export fscv5_starCAT
@@ -240,14 +243,21 @@ fscv_os_about_to_proc_cmd:
 .endif
         ; Set CMDEnabledIf1 flag
         bit     CMDEnabledIf1
-        bmi     @parameter_fsp
+        bmi     parameter_fsp
         dec     CMDEnabledIf1
-@parameter_fsp:
+parameter_fsp:
         lda     #$FF
-        sta     $10CE
-@param_out:
-        sta     $10CD
+        sta     Wild_Star
+param_out:
+        sta     Wild_Hash
         rts
+
+; parameter_afsp - Set up wildcard characters (MMFS line 4290-4294)
+parameter_afsp:
+        lda     #'*'
+        sta     Wild_Star
+        lda     #'#'
+        bne     param_out
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; FSCV_PLACEHOLDER - Placeholder for all FSCV operations

@@ -12,6 +12,7 @@
         .export  print_2_spaces_spl
         .export  print_string
         .export  print_string_ax
+        .export  report_error
 
 .ifdef FN_DEBUG
         .export  print_axy

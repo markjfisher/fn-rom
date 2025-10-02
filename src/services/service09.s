@@ -18,6 +18,7 @@
         .import cmd_table_help_cmds
         .import cmd_table_utils
         .import cmd_table_utils_cmds
+        .import is_alpha_char
         .import morehelp
         .import not_cmd_futils
         .import print_help_table
@@ -196,20 +197,6 @@ unrec_command_text_pointer:
         ;jsr     MMC_BEGIN2 ; TODO do we need this?
         ora     #$80
         bne     @gocmdcode2
-
-
-is_alpha_char:
-        pha
-        and     #$5F
-        cmp     #$41
-        bcc     @exit1                ; If <"A"
-        cmp     #$5B
-        bcc     @exit2                ; If <="Z"
-@exit1:
-        sec
-@exit2:
-        pla
-        rts
 
 cmd_help_futils:
 .ifdef FN_DEBUG
