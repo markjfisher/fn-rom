@@ -27,7 +27,7 @@ service0A_claim_statworkspace:
 
         ; Do I own sws? Check if pws is "full"
         jsr     set_private_workspace_pointer_b0
-        ldy     #$D4                    ; ForceReset+1 offset
+        ldy     #$D4                    ; fuji_force_reset+1 offset
         lda     (aws_tmp00),y           ; Check if pws is "full"
         bpl     @exit                   ; If pws "full" then sws is not mine
 

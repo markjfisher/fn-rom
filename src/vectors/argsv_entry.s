@@ -4,8 +4,9 @@
 
         .export argsv_entry
 
+        .import print_axy
+        .import print_string
         .import remember_axy
-        .import close_files_yhandle
         .import return_with_a0
 
         .include "fujinet.inc"
@@ -18,6 +19,14 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 argsv_entry:
+.ifdef FN_DEBUG
+        jsr     print_string
+        .byte   "ARGSV "
+        nop
+        jsr     print_axy
+.endif
+        ; rts
+
         jsr     remember_axy
         cmp     #$FF
         beq     @channel_buffer_to_disk_yhandle_a0  ; If file(s) to media

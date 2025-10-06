@@ -4,8 +4,9 @@
 
         .export bputv_entry
 
+        .import print_axy
+        .import print_string
         .import remember_axy
-        .import fuji_write_block
 
         .include "fujinet.inc"
 
@@ -17,6 +18,14 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 bputv_entry:
+.ifdef FN_DEBUG
+        jsr     print_string
+        .byte   "BPUTV "
+        nop
+        jsr     print_axy
+.endif
+        ; rts
+
         jsr     remember_axy
         jsr     check_channel_yhndl_exyintch
 @bp_entry:

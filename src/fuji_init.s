@@ -74,7 +74,7 @@ init_fuji:
         lda     extendedvectors_table-$1B,y
         sta     (aws_tmp00),y
         iny
-        lda     PagedRomSelector_RAMCopy
+        lda     paged_ram_copy
         sta     (aws_tmp00),y
         iny
         dex
@@ -121,12 +121,12 @@ init_fuji:
 ;         jsr     dump_zp_workspace
 ; .endif
 
-        ldy     #<ForceReset          ; D3
+        ldy     #<fuji_force_reset          ; D3
         lda     (aws_tmp00),y         ; A=PWSP+$D3 (-ve=soft break)
 
         bpl     initdfs_reset         ; Branch if power up or hard break
 
-        ldy     #<(ForceReset+1)      ; D4
+        ldy     #<(fuji_force_reset+1)      ; D4
         lda     (aws_tmp00),y         ; A=PWSP+$D4
 
         bmi     initdfs_noreset       ; Branch if PWSP "empty"
@@ -183,17 +183,17 @@ setdefaults:
         sta     $11D0
 
         lda     #'$'
-        sta     DEFAULT_DIR
-        sta     LIB_DIR
+        sta     fuji_default_dir
+        sta     fuji_lib_dir
         lda     #$00
-        sta     LIB_DRIVE
+        sta     fuji_lib_drive
         ldy     #$00
-        sty     DEFAULT_DRIVE
+        sty     fuji_default_drive
         sty     $10C0
 
         dey                           ; Y=$FF
-        sty     CMDEnabledIf1
-        sty     FSMessagesOnIfZero
+        sty     fuji_cmd_enabled
+        sty     fuji_fs_messages_on
         sty     $10DD
 
         ; INITIALISE VID VARIABLES
@@ -244,8 +244,8 @@ go_fscv:
 set_private_workspace_pointer_b0:
         lda     #$00
         sta     aws_tmp00
-        ldx     PagedRomSelector_RAMCopy
-        lda     PagedROM_PrivWorkspaces, x
+        ldx     paged_ram_copy
+        lda     paged_rom_priv_ws, x
         and     #$3F                            ; not master. TODO: fix if we have a master
         sta     aws_tmp01
         rts
@@ -256,10 +256,10 @@ claim_static_workspace:
         jsr     OSBYTE                          ; issue service request &A
 
         jsr     set_private_workspace_pointer_b0
-        ldy     #<ForceReset
+        ldy     #<fuji_force_reset
         lda     #$FF
         sta     (aws_tmp00),y                   ; Data valid in SWS
-        sta     ForceReset
+        sta     fuji_force_reset
         iny
         sta     (aws_tmp00),y                   ; Set pws is "empty"
         rts

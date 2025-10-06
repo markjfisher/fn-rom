@@ -1,7 +1,9 @@
         .export fscv5_starCAT
 
         .import fuji_read_catalog
+        .import print_axy
         .import print_catalog
+        .import print_string
 
         .include "fujinet.inc"
 

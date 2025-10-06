@@ -14,6 +14,7 @@
         .export  print_string_ax
         .export  print_decimal
         .export  report_error
+        .export  report_error_cb
 
 .ifdef FN_DEBUG
         .export  print_axy

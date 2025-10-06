@@ -22,31 +22,51 @@ OS_INC = 1
         .import  OSWORD
         .import  OSWRCH
 
-        .import  CardSort
         .import  CHECK_CRC7
-        .import  CMDEnabledIf1
         .import  CurrentCat
-        .import  DEFAULT_DIR
-        .import  DEFAULT_DRIVE
-        .import  FilenameBuffer
         .import  FilesX8
-        .import  ForceReset
         .import  FSCV
-        .import  FSMessagesOnIfZero
-        .import  LIB_DIR
-        .import  LIB_DRIVE
         .import  MMC_CIDCRC
         .import  MMC_STATE
         .import  OWCtlBlock
-        .import  PAGE
-        .import  PagedROM_PrivWorkspaces
-        .import  RAMBufferSize
-        .import  TubeNoTransferIf0
-        .import  TubePresentIf0
+        .import  paged_rom_priv_ws
         .import  VID
         .import  VID2
-        .import  Wild_Hash
-        .import  Wild_Star
+
+        .import  fuji_filename_buffer
+        .import  fuji_open_channels
+        .import  fuji_channel_flag_bit
+        .import  fuji_intch
+        .import  fuji_cat_file_offset
+        .import  fuji_channel_block_size
+        .import  fuji_saved_x
+        .import  fuji_fs_messages_on
+        .import  fuji_cmd_enabled
+        .import  fuji_default_dir
+        .import  fuji_default_drive
+        .import  fuji_lib_dir
+        .import  fuji_lib_drive
+        .import  fuji_wild_hash
+        .import  fuji_wild_star
+        .import  fuji_page
+        .import  fuji_ram_buffer_size
+        .import  fuji_source_drive
+        .import  fuji_dest_drive
+        .import  fuji_force_reset
+        .import  fuji_disk_table_index
+        .import  fuji_tube_present
+        .import  fuji_gbpb_table_lo
+        .import  fuji_gbpb_table_hi
+        .import  fuji_text_ptr_offset
+        .import  fuji_text_ptr_hi
+        .import  fuji_param_block_lo
+        .import  fuji_param_block_hi
+        .import  fuji_error_flag
+        .import  fuji_card_sort
+
+        .import  fuji_channel_flags
+        .import  fuji_channel_buffer
+        .import  fuji_1117
 
         .importzp  aws_tmp00
         .importzp  aws_tmp01
@@ -91,7 +111,7 @@ OS_INC = 1
 
         .importzp  CurrentDrv
         .importzp  DirectoryParam
-        .importzp  PagedRomSelector_RAMCopy
+        .importzp  paged_ram_copy
         .importzp  TextPointer
 
 .endif

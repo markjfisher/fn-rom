@@ -4,8 +4,10 @@
 
         .export bgetv_entry
 
+        .import print_axy
+        .import print_string
         .import remember_axy
-        .import fuji_read_block
+        .import report_error_cb
 
         .include "fujinet.inc"
 
@@ -17,10 +19,18 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 bgetv_entry:
+.ifdef FN_DEBUG
+        jsr     print_string
+        .byte   "BGETV "
+        nop
+        jsr     print_axy
+.endif
+        ; rts
+
         jsr     remember_axy
         jsr     check_channel_yhndl_exyintch_tya_cmpptr  ; A=Y
         bne     @bg_not_eof              ; If PTR<>EXT
-        lda     fuji_channel_flags,y   ; Already at EOF?
+        lda     fuji_1117,y   ; Already at EOF?
         and     #$10
         bne     @err_eof                 ; IF bit 4 set
         lda     #$10
@@ -31,7 +41,7 @@ bgetv_entry:
         rts                             ; C=1=EOF
 
 @bg_not_eof:
-        lda     fuji_channel_flags,y
+        lda     fuji_1117,y
         bmi     @bg_samesector1          ; If buffer ok
         jsr     channel_set_dir_drive_yintch
         jsr     channel_buffer_to_disk_yintch  ; Save buffer
@@ -40,14 +50,14 @@ bgetv_entry:
 
 @bg_samesector1:
         jsr     load_then_inc_seq_ptr_yintch  ; load buffer ptr into BA/BB then increments Seq Ptr
-        lda     (fuji_channel_buffer,x) ; Byte from buffer
+        lda     (aws_tmp10, x)          ; Byte from buffer
         clc
         rts                             ; C=0=NOT EOF
 
 @err_eof:
-        ; TODO: Implement EOF error
-        sec
-        rts
+        jsr     report_error_cb
+        .byte   $DF
+        .byte   "EOF",0
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Helper functions

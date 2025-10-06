@@ -25,18 +25,18 @@ service02_claim_privworkspace:
         
         ; Set up workspace pointer at $B0/$B1
         sta     aws_tmp01                ; $B1 = PWS page
-        ldy     PagedROM_PrivWorkspaces,x
+        ldy     paged_rom_priv_ws,x
         tya
         and     #$40                     ; Preserve bit 6
         ora     aws_tmp01
-        sta     PagedROM_PrivWorkspaces,x
+        sta     paged_rom_priv_ws,x
         lda     #$00
         sta     aws_tmp00                ; $B0 = 0 (low byte)
         
         cpy     aws_tmp01                ; Private workspace may have moved!
         beq     @samepage                ; If same as before
         
-        ldy     #<ForceReset             ; $D3
+        ldy     #<fuji_force_reset             ; $D3
         sta     (aws_tmp00),y            ; PWSP+$D3=0
         
 @samepage:
@@ -46,7 +46,7 @@ service02_claim_privworkspace:
         dex                              ; X=FF=soft,0=power up,1=hard
         
         txa                              ; A=FF=soft,0=power up,1=hard
-        ldy     #<ForceReset             ; $D3
+        ldy     #<fuji_force_reset             ; $D3
         and     (aws_tmp00),y
         sta     (aws_tmp00),y            ; So, PWSP+$D3 is +ve if: power up, hard reset or PSWP page has changed
         php
@@ -65,7 +65,7 @@ service02_claim_privworkspace:
         lda     #$00
         sta     (aws_tmp00),y            ; PWSP+$D4=0 = PWSP "full"
 
-        ldx     PagedRomSelector_RAMCopy
+        ldx     paged_ram_copy
         pla
         tay
         lda     #$02

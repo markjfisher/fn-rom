@@ -1,10 +1,6 @@
 ; Filing system vector entry points
 ; These handle OS calls like *CAT, *LOAD, *SAVE, etc.
 
-        .export filev_entry
-        .export argsv_entry
-        .export bgetv_entry
-        .export bputv_entry
         .export gbpbv_entry
         .export findv_entry
         .export fscv_entry
@@ -19,13 +15,15 @@
         .export fscv_os_about_to_proc_cmd
         .export fscv_entry_jumping_to_function
 
-        .import fscv3_unreccommand
-        .import fscv5_starCAT
-        .import fscv10_starINFO
-        .import filev_entry
         .import argsv_entry
         .import bgetv_entry
         .import bputv_entry
+        .import filev_entry
+        .import fscv10_starINFO
+        .import fscv3_unreccommand
+        .import fscv5_starCAT
+        .import print_axy
+        .import print_string
 
         .include "fujinet.inc"
 
@@ -167,21 +165,21 @@ fscv_os_about_to_proc_cmd:
         .byte   "FSCV8_OSABOUTTOPROCCMD called", $0D
         nop
 .endif
-        ; Set CMDEnabledIf1 flag
-        bit     CMDEnabledIf1
+        ; Set fuji_cmd_enabled flag
+        bit     fuji_cmd_enabled
         bmi     parameter_fsp
-        dec     CMDEnabledIf1
+        dec     fuji_cmd_enabled
 parameter_fsp:
         lda     #$FF
-        sta     Wild_Star
+        sta     fuji_wild_star
 param_out:
-        sta     Wild_Hash
+        sta     fuji_wild_hash
         rts
 
 ; parameter_afsp - Set up wildcard characters (MMFS line 4290-4294)
 parameter_afsp:
         lda     #'*'
-        sta     Wild_Star
+        sta     fuji_wild_star
         lda     #'#'
         bne     param_out
 

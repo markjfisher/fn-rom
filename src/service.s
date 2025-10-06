@@ -22,7 +22,7 @@
 
 handle_service:
         pha
-        lda     PagedROM_PrivWorkspaces, x
+        lda     paged_rom_priv_ws, x
         bmi     rom_disabled
         pla
 
@@ -41,7 +41,7 @@ handle_service:
         pha
 
         txa
-        ldx     PagedRomSelector_RAMCopy
+        ldx     paged_ram_copy
         lsr     a
         cmp     #$0B
         bcc     service_null

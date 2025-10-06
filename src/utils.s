@@ -88,7 +88,7 @@ calculate_crc7:
 ;  &FF if a Tube is present and with zero otherwise.
 ;
 ; This function converts the result to A=0 if tube present, $FF if not,
-; and sets TubePresentIf0 to this value, i.e. "Tube present if this value is zero"
+; and sets fuji_tube_present to this value, i.e. "Tube present if this value is zero"
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 tube_check_if_present:
@@ -98,7 +98,7 @@ tube_check_if_present:
         jsr     OSBYTE
         txa
         eor     #$FF
-        sta     TubePresentIf0
+        sta     fuji_tube_present
         rts
 
 y_add7:

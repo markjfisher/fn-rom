@@ -4,12 +4,10 @@
 
         .export filev_entry
 
-        .import remember_axy
         .import parameter_fsp
-        .import fuji_read_block
-        .import fuji_write_block
-        .import fuji_read_catalogue
-        .import fuji_write_catalogue
+        .import print_axy
+        .import print_string
+        .import remember_axy
 
         .include "fujinet.inc"
 
@@ -21,6 +19,14 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 filev_entry:
+.ifdef FN_DEBUG
+        jsr     print_string
+        .byte   "FILEV "
+        nop
+        jsr     print_axy
+.endif
+        ; rts
+
         jsr     remember_axy
         pha
         jsr     parameter_fsp

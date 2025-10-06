@@ -8,6 +8,8 @@
         .import fuji_read_catalog
         .import get_cat_nextentry
         .import parameter_afsp_param_syntaxerrorifnull_getcatentry_fsptxtp
+        .import print_axy
+        .import print_string
         .import prt_infoline_yoffset
         .import set_text_pointer_yx
 

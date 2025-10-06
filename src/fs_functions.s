@@ -115,8 +115,8 @@ getcat_exit:
 match_filename:
         jsr     remember_axy            ; Match filename at &1000+X
 @matfn_loop1:
-        lda     FilenameBuffer,x        ; with that at (&B6)
-        cmp     Wild_Star               ; wildcard character
+        lda     fuji_filename_buffer,x        ; with that at (&B6)
+        cmp     fuji_wild_star               ; wildcard character
         bne     @matfn_nomatch          ; e.g. If="*"
         inx
 @matfn_loop2:
@@ -126,7 +126,7 @@ match_filename:
         cpy     #$07
         bcc     @matfn_loop2            ; If Y<7
 @matfn_loop3:
-        lda     FilenameBuffer,x        ; Check next char is a space!
+        lda     fuji_filename_buffer,x        ; Check next char is a space!
         cmp     #' '
         bne     matfn_exitc0            ; If exit with c=0 (no match)
         rts                             ; exit with C=1
@@ -147,9 +147,9 @@ matfn_exit:
 
 ; match_chr (MMFS line 762-776)
 match_chr:
-        cmp     Wild_Star               ; wildcard character
+        cmp     fuji_wild_star               ; wildcard character
         beq     @exit                   ; eg. If "*"
-        cmp     Wild_Hash               ; wildcard character
+        cmp     fuji_wild_hash               ; wildcard character
         beq     @exit                   ; eg. If "#"
         jsr     is_alpha_char
         eor     (aws_tmp06),y           ; (&B6),Y
@@ -296,11 +296,11 @@ check_cur_drv_cat:
 
 ; set_curdir_drv_to_defaults - Set current directory and drive to defaults (MMFS line 2657-2667)
 set_curdir_drv_to_defaults:
-        lda     DEFAULT_DIR             ; Set working directory
+        lda     fuji_default_dir             ; Set working directory
         sta     DirectoryParam
 
 set_curdrv_to_default:
-        lda     DEFAULT_DRIVE           ; Set working drive
+        lda     fuji_default_drive           ; Set working drive
 set_current_drive_Adrive:
         and     #$03
 set_current_drive_Adrive_noand:
@@ -383,7 +383,7 @@ rdafsp_notcolon:
         beq     rdafsp_setdrv
         ldx     #$01                    ; Read rest of filename
 @rdafsp_rdfnloop:
-        sta     FilenameBuffer,x        ; Store filename character
+        sta     fuji_filename_buffer,x        ; Store filename character
         inx
         jsr     GSREAD_A                ; Get next character
         bcs     rdafsp_padx             ; If end of string
@@ -410,13 +410,13 @@ rdafsp_padall:
 rdafsp_padx:
         lda     #' '                    ; Pad with spaces
 @rdafsp_padloop:
-        sta     FilenameBuffer,x                 ; Store space
+        sta     fuji_filename_buffer,x                 ; Store space
         inx
         cpx     #$40                    ; Pad to $40 (64 bytes)
         bne     @rdafsp_padloop
-        ldx     #$06                    ; Copy from FilenameBuffer ($1000) to $C5
+        ldx     #$06                    ; Copy from fuji_filename_buffer ($1000) to $C5
 @rdafsp_copyloop:
-        lda     FilenameBuffer,x
+        lda     fuji_filename_buffer,x
         sta     pws_tmp05,x
         dex
         bpl     @rdafsp_copyloop
@@ -510,11 +510,11 @@ print_catalog:
         jsr     print_string
         .byte   "Dir. :", $80
         nop
-        lda     DEFAULT_DRIVE
+        lda     fuji_default_drive
         jsr     print_decimal
         lda     #'.'
         jsr     print_char
-        lda     DEFAULT_DIR
+        lda     fuji_default_dir
         jsr     print_char
         
         ; Print 11 spaces
@@ -529,11 +529,11 @@ print_catalog:
         jsr     print_string
         .byte   "Lib. :", $80
         nop
-        lda     LIB_DRIVE
+        lda     fuji_lib_drive
         jsr     print_decimal
         lda     #'.'
         jsr     print_char
-        lda     LIB_DIR
+        lda     fuji_lib_dir
         jsr     print_char
         jsr     print_newline
         
