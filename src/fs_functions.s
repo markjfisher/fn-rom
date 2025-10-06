@@ -1,7 +1,10 @@
         .export get_cat_nextentry
+        .export get_cat_entry_fspba
         .export parameter_afsp_param_syntaxerrorifnull_getcatentry_fsptxtp
         .export print_catalog
         .export prt_infoline_yoffset
+        .export prt_info_msg_yoffset
+        .export read_file_attribs_to_b0_yoffset
         .export GSREAD_A
 
         .import GSINIT_A
@@ -38,7 +41,7 @@ getcatentry_fspTxtP:
         jsr     read_fsp_text_pointer
         bmi     get_cat_entry             ; always ??
 
-getcatentry_fspBA:
+get_cat_entry_fspba:
 	jsr     read_fspBA_reset
 
 get_cat_entry:
@@ -160,6 +163,10 @@ match_chr:
 @exit:
         rts                             ; If n=1 then matched
 
+prt_info_msg_yoffset:
+        bit     fuji_fs_messages_on
+        bmi     matfn_exit              ; just an rts
+
 ; prt_InfoLine_Yoffset (MMFS line 826-855)
 prt_infoline_yoffset:
         jsr     remember_axy            ; Print info
@@ -170,7 +177,7 @@ prt_infoline_yoffset:
         sta     aws_tmp00               ; &B0 -> aws_tmp00
         lda     #$10
         sta     aws_tmp01               ; &B1 -> aws_tmp01
-        jsr     readfileattribstob0_yoffset ; create no. str
+        jsr     read_file_attribs_to_b0_yoffset ; create no. str
         ldy     #$02
         jsr     print_space_spl              ; print " " (one space)
         jsr     print_hex_3byte           ; Load address
@@ -197,8 +204,8 @@ print_hex_3byte:
         jsr     y_add7
         jmp     print_space_spl
 
-; ReadFileAttribsToB0_Yoffset (MMFS line 872-932)
-readfileattribstob0_yoffset:
+; read_file_attribs_to_b0_yoffset (MMFS line 872-932)
+read_file_attribs_to_b0_yoffset:
         jsr     remember_axy            ; Decode file attribs
         tya
         pha                             ; bytes 2-11

@@ -3,6 +3,9 @@
         .export  a_rorx5
         .export  a_rolx4
         .export  a_rolx5
+        .export  a_rorx6and3
+        .export  a_rorx4and3
+        .export  a_rorx2and3
         .export  calculate_crc7
         .export  GSINIT_A
         .export  is_alpha_char
@@ -21,6 +24,22 @@ osbyte_X0YFF:
 osbyte_YFF:
         ldy     #$FF
         jmp     OSBYTE
+
+; a_rorx6and3 - Shift A right by 6 bits and mask with 3
+; Translated from MMFS lines 589-598
+a_rorx6and3:
+        lsr     a                       ; Shift right 2 bits
+        lsr     a
+        ; Fall into a_rorx4and3
+a_rorx4and3:
+        lsr     a                       ; Shift right 2 more bits (total 4)
+        lsr     a
+        ; Fall into a_rorx2and3
+a_rorx2and3:
+        lsr     a                       ; Shift right 2 more bits (total 6)
+        lsr     a
+        and     #$03                    ; Mask with 3
+        rts
 
 a_rorx5:
         lsr     a
