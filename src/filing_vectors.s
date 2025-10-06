@@ -182,35 +182,39 @@ findv_entry:
 ; FSCV TABLES - Maps FSCV operation numbers to function addresses
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-fscv_table1:
-        ; Low bytes of function addresses
-        .byte   <(fscv_placeholder - 1)    ; 0: *OPT
-        .byte   <(fscv_placeholder - 1)    ; 1: EOF Y handler
-        .byte   <(fscv_placeholder - 1)    ; 2: *RUN
-        .byte   <(fscv3_unreccommand - 1)  ; 3: Unrecognized command
-        .byte   <(fscv_placeholder - 1)    ; 4: *RUN
-        .byte   <(fscv5_starCAT - 1)       ; 5: *CAT
-        .byte   <(fscv_placeholder - 1)    ; 6: Shutdown filing system
-        .byte   <(fscv_placeholder - 1)    ; 7: Handle range
-        .byte   <(fscv_os_about_to_proc_cmd - 1)    ; 8: OS about to process command
-        .byte   <(fscv_placeholder - 1)    ; 9: *EX
-        .byte   <(fscv10_starINFO - 1)     ; 10: *INFO
-        .byte   <(fscv_placeholder - 1)    ; 11: *RUN
+.feature line_continuations +
 
-fscv_table2:
-        ; High bytes of function addresses
-        .byte   >(fscv_placeholder - 1)    ; 0: *OPT
-        .byte   >(fscv_placeholder - 1)    ; 1: EOF Y handler
-        .byte   >(fscv_placeholder - 1)    ; 2: *RUN
-        .byte   >(fscv3_unreccommand - 1)  ; 3: Unrecognized command
-        .byte   >(fscv_placeholder - 1)    ; 4: *RUN
-        .byte   >(fscv5_starCAT - 1)       ; 5: *CAT
-        .byte   >(fscv_placeholder - 1)    ; 6: Shutdown filing system
-        .byte   >(fscv_placeholder - 1)    ; 7: Handle range
-        .byte   >(fscv_os_about_to_proc_cmd - 1)    ; 8: OS about to process command
-        .byte   >(fscv_placeholder - 1)    ; 9: *EX
-        .byte   >(fscv10_starINFO - 1)     ; 10: *INFO
-        .byte   >(fscv_placeholder - 1)    ; 11: *RUN
+        ; 0: *OPT
+        ; 1: EOF Y handler
+        ; 2: *RUN
+        ; 3: Unrecognized command
+        ; 4: *RUN
+        ; 5: *CAT
+        ; 6: Shutdown filing system
+        ; 7: Handle range
+        ; 8: OS about to process command
+        ; 9: *EX
+        ; 10: *INFO
+        ; 11: *RUN
+
+.define FSCV_TABLE \
+        fscv_placeholder          - 1, \
+        fscv_placeholder          - 1, \
+        fscv_placeholder          - 1, \
+        fscv3_unreccommand        - 1, \
+        fscv_placeholder          - 1, \
+        fscv5_starCAT             - 1, \
+        fscv_placeholder          - 1, \
+        fscv_placeholder          - 1, \
+        fscv_os_about_to_proc_cmd - 1, \
+        fscv_placeholder          - 1, \
+        fscv10_starINFO           - 1, \
+        fscv_placeholder          - 1
+
+fscv_table1: .lobytes FSCV_TABLE
+fscv_table2: .hibytes FSCV_TABLE
+
+.feature line_continuations -
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; FSCV5_STARCAT - Handle *CAT command
@@ -224,12 +228,9 @@ fscv5_starCAT:
         jsr     print_axy
 .endif
         
-        ; Load catalog from our dummy interface
+        ; Load and print catalog from implementation
         jsr     fuji_read_catalog
-        
-        ; Print catalog (following MMFS pattern)
-        jsr     print_catalog_mmfs_style
-        
+        jsr     print_catalog
         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -329,10 +330,10 @@ extendedvectors_table:
         .byte   $00                   ; BRK
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; PRINT_CATALOG_MMFS_STYLE - Print catalog following MMFS pattern
+; print_catalog - Print catalog following MMFS pattern
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-print_catalog_mmfs_style:
+print_catalog:
         ; Print disk title (first 8 bytes)
         ldy     #$00
 @title_loop:
