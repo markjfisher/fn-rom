@@ -1,0 +1,78 @@
+; BGETV_ENTRY - Byte Get Vector
+; Handles BGET calls for reading single bytes from files
+; Translated from MMFS mmfs100.asm lines 5169-5195
+
+        .export bgetv_entry
+
+        .import remember_axy
+        .import fuji_read_block
+
+        .include "fujinet.inc"
+
+        .segment "CODE"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; BGETV_ENTRY - Byte Get Vector
+; Handles BGET calls
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+bgetv_entry:
+        jsr     remember_axy
+        jsr     check_channel_yhndl_exyintch_tya_cmpptr  ; A=Y
+        bne     @bg_not_eof              ; If PTR<>EXT
+        lda     fuji_channel_flags,y   ; Already at EOF?
+        and     #$10
+        bne     @err_eof                 ; IF bit 4 set
+        lda     #$10
+        jsr     channel_flags_set_bits   ; Set bit 4
+        ldx     fuji_saved_x
+        lda     #$FE
+        sec
+        rts                             ; C=1=EOF
+
+@bg_not_eof:
+        lda     fuji_channel_flags,y
+        bmi     @bg_samesector1          ; If buffer ok
+        jsr     channel_set_dir_drive_yintch
+        jsr     channel_buffer_to_disk_yintch  ; Save buffer
+        sec
+        jsr     channel_buffer_rw_yintch_c1read  ; Load buffer
+
+@bg_samesector1:
+        jsr     load_then_inc_seq_ptr_yintch  ; load buffer ptr into BA/BB then increments Seq Ptr
+        lda     (fuji_channel_buffer,x) ; Byte from buffer
+        clc
+        rts                             ; C=0=NOT EOF
+
+@err_eof:
+        ; TODO: Implement EOF error
+        sec
+        rts
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; Helper functions
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+check_channel_yhndl_exyintch_tya_cmpptr:
+        ; TODO: Implement channel check
+        rts
+
+channel_flags_set_bits:
+        ; TODO: Implement channel flags setting
+        rts
+
+channel_set_dir_drive_yintch:
+        ; TODO: Implement channel directory/drive setting
+        rts
+
+channel_buffer_to_disk_yintch:
+        ; TODO: Implement channel buffer to disk
+        rts
+
+channel_buffer_rw_yintch_c1read:
+        ; TODO: Implement channel buffer read/write
+        rts
+
+load_then_inc_seq_ptr_yintch:
+        ; TODO: Implement load and increment sequence pointer
+        rts

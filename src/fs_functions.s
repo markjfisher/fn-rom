@@ -1,5 +1,6 @@
         .export get_cat_nextentry
         .export parameter_afsp_param_syntaxerrorifnull_getcatentry_fsptxtp
+        .export print_catalog
         .export prt_infoline_yoffset
         .export GSREAD_A
 
@@ -9,11 +10,13 @@
         .import parameter_afsp
         .import print_2_spaces_spl
         .import print_char
+        .import print_decimal
         .import print_fullstop
         .import print_hex
         .import print_newline
         .import print_nibble
         .import print_space_spl
+        .import print_string
         .import prtcmd_at_bc_add_1
         .import prtcmd_prtchr
         .import remember_axy
@@ -451,3 +454,146 @@ prt_filename_yoffset:
         jsr     print_char              ; Print "L" or " "
         ldy     #$01                    ; Restore Y to start of file entry
         rts
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; print_catalog - Print catalog
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+print_catalog:
+        ; Print disk title (first 8 bytes)
+        ldy     #$00
+@title_loop:
+        lda     $0E00,y
+        jsr     print_char
+        iny
+        cpy     #$08
+        bne     @title_loop
+        
+        ; Print cycle number in parentheses
+        jsr     print_string
+        .byte   " (", $80
+        nop
+        lda     $0F04
+        jsr     print_decimal
+        jsr     print_string
+        .byte   ")", $80
+        nop
+        jsr     print_newline
+        
+        ; Print "Drive X"
+        jsr     print_string
+        .byte   "Drive ", $80
+        nop
+        lda     CurrentDrv
+        jsr     print_decimal
+        
+        ; Print 13 spaces
+        ldy     #$0D
+@spaces_loop:
+        lda     #' '
+        jsr     print_char
+        dey
+        bne     @spaces_loop
+        
+        ; Print "Option X (LOAD)"
+        jsr     print_string
+        .byte   "Option ", $80
+        nop
+        lda     $0F06
+        jsr     print_decimal
+        jsr     print_string
+        .byte   " (LOAD)", $80
+        nop
+        jsr     print_newline
+        
+        ; Print "Dir. :X.$"
+        jsr     print_string
+        .byte   "Dir. :", $80
+        nop
+        lda     DEFAULT_DRIVE
+        jsr     print_decimal
+        lda     #'.'
+        jsr     print_char
+        lda     DEFAULT_DIR
+        jsr     print_char
+        
+        ; Print 11 spaces
+        ldy     #$0B
+@spaces_loop2:
+        lda     #' '
+        jsr     print_char
+        dey
+        bne     @spaces_loop2
+        
+        ; Print "Lib. :X.$"
+        jsr     print_string
+        .byte   "Lib. :", $80
+        nop
+        lda     LIB_DRIVE
+        jsr     print_decimal
+        lda     #'.'
+        jsr     print_char
+        lda     LIB_DIR
+        jsr     print_char
+        jsr     print_newline
+        
+        ; Print file list
+        ldy     #$00
+@file_loop:
+        cpy     FilesX8
+        bcs     @done
+        
+        ; Check if file is marked (bit 7 set)
+        lda     $0E08,y
+        bmi     @next_file
+        
+        ; Print filename
+        jsr     print_filename_at_y
+        
+        ; Mark file as printed
+        lda     $0E08,y
+        ora     #$80
+        sta     $0E08,y
+        
+@next_file:
+        ; Move to next file (8 bytes per entry)
+        tya
+        clc
+        adc     #$08
+        tay
+        jmp     @file_loop
+        
+@done:
+        jsr     print_newline
+        rts
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; PRINT_FILENAME_AT_Y - Print filename at catalog offset Y
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+print_filename_at_y:
+        ; Print 2 spaces
+        lda     #' '
+        jsr     print_char
+        lda     #' '
+        jsr     print_char
+        
+        ; Print filename (7 bytes)
+        ldx     #$00
+@name_loop:
+        lda     $0E08,y
+        jsr     print_char
+        iny
+        inx
+        cpx     #$07
+        bne     @name_loop
+        
+        ; Skip directory character (don't print it)
+        ; Just restore Y to start of file entry
+        tya
+        sec
+        sbc     #$07
+        tay
+        
+        rts
+
