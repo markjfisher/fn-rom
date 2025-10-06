@@ -48,7 +48,7 @@ dummy_catalogue:
         ; SECTOR 1 (bytes 256-511)
         ; Catalog header entry 0 (bytes 256-263): Disk title last 4 bytes + cycle + count + options
         .byte "    "     ; Last 4 bytes of disk title (padded with spaces)
-        .byte $01        ; Cycle number (byte 260)
+        .byte $F0        ; Cycle number (byte 260)
         .byte $18        ; (Number of catalog entries)*8 = 3*8 = 24 = $18
         .byte $00        ; Boot option (byte 262)
         .byte $00        ; Disk size low byte (byte 263)

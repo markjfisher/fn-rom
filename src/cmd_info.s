@@ -255,7 +255,7 @@ print_hex_3byte:
         dex
         bne     @print_hex_3byte_loop
         jsr     y_add7
-        jmp     print_2_spaces_spl
+        jmp     print_space_spl
 
 ; ReadFileAttribsToB0_Yoffset (MMFS line 872-932)
 readfileattribstob0_yoffset:

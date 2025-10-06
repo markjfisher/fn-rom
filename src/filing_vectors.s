@@ -26,6 +26,7 @@
         .import fuji_read_catalog
         .import print_char
         .import print_hex
+        .import print_decimal
         .import print_newline
         .import fscv10_starINFO
         .import unrec_command_text_pointer
@@ -346,7 +347,7 @@ print_catalog_mmfs_style:
         .byte   " (", $80
         nop
         lda     $0F04
-        jsr     print_hex
+        jsr     print_decimal
         jsr     print_string
         .byte   ")", $80
         nop
@@ -357,7 +358,7 @@ print_catalog_mmfs_style:
         .byte   "Drive ", $80
         nop
         lda     CurrentDrv
-        jsr     print_hex
+        jsr     print_decimal
         
         ; Print 13 spaces
         ldy     #$0D
@@ -372,7 +373,7 @@ print_catalog_mmfs_style:
         .byte   "Option ", $80
         nop
         lda     $0F06
-        jsr     print_hex
+        jsr     print_decimal
         jsr     print_string
         .byte   " (LOAD)", $80
         nop
@@ -383,7 +384,7 @@ print_catalog_mmfs_style:
         .byte   "Dir. :", $80
         nop
         lda     DEFAULT_DRIVE
-        jsr     print_hex
+        jsr     print_decimal
         lda     #'.'
         jsr     print_char
         lda     DEFAULT_DIR
@@ -402,7 +403,7 @@ print_catalog_mmfs_style:
         .byte   "Lib. :", $80
         nop
         lda     LIB_DRIVE
-        jsr     print_hex
+        jsr     print_decimal
         lda     #'.'
         jsr     print_char
         lda     LIB_DIR
@@ -460,11 +461,8 @@ print_filename_at_y:
         cpx     #$07
         bne     @name_loop
         
-        ; Print directory character
-        lda     $0E08,y
-        jsr     print_char
-        
-        ; Restore Y to start of file entry
+        ; Skip directory character (don't print it)
+        ; Just restore Y to start of file entry
         tya
         sec
         sbc     #$07

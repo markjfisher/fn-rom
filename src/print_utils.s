@@ -12,6 +12,7 @@
         .export  print_2_spaces_spl
         .export  print_string
         .export  print_string_ax
+        .export  print_decimal
         .export  report_error
 
 .ifdef FN_DEBUG
@@ -244,6 +245,61 @@ nib_to_asc:
 @nib_asc:
         adc     #$30
         rts
+
+; Print decimal number
+; A = number to print (0-99)
+print_decimal:
+        jsr     remember_axy
+        pha
+        ; Convert to decimal
+        lda     #0
+        sta     aws_tmp00              ; Hundreds
+        sta     aws_tmp01              ; Tens
+        pla
+        sta     aws_tmp02              ; Units
+        
+        ; Calculate hundreds
+@hundreds_loop:
+        lda     aws_tmp02
+        sec
+        sbc     #100
+        bcc     @hundreds_done
+        sta     aws_tmp02
+        inc     aws_tmp00
+        jmp     @hundreds_loop
+        
+@hundreds_done:
+        ; Calculate tens
+@tens_loop:
+        lda     aws_tmp02
+        sec
+        sbc     #10
+        bcc     @tens_done
+        sta     aws_tmp02
+        inc     aws_tmp01
+        jmp     @tens_loop
+        
+@tens_done:
+        ; Print hundreds (if any)
+        lda     aws_tmp00
+        beq     @skip_hundreds
+        jsr     print_nibble
+        
+@skip_hundreds:
+        ; Print tens (if any, or if we printed hundreds)
+        lda     aws_tmp00
+        bne     @print_tens
+        lda     aws_tmp01
+        beq     @skip_tens
+        
+@print_tens:
+        lda     aws_tmp01
+        jsr     print_nibble
+        
+@skip_tens:
+        ; Always print units
+        lda     aws_tmp02
+        jmp     print_nibble
 
 .ifdef FN_DEBUG
 print_axy:
