@@ -54,9 +54,9 @@ fscv_entry:
         jsr     print_axy
 .endif
         tax
-        lda     fscv_table2,x         ; High byte first
+        lda     fscv_table_hi,x         ; High byte first
         pha
-        lda     fscv_table1,x         ; Low byte second
+        lda     fscv_table_lo,x         ; Low byte second
         pha
         txa
         ldx     aws_tmp05             ; Restore X
@@ -91,9 +91,9 @@ gbpbv_entry:
 
         ; Look up function in FSCV table
         tax
-        lda     fscv_table1,x
+        lda     fscv_table_lo,x
         pha
-        lda     fscv_table2,x
+        lda     fscv_table_hi,x
         pha
         txa
         rts
@@ -150,8 +150,8 @@ findv_entry:
         fscv10_starINFO           - 1, \
         fscv_placeholder          - 1
 
-fscv_table1: .lobytes FSCV_TABLE
-fscv_table2: .hibytes FSCV_TABLE
+fscv_table_lo: .lobytes FSCV_TABLE
+fscv_table_hi: .hibytes FSCV_TABLE
 
 .feature line_continuations -
 

@@ -50,9 +50,9 @@ filev_entry:
         inx
         cpx     #$08                   ; NB A=FF -> X=0
         bcs     @filev_unknownop       ; IF x>=8 (a>=7)
-        lda     finv_tablehi,x         ; get addr from table
-        pha                             ; and "return" to it
-        lda     finv_tablelo,x
+        lda     finv_table_hi,x        ; get addr from table
+        pha                            ; and "return" to it
+        lda     finv_table_lo,x
         pha
 
 @filev_unknownop:
@@ -63,25 +63,31 @@ filev_entry:
 ; OSFILE operation tables
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-finv_tablelo:
-        .byte   <(osfileFF_loadfiletoaddr - 1)    ; 0: Load file to address
-        .byte   <(osfile0_savememblock - 1)       ; 1: Save memory block
-        .byte   <(osfile1_savefile - 1)           ; 2: Save file
-        .byte   <(osfile2_deletefile - 1)         ; 3: Delete file
-        .byte   <(osfile3_createfile - 1)         ; 4: Create file
-        .byte   <(osfile4_writeloadaddr - 1)      ; 5: Write load address
-        .byte   <(osfile5_writeexecaddr - 1)      ; 6: Write exec address
-        .byte   <(osfile6_writefileattr - 1)      ; 7: Write file attributes
+.feature line_continuations +
 
-finv_tablehi:
-        .byte   >(osfileFF_loadfiletoaddr - 1)    ; 0: Load file to address
-        .byte   >(osfile0_savememblock - 1)       ; 1: Save memory block
-        .byte   >(osfile1_savefile - 1)           ; 2: Save file
-        .byte   >(osfile2_deletefile - 1)         ; 3: Delete file
-        .byte   >(osfile3_createfile - 1)         ; 4: Create file
-        .byte   >(osfile4_writeloadaddr - 1)      ; 5: Write load address
-        .byte   >(osfile5_writeexecaddr - 1)      ; 6: Write exec address
-        .byte   >(osfile6_writefileattr - 1)      ; 7: Write file attributes
+        ; 0: Load file to address (A=&FF)
+        ; 1: Save memory block (A=0)
+        ; 2: Save file (A=1)
+        ; 3: Delete file (A=2)
+        ; 4: Create file (A=3)
+        ; 5: Write load address (A=4)
+        ; 6: Write exec address (A=5)
+        ; 7: Write file attributes (A=6)
+
+.define FINV_TABLE \
+        osfileFF_loadfiletoaddr         - 1, \
+        osfile0_savememblock            - 1, \
+        osfile1_savefile                - 1, \
+        osfile2_deletefile              - 1, \
+        osfile3_createfile              - 1, \
+        osfile4_writeloadaddr           - 1, \
+        osfile5_writeexecaddr           - 1, \
+        osfile6_writefileattr           - 1
+
+finv_table_lo: .lobytes FINV_TABLE
+finv_table_hi: .hibytes FINV_TABLE
+
+.feature line_continuations -
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; OSFILE operation handlers
