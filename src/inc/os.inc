@@ -68,6 +68,14 @@ OS_INC = 1
         .import  fuji_channel_buffer
         .import  fuji_1117
 
+        .import  fuji_state
+        .import  fuji_current_disk
+        .import  fuji_operation_type
+        .import  fuji_buffer_addr
+        .import  fuji_file_offset
+        .import  fuji_block_size
+        .import  fuji_current_sector
+
         .importzp  aws_tmp00
         .importzp  aws_tmp01
         .importzp  aws_tmp02

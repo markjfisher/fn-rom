@@ -63,6 +63,14 @@
         .export  fuji_channel_buffer
         .export  fuji_1117
 
+        .export  fuji_state
+        .export  fuji_current_disk
+        .export  fuji_operation_type
+        .export  fuji_buffer_addr
+        .export  fuji_file_offset
+        .export  fuji_block_size
+        .export  fuji_current_sector
+
         .exportzp  aws_tmp00
         .exportzp  aws_tmp01
         .exportzp  aws_tmp02
@@ -243,3 +251,14 @@ fuji_channel_flags      = fuji_workspace + $1100  ; Channel flags (per channel)
 fuji_channel_buffer     = fuji_workspace + $1110  ; Channel buffer pointers
 
 fuji_1117               = fuji_workspace + $1117  ; TODO
+
+; FujiNet state variables (using unused workspace locations)
+fuji_state              = fuji_workspace + $10F0  ; Device state
+fuji_current_disk       = fuji_workspace + $10F1  ; Current mounted disk
+
+; FujiNet file operation workspace variables
+fuji_operation_type     = fuji_workspace + $10F2  ; Operation type ($85=read, $A5=write)
+fuji_buffer_addr        = fuji_workspace + $10F3  ; Buffer address (2 bytes)
+fuji_file_offset        = fuji_workspace + $10F5  ; File offset (3 bytes)
+fuji_block_size         = fuji_workspace + $10F8  ; Block size (2 bytes)
+fuji_current_sector     = fuji_workspace + $10FA  ; Current sector being accessed

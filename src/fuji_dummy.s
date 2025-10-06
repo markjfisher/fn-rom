@@ -105,17 +105,78 @@ fuji_read_block_data:
         ; For dummy interface, read from our sector data
         ; In a real implementation, this would read from network
 
-        ; TODO: Implement proper sector reading based on sector number
-        ; For now, just copy some test data to buffer
+        ; Calculate which sector to read based on file offset
+        ; File offset is in fuji_file_offset (3 bytes)
+        ; Each sector is 256 bytes, so sector = offset / 256
+        
+        lda     fuji_file_offset+1        ; Get high byte of offset
+        lsr     a                        ; Divide by 256 (shift right 8 bits)
+        sta     fuji_current_sector      ; Store sector number
+        
+        ; For dummy, we have sectors 2, 3, 4 with test data
+        ; Map them to our dummy data
+        cmp     #2
+        beq     @read_sector2
+        cmp     #3
+        beq     @read_sector3
+        cmp     #4
+        beq     @read_sector4
+        
+        ; Unknown sector, return error
+        lda     #0
+        rts
+        
+@read_sector2:
+        lda     #<dummy_sector2_data
+        sta     aws_tmp12                ; Use zero-page variable for indirect addressing
+        lda     #>dummy_sector2_data
+        sta     aws_tmp13                ; Use zero-page variable for indirect addressing
+        jmp     @copy_sector_data
+        
+@read_sector3:
+        lda     #<dummy_sector3_data
+        sta     aws_tmp12                ; Use zero-page variable for indirect addressing
+        lda     #>dummy_sector3_data
+        sta     aws_tmp13                ; Use zero-page variable for indirect addressing
+        jmp     @copy_sector_data
+        
+@read_sector4:
+        lda     #<dummy_sector4_data
+        sta     aws_tmp12                ; Use zero-page variable for indirect addressing
+        lda     #>dummy_sector4_data
+        sta     aws_tmp13                ; Use zero-page variable for indirect addressing
+        jmp     @copy_sector_data
+        
+@copy_sector_data:
+        ; Copy data from sector to buffer
+        ; Use block size from fuji_block_size
+        lda     fuji_block_size
+        sta     aws_tmp14                ; Use temporary workspace variable
+        lda     fuji_block_size+1
+        sta     aws_tmp15                ; Use temporary workspace variable
+        
         ldy     #0
 @copy_loop:
-        lda     dummy_sector2_data,y
+        lda     (aws_tmp12),y            ; Use zero-page variable for indirect addressing
         sta     (data_ptr),y
         iny
-        cpy     #16       ; Copy 16 bytes from TEST file
+        cpy     aws_tmp14                ; Compare with temporary variable
         bne     @copy_loop
-
-        clc
+        
+        ; Check if we need to copy more bytes (high byte)
+        lda     aws_tmp15                ; Use temporary workspace variable
+        beq     @copy_done
+        
+        ; Copy remaining bytes (simplified - just copy 256 bytes max)
+        ldy     #0
+@copy_loop2:
+        lda     (aws_tmp12),y            ; Use zero-page variable for indirect addressing
+        sta     (data_ptr),y
+        iny
+        bne     @copy_loop2
+        
+@copy_done:
+        lda     #1                       ; Success
         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -130,8 +191,34 @@ fuji_write_block_data:
         ; For dummy interface, we'll just acknowledge the write
         ; In a real implementation, this would send data to network
 
-        ; Simple test: just return success
-        clc
+        ; Calculate which sector to write based on file offset
+        lda     fuji_file_offset+1        ; Get high byte of offset
+        lsr     a                        ; Divide by 256 (shift right 8 bits)
+        sta     fuji_current_sector      ; Store sector number
+        
+        ; For dummy, we have sectors 2, 3, 4 with test data
+        ; In a real implementation, we would write to the appropriate sector
+        cmp     #2
+        beq     @write_sector2
+        cmp     #3
+        beq     @write_sector3
+        cmp     #4
+        beq     @write_sector4
+        
+        ; Unknown sector, return error
+        lda     #0
+        rts
+        
+@write_sector2:
+@write_sector3:
+@write_sector4:
+        ; For dummy implementation, just acknowledge the write
+        ; In a real implementation, we would:
+        ; 1. Copy data from buffer to sector
+        ; 2. Send network command to update the file
+        ; 3. Handle network response
+        
+        lda     #1                       ; Success
         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
