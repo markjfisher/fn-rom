@@ -90,7 +90,7 @@ not_cmd_help:
         jsr     print_axy
 .endif
         jsr     GSINIT_A
-        beq     @not_cmd_help_loop
+        bne     @not_cmd_help_loop
         rts
 @not_cmd_help_loop:
         jsr     GSREAD_A
