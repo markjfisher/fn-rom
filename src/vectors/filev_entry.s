@@ -146,10 +146,11 @@ LoadMemBlockEX:
         ; Fall into LoadMemBlock
 
 ; LoadMemBlock - Load memory block
-; Since _MM32_ is true, use exec_block_rw with A=&85
+; FujiNet equivalent - use network read operation
 LoadMemBlock:
-        lda     #$85
-        bne     exec_block_rw
+        lda     #$85                     ; Read operation
+        jsr     fuji_execute_block_rw
+        rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; osfile0_savememblock
@@ -164,71 +165,61 @@ osfile0_savememblock:
         ; fall into SaveMemBlock
 
 ; SaveMemBlock - Save block of memory
-; Since _MM32_ is true, use exec_block_rw with A=&A5
+; FujiNet equivalent - use network write operation
 SaveMemBlock:
-        lda     #$A5
-        ; fall into exec_block_rw
+        lda     #$A5                     ; Write operation
+        jsr     fuji_execute_block_rw
+        rts
 
-; exec_block_rw - Block read/write
-; Translated from MMFS lines 2048-2110
-; On entry A=FDC command
-exec_block_rw:
-        ; Populate OSWORD control block
-        sta     OWCtlBlock+6             ; FDC Command
-        lda     #5
-        sta     OWCtlBlock+5             ; Param count
-        lda     CurrentDrv
-        sta     OWCtlBlock               ; Drive
-
-        ; Buffer address
-        ldx     #2
-@loop0:
-        lda     aws_tmp12-1,x            ; &BC-1,X
-        sta     OWCtlBlock,x
-        lda     $1074-1,x                ; MA+&1074-1,X
-        sta     OWCtlBlock+2,x
-        dex
-        bne     @loop0
-
-        ; Convert sector address to track & sector
-        lda     pws_tmp02                ; &C2
-        and     #3
-        tax
-        lda     pws_tmp03                ; &C3 - X:A = sector address
-        ldy     #$FF                     ; Y = track
-
-@loop1:
-        sec
-
-@loop2:
-        iny
-        sbc     #10
-        bcs     @loop2
-
-        dex
-        bpl     @loop1
-
-        ; C=0
-        adc     #10                      ; A = sector
-        sty     OWCtlBlock+7
-        sta     OWCtlBlock+8
-
-        ; Block size (bytes)
-        lda     pws_tmp01                ; &C1
-        sta     OWCtlBlock+9
-        lda     pws_tmp02                ; mixed byte
+; fuji_execute_block_rw - FujiNet block read/write
+; On entry A=operation ($85=read, $A5=write)
+fuji_execute_block_rw:
+        ; Store operation type
+        sta     fuji_operation_type
+        
+        ; Get buffer address from parameter block
+        lda     aws_tmp12                ; &BC (buffer address low)
+        sta     fuji_buffer_addr
+        lda     aws_tmp13                ; &BD (buffer address high)
+        sta     fuji_buffer_addr+1
+        
+        ; Get file offset from parameter block
+        lda     pws_tmp00                ; &C0 (offset low)
+        sta     fuji_file_offset
+        lda     pws_tmp01                ; &C1 (offset mid)
+        sta     fuji_file_offset+1
+        lda     pws_tmp02                ; &C2 (offset high bits)
+        and     #$0F                     ; Mask to get high bits only
+        sta     fuji_file_offset+2
+        
+        ; Get block size from parameter block
+        lda     pws_tmp01                ; &C1 (size low)
+        sta     fuji_block_size
+        lda     pws_tmp02                ; &C2 (size high bits)
         lsr     a
         lsr     a
         lsr     a
         lsr     a
-        and     #3
-        sta     OWCtlBlock+10
-        lda     pws_tmp00                ; &C0
-        sta     OWCtlBlock+11
-
-        jsr     ow7f_execute_and_report_if_disk_fault
-
-        lda     #1
+        and     #$0F                     ; Mask to get high bits only
+        sta     fuji_block_size+1
+        
+        ; Execute network operation
+        lda     fuji_operation_type
+        cmp     #$85                     ; Read operation
+        beq     @fuji_read_block
+        cmp     #$A5                     ; Write operation
+        beq     @fuji_write_block
+        
+        ; Unknown operation
+        lda     #$FF                     ; Error code
+        rts
+        
+@fuji_read_block:
+        jsr     fuji_read_file_block
+        rts
+        
+@fuji_write_block:
+        jsr     fuji_write_file_block
         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -357,7 +348,14 @@ create_file_fsp:
         ; TODO: Implement file creation
         rts
 
-; ow7f_execute_and_report_if_disk_fault - Execute OSWORD 7F and report disk faults
-ow7f_execute_and_report_if_disk_fault:
-        ; TODO: Implement OSWORD 7F execution
+; fuji_read_file_block - Read file block from network
+fuji_read_file_block:
+        ; TODO: Implement FujiNet file block reading
+        lda     #1                       ; Success
+        rts
+
+; fuji_write_file_block - Write file block to network
+fuji_write_file_block:
+        ; TODO: Implement FujiNet file block writing
+        lda     #1                       ; Success
         rts

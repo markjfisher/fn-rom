@@ -54,6 +54,12 @@ data_ptr = aws_tmp08
 fuji_state              = $10F0  ; Device state
 fuji_current_disk       = $10F1  ; Current mounted disk
 
+; FujiNet file operation workspace variables
+fuji_operation_type     = $10F2  ; Operation type ($85=read, $A5=write)
+fuji_buffer_addr        = $10F3  ; Buffer address (2 bytes)
+fuji_file_offset        = $10F5  ; File offset (3 bytes)
+fuji_block_size         = $10F8  ; Block size (2 bytes)
+
 ; OS constants
 filesysno               = $04
 filehndl                = $10
