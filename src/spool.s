@@ -4,7 +4,7 @@
         .import  a_rolx5
         .import  osbyte_X0YFF
 
-        .include "mos.inc"
+        .include "fujinet.inc"
 
         .segment "CODE"
 

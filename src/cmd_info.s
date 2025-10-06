@@ -7,28 +7,27 @@
         .export get_cat_entry
         .export GSREAD_A
 
-        .import cmd_table_fujifs
+        .import GSINIT_A
         .import cmd_table_info
+        .import err_bad
         .import fuji_read_catalog
         .import is_alpha_char
-        .import err_bad
         .import parameter_afsp
         .import print_2_spaces_spl
         .import print_axy
         .import print_char
         .import print_fullstop
         .import print_hex
-        .import print_nibble
         .import print_newline
+        .import print_nibble
         .import print_space_spl
         .import print_string
+        .import prtcmd_at_bc_add_1
+        .import prtcmd_prtchr
         .import remember_axy
-        .import GSINIT_A
         .import report_error
         .import set_text_pointer_yx
         .import y_add7
-        .import prtcmd_at_bc_add_1
-        .import prtcmd_prtchr
 
         .include "fujinet.inc"
 

@@ -3,6 +3,8 @@
         .export  handle_service
         .export  service12_init_filesystem
 
+        .export  service_table                     ; export to get in lbl file for debugging
+
         .import  service01_claim_absworkspace
         .import  service02_claim_privworkspace
         .import  service03_autoboot
@@ -14,7 +16,6 @@
 
         .import  remember_axy
 
-        .include "mos.inc"
         .include "fujinet.inc"
 
         .segment "CODE"

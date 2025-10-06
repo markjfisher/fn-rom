@@ -25,7 +25,6 @@
         .import vectors_table
         .import extendedvectors_table
 
-        .include "mos.inc"
         .include "fujinet.inc"
 
         .segment "CODE"
@@ -266,7 +265,7 @@ claim_static_workspace:
         rts
 
 vid_reset:
-        ldy     #(CHECK_CRC7-VID-1)
+        ldy     #<(CHECK_CRC7 - VID - 1)
         lda     #$00
 @loop:
         sta     VID,y

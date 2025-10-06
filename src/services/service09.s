@@ -30,7 +30,6 @@
         .import print_axy
 .endif
 
-        .include "mos.inc"
         .include "fujinet.inc"
 
         .segment "CODE"

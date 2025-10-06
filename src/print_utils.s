@@ -24,7 +24,7 @@
         .import  osbyte_X0YFF
         .import  remember_axy
 
-        .include "mos.inc"
+        .include "fujinet.inc"
 
 current_cat     = $1082
 

@@ -21,7 +21,6 @@
         .import parameter_table
 
 
-        .include "mos.inc"
         .include "fujinet.inc"
 
         .segment "CODE"

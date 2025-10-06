@@ -12,7 +12,7 @@
         .export  tube_check_if_present
         .export  y_add7
 
-        .include "mos.inc"
+        .include "fujinet.inc"
 
         .segment "CODE"
 
@@ -57,7 +57,7 @@ set_text_pointer_yx:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 calculate_crc7:
-        ldy     #(CHECK_CRC7-VID-1)
+        ldy     #<(CHECK_CRC7 - VID - 1)
         lda     #$00
 @loop1:
         eor     VID,y
