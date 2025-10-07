@@ -30,6 +30,8 @@
 
 osfileFF_loadfiletoaddr:
         jsr     get_cat_entry_fspba        ; Get Load Addr etc.
+        bcc     @file_not_found            ; If file not found, exit with error
+        
         jsr     set_param_block_pointer_b0  ; from catalogue
         jsr     read_file_attribs_to_b0_yoffset  ; (Just for info?)
         
@@ -43,14 +45,13 @@ osfileFF_loadfiletoaddr:
         jsr     print_axy
 .endif
         
-        ; For now, let's hardcode the catalog offset based on the filename
-        ; This is a temporary fix until we get the file search working correctly
-        ; HELLO file is at offset 0, WORLD at offset 8, TEST at offset 16
-        ; But we need to set Y after all the function calls to avoid it being overridden
-        ldy     #8                        ; Hardcode to WORLD file for testing
-        ; TODO: Implement proper file search to get the correct offset
-        
+        ; Y now contains the catalog offset from get_cat_entry_fspba
         ; Fall into LoadFile_Ycatoffset
+        jmp     LoadFile_Ycatoffset
+
+@file_not_found:
+        ; File not found - exit with error
+        rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; LoadFile_Ycatoffset - Load file at catalog offset Y
