@@ -7,6 +7,7 @@
         .export read_file_attribs_to_b0_yoffset
         .export GSREAD_A
 
+        .import fuji_read_catalog
         .import GSINIT_A
         .import err_bad
         .import is_alpha_char
@@ -333,9 +334,12 @@ err_bad_drive:
         .byte   "drive", 0
 
 ; load_cur_drv_cat - Load current drive catalog (MMFS line 7267-7279)
+; For FujiNet, this is equivalent to MMFS's exec_cat_rw with A=#&53
 load_cur_drv_cat:
-        ; For now, just mark the catalog as loaded
-        ; TODO: Implement actual catalog loading from disk
+        ; Load catalog from FujiNet interface (equivalent to OW7F_Execute_and_ReportIfDiskFault)
+        jsr     fuji_read_catalog
+        
+        ; Mark catalog as loaded for current drive (equivalent to MMFS line 7322-7323)
         lda     CurrentDrv
         sta     CurrentCat
         rts

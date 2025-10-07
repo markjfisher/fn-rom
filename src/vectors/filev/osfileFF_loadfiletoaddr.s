@@ -9,6 +9,7 @@
 
         .import exec_addr_hi2
         .import fuji_execute_block_rw
+        .import fuji_read_catalog
         .import get_cat_entry_fspba
         .import load_addr_hi2
         .import print_axy
