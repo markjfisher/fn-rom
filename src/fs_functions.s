@@ -1,6 +1,7 @@
         .export get_cat_nextentry
         .export get_cat_entry_fspba
         .export get_cat_firstentry80
+        .export get_cat_firstentry81
         .export read_fspBA
         .export read_fspBA_reset
         .export parameter_afsp_param_syntaxerrorifnull_getcatentry_fsptxtp
@@ -64,6 +65,7 @@ err_file_not_found:
 
 
 ; get_cat_firstentry80 (MMFS line 672-676)
+get_cat_firstentry81:
 get_cat_firstentry80:
         dbg_string_axy "get_cat80: "
         jsr     check_cur_drv_cat       ; Get cat entry

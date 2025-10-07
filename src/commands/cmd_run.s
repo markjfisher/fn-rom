@@ -4,7 +4,7 @@
         .export fscv2_4_11_starRUN
 
         .import LoadFile_Ycatoffset
-        .import get_cat_firstentry80
+        .import get_cat_firstentry81
         .import read_fspBA_reset
         .import read_fspBA
         .import a_rorx6and3
@@ -37,19 +37,19 @@ fscv2_4_11_starRUN:
 
         ; Look in default drive/dir first
         ldy     #$00
-        sty     aws_tmp15              ; &10DA -> aws_tmp15 (Y=0)
+        sty     fuji_text_ptr_hi       ; MA+&10DA (Y=0)
         jsr     read_fspBA_reset       ; Look in default drive/dir
-        sty     aws_tmp12              ; &10D9 -> aws_tmp12 (Y=text ptr offset)
+        sty     fuji_text_ptr_offset   ; MA+&10D9 (Y=text ptr offset)
 .ifdef FN_DEBUG
         jsr     print_string
         .byte   "RUN: Searching def. dir", $0D
         nop
 .endif
-        jsr     get_cat_firstentry80   ; get_cat_firstentry81 is same as 80
+        jsr     get_cat_firstentry81   ; Use correct function
         bcs     runfile_found          ; If file found
 
         ; File not found in default location, try library
-        ldy     aws_tmp15              ; &10DA
+        ldy     fuji_text_ptr_hi       ; MA+&10DA
         lda     fuji_lib_dir           ; LIB_DIR -> DirectoryParam
         sta     DirectoryParam
         lda     fuji_lib_drive         ; LIB_DRIVE -> CurrentDrv
@@ -60,7 +60,7 @@ fscv2_4_11_starRUN:
         nop
 .endif
         jsr     read_fspBA
-        jsr     get_cat_firstentry80   ; get_cat_firstentry81 is same as 80
+        jsr     get_cat_firstentry81   ; Use correct function
         bcs     runfile_found          ; If file found
 
         ; File not found anywhere
@@ -148,6 +148,7 @@ runfile_run:
         jsr     LoadFile_Ycatoffset    ; Load file
         
         ; Store execution address from catalog entry for final jump
+        ; TODO: work out why this is needed, as it differs from MMFS where the values are already good
         lda     $0F0A,y                ; Exec address low byte from catalog
         sta     aws_tmp14              ; Store in workspace (&BE)
         lda     $0F0B,y                ; Exec address high byte from catalog
@@ -176,14 +177,15 @@ runfile_run:
         
         ; Set up execution parameters
         clc
-        lda     aws_tmp12              ; &10D9 += text ptr (parameters)
+        lda     fuji_text_ptr_offset   ; MA+&10D9 += text ptr (parameters)
         tay
         adc     TextPointer
-        sta     aws_tmp12
+        sta     fuji_text_ptr_offset
         lda     TextPointer+1
         adc     #$00
-        sta     aws_tmp13              ; &10DA
-        
+        sta     fuji_text_ptr_hi       ; MA+&10DA
+
+        ; TUBE CODE TODO        
         ; Check if execution address is &FFFFFFFF (host execution)
         ; TODO: Get execution address from loaded file workspace
         ; For now, assume host execution
