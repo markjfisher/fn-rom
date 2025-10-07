@@ -5,6 +5,8 @@
         .export filev_entry
 
         .import parameter_fsp
+        .import print_axy
+        .import print_string
         .import remember_axy
         .import osfileFF_loadfiletoaddr
         .import osfile0_savememblock

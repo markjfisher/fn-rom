@@ -106,11 +106,10 @@ fuji_read_block_data:
         ; In a real implementation, this would read from network
 
         ; Calculate which sector to read based on file offset
-        ; File offset is in fuji_file_offset (3 bytes)
-        ; Each sector is 256 bytes, so sector = offset / 256
+        ; fuji_file_offset contains the start sector number (not byte offset)
+        ; For dummy interface, we'll use this directly as sector number
         
-        lda     fuji_file_offset+1        ; Get high byte of offset
-        lsr     a                        ; Divide by 256 (shift right 8 bits)
+        lda     fuji_file_offset         ; Get start sector number
         sta     fuji_current_sector      ; Store sector number
         
         ; For dummy, we have sectors 2, 3, 4 with test data
@@ -192,8 +191,8 @@ fuji_write_block_data:
         ; In a real implementation, this would send data to network
 
         ; Calculate which sector to write based on file offset
-        lda     fuji_file_offset+1        ; Get high byte of offset
-        lsr     a                        ; Divide by 256 (shift right 8 bits)
+        ; fuji_file_offset contains the start sector number (not byte offset)
+        lda     fuji_file_offset         ; Get start sector number
         sta     fuji_current_sector      ; Store sector number
         
         ; For dummy, we have sectors 2, 3, 4 with test data

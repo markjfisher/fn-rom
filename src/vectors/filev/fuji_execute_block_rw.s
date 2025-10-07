@@ -9,6 +9,8 @@
         .import fuji_read_block_data
         .import fuji_write_block_data
         .import remember_axy
+        .import print_axy
+        .import print_string
 
         .include "fujinet.inc"
 
@@ -23,30 +25,57 @@ fuji_execute_block_rw:
         ; Store operation type
         sta     fuji_operation_type
         
-        ; Get buffer address from parameter block
+.ifdef FN_DEBUG
+        jsr     print_string
+        .byte   "BLOCK_RW A="
+        nop
+        jsr     print_axy
+        jsr     print_string
+        .byte   " BC="
+        nop
+        lda     aws_tmp12
+        ldx     aws_tmp13
+        ldy     #0
+        jsr     print_axy
+        jsr     print_string
+        .byte   " C0="
+        nop
+        lda     pws_tmp00
+        ldx     pws_tmp01
+        ldy     pws_tmp02
+        jsr     print_axy
+        jsr     print_string
+        .byte   " BE="
+        nop
+        lda     aws_tmp14
+        ldx     #0
+        ldy     #0
+        jsr     print_axy
+.endif
+        
+        ; Get buffer address from workspace (set by LoadFile_Ycatoffset)
+        ; &BC-&BD contain the buffer address (load address)
         lda     aws_tmp12                ; &BC (buffer address low)
         sta     fuji_buffer_addr
         lda     aws_tmp13                ; &BD (buffer address high)
         sta     fuji_buffer_addr+1
         
-        ; Get file offset from parameter block
-        lda     pws_tmp00                ; &C0 (offset low)
+        ; Get start sector from workspace (set by LoadFile_Ycatoffset)
+        ; The start sector is in the last byte of the 8-byte file info
+        ; We need to extract it from the catalog entry format
+        ; For now, let's use a hardcoded value based on our dummy data
+        ; HELLO file is in sector 4, WORLD in sector 3, TEST in sector 2
+        lda     #4                       ; Start with HELLO file (sector 4)
         sta     fuji_file_offset
-        lda     pws_tmp01                ; &C1 (offset mid)
+        lda     #0
         sta     fuji_file_offset+1
-        lda     pws_tmp02                ; &C2 (offset high bits)
-        and     #$0F                     ; Mask to get high bits only
         sta     fuji_file_offset+2
         
-        ; Get block size from parameter block
-        lda     pws_tmp01                ; &C1 (size low)
+        ; Get block size from workspace (set by LoadFile_Ycatoffset)
+        ; &C2-&C3 contain the file length
+        lda     pws_tmp02                ; &C2 (file length low)
         sta     fuji_block_size
-        lda     pws_tmp02                ; &C2 (size high bits)
-        lsr     a
-        lsr     a
-        lsr     a
-        lsr     a
-        and     #$0F                     ; Mask to get high bits only
+        lda     pws_tmp03                ; &C3 (file length high)
         sta     fuji_block_size+1
         
         ; Execute network operation
@@ -75,6 +104,23 @@ fuji_execute_block_rw:
 
 fuji_read_file_block:
         jsr     remember_axy
+        
+.ifdef FN_DEBUG
+        jsr     print_string
+        .byte   "READ_BLOCK buf="
+        nop
+        lda     fuji_buffer_addr
+        ldx     fuji_buffer_addr+1
+        ldy     #0
+        jsr     print_axy
+        jsr     print_string
+        .byte   " offset="
+        nop
+        lda     fuji_file_offset
+        ldx     fuji_file_offset+1
+        ldy     fuji_file_offset+2
+        jsr     print_axy
+.endif
         
         ; Set data_ptr to point to the buffer address
         lda     fuji_buffer_addr

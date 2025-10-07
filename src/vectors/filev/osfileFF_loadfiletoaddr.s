@@ -14,6 +14,8 @@
         .import exec_addr_hi2
         .import prt_info_msg_yoffset
         .import fuji_execute_block_rw
+        .import print_axy
+        .import print_string
 
         .include "fujinet.inc"
 
@@ -28,6 +30,17 @@ osfileFF_loadfiletoaddr:
         jsr     get_cat_entry_fspba        ; Get Load Addr etc.
         jsr     set_param_block_pointer_b0  ; from catalogue
         jsr     read_file_attribs_to_b0_yoffset  ; (Just for info?)
+        
+.ifdef FN_DEBUG
+        jsr     print_string
+        .byte   "OSFILEFF BE="
+        nop
+        lda     aws_tmp14
+        ldx     #0
+        ldy     #0
+        jsr     print_axy
+.endif
+        
         ; Fall into LoadFile_Ycatoffset
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -37,7 +50,17 @@ osfileFF_loadfiletoaddr:
 LoadFile_Ycatoffset:
         sty     aws_tmp10                ; STY &BA
         ldx     #$00
-        lda     aws_tmp11                ; If ?BE=0 don't do Load Addr
+        lda     aws_tmp14                ; If ?BE=0 don't do Load Addr
+        
+.ifdef FN_DEBUG
+        jsr     print_string
+        .byte   "LOADFILE BE="
+        nop
+        ldx     #0
+        ldy     #0
+        jsr     print_axy
+.endif
+        
         bne     @load_at_load_addr
 
         ; use load address in control block
@@ -54,7 +77,13 @@ LoadFile_Ycatoffset:
 
 @load_copyfileinfo_loop:
         lda     $0F08,y
-        sta     aws_tmp13,x              ; STA &BC,X
+.ifdef FN_DEBUG
+        jsr     print_string
+        .byte   " COPY "
+        nop
+        jsr     print_axy
+.endif
+        sta     aws_tmp12,x              ; STA &BC,X
         iny
         inx
         cpx     #$08
