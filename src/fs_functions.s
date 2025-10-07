@@ -12,13 +12,24 @@
         .export GSREAD_A
         .export load_cur_drv_cat
         .export set_curdir_drv_to_defaults
+        .export fscv1_eof_yhndl
+        .export conv_yhndl_intch_exyintch
+        .export is_hndlin_use_yintch
+        .export check_channel_yhndl_exyintch_tya_cmpptr
 
+        .import a_rolx5
+        .import clear_exec_spool_file_handle
         .import fuji_read_catalog
         .import GSINIT_A
         .import err_bad
         .import is_alpha_char
         .import a_rorx6and3
         .import parameter_afsp
+        .import fuji_1111
+        .import fuji_1112
+        .import fuji_1114
+        .import fuji_1115
+        .import fuji_1116
         .import print_2_spaces_spl
         .import print_axy
         .import print_char
@@ -643,7 +654,98 @@ print_filename_at_y:
         
         rts
 
-.ifdef FN_DEBUG
-debug_filename_msg:
-        .byte   "Parsed filename: ", 0
-.endif
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; fscv1_eof_yhndl - EOF being chekced, X = file handle
+; Esit: X=$FF if EOF, X=$00 if not EOF
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+fscv1_eof_yhndl:
+        pha
+        tya
+        pha
+        txa
+        tay
+        jsr     check_channel_yhndl_exyintch_tya_cmpptr
+        bne     @eof_not_end
+        ldx     #$FF
+        bne     @eof_exit
+@eof_not_end:
+        ldx     #$00
+@eof_exit:
+        pla
+        tay
+        pla
+        rts
+
+check_channel_yhndl_exyintch_tya_cmpptr:
+        jsr     check_channel_yhndl_exyintch
+
+tya_cmpptr:
+        tya
+cmpptr:
+        tax
+        lda     fuji_1112,y     ; PTR#
+        cmp     fuji_1116,x     ; EXT#
+        bne     @cmpPE_exit
+        lda     fuji_1111,y
+        cmp     fuji_1115,x
+        bne     @cmpPE_exit
+        lda     fuji_channel_buffer,y
+        cmp     fuji_1114,x
+@cmpPE_exit:
+        rts
+
+check_channel_yhndl_exyintch:
+        jsr     conv_yhndl_intch_exyintch
+        jsr     is_hndlin_use_yintch
+        bcc     check_channel_yhndl_exyintch_exit
+        jsr     clear_exec_spool_file_handle
+        rts
+
+check_channel_yhndl_exyintch_exit:
+        rts
+
+conv_yhndl_intch_exyintch:
+        ; Convert file handle Y to internal channel number
+        ; Based on MMFS conv_Yhndl_intch_exYintch (line 5083)
+        pha                             ; Save A
+        tya
+        cmp     #filehndl
+        bcc     conv_hndl10
+        cmp     #filehndl + 8
+        bcc     conv_hndl18
+conv_hndl10:
+        lda     #$08                    ; exit with C=1,A=0; intch=0
+conv_hndl18:
+        jsr     a_rolx5                 ; if Y<$10 or >$18
+        tay                             ; ch0=$00, ch1=$20, ch2=$40
+        pla                             ; ch3=$60...ch7=$E0
+        rts                             ; c=1 if not valid
+
+is_hndlin_use_yintch:
+        ; Check if file handle is in use
+        ; Based on MMFS IsHndlinUse_Yintch (line 5051)
+        pha                             ; Save A
+        stx     fuji_saved_x            ; Save X to fuji_saved_x
+        tya
+        and     #$E0
+        sta     fuji_intch              ; Save intch
+        beq     hndlinuse_notused_c1
+        jsr     a_rolx5                 ; ch.1-7
+        tay                             ; create bit mask
+        lda     #$00                    ; 1=10000000
+        sec                             ; 2=01000000 etc
+hndlinuse_loop:
+        ror     a
+        dey
+        bne     hndlinuse_loop
+        ; Carry = 0
+        ldy     fuji_intch              ; Y=intch
+        bit     fuji_open_channels      ; Test if open
+        bne     hndlinuse_used_c0
+hndlinuse_notused_c1:
+        sec
+hndlinuse_used_c0:
+        pla
+        rts
+

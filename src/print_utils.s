@@ -23,7 +23,7 @@
 .endif
 
         .import  a_rorx4
-        .import  clear_execspool_file_handle
+        .import  clear_exec_spool_file_handle
         .import  osbyte_X0YFF
         .import  remember_axy
 
@@ -68,7 +68,7 @@ report_error_cb:
         ; TODO: Check if writing channel buffer
         lda     $10DD                   ; Error while writing
         bne     @brk100_notbuf          ; channel buffer?
-        jsr     clear_execspool_file_handle
+        jsr     clear_exec_spool_file_handle
 @brk100_notbuf:
         lda     #$FF
         sta     current_cat

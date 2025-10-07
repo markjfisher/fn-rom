@@ -1,4 +1,4 @@
-        .export  clear_execspool_file_handle
+        .export  clear_exec_spool_file_handle
         .export  conv_Yhndl_intch_exYintch
 
         .import  a_rolx5
@@ -27,7 +27,7 @@ conv_Yhndl_intch_exYintch:
         pla
         rts
 
-clear_execspool_file_handle:
+clear_exec_spool_file_handle:
         lda     #$C6                                ; X = *EXEC file handle
         jsr     osbyte_X0YFF
         txa

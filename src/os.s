@@ -61,6 +61,12 @@
 
         .export  fuji_channel_flags
         .export  fuji_channel_buffer
+        .export  fuji_1111
+        .export  fuji_1112
+        .export  fuji_1113
+        .export  fuji_1114
+        .export  fuji_1115
+        .export  fuji_1116
         .export  fuji_1117
 
         .export  fuji_state
@@ -140,7 +146,7 @@ OSCLI           := $FFF7
 ; Temporary Zeropage Variables
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-; Command workspace variables
+; Command workspace variables (Any *COMMAND entered)
 cws_tmp1        := $A8
 cws_tmp2        := $A9
 cws_tmp3        := $AA
@@ -150,7 +156,7 @@ cws_tmp6        := $AD
 cws_tmp7        := $AE
 cws_tmp8        := $AF
 
-; Absolute workspace variables
+; Absolute workspace variables, general Temporary Variables
 aws_tmp00       := $B0
 aws_tmp01       := $B1
 aws_tmp02       := $B2
@@ -170,6 +176,7 @@ aws_tmp15       := $BF
 
 
 ; Private workspace variables
+; These remain unaltered if the filing system remains selected
 pws_tmp00       := $C0
 pws_tmp01       := $C1
 pws_tmp02       := $C2
@@ -247,11 +254,6 @@ fuji_error_flag         = fuji_workspace + $10DD  ; Error flag
 fuji_card_sort          = fuji_workspace + $10DE  ; Card sort flag
 
 
-; Channel workspace (similar to MMFS $1100-$11BF)
-fuji_channel_flags      = fuji_workspace + $1100  ; Channel flags (per channel)
-fuji_channel_buffer     = fuji_workspace + $1110  ; Channel buffer pointers
-
-fuji_1117               = fuji_workspace + $1117  ; TODO
 
 ; FujiNet state variables (using unused workspace locations)
 fuji_state              = fuji_workspace + $10F0  ; Device state
@@ -263,3 +265,16 @@ fuji_buffer_addr        = fuji_workspace + $10F3  ; Buffer address (2 bytes)
 fuji_file_offset        = fuji_workspace + $10F5  ; File offset (3 bytes)
 fuji_block_size         = fuji_workspace + $10F8  ; Block size (2 bytes)
 fuji_current_sector     = fuji_workspace + $10FA  ; Current sector being accessed
+
+; Channel workspace (similar to MMFS $1100-$11BF)
+fuji_channel_flags      = fuji_workspace + $1100  ; Channel flags (per channel)
+fuji_channel_buffer     = fuji_workspace + $1110  ; Channel buffer pointers
+
+; Channel workspace variables (mapped from MMFS $1110-$111F)
+fuji_1111               = fuji_workspace + $1111  ; PTR mid byte  
+fuji_1112               = fuji_workspace + $1112  ; PTR high byte
+fuji_1113               = fuji_workspace + $1113  ; Buffer page
+fuji_1114               = fuji_workspace + $1114  ; EXT low byte
+fuji_1115               = fuji_workspace + $1115  ; EXT mid byte
+fuji_1116               = fuji_workspace + $1116  ; EXT high byte
+fuji_1117               = fuji_workspace + $1117  ; Channel flags

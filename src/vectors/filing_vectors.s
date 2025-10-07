@@ -20,10 +20,11 @@
         .import bputv_entry
         .import filev_entry
         .import fscv0_starOPT
-        .import fscv10_starINFO
+        .import fscv1_eof_yhndl
         .import fscv2_4_11_starRUN
         .import fscv3_unreccommand
         .import fscv5_starCAT
+        .import fscv10_starINFO
         .import print_axy
         .import print_string
 
@@ -106,16 +107,19 @@ findv_entry:
         ; 3: Unrecognized command
         ; 4: *RUN
         ; 5: *CAT
-        ; 6: Shutdown filing system
+        ; 6: Shutdown filing system (new filing system start)
         ; 7: Handle range
         ; 8: OS about to process command
         ; 9: *EX
         ; 10: *INFO
         ; 11: *RUN
+        ; 12: *RENAME
+
+; See New_Advanced_User_Guide.pdf 16.1.7: Filing System Control Vector
 
 .define FSCV_TABLE \
         fscv0_starOPT             - 1, \
-        fscv_placeholder          - 1, \
+        fscv1_eof_yhndl           - 1, \
         fscv2_4_11_starRUN        - 1, \
         fscv3_unreccommand        - 1, \
         fscv2_4_11_starRUN        - 1, \

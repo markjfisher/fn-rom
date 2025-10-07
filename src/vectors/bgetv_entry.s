@@ -4,6 +4,7 @@
 
         .export bgetv_entry
 
+        .import check_channel_yhndl_exyintch_tya_cmpptr
         .import print_axy
         .import print_string
         .import remember_axy
@@ -57,10 +58,6 @@ bgetv_entry:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Helper functions
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-check_channel_yhndl_exyintch_tya_cmpptr:
-        ; TODO: Implement channel check
-        rts
 
 channel_flags_set_bits:
         ; TODO: Implement channel flags setting
