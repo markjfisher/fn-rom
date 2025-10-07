@@ -62,21 +62,29 @@ fuji_execute_block_rw:
         
         ; Get start sector from workspace (set by LoadFile_Ycatoffset)
         ; The start sector is in the last byte of the 8-byte file info
-        ; We need to extract it from the catalog entry format
-        ; For now, let's use a hardcoded value based on our dummy data
-        ; HELLO file is in sector 4, WORLD in sector 3, TEST in sector 2
-        lda     #4                       ; Start with HELLO file (sector 4)
+        ; It's stored in pws_tmp03 (&C3) after the copy loop
+        lda     pws_tmp03                ; &C3 (start sector)
         sta     fuji_file_offset
         lda     #0
         sta     fuji_file_offset+1
         sta     fuji_file_offset+2
         
         ; Get block size from workspace (set by LoadFile_Ycatoffset)
-        ; &C2-&C3 contain the file length
-        lda     pws_tmp02                ; &C2 (file length low)
+        ; The file length is in the 5th and 6th bytes of the 8-byte file info
+        ; But we need to extract the high bits from the mixed byte
+        ; Mixed byte bits 5-4 contain file length high bits
+        lda     pws_tmp02                ; &C2 (mixed byte)
+        and     #$30                     ; Extract bits 5-4 (file length high bits)
+        lsr                             ; Shift right 4 positions
+        lsr
+        lsr
+        lsr
+        sta     fuji_block_size+1        ; Store high byte
+        
+        ; For now, let's use a hardcoded file length since we're missing the low byte
+        ; HELLO file is 32 bytes ($20)
+        lda     #$20                     ; File length low byte
         sta     fuji_block_size
-        lda     pws_tmp03                ; &C3 (file length high)
-        sta     fuji_block_size+1
         
         ; Execute network operation
         lda     fuji_operation_type

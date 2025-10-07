@@ -15,7 +15,7 @@ DISK_TASKS =
 CC := cl65
 LDFLAGS := -C cfg/fujinet-rom.cfg
 
-ASFLAGS := --asm-define FN_DEBUG=1
+ASFLAGS := --asm-define XFN_DEBUG=1
 
 # Define the appropriate interface based on BUILD_INTERFACE
 ifeq ($(BUILD_INTERFACE),SERIAL)

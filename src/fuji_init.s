@@ -7,23 +7,12 @@
         .import a_rorx4
         .import calculate_crc7
         .import channel_flags_clear_bits
-        .import dump_zp_workspace
+        .import extendedvectors_table
         .import osbyte_X0YFF
-        .import print_hex
-        .import print_newline
         .import print_string
         .import return_with_a0
         .import tube_check_if_present
-
-        .import filev_entry
-        .import argsv_entry
-        .import bgetv_entry
-        .import bputv_entry
-        .import gbpbv_entry
-        .import findv_entry
-        .import fscv_entry
         .import vectors_table
-        .import extendedvectors_table
 
         .include "fujinet.inc"
 

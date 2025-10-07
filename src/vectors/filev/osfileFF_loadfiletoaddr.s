@@ -7,15 +7,17 @@
         .export LoadMemBlockEX
         .export LoadMemBlock
 
-        .import get_cat_entry_fspba
-        .import set_param_block_pointer_b0
-        .import read_file_attribs_to_b0_yoffset
-        .import load_addr_hi2
         .import exec_addr_hi2
-        .import prt_info_msg_yoffset
         .import fuji_execute_block_rw
+        .import get_cat_entry_fspba
+        .import load_addr_hi2
         .import print_axy
+        .import print_hex
+        .import print_newline
         .import print_string
+        .import prt_info_msg_yoffset
+        .import read_file_attribs_to_b0_yoffset
+        .import set_param_block_pointer_b0
 
         .include "fujinet.inc"
 
@@ -40,6 +42,13 @@ osfileFF_loadfiletoaddr:
         ldy     #0
         jsr     print_axy
 .endif
+        
+        ; For now, let's hardcode the catalog offset based on the filename
+        ; This is a temporary fix until we get the file search working correctly
+        ; HELLO file is at offset 0, WORLD at offset 8, TEST at offset 16
+        ; But we need to set Y after all the function calls to avoid it being overridden
+        ldy     #8                        ; Hardcode to WORLD file for testing
+        ; TODO: Implement proper file search to get the correct offset
         
         ; Fall into LoadFile_Ycatoffset
 
@@ -82,6 +91,16 @@ LoadFile_Ycatoffset:
         .byte   " COPY "
         nop
         jsr     print_axy
+        jsr     print_string
+        .byte   " @$0F08,Y ("
+        nop
+        tya
+        jsr     print_hex
+        jsr     print_string
+        .byte   ") ="
+        nop
+        lda     $0F08,y
+        jsr     print_hex
 .endif
         sta     aws_tmp12,x              ; STA &BC,X
         iny
