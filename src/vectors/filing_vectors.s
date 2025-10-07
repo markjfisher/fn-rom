@@ -19,6 +19,7 @@
         .import bgetv_entry
         .import bputv_entry
         .import filev_entry
+        .import fscv0_starOPT
         .import fscv10_starINFO
         .import fscv2_4_11_starRUN
         .import fscv3_unreccommand
@@ -113,7 +114,7 @@ findv_entry:
         ; 11: *RUN
 
 .define FSCV_TABLE \
-        fscv_placeholder          - 1, \
+        fscv0_starOPT             - 1, \
         fscv_placeholder          - 1, \
         fscv2_4_11_starRUN        - 1, \
         fscv3_unreccommand        - 1, \

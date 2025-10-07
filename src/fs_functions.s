@@ -10,6 +10,8 @@
         .export prt_info_msg_yoffset
         .export read_file_attribs_to_b0_yoffset
         .export GSREAD_A
+        .export load_cur_drv_cat
+        .export set_curdir_drv_to_defaults
 
         .import fuji_read_catalog
         .import GSINIT_A

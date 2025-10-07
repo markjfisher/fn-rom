@@ -246,6 +246,7 @@ fuji_param_block_hi     = fuji_workspace + $10DC  ; Parameter block high byte
 fuji_error_flag         = fuji_workspace + $10DD  ; Error flag
 fuji_card_sort          = fuji_workspace + $10DE  ; Card sort flag
 
+
 ; Channel workspace (similar to MMFS $1100-$11BF)
 fuji_channel_flags      = fuji_workspace + $1100  ; Channel flags (per channel)
 fuji_channel_buffer     = fuji_workspace + $1110  ; Channel buffer pointers

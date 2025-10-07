@@ -3,6 +3,7 @@
 
         .export init_fuji
         .export set_private_workspace_pointer_b0
+        .export boot_options
 
         .import a_rorx4
         .import calculate_crc7
@@ -19,7 +20,7 @@
         .segment "CODE"
 
 ; Boot options strings
-BootOptions:
+boot_options:
         .byte   "L.!BOOT", $0D
         .byte   "!BOOT", $0D
         .byte   "E.!BOOT", $0D
@@ -214,17 +215,17 @@ initdfs_exit:
 
 ; Assumes cmd strings all in same page!
 not_OPT0:
-        ldy     #>(BootOptions)       ; boot file?
-        ldx     #<(BootOptions)       ; ->L.!BOOT
+        ldy     #>(boot_options)       ; boot file?
+        ldx     #<(boot_options)       ; ->L.!BOOT
         cmp     #$02
         bcc     jmp_OSCLI             ; branch if opt 1
         beq     oscli_OPT2            ; branch if opt 2
-        ldy     #>(BootOptions+8)
-        ldx     #<(BootOptions+8)     ; ->E.!BOOT
+        ldy     #>(boot_options+8)
+        ldx     #<(boot_options+8)     ; ->E.!BOOT
         bne     jmp_OSCLI             ; always
 oscli_OPT2:
-        ldy     #>(BootOptions+10)
-        ldx     #<(BootOptions+10)    ; ->!BOOT
+        ldy     #>(boot_options+10)
+        ldx     #<(boot_options+10)    ; ->!BOOT
 jmp_OSCLI:
         jmp     OSCLI
 
