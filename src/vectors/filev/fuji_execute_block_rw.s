@@ -62,29 +62,33 @@ fuji_execute_block_rw:
         
         ; Get start sector from workspace (set by LoadFile_Ycatoffset)
         ; The start sector is in the last byte of the 8-byte file info
-        ; It's stored in pws_tmp03 (&C3) after the copy loop
-        lda     pws_tmp03                ; &C3 (start sector)
+        ; It's stored in aws_tmp12+7 after the copy loop
+        lda     aws_tmp12+7              ; Start sector
         sta     fuji_file_offset
         lda     #0
         sta     fuji_file_offset+1
         sta     fuji_file_offset+2
         
         ; Get block size from workspace (set by LoadFile_Ycatoffset)
-        ; The file length is in the 5th and 6th bytes of the 8-byte file info
-        ; But we need to extract the high bits from the mixed byte
+        ; The file length is in bytes 4-5 of the 8-byte file info (aws_tmp12+4, aws_tmp12+5)
+        ; Plus high bits from the mixed byte (aws_tmp12+6)
         ; Mixed byte bits 5-4 contain file length high bits
-        lda     pws_tmp02                ; &C2 (mixed byte)
+        lda     aws_tmp12+4              ; File length low byte
+        sta     fuji_block_size
+        
+        lda     aws_tmp12+5              ; File length high byte
+        sta     fuji_block_size+1
+        
+        ; Extract high bits from mixed byte and add to high byte
+        lda     aws_tmp12+6              ; Mixed byte
         and     #$30                     ; Extract bits 5-4 (file length high bits)
         lsr                             ; Shift right 4 positions
         lsr
         lsr
         lsr
-        sta     fuji_block_size+1        ; Store high byte
-        
-        ; For now, let's use a hardcoded file length since we're missing the low byte
-        ; HELLO file is 32 bytes ($20)
-        lda     #$20                     ; File length low byte
-        sta     fuji_block_size
+        clc
+        adc     fuji_block_size+1        ; Add to existing high byte
+        sta     fuji_block_size+1
         
         ; Execute network operation
         lda     fuji_operation_type

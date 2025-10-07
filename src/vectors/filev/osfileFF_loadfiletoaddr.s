@@ -82,7 +82,7 @@ LoadFile_Ycatoffset:
         ; use file's load address
 @load_at_load_addr:
         lda     $0F0E,y                  ; mixed byte
-        sta     aws_tmp12                ; STA &C2
+        sta     pws_tmp02                ; C2, used by load_addr_hi2
         jsr     load_addr_hi2
 
 @load_copyfileinfo_loop:
@@ -103,7 +103,7 @@ LoadFile_Ycatoffset:
         lda     $0F08,y
         jsr     print_hex
 .endif
-        sta     aws_tmp12,x              ; STA &BC,X
+        sta     aws_tmp12,x              ; STA &BC,X (same as MMFS)
         iny
         inx
         cpx     #$08
