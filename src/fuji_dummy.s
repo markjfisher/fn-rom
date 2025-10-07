@@ -13,8 +13,8 @@
         .export fuji_read_disc_title_data
         .export fuji_read_catalog
 
+        .import print_string
         .import remember_axy
-        .import err_disk
 
         .include "fujinet.inc"
 
@@ -56,21 +56,21 @@ dummy_catalogue:
         ; File entry 1 (bytes 264-271): HELLO - File details
         .byte $00, $19   ; Load address (bytes 264-265) = $1900
         .byte $00, $1A   ; Exec address (bytes 266-267) = $1A00
-        .byte $20, $00   ; File length (bytes 268-269) = 32 bytes
-        .byte $CC        ; Mixed byte (byte 270) - load=3, exec=3, length=3, sector=0
+        .byte <(dummy_sector4_data_end - dummy_sector4_data), >(dummy_sector4_data_end - dummy_sector4_data)  ; File length
+        .byte $00        ; Mixed byte (byte 270) - all high bits = 0
         .byte $04        ; Start sector (byte 271) = sector 4
 
         ; File entry 2 (bytes 272-279): WORLD - File details  
         .byte $00, $1B   ; Load address = $1B00
         .byte $00, $1C   ; Exec address = $1C00
-        .byte $30, $00   ; File length = 48 bytes
+        .byte <(dummy_sector3_data_end - dummy_sector3_data), >(dummy_sector3_data_end - dummy_sector3_data)  ; File length
         .byte $00        ; Mixed byte - all high bits = 0
         .byte $03        ; Start sector = sector 3
 
         ; File entry 3 (bytes 280-287): TEST - File details
         .byte $00, $1D   ; Load address = $1D00
         .byte $00, $1E   ; Exec address = $1E00
-        .byte $10, $00   ; File length = 16 bytes
+        .byte <(dummy_sector2_data_end - dummy_sector2_data), >(dummy_sector2_data_end - dummy_sector2_data)  ; File length
         .byte $00        ; Mixed byte - all high bits = 0
         .byte $02        ; Start sector = sector 2
 
@@ -78,20 +78,76 @@ dummy_catalogue:
         .res 512 - (* - dummy_catalogue), $00
 
 ; Dummy file data - 3 sectors of 256 bytes each
-; Sector 2: TEST file (16 bytes + padding)
+; These contain actual executable BBC Micro code that can be loaded and run
+
+; Sector 2: TEST file
 dummy_sector2_data:
-        .byte "Hello from TEST", $0D  ; 16 bytes of actual data
-        .res 256 - 16, $00             ; Fill rest with zeros
+        ; Save current ROM and switch to FujiNet ROM (slot 5)
+        lda     $F4                     ; Save current ROMSEL
+        pha
+        lda     #5                      ; FujiNet ROM slot
+        sta     $F4                     ; Update RAM copy
+        sta     $FE30                   ; Update hardware register
+        
+        jsr     print_string
+        .byte   "TEST app running!", $0D
+        nop
+        
+        ; Restore original ROM
+        pla
+        sta     $F4                     ; Restore RAM copy
+        sta     $FE30                   ; Restore hardware register
+        rts
+dummy_sector2_data_end:
+        .res 256 - (* - dummy_sector2_data), $00  ; Fill rest with zeros
 
-; Sector 3: WORLD file (48 bytes + padding)  
+; Sector 3: WORLD file
 dummy_sector3_data:
-        .byte "Hello from WORLD! This is a longer message.1234", $0D  ; 48 bytes
-        .res 256 - 48, $00             ; Fill rest with zeros
+        ; Save current ROM and switch to FujiNet ROM (slot 5)
+        lda     $F4                     ; Save current ROMSEL
+        pha
+        lda     #5                      ; FujiNet ROM slot
+        sta     $F4                     ; Update RAM copy
+        sta     $FE30                   ; Update hardware register
+        
+        jsr     print_string
+        .byte   "WORLD application loaded!", $0D
+        nop
+        jsr     print_string
+        .byte   "This is a longer program", $0D
+        nop
+        
+        ; Restore original ROM
+        pla
+        sta     $F4                     ; Restore RAM copy
+        sta     $FE30                   ; Restore hardware register
+        rts
+dummy_sector3_data_end:
+        .res 256 - (* - dummy_sector3_data), $00  ; Fill rest with zeros
 
-; Sector 4: HELLO file (32 bytes + padding)
+; Sector 4: HELLO file
 dummy_sector4_data:
-        .byte "Hello from HELLO This is a test", $0D  ; 32 bytes
-        .res 256 - 32, $00             ; Fill rest with zeros
+        ; Save current ROM and switch to FujiNet ROM (slot 5)
+        lda     $F4                     ; Save current ROMSEL
+        pha
+        lda     #5                      ; FujiNet ROM slot
+        sta     $F4                     ; Update RAM copy
+        sta     $FE30                   ; Update hardware register
+        
+        jsr     print_string
+        .byte   "HELLO from FujiNet!", $0D
+        nop
+        jsr     print_string
+        .byte   "File loaded OK", $0D
+        nop
+        
+        ; Restore original ROM
+        pla
+        sta     $F4                     ; Restore RAM copy
+        sta     $FE30                   ; Restore hardware register
+        rts
+dummy_sector4_data_end:
+        .res 256 - (* - dummy_sector4_data), $00  ; Fill rest with zeros
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; FUJI_READ_BLOCK_DATA - Read data block from dummy interface
