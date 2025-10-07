@@ -16,6 +16,8 @@
 FUJINET_INC = 1
 
         .include "os.inc"
+        .include "macros.inc"
+
 
 ; command table lengths (number of functions)
 ; used to print appropriate help table ()

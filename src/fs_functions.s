@@ -1,5 +1,8 @@
         .export get_cat_nextentry
         .export get_cat_entry_fspba
+        .export get_cat_firstentry80
+        .export read_fspBA
+        .export read_fspBA_reset
         .export parameter_afsp_param_syntaxerrorifnull_getcatentry_fsptxtp
         .export print_catalog
         .export prt_infoline_yoffset
@@ -11,16 +14,19 @@
         .import GSINIT_A
         .import err_bad
         .import is_alpha_char
+        .import a_rorx6and3
         .import parameter_afsp
         .import print_2_spaces_spl
+        .import print_axy
         .import print_char
         .import print_decimal
         .import print_fullstop
         .import print_hex
         .import print_newline
+        .import print_string
+        .import print_string_ax
         .import print_nibble
         .import print_space_spl
-        .import print_string
         .import prtcmd_at_bc_add_1
         .import prtcmd_prtchr
         .import remember_axy
@@ -40,15 +46,16 @@ param_syntaxerrorifnull_getcatentry_fsptxtp:
 
 getcatentry_fspTxtP:
         jsr     read_fsp_text_pointer
-        bmi     get_cat_entry             ; always ??
+        jmp     get_cat_entry
 
 get_cat_entry_fspba:
 	jsr     read_fspBA_reset
 
 get_cat_entry:
         jsr     get_cat_firstentry80
-        bcs     getcat_exit
-        ; falls into err_FILENOTFOUND
+        bcc     err_file_not_found
+        ; too far a jump when debug is on to the next rts, so swap the logic
+        rts
 
 err_file_not_found:
         jsr     report_error
@@ -58,6 +65,7 @@ err_file_not_found:
 
 ; get_cat_firstentry80 (MMFS line 672-676)
 get_cat_firstentry80:
+        dbg_string_axy "get_cat80: "
         jsr     check_cur_drv_cat       ; Get cat entry
         ldx     #$00                    ; now first byte @ &1000+X
         beq     get_cat_entry_2            ; always
@@ -93,6 +101,16 @@ getcatsetupb7:
         bcs     matfn_exitc0            ; If >FilesX8 Exit with C=0
         adc     #$08
         sta     aws_tmp06               ; word &B6 += 8
+
+.ifdef FN_DEBUG
+        pha
+        jsr     print_string
+        .byte   "Trying file at offset: "
+        lda     aws_tmp06
+        jsr     print_hex
+        jsr     print_newline
+        pla
+.endif
         jsr     match_filename
         bcc     @get_cat_loop2          ; not a match, try next file
         lda     DirectoryParam
@@ -112,7 +130,6 @@ y_sub8:
         dey
         dey
         dey
-getcat_exit:
         rts
 
 ; match_filename (MMFS line 728-756)
@@ -431,6 +448,20 @@ rdafsp_padx:
         sta     pws_tmp05,x
         dex
         bpl     @rdafsp_copyloop
+
+.ifdef FN_DEBUG
+        jsr     print_string
+        .byte   "Parsed filename: "
+        ldx     #$00
+@debug_filename_loop:
+        lda     fuji_filename_buffer,x
+        jsr     print_char
+        inx
+        cpx     #$07
+        bne     @debug_filename_loop
+        jsr     print_newline
+.endif
+
         rts
 
 ; prt_filename_yoffset - Print filename with directory and lock status
@@ -608,3 +639,7 @@ print_filename_at_y:
         
         rts
 
+.ifdef FN_DEBUG
+debug_filename_msg:
+        .byte   "Parsed filename: ", 0
+.endif

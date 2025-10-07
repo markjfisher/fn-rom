@@ -10,11 +10,6 @@
 
 service08_unrec_osword:
 
-.ifdef FN_DEBUG
-        jsr     print_string
-        .byte   "D: service08", $0D
-        nop
-        jsr     print_axy
-.endif
+        dbg_string_axy "service08: "
 
         rts

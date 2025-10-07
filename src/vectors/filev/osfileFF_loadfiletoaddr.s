@@ -36,16 +36,6 @@ osfileFF_loadfiletoaddr:
         jsr     set_param_block_pointer_b0  ; from catalogue
         jsr     read_file_attribs_to_b0_yoffset  ; (Just for info?)
         
-.ifdef FN_DEBUG
-        jsr     print_string
-        .byte   "OSFILEFF BE="
-        nop
-        lda     aws_tmp14
-        ldx     #0
-        ldy     #0
-        jsr     print_axy
-.endif
-        
         ; Y now contains the catalog offset from get_cat_entry_fspba
         ; Fall into LoadFile_Ycatoffset
         jmp     LoadFile_Ycatoffset
@@ -63,15 +53,6 @@ LoadFile_Ycatoffset:
         ldx     #$00
         lda     aws_tmp14                ; If ?BE=0 don't do Load Addr
         
-.ifdef FN_DEBUG
-        jsr     print_string
-        .byte   "LOADFILE BE="
-        nop
-        ldx     #0
-        ldy     #0
-        jsr     print_axy
-.endif
-        
         bne     @load_at_load_addr
 
         ; use load address in control block
@@ -88,22 +69,7 @@ LoadFile_Ycatoffset:
 
 @load_copyfileinfo_loop:
         lda     $0F08,y
-.ifdef FN_DEBUG
-        jsr     print_string
-        .byte   " COPY "
-        nop
-        jsr     print_axy
-        jsr     print_string
-        .byte   " @$0F08,Y ("
-        nop
-        tya
-        jsr     print_hex
-        jsr     print_string
-        .byte   ") ="
-        nop
-        lda     $0F08,y
-        jsr     print_hex
-.endif
+
         sta     aws_tmp12,x              ; STA &BC,X (same as MMFS)
         iny
         inx

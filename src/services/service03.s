@@ -10,11 +10,6 @@
 
 service03_autoboot:
 
-.ifdef FN_DEBUG
-        jsr     print_string
-        .byte   "D: service03", $0D
-        nop
-        jsr     print_axy
-.endif
+        dbg_string_axy "service03: "
 
         rts

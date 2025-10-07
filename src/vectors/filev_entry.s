@@ -29,12 +29,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 filev_entry:
-.ifdef FN_DEBUG
-        jsr     print_string
-        .byte   "FILEV "
-        nop
-        jsr     print_axy
-.endif
+        dbg_string_axy "FILEV: "
         ; rts
 
         jsr     remember_axy

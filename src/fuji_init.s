@@ -125,6 +125,7 @@ init_fuji:
 .ifdef FN_DEBUG
         jsr     print_string
         .byte   "Rest. ws", $0D
+        nop
 .endif
 
         ldy     #$00                  ; ** Restore copy of data

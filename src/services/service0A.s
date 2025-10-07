@@ -16,12 +16,7 @@ service0A_claim_statworkspace:
         ; Another ROM wants the static workspace
         ; We need to save our state to private workspace if we own it
 
-.ifdef FN_DEBUG
-        jsr     print_string
-        .byte   "D: service0A", $0D
-        nop
-        jsr     print_axy
-.endif
+        dbg_string_axy "service0A: "
 
         jsr     remember_axy
 

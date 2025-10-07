@@ -12,12 +12,7 @@
 
 service02_claim_privworkspace:
 
-.ifdef FN_DEBUG
-        jsr     print_string
-        .byte   "D: service02", $0D
-        nop
-        jsr     print_axy
-.endif
+        dbg_string_axy "service02: "
 
         ; Y contains first available page for private workspace
         tya

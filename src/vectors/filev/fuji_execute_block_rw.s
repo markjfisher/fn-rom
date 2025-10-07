@@ -25,34 +25,6 @@ fuji_execute_block_rw:
         ; Store operation type
         sta     fuji_operation_type
         
-.ifdef FN_DEBUG
-        jsr     print_string
-        .byte   "BLOCK_RW A="
-        nop
-        jsr     print_axy
-        jsr     print_string
-        .byte   " BC="
-        nop
-        lda     aws_tmp12
-        ldx     aws_tmp13
-        ldy     #0
-        jsr     print_axy
-        jsr     print_string
-        .byte   " C0="
-        nop
-        lda     pws_tmp00
-        ldx     pws_tmp01
-        ldy     pws_tmp02
-        jsr     print_axy
-        jsr     print_string
-        .byte   " BE="
-        nop
-        lda     aws_tmp14
-        ldx     #0
-        ldy     #0
-        jsr     print_axy
-.endif
-        
         ; Get buffer address from workspace (set by LoadFile_Ycatoffset)
         ; &BC-&BD contain the buffer address (load address)
         lda     aws_tmp12                ; &BC (buffer address low)
@@ -116,23 +88,6 @@ fuji_execute_block_rw:
 
 fuji_read_file_block:
         jsr     remember_axy
-        
-.ifdef FN_DEBUG
-        jsr     print_string
-        .byte   "READ_BLOCK buf="
-        nop
-        lda     fuji_buffer_addr
-        ldx     fuji_buffer_addr+1
-        ldy     #0
-        jsr     print_axy
-        jsr     print_string
-        .byte   " offset="
-        nop
-        lda     fuji_file_offset
-        ldx     fuji_file_offset+1
-        ldy     fuji_file_offset+2
-        jsr     print_axy
-.endif
         
         ; Set data_ptr to point to the buffer address
         lda     fuji_buffer_addr

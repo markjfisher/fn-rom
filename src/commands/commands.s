@@ -27,12 +27,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 cmd_fs_drive:
-.ifdef FN_DEBUG
-        jsr     print_string
-        .byte   "CMD_FS_DRIVE called", $0D
-        nop
-        jsr     print_axy
-.endif
+        dbg_string_axy "CMD_FS_DRIVE: "
         
         ; TODO: Implement DRIVE command
         
@@ -43,12 +38,7 @@ cmd_fs_drive:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 cmd_fs_fboot:
-.ifdef FN_DEBUG
-        jsr     print_string
-        .byte   "CMD_FS_FBOOT called", $0D
-        nop
-        jsr     print_axy
-.endif
+        dbg_string_axy "CMD_FS_FBOOT: "
         
         ; TODO: Implement FBOOT command
 
@@ -59,12 +49,7 @@ cmd_fs_fboot:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 cmd_fs_fuji:
-.ifdef FN_DEBUG
-        jsr     print_string
-        .byte   "CMD_FS_FUJI called", $0D
-        nop
-        jsr     print_axy
-.endif
+        dbg_string_axy "CMD_FS_FUJI: "
         
         ; Initialize FujiNet filing system (following MMFS CMD_CARD pattern)
         lda     #$FF                    ; Set A=$FF to indicate not a boot file
@@ -75,12 +60,7 @@ cmd_fs_fuji:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 cmd_utils_roms:
-.ifdef FN_DEBUG
-        jsr     print_string
-        .byte   "CMD_UTILS_ROMS called", $0D
-        nop
-        jsr     print_axy
-.endif
+        dbg_string_axy "CMD_UTILS_ROMS: "
         
         ; TODO: Implement ROMS command
 
@@ -92,38 +72,18 @@ cmd_utils_roms:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 not_cmd_fs:
-.ifdef FN_DEBUG
-        jsr     print_string
-        .byte   "NOT_CMD_FS called", $0D
-        nop
-        jsr     print_axy
-.endif
+        dbg_string_axy "NOT_CMD_FS: "
         rts
 
 not_cmd_fujifs:
-.ifdef FN_DEBUG
-        jsr     print_string
-        .byte   "NOT_CMD_FUJIFS called", $0D
-        nop
-        jsr     print_axy
-.endif
+        dbg_string_axy "NOT_CMD_FUJIFS: "
         rts
 
 not_cmd_futils:
-.ifdef FN_DEBUG
-        jsr     print_string
-        .byte   "NOT_CMD_FUTILS called", $0D
-        nop
-        jsr     print_axy
-.endif
+        dbg_string_axy "NOT_CMD_FUTILS: "
         rts
 
 
 not_cmd_utils:
-.ifdef FN_DEBUG
-        jsr     print_string
-        .byte   "NOT_CMD_UTILS called", $0D
-        nop
-        jsr     print_axy
-.endif
+        dbg_string_axy "NOT_CMD_UTILS: "
         rts

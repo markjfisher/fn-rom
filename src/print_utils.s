@@ -19,6 +19,7 @@
 .ifdef FN_DEBUG
         .export  print_axy
         .export  dump_zp_workspace
+        .export  dump_memory_block
 .endif
 
         .import  a_rorx4
@@ -187,7 +188,7 @@ print_2_spaces_spl:
 print_space_spl:
         ; Print single space using OSWRCH (MMFS PrintSpaceSPL style)
         pha                             ; Save A
-        lda     #$20                    ; Space character
+        lda     #' '                    ; Space character
         jsr     OSWRCH                  ; Direct output, no spool manipulation
         pla                             ; Restore A
         clc                             ; C=0
@@ -230,13 +231,17 @@ print_char:
 
 print_hex:
         pha
-        jsr     a_rorx4
-        jsr     print_nibble
-        pla
+        jsr     a_rorx4         ; rotate in the high nibble
+        jsr     print_nibble    ; print the high nibble
+        pla                     ; restore so we can print the low nibble
+        pha                     ; push again so we can restore
+        jsr     print_nibble    ; print the low nibble
+        pla                     ; ensure we restore A
+        rts
 
 print_nibble:
         jsr     nib_to_asc
-        bne     print_char
+        bne     print_char      ; always happens, as nib_to_asc 
 
 nib_to_asc:
         and     #$0F
@@ -320,9 +325,7 @@ print_axy:
         tya
         jsr     print_hex
 
-        jsr     print_string
-        .byte   $0D
-        nop
+        jsr     print_newline
 
         pla
         rts
@@ -394,5 +397,37 @@ dump_hex_row:
         bne     @loop
         
         jsr     print_newline
+        rts
+
+; Dump a block of memory
+; A = low byte of address
+; X = high byte of address  
+; Y = number of bytes to dump
+dump_memory_block:
+        sta     cws_tmp7               ; Store address in ZP
+        stx     cws_tmp8
+        tya                             ; Save Y (length) to A before pushing anything
+        sta     aws_tmp00              ; Store length
+        pha                             ; Save A (original A)
+        txa
+        pha                             ; Save X
+        tya
+        pha                             ; Save Y (length)
+        
+        ldy     #0
+@dump_loop:
+        lda     (cws_tmp7),y           ; Load byte
+        jsr     print_hex              ; Print it
+        jsr     print_space            ; Space between bytes
+        iny
+        cpy     aws_tmp00              ; Compare with saved length
+        bne     @dump_loop
+        
+        jsr     print_newline
+        pla                             ; Restore Y
+        tay
+        pla                             ; Restore X
+        tax
+        pla                             ; Restore A
         rts
 .endif

@@ -23,12 +23,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 fscv10_starINFO:
-.ifdef FN_DEBUG
-        jsr     print_string
-        .byte   "FSCV10_STARINFO called", $0D
-        nop
-        jsr     print_axy
-.endif
+        dbg_string_axy "FSCV10_STARINFO: "
 
         jsr     set_text_pointer_yx
         lda     #<(cmd_table_info - cmd_table_fujifs - 1) ; aws_tmp15 (BF) needs to point to the INFO command
@@ -46,7 +41,7 @@ fscv10_starINFO:
 cmd_fs_info:
 .ifdef FN_DEBUG
         jsr     print_string
-        .byte   "CMD_FS_INFO called", $0D
+        .byte   "CMD_FS_INFO: "
         nop
         jsr     print_axy
 .endif  

@@ -18,12 +18,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 bputv_entry:
-.ifdef FN_DEBUG
-        jsr     print_string
-        .byte   "BPUTV "
-        nop
-        jsr     print_axy
-.endif
+        dbg_string_axy "BPUTV: "
         ; rts
 
         jsr     remember_axy

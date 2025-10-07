@@ -83,12 +83,7 @@ print_help_table:
 
 ; this is equivalent of CMD_NOTHELPTBL
 not_cmd_help:
-.ifdef FN_DEBUG
-        jsr     print_string
-        .byte   "NOT_CMD_HELP called", $0D
-        nop
-        jsr     print_axy
-.endif
+        dbg_string_axy "NOT_CMD_HELP: "
         jsr     GSINIT_A
         bne     @not_cmd_help_loop
         rts

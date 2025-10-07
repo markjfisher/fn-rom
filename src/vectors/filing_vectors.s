@@ -20,6 +20,7 @@
         .import bputv_entry
         .import filev_entry
         .import fscv10_starINFO
+        .import fscv2_4_11_starRUN
         .import fscv3_unreccommand
         .import fscv5_starCAT
         .import print_axy
@@ -37,22 +38,12 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 fscv_entry:
-.ifdef FN_DEBUG
-        jsr     print_string
-        .byte   "FSCV_ENTRY_CALLED "
-        nop
-        jsr     print_axy
-.endif
+        dbg_string_axy "FSCV_ENTRY: "
 
         cmp     #$0C
         bcs     unknown_op
         stx     aws_tmp05              ; Save X
-.ifdef FN_DEBUG
-        jsr     print_string
-        .byte   "FSCV "
-        nop
-        jsr     print_axy
-.endif
+        dbg_string_axy "FSCV: "
         tax
         lda     fscv_table_hi,x         ; High byte first
         pha
@@ -65,12 +56,7 @@ fscv_entry_jumping_to_function:
         rts
 
 unknown_op:
-.ifdef FN_DEBUG
-        jsr     print_string
-        .byte   "FSCV_UNKNOWN_OP "
-        nop
-        jsr     print_axy
-.endif
+        dbg_string_axy "FSCV_UNKNOWN_OP: "
         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -82,12 +68,7 @@ gbpbv_entry:
         cmp     #$09
         bcs     @unknown_op
         
-.ifdef FN_DEBUG
-        jsr     print_string
-        .byte   "GBPBV "
-        nop
-        jsr     print_axy
-.endif
+        dbg_string_axy "GBPBV: "
 
         ; Look up function in FSCV table
         tax
@@ -107,12 +88,7 @@ gbpbv_entry:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 findv_entry:
-.ifdef FN_DEBUG
-        jsr     print_string
-        .byte   "FINDV "
-        nop
-        jsr     print_axy
-.endif
+        dbg_string_axy "FINDV: "
 
         ; For now, just return without doing anything
         rts
@@ -139,16 +115,16 @@ findv_entry:
 .define FSCV_TABLE \
         fscv_placeholder          - 1, \
         fscv_placeholder          - 1, \
-        fscv_placeholder          - 1, \
+        fscv2_4_11_starRUN        - 1, \
         fscv3_unreccommand        - 1, \
-        fscv_placeholder          - 1, \
+        fscv2_4_11_starRUN        - 1, \
         fscv5_starCAT             - 1, \
         fscv_placeholder          - 1, \
         fscv_placeholder          - 1, \
         fscv_os_about_to_proc_cmd - 1, \
         fscv_placeholder          - 1, \
         fscv10_starINFO           - 1, \
-        fscv_placeholder          - 1
+        fscv2_4_11_starRUN        - 1
 
 fscv_table_lo: .lobytes FSCV_TABLE
 fscv_table_hi: .hibytes FSCV_TABLE
@@ -160,11 +136,7 @@ fscv_table_hi: .hibytes FSCV_TABLE
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 fscv_os_about_to_proc_cmd:
-.ifdef FN_DEBUG
-        jsr     print_string
-        .byte   "FSCV8_OSABOUTTOPROCCMD called", $0D
-        nop
-.endif
+        dbg_string_axy "FSCV8_OS_CMD: "
         ; Set fuji_cmd_enabled flag
         bit     fuji_cmd_enabled
         bmi     parameter_fsp
@@ -188,12 +160,7 @@ parameter_afsp:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 fscv_placeholder:
-.ifdef FN_DEBUG
-        jsr     print_string
-        .byte   "FSCV_PLACEHOLDER "
-        nop
-        jsr     print_axy
-.endif
+        dbg_string_axy "FSCV_PLACEHOLDER: "
         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

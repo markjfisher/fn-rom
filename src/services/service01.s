@@ -10,12 +10,7 @@
 
 service01_claim_absworkspace:
 
-.ifdef FN_DEBUG
-        jsr     print_string
-        .byte   "D: service01", $0D
-        nop
-        jsr     print_axy
-.endif
+        dbg_string_axy "service01: "
 
         ; Y contains current upper limit of absolute workspace
         ; We need to claim workspace up to $17 (like MMFS)

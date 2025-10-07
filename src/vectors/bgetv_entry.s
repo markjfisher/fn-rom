@@ -19,12 +19,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 bgetv_entry:
-.ifdef FN_DEBUG
-        jsr     print_string
-        .byte   "BGETV "
-        nop
-        jsr     print_axy
-.endif
+        dbg_string_axy "BGETV: "
         ; rts
 
         jsr     remember_axy

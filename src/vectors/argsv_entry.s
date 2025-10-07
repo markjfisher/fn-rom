@@ -19,12 +19,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 argsv_entry:
-.ifdef FN_DEBUG
-        jsr     print_string
-        .byte   "ARGSV "
-        nop
-        jsr     print_axy
-.endif
+        dbg_string_axy "ARGSV: "
         ; rts
 
         jsr     remember_axy

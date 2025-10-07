@@ -46,10 +46,7 @@
 service09_help:
         jsr     remember_axy       ; Preserve A, X, Y
 
-.ifdef FN_DEBUG
-        jsr     print_string
-        .byte   "D: service09", $0D
-.endif
+        dbg_string_axy "service09: "
 
         ; Check if this is just *HELP (no arguments)
         ; Y contains offset to first non-space char
@@ -74,11 +71,7 @@ service09_help:
 service04_unrec_command:
         jsr     remember_axy
 
-.ifdef FN_DEBUG
-        jsr     print_string
-        .byte   "D: service04", $0D
-        nop
-.endif
+        dbg_string_axy "service04: "
 
         ldx     #cmdtab_offset_fs        ; Start with file system commands
 
@@ -116,14 +109,7 @@ fscv3_unreccommand:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 unrec_command_text_pointer:
-.ifdef FN_DEBUG
-        jsr     print_string
-        .byte   "D: unrec_tp", $0D
-        ; do 2 so the disassebler aligns
-        nop
-        nop
-        jsr     print_axy
-.endif
+        dbg_string_axy "unrec_tp: "
 
 
         lda     cmd_table_fujifs, x
@@ -198,11 +184,7 @@ unrec_command_text_pointer:
         bne     @gocmdcode2
 
 cmd_help_futils:
-.ifdef FN_DEBUG
-        jsr     print_string
-        .byte   "D: cmd_help_futils", $0D
-        nop
-.endif
+        dbg_string_axy "cmd_help_futils: "
         tya
         ldx     #cmdtab_offset_futils
         ldy     #cmdtab_futils_cmds_size
@@ -211,11 +193,7 @@ do_print_help_table:
 
 ; THIS NEEDS TO BE IMPLEMENTED CORRECTLY TO DISPLAY THE *HELP UTILS COMMANDS
 cmd_help_utils:
-.ifdef FN_DEBUG
-        jsr     print_string
-        .byte   "D: cmd_help_utils", $0D
-        nop
-.endif
+        dbg_string_axy "cmd_help_utils: "
         tya
         ldx     #cmdtab_offset_utils
         ldy     #cmdtab_utils_cmds_size

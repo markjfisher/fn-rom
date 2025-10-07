@@ -12,12 +12,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 fscv5_starCAT:
-.ifdef FN_DEBUG
-        jsr     print_string
-        .byte   "FSCV5_STARCAT called", $0D
-        nop
-        jsr     print_axy
-.endif
+        dbg_string_axy "FSCV5_STARCAT: "
         
         ; Load and print catalog from implementation
         jsr     fuji_read_catalog
