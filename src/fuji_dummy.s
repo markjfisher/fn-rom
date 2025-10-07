@@ -13,6 +13,11 @@
         .export fuji_read_disc_title_data
         .export fuji_read_catalog
 
+        .export dummy_catalogue
+        .export dummy_sector2_data
+        .export dummy_sector3_data
+        .export dummy_sector4_data
+
         .import print_string
         .import remember_axy
 
@@ -55,21 +60,21 @@ dummy_catalogue:
 
         ; File entry 1 (bytes 264-271): HELLO - File details
         .byte $00, $19   ; Load address (bytes 264-265) = $1900
-        .byte $00, $1A   ; Exec address (bytes 266-267) = $1A00
+        .byte <(hello_app_start - dummy_sector4_data + $1900), >(hello_app_start - dummy_sector4_data + $1900)  ; Exec address
         .byte <(dummy_sector4_data_end - dummy_sector4_data), >(dummy_sector4_data_end - dummy_sector4_data)  ; File length
         .byte $00        ; Mixed byte (byte 270) - all high bits = 0
         .byte $04        ; Start sector (byte 271) = sector 4
 
         ; File entry 2 (bytes 272-279): WORLD - File details  
         .byte $00, $1B   ; Load address = $1B00
-        .byte $00, $1C   ; Exec address = $1C00
+        .byte <(world_app_start - dummy_sector3_data + $1B00), >(world_app_start - dummy_sector3_data + $1B00)  ; Exec address
         .byte <(dummy_sector3_data_end - dummy_sector3_data), >(dummy_sector3_data_end - dummy_sector3_data)  ; File length
         .byte $00        ; Mixed byte - all high bits = 0
         .byte $03        ; Start sector = sector 3
 
         ; File entry 3 (bytes 280-287): TEST - File details
         .byte $00, $1D   ; Load address = $1D00
-        .byte $00, $1E   ; Exec address = $1E00
+        .byte <(test_app_start - dummy_sector2_data + $1D00), >(test_app_start - dummy_sector2_data + $1D00)  ; Exec address
         .byte <(dummy_sector2_data_end - dummy_sector2_data), >(dummy_sector2_data_end - dummy_sector2_data)  ; File length
         .byte $00        ; Mixed byte - all high bits = 0
         .byte $02        ; Start sector = sector 2
@@ -82,6 +87,26 @@ dummy_catalogue:
 
 ; Sector 2: TEST file
 dummy_sector2_data:
+        ; ERROR: This should not print if run address is used correctly
+        ; Save current ROM and switch to FujiNet ROM (slot 5)
+        lda     $F4                     ; Save current ROMSEL
+        pha
+        lda     #5                      ; FujiNet ROM slot
+        sta     $F4                     ; Update RAM copy
+        sta     $FE30                   ; Update hardware register
+        
+        jsr     print_string
+        .byte   "ERROR: Running at load address!", $0D
+        nop
+        
+        ; Restore original ROM
+        pla
+        sta     $F4                     ; Restore RAM copy
+        sta     $FE30                   ; Restore hardware register
+        rts
+        
+        ; Real application starts here (execute address)
+test_app_start:
         ; Save current ROM and switch to FujiNet ROM (slot 5)
         lda     $F4                     ; Save current ROMSEL
         pha
@@ -103,6 +128,26 @@ dummy_sector2_data_end:
 
 ; Sector 3: WORLD file
 dummy_sector3_data:
+        ; ERROR: This should not print if run address is used correctly
+        ; Save current ROM and switch to FujiNet ROM (slot 5)
+        lda     $F4                     ; Save current ROMSEL
+        pha
+        lda     #5                      ; FujiNet ROM slot
+        sta     $F4                     ; Update RAM copy
+        sta     $FE30                   ; Update hardware register
+        
+        jsr     print_string
+        .byte   "ERROR: Running at load address!", $0D
+        nop
+        
+        ; Restore original ROM
+        pla
+        sta     $F4                     ; Restore RAM copy
+        sta     $FE30                   ; Restore hardware register
+        rts
+        
+        ; Real application starts here (execute address)
+world_app_start:
         ; Save current ROM and switch to FujiNet ROM (slot 5)
         lda     $F4                     ; Save current ROMSEL
         pha
@@ -127,6 +172,26 @@ dummy_sector3_data_end:
 
 ; Sector 4: HELLO file
 dummy_sector4_data:
+        ; ERROR: This should not print if run address is used correctly
+        ; Save current ROM and switch to FujiNet ROM (slot 5)
+        lda     $F4                     ; Save current ROMSEL
+        pha
+        lda     #5                      ; FujiNet ROM slot
+        sta     $F4                     ; Update RAM copy
+        sta     $FE30                   ; Update hardware register
+        
+        jsr     print_string
+        .byte   "ERROR: Running at load address!", $0D
+        nop
+        
+        ; Restore original ROM
+        pla
+        sta     $F4                     ; Restore RAM copy
+        sta     $FE30                   ; Restore hardware register
+        rts
+        
+        ; Real application starts here (execute address)
+hello_app_start:
         ; Save current ROM and switch to FujiNet ROM (slot 5)
         lda     $F4                     ; Save current ROMSEL
         pha
