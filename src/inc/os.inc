@@ -65,8 +65,14 @@ OS_INC = 1
         .import  fuji_card_sort
 
         .import  fuji_channel_flags
-        .import  fuji_channel_buffer
-        .import  fuji_1117
+        .import  fuji_ch_bptr_low
+        .import  fuji_ch_bptr_mid
+        .import  fuji_ch_bptr_hi
+        .import  fuji_ch_buf_page
+        .import  fuji_ch_ext_low
+        .import  fuji_ch_ext_mid
+        .import  fuji_ch_ext_hi
+        .import  fuji_ch_flg
 
         .import  fuji_state
         .import  fuji_current_disk

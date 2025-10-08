@@ -2,7 +2,6 @@
 ; These handle OS calls like *CAT, *LOAD, *SAVE, etc.
 
         .export gbpbv_entry
-        .export findv_entry
         .export fscv_entry
 
         .export close_all_files
@@ -19,6 +18,7 @@
         .import bgetv_entry
         .import bputv_entry
         .import filev_entry
+        .import findv_entry
         .import fscv0_starOPT
         .import fscv1_eof_yhndl
         .import fscv2_4_11_starRUN
@@ -85,17 +85,6 @@ gbpbv_entry:
         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; FINDV_ENTRY - File Find Vector  
-; Handles OSFIND calls for opening/closing files
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-findv_entry:
-        dbg_string_axy "FINDV: "
-
-        ; For now, just return without doing anything
-        rts
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; FSCV TABLES - Maps FSCV operation numbers to function addresses
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -142,6 +131,7 @@ fscv_table_hi: .hibytes FSCV_TABLE
 
 fscv_os_about_to_proc_cmd:
         dbg_string_axy "FSCV8_OS_CMD: "
+
         ; Set fuji_cmd_enabled flag
         bit     fuji_cmd_enabled
         bmi     parameter_fsp

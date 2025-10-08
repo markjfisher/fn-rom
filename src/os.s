@@ -60,14 +60,14 @@
         .export  fuji_card_sort
 
         .export  fuji_channel_flags
-        .export  fuji_channel_buffer
-        .export  fuji_1111
-        .export  fuji_1112
-        .export  fuji_1113
-        .export  fuji_1114
-        .export  fuji_1115
-        .export  fuji_1116
-        .export  fuji_1117
+        .export  fuji_ch_bptr_low
+        .export  fuji_ch_bptr_mid
+        .export  fuji_ch_bptr_hi
+        .export  fuji_ch_buf_page
+        .export  fuji_ch_ext_low
+        .export  fuji_ch_ext_mid
+        .export  fuji_ch_ext_hi
+        .export  fuji_ch_flg
 
         .export  fuji_state
         .export  fuji_current_disk
@@ -266,15 +266,14 @@ fuji_file_offset        = fuji_workspace + $10F5  ; File offset (3 bytes)
 fuji_block_size         = fuji_workspace + $10F8  ; Block size (2 bytes)
 fuji_current_sector     = fuji_workspace + $10FA  ; Current sector being accessed
 
-; Channel workspace (similar to MMFS $1100-$11BF)
 fuji_channel_flags      = fuji_workspace + $1100  ; Channel flags (per channel)
-fuji_channel_buffer     = fuji_workspace + $1110  ; Channel buffer pointers
-
 ; Channel workspace variables (mapped from MMFS $1110-$111F)
-fuji_1111               = fuji_workspace + $1111  ; PTR mid byte  
-fuji_1112               = fuji_workspace + $1112  ; PTR high byte
-fuji_1113               = fuji_workspace + $1113  ; Buffer page
-fuji_1114               = fuji_workspace + $1114  ; EXT low byte
-fuji_1115               = fuji_workspace + $1115  ; EXT mid byte
-fuji_1116               = fuji_workspace + $1116  ; EXT high byte
-fuji_1117               = fuji_workspace + $1117  ; Channel flags
+
+fuji_ch_bptr_low        = fuji_workspace + $1110  ; PTR low byte
+fuji_ch_bptr_mid        = fuji_workspace + $1111  ; PTR mid byte  
+fuji_ch_bptr_hi         = fuji_workspace + $1112  ; PTR high byte
+fuji_ch_buf_page        = fuji_workspace + $1113  ; Buffer page ?? IS THIS CORRECT?
+fuji_ch_ext_low         = fuji_workspace + $1114  ; EXT low byte
+fuji_ch_ext_mid         = fuji_workspace + $1115  ; EXT mid byte
+fuji_ch_ext_hi          = fuji_workspace + $1116  ; EXT high byte
+fuji_ch_flg             = fuji_workspace + $1117  ; Channel flags - EOF usage here

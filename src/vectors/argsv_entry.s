@@ -16,6 +16,12 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; ARGSV_ENTRY - Arguments Vector
 ; Handles OSARGS calls
+; A = action to be taken
+; X points to 4 byte area in Zero Page (always i/o processor)
+; Y = file handle provided by OSFIND or 0
+; Exit:
+; X and Y are unchanged
+; see 16.1.2 of New Advanced User Guide
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 argsv_entry:

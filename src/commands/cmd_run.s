@@ -5,7 +5,7 @@
 
         .import LoadFile_Ycatoffset
         .import get_cat_firstentry81
-        .import read_fspBA_reset
+        .import read_fspba_reset
         .import read_fspBA
         .import a_rorx6and3
         .import err_bad
@@ -38,7 +38,7 @@ fscv2_4_11_starRUN:
         ; Look in default drive/dir first
         ldy     #$00
         sty     fuji_text_ptr_hi       ; MA+&10DA (Y=0)
-        jsr     read_fspBA_reset       ; Look in default drive/dir
+        jsr     read_fspba_reset       ; Look in default drive/dir
         sty     fuji_text_ptr_offset   ; MA+&10D9 (Y=text ptr offset)
 .ifdef FN_DEBUG
         jsr     print_string

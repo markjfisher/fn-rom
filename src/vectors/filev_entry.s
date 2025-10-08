@@ -26,6 +26,38 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; FILEV_ENTRY - File Vector
 ; Handles OSFILE calls
+; See 16.1.1 of New Advanced User Guide
+;
+; XY+ is address of the parameter block, whose bytes are:
+; 0/1   - address pointing to filename + CR (LSB first)
+; 2/5   - load address (32 bit)
+; 6/9   - exec address (32 bit)
+; 10/13 - start address (32 bit)
+; 14/17 - end address (32 bit)
+;
+; Exit:
+; Parameter block is updated by some calls
+; A = Undefined unless A was 5:
+;     0 = file not found
+;     1 = file found
+;     2 = dir found
+;    FF = if E attribute is set (ADFS only)
+; X and Y are unchanged
+;
+; Actions in A
+; Taken from New Advanced User Guide, seems to
+; differ to MMFS implementation, see FINV_TABLE
+;  
+; FF: Load named file, if XY+6 contains 0 use spec. address)
+;  0: Save memory block
+;  1: Write catalog entry for file 
+;  2: Write load address for named file
+;  3: Write exec address for named file
+;  4: Write file attributes for named file
+;  5: Read catalog information
+;  6: Delete file, returning catalog information
+;  7: Create empty file of defined size (Master only)
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 filev_entry:
@@ -69,7 +101,7 @@ filev_entry:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 .feature line_continuations +
-
+        ; TODO: Validate these against New Advanced User Guide section 16.1.1
         ; 0: Load file to address (A=&FF)
         ; 1: Save memory block (A=0)
         ; 2: Save file (A=1)

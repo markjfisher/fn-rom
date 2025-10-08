@@ -15,6 +15,11 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; BPUTV_ENTRY - Byte Put Vector
 ; Handles BPUT calls
+; A = byte to write
+; Y = file handle provided by OSFIND
+; Exit:
+; A, X, and Y are unchanged
+; see 16.1.4 of New Advanced User Guide
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 bputv_entry:

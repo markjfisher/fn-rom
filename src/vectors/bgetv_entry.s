@@ -9,6 +9,7 @@
         .import print_string
         .import remember_axy
         .import report_error_cb
+        .import a_rolx5
 
         .include "fujinet.inc"
 
@@ -17,6 +18,12 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; BGETV_ENTRY - Byte Get Vector
 ; Handles BGET calls
+; Y = file handle provided by OSFIND
+; Exit:
+; A = byte read
+; C = 0 if not EOF, 1 if EOF
+; X and Y are unchanged
+; see 16.1.3 of New Advanced User Guide
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 bgetv_entry:
@@ -26,7 +33,7 @@ bgetv_entry:
         jsr     remember_axy
         jsr     check_channel_yhndl_exyintch_tya_cmpptr  ; A=Y
         bne     @bg_not_eof              ; If PTR<>EXT
-        lda     fuji_1117,y   ; Already at EOF?
+        lda     fuji_ch_flg,y            ; Already at EOF?
         and     #$10
         bne     @err_eof                 ; IF bit 4 set
         lda     #$10
@@ -34,10 +41,10 @@ bgetv_entry:
         ldx     fuji_saved_x
         lda     #$FE
         sec
-        rts                             ; C=1=EOF
+        rts                              ; C=1=EOF
 
 @bg_not_eof:
-        lda     fuji_1117,y
+        lda     fuji_ch_flg,y
         bmi     @bg_samesector1          ; If buffer ok
         jsr     channel_set_dir_drive_yintch
         jsr     channel_buffer_to_disk_yintch  ; Save buffer
@@ -60,21 +67,84 @@ bgetv_entry:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 channel_flags_set_bits:
-        ; TODO: Implement channel flags setting
+        ; Set bits in channel flags (A contains bits to set)
+        ora     fuji_ch_flg,y
+        sta     fuji_ch_flg,y
+        clc
         rts
 
 channel_set_dir_drive_yintch:
-        ; TODO: Implement channel directory/drive setting
+        ; Set directory and drive for channel
+        ; TODO: Implement directory/drive setting for FujiNet
         rts
 
 channel_buffer_to_disk_yintch:
-        ; TODO: Implement channel buffer to disk
+        ; Save channel buffer to disk
+        lda     fuji_ch_flg,y
+        and     #$40                    ; Bit 6 set?
+        beq     chnbuf_exit2            ; If no exit
+        clc                             ; C=0=write buffer
+        ; TODO: Implement buffer save for FujiNet
+chnbuf_exit2:
         rts
 
 channel_buffer_rw_yintch_c1read:
-        ; TODO: Implement channel buffer read/write
+        ; Read/write channel buffer
+        ; C=1 for read, C=0 for write
+        bcs     chnbuf_read             ; IF c=1 load buffer else save
+        ; TODO: Implement buffer save for FujiNet
+        ldy     fuji_intch            ; Y=intch
+        lda     #$BF                    ; Clear bit 6
+        jsr     channel_flags_clear_bits
+        bcc     chnbuf_exit             ; always
+chnbuf_read:
+        jsr     calc_buffer_sector_for_ptr ; sets NMI data ptr
+        ; TODO: Implement buffer load for FujiNet
+chnbuf_exit:
+        ldy     fuji_intch            ; Y=intch
         rts
 
 load_then_inc_seq_ptr_yintch:
-        ; TODO: Implement load and increment sequence pointer
+        ; Load buffer pointer into BA/BB then increment sequence pointer
+        lda     fuji_ch_bptr_low,y      ; Seq.Ptr
+        sta     aws_tmp10               ; BA
+        lda     fuji_ch_buf_page,y      ; Buffer page
+        sta     aws_tmp11               ; BB
+        tya
+        tax
+        inc     fuji_ch_bptr_low,x      ; Seq.Ptr+=1
+        bne     samesector
+        jsr     channel_flags_clear_bit7 ; PTR in new sector!
+        inc     fuji_ch_bptr_mid,x
+        bne     samesector
+        inc     fuji_ch_bptr_hi,x
+samesector:
+        ldx     #$00
+        rts
+
+channel_flags_clear_bit7:
+        lda     #$7F                    ; Clear bit 7
+        and     fuji_ch_flg,y
+        sta     fuji_ch_flg,y
+        clc
+        rts
+
+channel_flags_clear_bits:
+        and     fuji_ch_flg,y
+        sta     fuji_ch_flg,y
+        clc
+        rts
+
+calc_buffer_sector_for_ptr:
+        ; Calculate buffer sector for PTR
+        clc
+        lda     aws_tmp15,y             ; Start Sector + Seq Ptr
+        adc     fuji_ch_bptr_mid,y
+        sta     aws_tmp15               ; C3
+        sta     fuji_ch_buf_page,y      ; Buffer sector
+        lda     aws_tmp13,y
+        and     #$03
+        adc     fuji_ch_bptr_hi,y
+        sta     aws_tmp14               ; C2
+        sta     fuji_ch_buf_page,y      ; Buffer sector high
         rts

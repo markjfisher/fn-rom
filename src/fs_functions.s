@@ -3,7 +3,7 @@
         .export get_cat_firstentry80
         .export get_cat_firstentry81
         .export read_fspBA
-        .export read_fspBA_reset
+        .export read_fspba_reset
         .export parameter_afsp_param_syntaxerrorifnull_getcatentry_fsptxtp
         .export print_catalog
         .export prt_infoline_yoffset
@@ -25,11 +25,11 @@
         .import is_alpha_char
         .import a_rorx6and3
         .import parameter_afsp
-        .import fuji_1111
-        .import fuji_1112
-        .import fuji_1114
-        .import fuji_1115
-        .import fuji_1116
+        .import fuji_ch_bptr_mid
+        .import fuji_ch_bptr_hi
+        .import fuji_ch_ext_low
+        .import fuji_ch_ext_mid
+        .import fuji_ch_ext_hi
         .import print_2_spaces_spl
         .import print_axy
         .import print_char
@@ -63,7 +63,7 @@ getcatentry_fspTxtP:
         jmp     get_cat_entry
 
 get_cat_entry_fspba:
-	jsr     read_fspBA_reset
+	jsr     read_fspba_reset
 
 get_cat_entry:
         jsr     get_cat_firstentry80
@@ -381,7 +381,7 @@ read_fsp_text_pointer:
         jsr     set_curdir_drv_to_defaults ; Set current directory and drive
         jmp     rdafsp_entry            ; Jump to filename parsing
 
-read_fspBA_reset:
+read_fspba_reset:
         jsr     set_curdir_drv_to_defaults ; Set current directory and drive
 
 read_fspBA:
@@ -684,14 +684,14 @@ tya_cmpptr:
         tya
 cmpptr:
         tax
-        lda     fuji_1112,y     ; PTR#
-        cmp     fuji_1116,x     ; EXT#
+        lda     fuji_ch_bptr_hi,y       ; PTR#
+        cmp     fuji_ch_ext_hi,x        ; EXT#
         bne     @cmpPE_exit
-        lda     fuji_1111,y
-        cmp     fuji_1115,x
+        lda     fuji_ch_bptr_mid,y
+        cmp     fuji_ch_ext_mid,x
         bne     @cmpPE_exit
-        lda     fuji_channel_buffer,y
-        cmp     fuji_1114,x
+        lda     fuji_ch_bptr_low,y
+        cmp     fuji_ch_ext_low,x
 @cmpPE_exit:
         rts
 
