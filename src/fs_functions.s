@@ -1,5 +1,7 @@
+        .export cmp_ptr_ext
         .export get_cat_nextentry
         .export get_cat_entry_fspba
+        .export get_cat_firstentry80_fname
         .export get_cat_firstentry80
         .export get_cat_firstentry81
         .export read_fspBA
@@ -11,10 +13,13 @@
         .export read_file_attribs_to_b0_yoffset
         .export GSREAD_A
         .export load_cur_drv_cat
+        .export load_cur_drv_cat2
+        .export set_current_drive_adrive
         .export set_curdir_drv_to_defaults
         .export fscv1_eof_yhndl
         .export conv_yhndl_intch_exyintch
         .export is_hndlin_use_yintch
+        .export check_channel_yhndl_exyintch
         .export check_channel_yhndl_exyintch_tya_cmpptr
 
         .import a_rolx5
@@ -30,6 +35,7 @@
         .import fuji_ch_ext_low
         .import fuji_ch_ext_mid
         .import fuji_ch_ext_hi
+        .import fuji_end_transaction
         .import print_2_spaces_spl
         .import print_axy
         .import print_char
@@ -90,7 +96,7 @@ get_cat_nextentry:
         ldx     #$00                    ; Entry: wrd &B6 -> first entry
         beq     getcatsetupb7           ; always
 
-get_cat_first_entry80_fname:
+get_cat_firstentry80_fname:
         ldx     #$06                    ; copy filename from &C5 to &1058
 @get_cat_loop1:
         lda     pws_tmp05,x
@@ -112,8 +118,8 @@ getcatsetupb7:
 @get_cat_loop2:
         ldy     #$00
         lda     aws_tmp06               ; &B6
-        cmp     FilesX8                 ; ( MA+&F05) number of files *8
-        bcs     matfn_exitc0            ; If >FilesX8 Exit with C=0
+        cmp     dfs_cat_num_x8                 ; ( MA+&F05) number of files *8
+        bcs     matfn_exitc0            ; If >dfs_cat_num_x8 Exit with C=0
         adc     #$08
         sta     aws_tmp06               ; word &B6 += 8
 
@@ -341,9 +347,9 @@ set_curdir_drv_to_defaults:
 
 set_curdrv_to_default:
         lda     fuji_default_drive           ; Set working drive
-set_current_drive_Adrive:
+set_current_drive_adrive:
         and     #$03
-set_current_drive_Adrive_noand:
+set_current_drive_adrive_noand:
         sta     CurrentDrv
         rts
 
@@ -358,12 +364,15 @@ param_drive_no_bad_drive:
         sec
         sbc     #'0'
         cmp     #4
-        bcc     set_current_drive_Adrive_noand
+        bcc     set_current_drive_adrive_noand
 
 err_bad_drive:
         jsr     err_bad
         .byte   $CD
         .byte   "drive", 0
+
+load_cur_drv_cat2:
+        jsr     remember_axy
 
 ; load_cur_drv_cat - Load current drive catalog (MMFS line 7267-7279)
 ; For FujiNet, this is equivalent to MMFS's exec_cat_rw with A=#&53
@@ -374,7 +383,7 @@ load_cur_drv_cat:
         ; Mark catalog as loaded for current drive (equivalent to MMFS line 7322-7323)
         lda     CurrentDrv
         sta     CurrentCat
-        rts
+        jmp     fuji_end_transaction
 
 ; read_fsp_text_pointer - Read filename from text pointer (MMFS line 452-504)
 read_fsp_text_pointer:
@@ -597,7 +606,7 @@ print_catalog:
         ; Print file list
         ldy     #$00
 @file_loop:
-        cpy     FilesX8
+        cpy     dfs_cat_num_x8
         bcs     @done
         
         ; Check if file is marked (bit 7 set)
@@ -680,9 +689,9 @@ fscv1_eof_yhndl:
 check_channel_yhndl_exyintch_tya_cmpptr:
         jsr     check_channel_yhndl_exyintch
 
-tya_cmpptr:
+tya_cmp_ptr_ext:
         tya
-cmpptr:
+cmp_ptr_ext:
         tax
         lda     fuji_ch_bptr_hi,y       ; PTR#
         cmp     fuji_ch_ext_hi,x        ; EXT#

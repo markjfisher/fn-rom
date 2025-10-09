@@ -4,8 +4,6 @@
         .export gbpbv_entry
         .export fscv_entry
 
-        .export close_all_files
-        .export close_files_yhandle
         .export extendedvectors_table
         .export parameter_afsp
         .export parameter_fsp
@@ -156,23 +154,6 @@ parameter_afsp:
 
 fscv_placeholder:
         dbg_string_axy "FSCV_PLACEHOLDER: "
-        rts
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; FILE OPERATIONS
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-; Close all open files
-close_all_files:
-        ; TODO: Implement close all files
-        ; This should iterate through all open file handles and close them
-        rts
-
-; Close files by handle
-; Y = file handle to close
-close_files_yhandle:
-        ; TODO: Implement close files by handle
-        ; This should close the specific file handle in Y
         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

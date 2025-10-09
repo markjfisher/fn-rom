@@ -15,6 +15,7 @@
 
         .export parameter_table
 
+        .import cmd_fs_close
         .import cmd_fs_drive
         .import cmd_fs_fboot
         .import cmd_fs_fuji
@@ -40,6 +41,7 @@
 cmd_table_fujifs:
         .byte   $FF                ; Last command number (-1)
 
+        .byte   "CLOSE",     $80+$00
         .byte   "DRIVE",     $80+$01    ; <drive>
 ; equivalent of .info_cmd_index
 cmd_table_info:
@@ -90,6 +92,7 @@ cmd_table_fs:
 
 ; OLD: cmdaddr1
 cmd_table_fujifs_cmds:
+        .word   cmd_fs_close-1
         .word   cmd_fs_drive-1
         .word   cmd_fs_info-1
         .word   not_cmd_fujifs-1

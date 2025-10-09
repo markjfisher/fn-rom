@@ -19,7 +19,7 @@
 
         .export  CHECK_CRC7
         .export  CurrentCat
-        .export  FilesX8
+        .export  dfs_cat_num_x8
         .export  FSCV
         .export  MMC_CIDCRC
         .export  MMC_STATE
@@ -59,7 +59,12 @@
         .export  fuji_error_flag
         .export  fuji_card_sort
 
-        .export  fuji_channel_flags
+        .export  fuji_channel_start
+
+        .export  fuji_ch_name7
+        .export  fuji_ch_dir
+        .export  fuji_ch_bitmask
+
         .export  fuji_ch_bptr_low
         .export  fuji_ch_bptr_mid
         .export  fuji_ch_bptr_hi
@@ -76,6 +81,24 @@
         .export  fuji_file_offset
         .export  fuji_block_size
         .export  fuji_current_sector
+
+        .export  dfs_cat_s0_header
+        .export  dfs_cat_s1_header
+        .export  dfs_cat_s0_title
+        .export  dfs_cat_s1_title
+        .export  dfs_cat_cycle
+        .export  dfs_cat_num_x8
+        .export  dfs_cat_boot_option
+        .export  dfs_cat_sect_count
+        .export  dfs_cat_file_s0_start
+        .export  dfs_cat_file_name
+        .export  dfs_cat_file_dir
+        .export  dfs_cat_file_s1_start
+        .export  dfs_cat_file_load_addr
+        .export  dfs_cat_file_exec_addr
+        .export  dfs_cat_file_size
+        .export  dfs_cat_file_op
+        .export  dfs_cat_file_sect
 
         .exportzp  aws_tmp00
         .exportzp  aws_tmp01
@@ -200,8 +223,11 @@ paged_rom_priv_ws := $0DF0
 
 FSCV            := $021E
 
+; aliases from PWS vars
 DirectoryParam  := $CC
 CurrentDrv      := $CD
+
+; seems to be pretty random location... TODO: why here?
 CurrentCat      := $1082
 
 TubeNoTransferIf0 := $10AE
@@ -213,7 +239,69 @@ VID2            := VID
 MMC_CIDCRC      := VID2+$0E
 CHECK_CRC7      := VID2+$10
 
-FilesX8         := $0F05
+; Assumption: 0E00 is a copy of the disk catalogue
+; e.g. 0F05 = Num*8, 0F0C,X = size of nth file where X = 8 + n*8
+;
+; Catalog header:
+; 000-007    First eight bytes of the disk title, padded with spaces.
+; 100-103    Last four bytes of disk title, padded with space.
+;            The disk title is the directory name in HDFS.
+; 104        Disk cycle, HDFS: Key number
+; 105        (Number of catalog entries)*8 - offset to end of directory
+; 106 b7-b6: zero
+;     b5-b4: !Boot option (*OPT 4 value)
+;     b3:    0=DFS/WDFS, 1=HDFS
+;     b2:    Total number of sectors b10, HDFS: (number of sides)-1
+;     b1-b0: Total number of sectors b9-b8
+; 107        Total number of sectors b7-b0
+; HDFS: The total number of sectors b10 is stored in b7 of byte 000.
+
+; File entries:
+; 000-006    Filename and attributes
+; 007        Directory and attributes
+; 100-101    Load address b0-b15
+; 102-103    Exec address b0-b15
+; 104-105    File length b0-b15
+; 106 b7-b6: Exec address b17-b16, SDDFS: also Load address b17-b16
+;     b5-b4: File length b17-b16
+;     b3-b2: Load address b17-b16
+;     b1-b0: Start sector b9-b8
+; 107        Start sector b7-b0
+
+; Catalog header, entry 0:
+;              Sector 0                          Sector 1
+;  000 001 002 003 004 005 006 007   100 101 102 103 104 105 106 107
+; +---+---+---+---+---+---+---+---+ +---+---+---+---+---+---+---+---+
+; |          Disk Title           | |   DiskTitle   |Cyc|Num|Op|Sect|
+; +---+---+---+---+---+---+---+---+ +---+---+---+---+---+---+---+---+
+
+; File entries, entries 1-31:
+;         Sector 0                  Sector 1
+;  000 001 002 003 004 005 006 007   100 101 102 103 104 105 106 107
+; +---+---+---+---+---+---+---+---+ +---+---+---+---+---+---+---+---+
+; |          Filename         |Dir| | Load  | Exec  | Size  |Op|Sect|
+; +---+---+---+---+---+---+---+---+ +---+---+---+---+---+---+---+---+
+
+dfs_cat_s0_header       = $0E00
+dfs_cat_s1_header       = $0F00
+
+dfs_cat_s0_title        = dfs_cat_s0_header + $00       ; 0E00
+dfs_cat_s1_title        = dfs_cat_s1_header + $00       ; 0F00
+dfs_cat_cycle           = dfs_cat_s1_header + $04       ; 0F04
+dfs_cat_num_x8          = dfs_cat_s1_header + $05       ; 0F05
+dfs_cat_boot_option     = dfs_cat_s1_header + $06       ; 0F06
+dfs_cat_sect_count      = dfs_cat_s1_header + $07       ; 0F07
+
+dfs_cat_file_s0_start   = dfs_cat_s0_header + $08       ; 0E08
+dfs_cat_file_name       = dfs_cat_file_s0_start + $00   ; 0E08 + index * 8
+dfs_cat_file_dir        = dfs_cat_file_s0_start + $07   ; 0E0F + index * 8
+
+dfs_cat_file_s1_start   = dfs_cat_s1_header + $08       ; 0F08
+dfs_cat_file_load_addr  = dfs_cat_file_s1_start + $00   ; 0F08 + index * 8
+dfs_cat_file_exec_addr  = dfs_cat_file_s1_start + $02   ; 0F0A + index * 8
+dfs_cat_file_size       = dfs_cat_file_s1_start + $04   ; 0F0C + index * 8
+dfs_cat_file_op         = dfs_cat_file_s1_start + $06   ; 0F0E + index * 8
+dfs_cat_file_sect       = dfs_cat_file_s1_start + $07   ; 0F0F + index * 8
 
 
 ; FujiNet workspace (similar to MMFS MA+$10XX)
@@ -221,6 +309,9 @@ FilesX8         := $0F05
 fuji_workspace          = 0  ; Base address for FujiNet workspace - this will eventually vary for MASTER
 
 fuji_filename_buffer    = fuji_workspace + $1000
+
+; 1090 seems to be a copy of BC to CB, restoring it
+; in MMC_END
 
 ; FujiNet workspace variables (matching MMFS layout)
 fuji_open_channels      = fuji_workspace + $10C0  ; Open channels flag byte
@@ -266,14 +357,39 @@ fuji_file_offset        = fuji_workspace + $10F5  ; File offset (3 bytes)
 fuji_block_size         = fuji_workspace + $10F8  ; Block size (2 bytes)
 fuji_current_sector     = fuji_workspace + $10FA  ; Current sector being accessed
 
-fuji_channel_flags      = fuji_workspace + $1100  ; Channel flags (per channel)
-; Channel workspace variables (mapped from MMFS $1110-$111F)
 
-fuji_ch_bptr_low        = fuji_workspace + $1110  ; PTR low byte
-fuji_ch_bptr_mid        = fuji_workspace + $1111  ; PTR mid byte  
-fuji_ch_bptr_hi         = fuji_workspace + $1112  ; PTR high byte
-fuji_ch_buf_page        = fuji_workspace + $1113  ; Buffer page ?? IS THIS CORRECT?
-fuji_ch_ext_low         = fuji_workspace + $1114  ; EXT low byte
-fuji_ch_ext_mid         = fuji_workspace + $1115  ; EXT mid byte
-fuji_ch_ext_hi          = fuji_workspace + $1116  ; EXT high byte
-fuji_ch_flg             = fuji_workspace + $1117  ; Channel flags - EOF usage here
+; see SetupChannelInfoBlock_Yintch
+; copies from &E08 to &1100, and &F08 to &1100+1 in a loop.
+; seemingly interweving catalog data
+
+; channel info block
+fuji_channel_start      = fuji_workspace + $1100  ; name byte 1
+fuji_ch_1101            = fuji_channel_start + $01 ; load addr byte 1
+fuji_ch_1102            = fuji_channel_start + $02 ; name byte 2
+fuji_ch_1103            = fuji_channel_start + $03 ; load addr byte 2
+fuji_ch_1104            = fuji_channel_start + $04 ; name byte 3
+fuji_ch_1105            = fuji_channel_start + $05 ; exec addr byte 1
+fuji_ch_1106            = fuji_channel_start + $06 ; name byte 4
+fuji_ch_1107            = fuji_channel_start + $07 ; exec addr byte 2
+fuji_ch_1108            = fuji_channel_start + $08 ; name byte 5
+fuji_ch_1109            = fuji_channel_start + $09 ; size byte 1
+fuji_ch_110A            = fuji_channel_start + $0A ; name byte 6
+fuji_ch_110B            = fuji_channel_start + $0B ; size byte 2
+fuji_ch_name7           = fuji_channel_start + $0C ; name byte 7
+fuji_ch_110D            = fuji_channel_start + $0D ; "op" mixed byte
+fuji_ch_dir             = fuji_channel_start + $0E ; directory
+fuji_ch_110F            = fuji_channel_start + $0F ; start sector
+
+; Channel workspace variables (mapped from MMFS $1110-$111F)
+fuji_ch_bptr_low        = fuji_channel_start + $10  ; PTR low byte
+fuji_ch_bptr_mid        = fuji_channel_start + $11  ; PTR mid byte  
+fuji_ch_bptr_hi         = fuji_channel_start + $12  ; PTR high byte
+fuji_ch_buf_page        = fuji_channel_start + $13  ; Buffer page ?? IS THIS CORRECT?
+fuji_ch_ext_low         = fuji_channel_start + $14  ; EXT low byte
+fuji_ch_ext_mid         = fuji_channel_start + $15  ; EXT mid byte
+fuji_ch_ext_hi          = fuji_channel_start + $16  ; EXT high byte
+fuji_ch_flg             = fuji_channel_start + $17  ; Channel flags - EOF usage here
+fuji_1118               = fuji_channel_start + $18  ; ???
+fuji_1119               = fuji_channel_start + $19  ; ???
+fuji_111a               = fuji_channel_start + $1A  ; ???
+fuji_ch_bitmask         = fuji_channel_start + $1B  ; Bit mask

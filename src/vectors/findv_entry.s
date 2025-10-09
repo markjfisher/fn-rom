@@ -2,27 +2,96 @@
 ; Handles OSFIND calls for opening/closing files
 ; Translated from MMFS mmfs100.asm lines 4662-4854
 
+        .export channel_get_cat_entry_yintch
+        .export channel_set_dir_drive_yintch
+        .export close_all_files
+        .export close_files_yhandle
+        .export cmd_fs_close
         .export findv_entry
+        .export save_cat_to_disk
         .export setup_channel_info_block_yintch
 
+        .import a_rolx4
+        .import a_rolx5
+        .import a_rorx4and3
+        .import channel_buffer_to_disk_yhandle
         .import check_channel_yhndl_exyintch
-        .import close_all_files
-        .import close_files_yhandle
+        .import err_disk
+        .import get_cat_firstentry80_fname
         .import get_cat_firstentry80
         .import is_hndlin_use_yintch
+        .import load_cur_drv_cat2
         .import parameter_fsp
         .import print_axy
         .import print_string
         .import read_fspba_reset
         .import remember_axy
         .import report_error_cb
-
-        .import a_rolx5
-        .import a_rorx4and3
+        .import set_current_drive_adrive
 
         .include "fujinet.inc"
 
         .segment "CODE"
+
+close_spool_exec_files:
+        lda     #$77
+        jmp     OSBYTE
+
+cmd_fs_close:
+close_all_files_osbyte77:
+        jsr     close_spool_exec_files
+
+close_all_files:
+        lda     #$00
+
+@close_all_files_loop:
+        clc
+        adc     #$20
+        beq     close_all_files_exit
+        tay
+        jsr     close_file_yintch
+        bne     @close_all_files_loop
+
+channel_set_dir_drive_get_cat_entry_yintch:
+        jsr     channel_set_dir_drive_yintch
+channel_get_cat_entry_yintch:
+        ldx     #$06
+@channel_get_cat_loop:
+        ; copy the name, which is interweved with attribs at fuji_channel_start
+        lda     fuji_ch_name7,y         ; copy filename from channel info to C5
+        sta     pws_tmp05,x
+        dey
+        dey
+        dex
+        bpl     @channel_get_cat_loop
+        jsr     get_cat_firstentry80_fname
+        bcc     err_disk_changed
+        sty     fuji_cat_file_offset
+        ldy     fuji_intch
+
+; an RTS reachable from earlier blocks
+close_all_files_exit:
+chk_dsk_change_exit:
+        rts
+
+channel_set_dir_drive_yintch:
+        lda     fuji_ch_dir,y
+        and     #$7F
+        sta     DirectoryParam
+        lda     fuji_ch_flg,y
+        jmp     set_current_drive_adrive
+
+check_for_disk_change:
+        jsr     remember_axy
+        lda     dfs_cat_cycle
+        jsr     load_cur_drv_cat2
+        cmp     dfs_cat_cycle
+        beq     chk_dsk_change_exit
+
+err_disk_changed:
+        jsr     err_disk
+        .byte   $C8
+        .byte   "changed",0
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; FINDV_ENTRY - File Find Vector  
@@ -62,7 +131,49 @@ findv_entry:
         and     #$C0                    ; Bit 7=open for output, Bit 6=open for input
         bne     findv_openfile          ; If opening a file
         jsr     remember_axy
-        jmp     close_files_yhandle     ; Close file(s)
+        ; fall through to close files
+
+; Close files by handle
+; Y = file handle to close
+close_files_yhandle:
+        tya
+        beq     close_all_files_osbyte77
+        jsr     check_channel_yhndl_exyintch
+
+close_file_yintch:
+        pha
+        jsr     is_hndlin_use_yintch
+        bcs     close_file_exit
+        lda     fuji_ch_bitmask,y
+        eor     #$FF
+        and     fuji_open_channels
+        sta     fuji_open_channels
+        lda     fuji_ch_flg,y
+        and     #$60
+        beq     close_file_exit
+        jsr     channel_set_dir_drive_get_cat_entry_yintch
+        lda     fuji_ch_flg,y
+        and     #$20
+        beq     close_file_buftodisk
+        ldx     fuji_cat_file_offset
+        lda     fuji_ch_ext_low,y
+        sta     dfs_cat_file_size,x
+        lda     fuji_ch_ext_mid,y
+        sta     dfs_cat_file_size+1,x
+        lda     fuji_ch_ext_hi,y
+        jsr     a_rolx4
+        eor     dfs_cat_file_op,x       ; mixed byte
+        and     #$30
+        eor     dfs_cat_file_op,x
+        sta     dfs_cat_file_op,x
+        jsr     save_cat_to_disk
+        ldy     fuji_intch
+close_file_buftodisk:
+        jsr     channel_buffer_to_disk_yhandle
+close_file_exit:
+        ldx     fuji_saved_x
+        pla
+        rts
 
 findv_openfile:
         jsr     remember_axy            ; Save A, X, Y
@@ -269,4 +380,11 @@ fop_exit:
 
 is_file_open_continue:
         ; TODO: Implement file open continue checking
+        rts
+
+; save_cat_to_disk - Save catalog to disk
+; TODO: Implement catalog saving for FujiNet
+save_cat_to_disk:
+        ; For now, just return without doing anything
+        ; In a real implementation, this would write the catalog back to the FujiNet device
         rts

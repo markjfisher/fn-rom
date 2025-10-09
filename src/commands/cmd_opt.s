@@ -16,6 +16,7 @@
         .import print_newline
         .import print_string
         .import remember_axy
+        .import save_cat_to_disk
         .import set_curdir_drv_to_defaults
 
         .include "fujinet.inc"
@@ -91,9 +92,3 @@ disk_trap_option:
         pla
         rts
 
-; save_cat_to_disk - Save catalog to disk
-; TODO: Implement catalog saving for FujiNet
-save_cat_to_disk:
-        ; For now, just return without doing anything
-        ; In a real implementation, this would write the catalog back to the FujiNet device
-        rts

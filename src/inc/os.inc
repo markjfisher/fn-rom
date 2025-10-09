@@ -2,7 +2,7 @@
 ;
 ; imports for the os constants
 
-.ifndef MOS_INC
+.ifndef OS_INC
 OS_INC = 1
 
         .import  GSINIT
@@ -24,7 +24,7 @@ OS_INC = 1
 
         .import  CHECK_CRC7
         .import  CurrentCat
-        .import  FilesX8
+        .import  dfs_cat_num_x8
         .import  FSCV
         .import  MMC_CIDCRC
         .import  MMC_STATE
@@ -64,7 +64,12 @@ OS_INC = 1
         .import  fuji_error_flag
         .import  fuji_card_sort
 
-        .import  fuji_channel_flags
+        .import  fuji_channel_start
+
+        .import  fuji_ch_name7
+        .import  fuji_ch_dir
+        .import  fuji_ch_bitmask
+
         .import  fuji_ch_bptr_low
         .import  fuji_ch_bptr_mid
         .import  fuji_ch_bptr_hi
@@ -81,6 +86,24 @@ OS_INC = 1
         .import  fuji_file_offset
         .import  fuji_block_size
         .import  fuji_current_sector
+
+        .import  dfs_cat_s0_header
+        .import  dfs_cat_s1_header
+        .import  dfs_cat_s0_title
+        .import  dfs_cat_s1_title
+        .import  dfs_cat_cycle
+        .import  dfs_cat_num_x8
+        .import  dfs_cat_boot_option
+        .import  dfs_cat_sect_count
+        .import  dfs_cat_file_s0_start
+        .import  dfs_cat_file_name
+        .import  dfs_cat_file_dir
+        .import  dfs_cat_file_s1_start
+        .import  dfs_cat_file_load_addr
+        .import  dfs_cat_file_exec_addr
+        .import  dfs_cat_file_size
+        .import  dfs_cat_file_op
+        .import  dfs_cat_file_sect
 
         .importzp  aws_tmp00
         .importzp  aws_tmp01

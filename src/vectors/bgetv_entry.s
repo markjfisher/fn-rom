@@ -4,6 +4,7 @@
 
         .export bgetv_entry
 
+        .import channel_set_dir_drive_yintch
         .import check_channel_yhndl_exyintch_tya_cmpptr
         .import print_axy
         .import print_string
@@ -71,11 +72,6 @@ channel_flags_set_bits:
         ora     fuji_ch_flg,y
         sta     fuji_ch_flg,y
         clc
-        rts
-
-channel_set_dir_drive_yintch:
-        ; Set directory and drive for channel
-        ; TODO: Implement directory/drive setting for FujiNet
         rts
 
 channel_buffer_to_disk_yintch:
