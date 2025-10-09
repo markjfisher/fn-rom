@@ -347,8 +347,8 @@ fop_main_loop:
         and     #$03
         bne     fop_nothisfile          ; If not current drv?
 fop_cmpfn_loop:
-        lda     aws_tmp12,x             ; MA+&0E08,X - Compare filename
-        eor     fuji_ch_bptr_low,y      ; MA+&1100,Y
+        lda     dfs_cat_file_name,x             ; MA+&0E08,X - Compare filename
+        eor     fuji_channel_start,y      ; MA+&1100,Y
         and     #$7F
         bne     fop_nothisfile
         inx
@@ -360,7 +360,7 @@ fop_cmpfn_loop:
         bcs     fop_matchifcset         ; always
 fop_channelnotopen:
         sty     fuji_intch              ; MA+&10C2 = Y=intch = allocated to new channel
-        sta     aws_tmp01               ; MA+&10C1 = A=Channel Flag Bit
+        sta     fuji_channel_flag_bit   ; MA+&10C1 = A=Channel Flag Bit
 fop_nothisfile:
         sec
         lda     aws_tmp03               ; &B3
