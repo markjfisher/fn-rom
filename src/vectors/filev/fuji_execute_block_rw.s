@@ -42,13 +42,13 @@ fuji_execute_block_rw:
         sta     fuji_file_offset+2
         
         ; Get block size from workspace (set by LoadFile_Ycatoffset)
-        ; The file length is in bytes 4-5 of the 8-byte file info (aws_tmp12+4, aws_tmp12+5)
+        ; The file length is in bytes 4-5 of the 8-byte file info (aws_tmp12+4, aws_tmp12+5)  
         ; Plus high bits from the mixed byte (aws_tmp12+6)
         ; Mixed byte bits 5-4 contain file length high bits
-        lda     aws_tmp12+4              ; File length low byte
+        lda     aws_tmp12+4              ; File length low byte ($BC+4 = $C0)
         sta     fuji_block_size
         
-        lda     aws_tmp12+5              ; File length high byte
+        lda     aws_tmp12+5              ; File length high byte ($BC+5 = $C1) 
         sta     fuji_block_size+1
         
         ; Extract high bits from mixed byte and add to high byte

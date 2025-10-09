@@ -383,7 +383,7 @@ load_cur_drv_cat:
         ; Mark catalog as loaded for current drive (equivalent to MMFS line 7322-7323)
         lda     CurrentDrv
         sta     CurrentCat
-        jmp     fuji_end_transaction
+        rts
 
 ; read_fsp_text_pointer - Read filename from text pointer (MMFS line 452-504)
 read_fsp_text_pointer:

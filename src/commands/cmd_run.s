@@ -29,7 +29,7 @@ fscv2_4_11_starRUN:
 
         ; Set up text pointer and workspace
         lda     #$FF
-        sta     aws_tmp14              ; &BE -> aws_tmp14
+        sta     aws_tmp14              ; &BE -> aws_tmp14 (use file's load address)
         lda     TextPointer
         sta     aws_tmp10              ; &BA -> aws_tmp10  
         lda     TextPointer+1
