@@ -213,13 +213,59 @@ check_file_not_locked_y:
         rts
 
 is_file_open_yoffset:
-        ; TODO: Implement file open checking
+        ; Check if file is already open and allocate channel if not
+        ; Based on MMFS IsFileOpen_Yoffset (lines 4855-4906)
         lda     #$00
-        sta     fuji_intch
+        sta     fuji_intch              ; MA+&10C2 = 0
         lda     #$08
-        sta     aws_tmp05               ; Channel flag bit
-        ; TODO: Complete implementation
-        rts
+        sta     aws_tmp05               ; &B5 = Channel flag bit
+        tya
+        tax                             ; X = cat offset
+        ldy     #$A0                    ; Y = intch (start from channel &A0)
+fop_main_loop:
+        sty     aws_tmp03               ; &B3 = intch
+        txa                             ; save X
+        pha
+        lda     #$08
+        sta     aws_tmp02               ; &B2 = cmpfn_loop counter
+        lda     aws_tmp05               ; A = flag bit
+        bit     fuji_open_channels      ; MA+&10C0
+        beq     fop_channelnotopen      ; If channel not open
+        lda     fuji_ch_flg,y           ; MA+&1117,Y
+        eor     CurrentDrv
+        and     #$03
+        bne     fop_nothisfile          ; If not current drv?
+fop_cmpfn_loop:
+        lda     aws_tmp12,x             ; MA+&0E08,X - Compare filename
+        eor     fuji_ch_bptr_low,y      ; MA+&1100,Y
+        and     #$7F
+        bne     fop_nothisfile
+        inx
+        iny
+        iny
+        dec     aws_tmp02               ; &B2
+        bne     fop_cmpfn_loop
+        sec
+        bcs     fop_matchifcset         ; always
+fop_channelnotopen:
+        sty     fuji_intch              ; MA+&10C2 = Y=intch = allocated to new channel
+        sta     aws_tmp01               ; MA+&10C1 = A=Channel Flag Bit
+fop_nothisfile:
+        sec
+        lda     aws_tmp03               ; &B3
+        sbc     #$20
+        sta     aws_tmp03               ; intch=intch-&20
+        asl     aws_tmp05               ; flag bit << 1
+        clc
+fop_matchifcset:
+        pla                             ; restore X
+        tax
+        ldy     aws_tmp03               ; Y=intch
+        lda     aws_tmp05               ; A=flag bit
+        bcs     fop_exit
+        bne     fop_main_loop           ; If flag bit <> 0
+fop_exit:
+        rts                             ; Exit: A=flag Y=intch
 
 is_file_open_continue:
         ; TODO: Implement file open continue checking
