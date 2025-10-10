@@ -1,0 +1,20 @@
+---
+alwaysApply: false
+---
+This project is creating a sideways ROM for a BBC micro computer that communicates between the host BBC computer and a FujiNet device acting as a network adapter, supplying data across a network.
+
+We have 2 projects in the workspace:
+1. fn-rom; the source code we are writing for our FujiNet ROM.
+2. mmfs; the src code of a similar project that we are using as the foundation and mirror for our code.
+
+The projects are file systems for the BBC.
+MMFS allows reading digital copies of disks from an SD device (implementation in @MMC.asm , file system in @mmfs100.asm )
+Our code will use the FujiNet - an esp32 device that has a network adapter to allow us to use disks from the internet instead of an SD card, like MMFS does.
+
+When following the MMFS code, we are using _MM32_ is true. The core code we follow and copy is in @mmfs100.asm and we are splitting it up into logical sections instead of all in a single file.
+
+Try not to deviate from the core MMFS code in our own implementation. The only deviation is when the code gets specific about implementation with the sectors on an SD card (for example), but not for general setup of a filesystem on a BBC micro following DFS general rules for that platform.
+
+Our core code creates higher level functions, with an implementation in @fuji_dummy.s so we can test our code. The dummy interface uses an in-memory SSD (single sided disk) setup of data to test our code.
+
+We will later write an implementation that uses the serial port to communicate with the actual FujiNet device, but for now everything is through the dummy implementation to keep our core code agnostic of implemenation details, and we only have to implement the higher level functions later, keeping a clean implementation between filesystem code, and the implementation provider.

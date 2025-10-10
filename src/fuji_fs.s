@@ -82,6 +82,9 @@ fuji_write_block:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 fuji_read_catalogue:
+        jsr     remember_axy
+        jsr     fuji_begin_transaction
+        
         ; Set up catalogue buffer at page 0x0E (512 bytes)
         lda     #$00
         sta     data_ptr
@@ -97,7 +100,7 @@ fuji_read_catalogue:
         ; 3. Store it in the buffer at 0x0E00-0x0FFF
         
         jsr     fuji_read_catalog_data
-        rts
+        jmp     fuji_end_transaction
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; FUJI_WRITE_CATALOGUE - Write the disc catalogue back to network

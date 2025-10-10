@@ -378,6 +378,7 @@ load_cur_drv_cat2:
 ; For FujiNet, this is equivalent to MMFS's exec_cat_rw with A=#&53
 load_cur_drv_cat:
         ; Load catalog from FujiNet interface (equivalent to OW7F_Execute_and_ReportIfDiskFault)
+        ; Now fuji_read_catalog properly handles transaction management like MMFS does
         jsr     fuji_read_catalog
         
         ; Mark catalog as loaded for current drive (equivalent to MMFS line 7322-7323)
