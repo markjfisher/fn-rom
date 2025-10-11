@@ -6,7 +6,7 @@
         .import LoadFile_Ycatoffset
         .import get_cat_firstentry81
         .import read_fspba_reset
-        .import read_fspBA
+        .import read_fspba
         .import a_rorx6and3
         .import err_bad
         .import print_string
@@ -59,7 +59,7 @@ fscv2_4_11_starRUN:
         .byte   "RUN: Searching lib. dir", $0D
         nop
 .endif
-        jsr     read_fspBA
+        jsr     read_fspba
         jsr     get_cat_firstentry81   ; Use correct function
         bcs     runfile_found          ; If file found
 

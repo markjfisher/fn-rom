@@ -4,7 +4,7 @@
         .export get_cat_firstentry80_fname
         .export get_cat_firstentry80
         .export get_cat_firstentry81
-        .export read_fspBA
+        .export read_fspba
         .export read_fspba_reset
         .export parameter_afsp_param_syntaxerrorifnull_getcatentry_fsptxtp
         .export print_catalog
@@ -141,17 +141,6 @@ getcatsetupb7:
         ldy     aws_tmp06               ; &B6
         sec                             ; Return, Y=offset-8, C=1
 
-; Y_sub8 (MMFS line 715-723)
-y_sub8:
-        dey
-        dey
-        dey
-        dey
-        dey
-        dey
-        dey
-        dey
-        rts
 
 ; match_filename (MMFS line 728-756)
 match_filename:
@@ -394,7 +383,7 @@ read_fsp_text_pointer:
 read_fspba_reset:
         jsr     set_curdir_drv_to_defaults ; Set current directory and drive
 
-read_fspBA:
+read_fspba:
         lda     aws_tmp10
         sta     TextPointer
         lda     aws_tmp11

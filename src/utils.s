@@ -14,6 +14,8 @@
         .export  set_text_pointer_yx
         .export  tube_check_if_present
         .export  y_add7
+        .export  y_add8
+        .export  y_sub8
 
         .include "fujinet.inc"
 
@@ -120,12 +122,28 @@ tube_check_if_present:
         sta     fuji_tube_present
         rts
 
+y_add8:
+        iny
 y_add7:
-        ; Add 7 to Y
-        tya
-        clc
-        adc     #$07
-        tay
+        iny
+        iny
+        iny
+        iny
+        iny
+        iny
+        iny
+        rts
+
+; Y_sub8 (MMFS line 715-723)
+y_sub8:
+        dey
+        dey
+        dey
+        dey
+        dey
+        dey
+        dey
+        dey
         rts
 
 is_alpha_char:

@@ -4,6 +4,9 @@
 
         .export channel_get_cat_entry_yintch
         .export channel_set_dir_drive_yintch
+        .export check_file_not_locked_or_open_y
+        .export check_file_not_open_y
+        .export check_file_exists
         .export close_all_files
         .export close_files_yhandle
         .export close_spool_exec_files
@@ -12,11 +15,13 @@
         .export save_cat_to_disk
         .export setup_channel_info_block_yintch
 
+        .import read_fspba_find_cat_entry
         .import a_rolx4
         .import a_rolx5
         .import a_rorx4and3
         .import channel_buffer_to_disk_yhandle
         .import check_channel_yhndl_exyintch
+        .import create_file_fsp
         .import err_disk
         .import get_cat_firstentry80_fname
         .import get_cat_firstentry80
@@ -316,13 +321,54 @@ chnlblock_setbit5:
 ; Helper functions (stubs for now)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-create_file_fsp:
-        ; TODO: Implement file creation
-        rts
+check_file_not_locked:
+        jsr     read_fspba_find_cat_entry
+        bcc     exit_calling_subroutine
 
 check_file_not_locked_y:
-        ; TODO: Implement file lock checking
+        lda     dfs_cat_file_dir,y
+        bpl     chklock_exit
+
+
+err_file_locked:
+        jsr     report_error_cb
+        .byte   $C3
+        .byte   "Locked",0
+
+check_file_not_locked_or_open_y:
+        jsr     check_file_not_locked_y
+
+check_file_not_open_y:
+        jsr     remember_axy
+        jsr     is_file_open_yoffset
+        bcc     chklock_exit
+        jmp     err_file_open
+
+check_file_exists:
+        jsr     read_fspba_find_cat_entry
+        bcs     chklock_exit
+
+exit_calling_subroutine:
+        pla
+        pla
+        lda     #$00
+
+chklock_exit:
         rts
+
+
+err_file_open:
+        jsr     report_error_cb
+        .byte   $C2
+        .byte   "Open",0
+
+
+
+
+is_file_open_continue:
+        txa
+        pha
+        jmp     fop_nothisfile
 
 is_file_open_yoffset:
         ; Check if file is already open and allocate channel if not
@@ -378,10 +424,6 @@ fop_matchifcset:
         bne     fop_main_loop           ; If flag bit <> 0
 fop_exit:
         rts                             ; Exit: A=flag Y=intch
-
-is_file_open_continue:
-        ; TODO: Implement file open continue checking
-        rts
 
 ; save_cat_to_disk - Save catalog to disk
 ; TODO: Implement catalog saving for FujiNet

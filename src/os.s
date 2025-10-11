@@ -310,6 +310,8 @@ fuji_workspace          = 0  ; Base address for FujiNet workspace - this will ev
 
 fuji_filename_buffer    = fuji_workspace + $1000
 
+; 1074 to 107A used in osfile_helpers.s
+
 ; 1090 seems to be a copy of BC to CB, restoring it
 ; in MMC_END
 
