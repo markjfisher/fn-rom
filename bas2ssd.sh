@@ -4,6 +4,12 @@
 # Usage: ./bas2ssd.sh <input_folder> <output_ssd>
 # Example: ./bas2ssd.sh ./basfiles ./output.ssd
 
+# uses dfstool for creating disks
+#  and basictool for tokenizing files (there were errors in dfstool's tokenizing)
+# - https://github.com/rcook/dfstool
+# - https://github.com/ZornsLemma/basictool
+
+
 set -e  # Exit on any error
 
 # Check arguments
@@ -102,7 +108,7 @@ for bas_file in "${BAS_FILES[@]}"; do
     echo "  Tokenizing: $(basename "$bas_file") -> $filename"
     
     # Tokenize the file
-    if ! dfstool tokenize "$bas_file" "$tokenized_file"; then
+    if ! basictool -2 -t "$bas_file" "$tokenized_file"; then
         echo "Error: Failed to tokenize $bas_file"
         exit 1
     fi
