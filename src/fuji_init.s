@@ -167,7 +167,7 @@ initdfs_reset:
 setdefaults:
 .ifdef FN_DEBUG
         jsr     print_string
-        .byte   "Set FN defs", $0D
+        .byte   "defs", $0D
 .endif
         lda     #' '
         sta     $11C0
@@ -186,6 +186,15 @@ setdefaults:
         sty     fuji_cmd_enabled
         sty     fuji_fs_messages_on
         sty     $10DD
+
+        ; Initialize OPT 5 flag to default (bit 6 clear = DISC/DISK work like FUJI)
+        ; This isn't needed, it was attempt to get it working but solution was to
+        ; put FujiNet ROM in higher slot.
+
+        ; ldx     paged_ram_copy
+        ; lda     paged_rom_priv_ws,x
+        ; and     #$BF                  ; Clear bit 6 (OPT 5,0 default)
+        ; sta     paged_rom_priv_ws,x
 
         ; INITIALISE VID VARIABLES
 

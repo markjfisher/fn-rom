@@ -75,20 +75,36 @@ set_boot_option_yoption:
         jmp     save_cat_to_disk           ; save cat
 
 disk_trap_option:
-        ; *OPT 5,Y - Disk trap option
-        ; This controls whether *DISC and *DISK commands are disabled
-        ; For FujiNet, we'll implement a simplified version
+        ; *OPT 5,Y - Disk trap option (following MMFS lines 2429-2450)
+        ; Bit 6 of PagedROM_PrivWorkspaces = disable *DISC, *DISK commands
+        ; Y=0: *DISC/*DISK work like *FUJI (bit 6 clear)
+        ; Y=1: *DISC/*DISK pass to DFS (bit 6 set)
+
+        dbg_string_axy "OPT: Disk trap, check Y: "
+
+        tya                            ; A = Y (*OPT 5,Y value)
+        php                            ; Save Y=0 flag
+        ldx     paged_ram_copy         ; Get current ROM number
+        lda     paged_rom_priv_ws,x    ; Get current flags
+        and     #$BF                   ; Clear bit 6 (enable DISC/DISK as FujiNet commands)
+        plp                            ; Restore Y=0 flag
+        beq     skip_set_bit6          ; If Y=0, leave bit 6 clear
+        ora     #$40                   ; Set bit 6 (disable DISC/DISK, pass to DFS)
+skip_set_bit6:
+        sta     paged_rom_priv_ws,x    ; Store updated flags
 
 .ifdef FN_DEBUG
+        pla
+        lda     paged_rom_priv_ws,x
+        pha
         jsr     print_string
-        .byte   "OPT: Disk trap", $0D
+        .byte   "OPT: PWS flags now: "
         nop
+        pla
+        jsr     print_hex
+        jsr     print_newline
+        pla
 .endif
 
-        tya
-        pha
-        ; TODO: Implement disk trap logic for FujiNet
-        ; This would involve setting flags to disable certain commands
-        pla
         rts
 

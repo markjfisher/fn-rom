@@ -22,6 +22,7 @@
         .import fscv2_4_11_starRUN
         .import fscv3_unreccommand
         .import fscv5_starCAT
+        .import fscv6_shutdown_filing_system
         .import fscv10_starINFO
         .import print_axy
         .import print_string
@@ -111,7 +112,7 @@ gbpbv_entry:
         fscv3_unreccommand        - 1, \
         fscv2_4_11_starRUN        - 1, \
         fscv5_starCAT             - 1, \
-        fscv_placeholder          - 1, \
+        fscv6_shutdown_filing_system - 1, \
         fscv_placeholder          - 1, \
         fscv_os_about_to_proc_cmd - 1, \
         fscv_placeholder          - 1, \

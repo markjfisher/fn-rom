@@ -16,6 +16,7 @@
         .export parameter_table
 
         .import cmd_fs_close
+        .import cmd_fs_disc
         .import cmd_fs_drive
         .import cmd_fs_fboot
         .import cmd_fs_fuji
@@ -80,9 +81,11 @@ cmd_table_help:
 ; COMMAND TABLE - File System INIT commands, NO HELP COMMAND
 ; old cmdtable22
 cmd_table_fs:
-        ; 0A
+        ; 0A  
         .byte   (cmd_table_fs_cmds - cmd_table_fujifs_cmds) / 2 - 1
 
+        .byte   "DISC", $80
+        .byte   "DISK", $80
         .byte   "FUJI", $80
         .byte   $00                     ; End of table
 
@@ -116,6 +119,8 @@ cmd_table_help_cmds:
 
 ; OLD: cmdaddr22
 cmd_table_fs_cmds:
+        .word   cmd_fs_disc-1
+        .word   cmd_fs_disc-1           ; DISK same as DISC
         .word   cmd_fs_fuji-1
         .word   not_cmd_fs-1
 

@@ -6,6 +6,7 @@
         .export channel_set_dir_drive_yintch
         .export close_all_files
         .export close_files_yhandle
+        .export close_spool_exec_files
         .export cmd_fs_close
         .export findv_entry
         .export save_cat_to_disk

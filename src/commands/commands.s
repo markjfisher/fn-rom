@@ -10,13 +10,9 @@
         .export not_cmd_futils
         .export not_cmd_utils
 
-        .import print_string
-        .import print_char
-        .import print_hex
-        .import print_newline
-        .import print_axy
-        .import remember_axy
         .import init_fuji
+        .import print_axy
+        .import print_string
 
         .include "fujinet.inc"
 
