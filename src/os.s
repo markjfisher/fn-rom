@@ -63,8 +63,12 @@
         .export  fuji_channel_start
 
         .export  fuji_ch_name7
+        .export  fuji_ch_op
         .export  fuji_ch_dir
+        .export  fuji_ch_sec_start
         .export  fuji_ch_bitmask
+        .export  fuji_ch_sect_lo
+        .export  fuji_ch_sect_hi
 
         .export  fuji_ch_bptr_low
         .export  fuji_ch_bptr_mid
@@ -380,9 +384,9 @@ fuji_ch_1109            = fuji_channel_start + $09 ; size byte 1
 fuji_ch_110A            = fuji_channel_start + $0A ; name byte 6
 fuji_ch_110B            = fuji_channel_start + $0B ; size byte 2
 fuji_ch_name7           = fuji_channel_start + $0C ; name byte 7
-fuji_ch_110D            = fuji_channel_start + $0D ; "op" mixed byte
+fuji_ch_op              = fuji_channel_start + $0D ; "op" mixed byte
 fuji_ch_dir             = fuji_channel_start + $0E ; directory
-fuji_ch_110F            = fuji_channel_start + $0F ; start sector
+fuji_ch_sec_start       = fuji_channel_start + $0F ; start sector
 
 ; Channel workspace variables (mapped from MMFS $1110-$111F)
 fuji_ch_bptr_low        = fuji_channel_start + $10  ; PTR low byte
@@ -397,3 +401,5 @@ fuji_1118               = fuji_channel_start + $18  ; ???
 fuji_1119               = fuji_channel_start + $19  ; ???
 fuji_111a               = fuji_channel_start + $1A  ; ???
 fuji_ch_bitmask         = fuji_channel_start + $1B  ; Bit mask
+fuji_ch_sect_lo         = fuji_channel_start + $1C  ; buffer sector low
+fuji_ch_sect_hi         = fuji_channel_start + $1D  ; buffer sector high

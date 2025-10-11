@@ -12,11 +12,11 @@
 120 PRINT "Opening HELLO file..."
 130 
 140 REM Use OPENIN to open file for input
-150 file% = OPENIN("HELLO")
+150 file = OPENIN("HELLO")
 160 
-170 IF file% = 0 THEN PRINT "ERROR: Could not open HELLO" : GOTO 900
+170 IF file = 0 THEN PRINT "ERROR: Could not open HELLO" : GOTO 900
 210 
-220 PRINT "SUCCESS: Opened HELLO with handle "; file%
+220 PRINT "SUCCESS: Opened HELLO with handle "; file
 230 
 240 REM Try to read some bytes using BGET#
 250 PRINT
@@ -24,9 +24,9 @@
 270 
 280 FOR i% = 1 TO 20
 290   REM Use BGET# to read a byte
-300   byte% = BGET#file%
+300   byte% = BGET#file
 310   
-320   IF EOF#file% THEN PRINT "EOF reached at byte "; i% : EXIT FOR
+320   IF EOF#file THEN PRINT "EOF reached at byte "; i% : GOTO 390
 360   
 370   PRINT "Byte "; i%; ": "; byte%; " ('"; CHR$(byte%); "')"
 380 NEXT
@@ -35,7 +35,7 @@
 410 PRINT
 420 PRINT "Closing file..."
 430 
-440 CLOSE#file%
+440 CLOSE#file
 450 
 460 PRINT "File closed"
 470 
@@ -43,23 +43,23 @@
 490 PRINT
 500 PRINT "Testing WORLD file..."
 510 
-520 file% = OPENIN("WORLD")
+520 file = OPENIN("WORLD")
 530 
-540 IF file% = 0 THEN PRINT "ERROR: Could not open WORLD" : GOTO 900
+540 IF file = 0 THEN PRINT "ERROR: Could not open WORLD" : GOTO 900
 580 
-590 PRINT "SUCCESS: Opened WORLD with handle "; file%
+590 PRINT "SUCCESS: Opened WORLD with handle "; file
 600 
 610 REM Read a few bytes
 620 FOR i% = 1 TO 10
-630   byte% = BGET#file%
+630   byte% = BGET#file
 640   
-650   IF EOF#file% THEN PRINT "EOF reached at byte "; i% : EXIT FOR
+650   IF EOF#file THEN PRINT "EOF reached at byte "; i% : GOTO 720
 690   
 700   PRINT "Byte "; i%; ": "; byte%; " ('"; CHR$(byte%); "')"
 710 NEXT
 720 
 730 REM Close WORLD
-740 CLOSE#file%
+740 CLOSE#file
 750 
 760 PRINT "WORLD file closed"
 770 

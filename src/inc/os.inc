@@ -68,8 +68,12 @@ OS_INC = 1
         .import  fuji_channel_start
 
         .import  fuji_ch_name7
+        .import  fuji_ch_op
         .import  fuji_ch_dir
+        .import  fuji_ch_sec_start
         .import  fuji_ch_bitmask
+        .import  fuji_ch_sect_lo
+        .import  fuji_ch_sect_hi
 
         .import  fuji_ch_bptr_low
         .import  fuji_ch_bptr_mid

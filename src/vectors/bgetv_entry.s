@@ -4,8 +4,10 @@
 
         .export bgetv_entry
 
+        .import calc_buffer_sector_for_ptr
         .import channel_set_dir_drive_yintch
         .import check_channel_yhndl_exyintch_tya_cmpptr
+        .import LoadMemBlock
         .import print_axy
         .import print_string
         .import remember_axy
@@ -94,9 +96,10 @@ channel_buffer_rw_yintch_c1read:
         jsr     channel_flags_clear_bits
         bcc     chnbuf_exit             ; always
 chnbuf_read:
-        jsr     calc_buffer_sector_for_ptr ; sets NMI data ptr
-        ; TODO: Implement buffer load for FujiNet
+        jsr     calc_buffer_sector_for_ptr ; Calculate which sector to load
+        jsr     LoadMemBlock               ; Load buffer (high-level interface)
 chnbuf_exit:
+        dec     fuji_error_flag
         ldy     fuji_intch            ; Y=intch
         rts
 
@@ -131,16 +134,3 @@ channel_flags_clear_bits:
         clc
         rts
 
-calc_buffer_sector_for_ptr:
-        ; Calculate buffer sector for PTR
-        clc
-        lda     aws_tmp15,y             ; Start Sector + Seq Ptr
-        adc     fuji_ch_bptr_mid,y
-        sta     aws_tmp15               ; C3
-        sta     fuji_ch_buf_page,y      ; Buffer sector
-        lda     aws_tmp13,y
-        and     #$03
-        adc     fuji_ch_bptr_hi,y
-        sta     aws_tmp14               ; C2
-        sta     fuji_ch_buf_page,y      ; Buffer sector high
-        rts
