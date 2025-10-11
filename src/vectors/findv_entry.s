@@ -12,7 +12,6 @@
         .export close_spool_exec_files
         .export cmd_fs_close
         .export findv_entry
-        .export save_cat_to_disk
         .export setup_channel_info_block_yintch
 
         .import read_fspba_find_cat_entry
@@ -33,6 +32,7 @@
         .import read_fspba_reset
         .import remember_axy
         .import report_error_cb
+        .import save_cat_to_disk
         .import set_current_drive_adrive
 
         .include "fujinet.inc"
@@ -425,9 +425,3 @@ fop_matchifcset:
 fop_exit:
         rts                             ; Exit: A=flag Y=intch
 
-; save_cat_to_disk - Save catalog to disk
-; TODO: Implement catalog saving for FujiNet
-save_cat_to_disk:
-        ; For now, just return without doing anything
-        ; In a real implementation, this would write the catalog back to the FujiNet device
-        rts

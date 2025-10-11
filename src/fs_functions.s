@@ -1,42 +1,37 @@
-        .export cmp_ptr_ext
-        .export get_cat_nextentry
-        .export get_cat_entry_fspba
-        .export get_cat_firstentry80_fname
-        .export get_cat_firstentry80
-        .export get_cat_firstentry81
-        .export read_fspba
-        .export read_fspba_reset
-        .export parameter_afsp_param_syntaxerrorifnull_getcatentry_fsptxtp
-        .export print_catalog
-        .export prt_infoline_yoffset
-        .export prt_info_msg_yoffset
-        .export read_file_attribs_to_b0_yoffset
-        .export GSREAD_A
-        .export load_cur_drv_cat
-        .export load_cur_drv_cat2
-        .export set_current_drive_adrive
-        .export set_curdir_drv_to_defaults
-        .export fscv1_eof_yhndl
-        .export conv_yhndl_intch_exyintch
-        .export is_hndlin_use_yintch
         .export check_channel_yhndl_exyintch
         .export check_channel_yhndl_exyintch_tya_cmpptr
+        .export cmp_ptr_ext
+        .export conv_yhndl_intch_exyintch
+        .export fscv1_eof_yhndl
+        .export get_cat_entry_fspba
+        .export get_cat_firstentry80
+        .export get_cat_firstentry80_fname
+        .export get_cat_firstentry81
+        .export get_cat_nextentry
+        .export GSREAD_A
+        .export is_hndlin_use_yintch
+        .export load_cur_drv_cat
+        .export load_cur_drv_cat2
+        .export parameter_afsp_param_syntaxerrorifnull_getcatentry_fsptxtp
+        .export print_catalog
+        .export prt_info_msg_yoffset
+        .export prt_infoline_yoffset
+        .export read_file_attribs_to_b0_yoffset
+        .export read_fspba
+        .export read_fspba_reset
+        .export save_cat_to_disk
+        .export set_curdir_drv_to_defaults
+        .export set_current_drive_adrive
         .export y_sub8
 
+        .import GSINIT_A
         .import a_rolx5
         .import clear_exec_spool_file_handle
-        .import fuji_read_catalog
-        .import GSINIT_A
         .import err_bad
+        .import fuji_read_catalog
+        .import fuji_write_catalog_data
         .import is_alpha_char
-        .import a_rorx6and3
         .import parameter_afsp
-        .import fuji_ch_bptr_mid
-        .import fuji_ch_bptr_hi
-        .import fuji_ch_ext_low
-        .import fuji_ch_ext_mid
-        .import fuji_ch_ext_hi
-        .import fuji_end_transaction
         .import print_2_spaces_spl
         .import print_axy
         .import print_char
@@ -44,10 +39,9 @@
         .import print_fullstop
         .import print_hex
         .import print_newline
-        .import print_string
-        .import print_string_ax
         .import print_nibble
         .import print_space_spl
+        .import print_string
         .import prtcmd_at_bc_add_1
         .import prtcmd_prtchr
         .import remember_axy
@@ -379,13 +373,25 @@ load_cur_drv_cat2:
 ; For FujiNet, this is equivalent to MMFS's exec_cat_rw with A=#&53
 load_cur_drv_cat:
         ; Load catalog from FujiNet interface (equivalent to OW7F_Execute_and_ReportIfDiskFault)
-        ; Now fuji_read_catalog properly handles transaction management like MMFS does
         jsr     fuji_read_catalog
         
         ; Mark catalog as loaded for current drive (equivalent to MMFS line 7322-7323)
+write_current_drv_to_cat:
         lda     CurrentDrv
         sta     CurrentCat
         rts
+
+save_cat_to_disk:
+        lda     dfs_cat_cycle
+        clc
+        sed
+        adc     #$01
+        sta     dfs_cat_cycle
+        cld
+
+        jsr     fuji_write_catalog_data
+        jmp     write_current_drv_to_cat
+
 
 ; read_fsp_text_pointer - Read filename from text pointer (MMFS line 452-504)
 read_fsp_text_pointer:
