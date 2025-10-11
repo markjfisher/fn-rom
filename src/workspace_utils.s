@@ -1,6 +1,5 @@
 ; Workspace utility functions
         .export save_static_to_private_workspace
-        .export channel_buffer_to_disk_yhandle
 
         .import  remember_axy
         .import  print_string
@@ -50,24 +49,3 @@ save_static_to_private_workspace:
         pla
         sta     aws_tmp00
         rts
-
-
-channel_buffer_to_disk_yhandle_a0:
-        jsr     return_with_a0
-
-; Force buffer save for channels
-; Y = handle (0 = all files)
-channel_buffer_to_disk_yhandle:
-        lda     $10C0                   ; Force buffer save - opened channels flag byte
-        pha                             ; Save opened channels flag byte
-        tya                             ; A=handle
-        bne     @chbuf1
-        jsr     close_all_files
-        beq     @chbuf2                 ; always
-@chbuf1:
-        jsr     close_files_yhandle
-@chbuf2:
-        pla                             ; Restore
-        sta     $10C0
-        rts
-

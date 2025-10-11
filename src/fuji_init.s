@@ -197,7 +197,6 @@ setdefaults:
         ; sta     paged_rom_priv_ws,x
 
         ; INITIALISE VID VARIABLES
-
         jsr     vid_reset
 
 initdfs_noreset:
