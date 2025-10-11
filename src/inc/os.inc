@@ -21,6 +21,7 @@ OS_INC = 1
         .import  OSRDRM
         .import  OSWORD
         .import  OSWRCH
+        .import  ROMSEL
 
         .import  CHECK_CRC7
         .import  CurrentCat

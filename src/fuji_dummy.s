@@ -25,6 +25,8 @@
 
         .segment "CODE"
 
+FUJI_ROM_SLOT = 14
+
 ; Static test data - a simple BBC Micro disc image
 dummy_disc_title:
         .byte "TESTDISC", 0
@@ -89,11 +91,11 @@ dummy_catalogue:
 dummy_sector2_data:
         ; ERROR: This should not print if run address is used correctly
         ; Save current ROM and switch to FujiNet ROM (slot 5)
-        lda     $F4                     ; Save current ROMSEL
+        lda     paged_ram_copy          ; Save current ROMSEL
         pha
-        lda     #5                      ; FujiNet ROM slot
-        sta     $F4                     ; Update RAM copy
-        sta     $FE30                   ; Update hardware register
+        lda     #FUJI_ROM_SLOT          ; FujiNet ROM slot
+        sta     paged_ram_copy          ; Update RAM copy
+        sta     ROMSEL                  ; Update hardware register
         
         jsr     print_string
         .byte   "ERROR: Running at load address!", $0D
@@ -101,18 +103,18 @@ dummy_sector2_data:
         
         ; Restore original ROM
         pla
-        sta     $F4                     ; Restore RAM copy
-        sta     $FE30                   ; Restore hardware register
+        sta     paged_ram_copy          ; Restore RAM copy
+        sta     ROMSEL                  ; Restore hardware register
         rts
         
         ; Real application starts here (execute address)
 test_app_start:
         ; Save current ROM and switch to FujiNet ROM (slot 5)
-        lda     $F4                     ; Save current ROMSEL
+        lda     paged_ram_copy          ; Save current ROMSEL
         pha
-        lda     #5                      ; FujiNet ROM slot
-        sta     $F4                     ; Update RAM copy
-        sta     $FE30                   ; Update hardware register
+        lda     #FUJI_ROM_SLOT          ; FujiNet ROM slot
+        sta     paged_ram_copy          ; Update RAM copy
+        sta     ROMSEL                  ; Update hardware register
         
         jsr     print_string
         .byte   "TEST app running!", $0D
@@ -120,8 +122,8 @@ test_app_start:
         
         ; Restore original ROM
         pla
-        sta     $F4                     ; Restore RAM copy
-        sta     $FE30                   ; Restore hardware register
+        sta     paged_ram_copy          ; Restore RAM copy
+        sta     ROMSEL                  ; Restore hardware register
         rts
 dummy_sector2_data_end:
         .res 256 - (* - dummy_sector2_data), $00  ; Fill rest with zeros
@@ -130,11 +132,11 @@ dummy_sector2_data_end:
 dummy_sector3_data:
         ; ERROR: This should not print if run address is used correctly
         ; Save current ROM and switch to FujiNet ROM (slot 5)
-        lda     $F4                     ; Save current ROMSEL
+        lda     paged_ram_copy          ; Save current ROMSEL
         pha
-        lda     #5                      ; FujiNet ROM slot
-        sta     $F4                     ; Update RAM copy
-        sta     $FE30                   ; Update hardware register
+        lda     #FUJI_ROM_SLOT          ; FujiNet ROM slot
+        sta     paged_ram_copy          ; Update RAM copy
+        sta     ROMSEL                  ; Update hardware register
         
         jsr     print_string
         .byte   "ERROR: Running at load address!", $0D
@@ -142,18 +144,18 @@ dummy_sector3_data:
         
         ; Restore original ROM
         pla
-        sta     $F4                     ; Restore RAM copy
-        sta     $FE30                   ; Restore hardware register
+        sta     paged_ram_copy          ; Restore RAM copy
+        sta     ROMSEL                  ; Restore hardware register
         rts
         
         ; Real application starts here (execute address)
 world_app_start:
         ; Save current ROM and switch to FujiNet ROM (slot 5)
-        lda     $F4                     ; Save current ROMSEL
+        lda     paged_ram_copy          ; Save current ROMSEL
         pha
-        lda     #5                      ; FujiNet ROM slot
-        sta     $F4                     ; Update RAM copy
-        sta     $FE30                   ; Update hardware register
+        lda     #FUJI_ROM_SLOT          ; FujiNet ROM slot
+        sta     paged_ram_copy          ; Update RAM copy
+        sta     ROMSEL                  ; Update hardware register
         
         jsr     print_string
         .byte   "WORLD application loaded!", $0D
@@ -164,8 +166,8 @@ world_app_start:
         
         ; Restore original ROM
         pla
-        sta     $F4                     ; Restore RAM copy
-        sta     $FE30                   ; Restore hardware register
+        sta     paged_ram_copy          ; Restore RAM copy
+        sta     ROMSEL                  ; Restore hardware register
         rts
 dummy_sector3_data_end:
         .res 256 - (* - dummy_sector3_data), $00  ; Fill rest with zeros
@@ -174,11 +176,11 @@ dummy_sector3_data_end:
 dummy_sector4_data:
         ; ERROR: This should not print if run address is used correctly
         ; Save current ROM and switch to FujiNet ROM (slot 5)
-        lda     $F4                     ; Save current ROMSEL
+        lda     paged_ram_copy          ; Save current ROMSEL
         pha
-        lda     #5                      ; FujiNet ROM slot
-        sta     $F4                     ; Update RAM copy
-        sta     $FE30                   ; Update hardware register
+        lda     #FUJI_ROM_SLOT          ; FujiNet ROM slot
+        sta     paged_ram_copy          ; Update RAM copy
+        sta     ROMSEL                  ; Update hardware register
         
         jsr     print_string
         .byte   "ERROR: Running at load address!", $0D
@@ -186,18 +188,18 @@ dummy_sector4_data:
         
         ; Restore original ROM
         pla
-        sta     $F4                     ; Restore RAM copy
-        sta     $FE30                   ; Restore hardware register
+        sta     paged_ram_copy          ; Restore RAM copy
+        sta     ROMSEL                  ; Restore hardware register
         rts
         
         ; Real application starts here (execute address)
 hello_app_start:
         ; Save current ROM and switch to FujiNet ROM (slot 5)
-        lda     $F4                     ; Save current ROMSEL
+        lda     paged_ram_copy          ; Save current ROMSEL
         pha
-        lda     #5                      ; FujiNet ROM slot
-        sta     $F4                     ; Update RAM copy
-        sta     $FE30                   ; Update hardware register
+        lda     #FUJI_ROM_SLOT          ; FujiNet ROM slot
+        sta     paged_ram_copy          ; Update RAM copy
+        sta     ROMSEL                  ; Update hardware register
         
         jsr     print_string
         .byte   "HELLO from FujiNet!", $0D
@@ -208,8 +210,8 @@ hello_app_start:
         
         ; Restore original ROM
         pla
-        sta     $F4                     ; Restore RAM copy
-        sta     $FE30                   ; Restore hardware register
+        sta     paged_ram_copy          ; Restore RAM copy
+        sta     ROMSEL                  ; Restore hardware register
         rts
 dummy_sector4_data_end:
         .res 256 - (* - dummy_sector4_data), $00  ; Fill rest with zeros

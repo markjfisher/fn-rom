@@ -16,6 +16,7 @@
         .export  OSRDRM
         .export  OSWORD
         .export  OSWRCH
+        .export  ROMSEL
 
         .export  CHECK_CRC7
         .export  CurrentCat
@@ -148,6 +149,7 @@
 
 
 ; OS vectors
+ROMSEL          := $FE30
 OSRDRM          := $FFB9
 GSINIT          := $FFC2
 GSREAD          := $FFC5

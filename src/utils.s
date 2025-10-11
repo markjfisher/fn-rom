@@ -15,7 +15,6 @@
         .export  tube_check_if_present
         .export  y_add7
         .export  y_add8
-        .export  y_sub8
 
         .include "fujinet.inc"
 
@@ -132,18 +131,6 @@ y_add7:
         iny
         iny
         iny
-        rts
-
-; Y_sub8 (MMFS line 715-723)
-y_sub8:
-        dey
-        dey
-        dey
-        dey
-        dey
-        dey
-        dey
-        dey
         rts
 
 is_alpha_char:

@@ -21,6 +21,7 @@
         .export is_hndlin_use_yintch
         .export check_channel_yhndl_exyintch
         .export check_channel_yhndl_exyintch_tya_cmpptr
+        .export y_sub8
 
         .import a_rolx5
         .import clear_exec_spool_file_handle
@@ -141,6 +142,17 @@ getcatsetupb7:
         ldy     aws_tmp06               ; &B6
         sec                             ; Return, Y=offset-8, C=1
 
+; DO NOT MOVE THIS! It's used by above as a fall through.
+y_sub8:
+        dey
+        dey
+        dey
+        dey
+        dey
+        dey
+        dey
+        dey
+        rts
 
 ; match_filename (MMFS line 728-756)
 match_filename:
