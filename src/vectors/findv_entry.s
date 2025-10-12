@@ -31,6 +31,7 @@
         .import print_string
         .import read_fspba_reset
         .import remember_axy
+        .import remember_xy_only
         .import report_error_cb
         .import save_cat_to_disk
         .import set_current_drive_adrive
@@ -182,9 +183,9 @@ close_file_exit:
         rts
 
 findv_openfile:
-        jsr     remember_axy            ; Save A, X, Y
-        stx     fuji_text_ptr_offset    ; YX=Location of filename
-        sty     fuji_text_ptr_hi
+        jsr     remember_xy_only            ; Save A, X, Y  
+        stx     aws_tmp10               ; YX=Location of filename (MMFS: STX &BA)
+        sty     aws_tmp11               ; (MMFS: STY &BB)
         sta     aws_tmp04               ; A=Operation
         bit     aws_tmp04
         php                             ; Save flags
@@ -204,13 +205,15 @@ findv_createfile:
         ldx     #$07                    ; 1074-107B=0
 findv_loop1:
         sta     aws_tmp12,x
-        sta     aws_tmp14,x
+        sta     fuji_buf_1074,x
         dex
         bpl     findv_loop1
         dec     aws_tmp14               ; aws_tmp14 = $FF
         dec     aws_tmp15               ; aws_tmp15 = $FF
+        dec     fuji_buf_1076
+        dec     fuji_buf_1077
         lda     #$40
-        sta     aws_tmp15               ; End address = &4000
+        sta     pws_tmp03               ; End address = &4000
         jsr     create_file_fsp         ; Creates 40 sec buffer
 findv_filefound:
         plp                             ; in case another file created
@@ -221,7 +224,7 @@ findv_readorupdate:
         jsr     is_file_open_yoffset    ; Exits with Y=intch, A=flag
         bcc     findv_openchannel       ; If file not open
 findv_loop2:
-        lda     fuji_ch_flg,y
+        lda     fuji_ch_name7,y
         bpl     err_fileopen            ; If already opened for writing
         plp
         php
@@ -249,22 +252,22 @@ err_fileopen:
 
 setup_channel_info_block_yintch:
         lda     #$08
-        sta     aws_tmp04
+        sta     fuji_channel_block_size
 chnlblock_loop1:
-        lda     aws_tmp12,x             ; Copy file name & attributes
-        sta     fuji_ch_bptr_low,y      ; to channel info block
+        lda     dfs_cat_file_name,x             ; Copy file name & attributes
+        sta     fuji_channel_start,y      ; to channel info block
         iny
-        lda     aws_tmp14,x
-        sta     fuji_ch_bptr_low,y
+        lda     dfs_cat_file_load_addr,x
+        sta     fuji_channel_start,y
         iny
         inx
-        dec     aws_tmp04
+        dec     fuji_channel_block_size
         bne     chnlblock_loop1
 
         ldx     #$10
         lda     #$00                    ; Clear rest of block
 chnlblock_loop2:
-        sta     fuji_ch_bptr_low,y
+        sta     fuji_channel_start,y
         iny
         dex
         bne     chnlblock_loop2
@@ -274,33 +277,33 @@ chnlblock_loop2:
         jsr     a_rolx5
         adc     #$11                    ; Buffer page
         sta     fuji_ch_buf_page,y      ; Buffer page
-        lda     aws_tmp01
-        sta     fuji_ch_flg,y           ; Mask bit
+        lda     fuji_channel_flag_bit
+        sta     fuji_ch_bitmask,y           ; Mask bit
         ora     fuji_open_channels
         sta     fuji_open_channels      ; Set bit in open flag byte
 
-        lda     aws_tmp09,y             ; Length0
+        lda     fuji_ch_1109,y             ; Length0
         adc     #$FF                    ; If Length0>0 C=1
-        lda     aws_tmp11,y             ; Length1
+        lda     fuji_ch_110B,y             ; Length1
         adc     #$00
-        sta     fuji_ch_ext_mid,y       ; Sector count
-        lda     aws_tmp13,y             ; Mixed byte
+        sta     fuji_ch_1119,y       ; Sector count
+        lda     fuji_ch_op,y             ; Mixed byte
         ora     #$0F
         adc     #$00                    ; Add carry flag
         jsr     a_rorx4and3             ; Length2
-        sta     fuji_ch_ext_hi,y
+        sta     fuji_ch_111A,y
         plp
         bvc     chnlblock_setbit5       ; If not read = write
         bmi     chnlblock_setext        ; If updating
         lda     #$80                    ; Set Bit7 = Read Only
-        ora     fuji_ch_flg,y
-        sta     fuji_ch_flg,y
+        ora     fuji_ch_name7,y
+        sta     fuji_ch_name7,y
 chnlblock_setext:
-        lda     aws_tmp09,y             ; EXTENT=file length
+        lda     fuji_ch_1109,y             ; EXTENT=file length
         sta     fuji_ch_ext_low,y
-        lda     aws_tmp11,y
+        lda     fuji_ch_110B,y
         sta     fuji_ch_ext_mid,y
-        lda     aws_tmp13,y
+        lda     fuji_ch_op,y
         jsr     a_rorx4and3
         sta     fuji_ch_ext_hi,y
 chnlblock_cont:
@@ -318,7 +321,7 @@ chnlblock_setbit5:
         bne     chnlblock_cont          ; always
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; Helper functions (stubs for now)
+; Helper functions
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 check_file_not_locked:

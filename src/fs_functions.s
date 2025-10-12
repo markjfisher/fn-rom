@@ -402,7 +402,7 @@ read_fspba_reset:
         jsr     set_curdir_drv_to_defaults ; Set current directory and drive
 
 read_fspba:
-        lda     aws_tmp10
+        lda     aws_tmp10               ; **Also creates copy at &C5 (MMFS line 458)
         sta     TextPointer
         lda     aws_tmp11
         sta     TextPointer+1

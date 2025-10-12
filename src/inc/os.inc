@@ -110,6 +110,32 @@ OS_INC = 1
         .import  dfs_cat_file_op
         .import  dfs_cat_file_sect
 
+        .import  fuji_buf_1072
+        .import  fuji_buf_1073
+        .import  fuji_buf_1074
+        .import  fuji_buf_1075
+        .import  fuji_buf_1076
+        .import  fuji_buf_1077
+        .import  fuji_buf_1078
+        .import  fuji_buf_1079
+        .import  fuji_buf_107A
+
+        .import  fuji_ch_1101
+        .import  fuji_ch_1102
+        .import  fuji_ch_1103
+        .import  fuji_ch_1104
+        .import  fuji_ch_1105
+        .import  fuji_ch_1106
+        .import  fuji_ch_1107
+        .import  fuji_ch_1108
+        .import  fuji_ch_1109
+        .import  fuji_ch_110A
+        .import  fuji_ch_110B
+
+        .import  fuji_ch_1118
+        .import  fuji_ch_1119
+        .import  fuji_ch_111A
+
         .importzp  aws_tmp00
         .importzp  aws_tmp01
         .importzp  aws_tmp02

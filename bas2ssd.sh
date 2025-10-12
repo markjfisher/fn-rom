@@ -69,11 +69,12 @@ extract_filename_from_bas() {
     echo "$default_name"
 }
 
-# Find all .bas files in input folder
+# Find all .bas and .dat files in input folder
 BAS_FILES=($(find "$INPUT_FOLDER" -name "*.bas" -type f))
+DAT_FILES=($(find "$INPUT_FOLDER" -name "*.dat" -type f))
 
-if [ ${#BAS_FILES[@]} -eq 0 ]; then
-    echo "Error: No .bas files found in '$INPUT_FOLDER'"
+if [ ${#BAS_FILES[@]} -eq 0 ] && [ ${#DAT_FILES[@]} -eq 0 ]; then
+    echo "Error: No .bas or .dat files found in '$INPUT_FOLDER'"
     exit 1
 fi
 
@@ -82,40 +83,84 @@ for file in "${BAS_FILES[@]}"; do
     echo "  - $(basename "$file")"
 done
 
-# Tokenize all BAS files
-echo ""
-echo "Tokenizing BAS files..."
-TOKENIZED_FILES=()
-TOKENIZED_NAMES=()
-for bas_file in "${BAS_FILES[@]}"; do
-    # Get base filename without extension as fallback
-    base_filename=$(basename "$bas_file" .bas)
-    
-    # Try to extract filename from first line of BAS file
-    extracted_name=$(extract_filename_from_bas "$bas_file" "$base_filename")
-    
-    # Convert to uppercase and ensure it fits 8.3 format
-    # BBC Micro filenames are max 7 chars + .BAS (8.3 total)
-    if [ ${#extracted_name} -gt 7 ]; then
-        extracted_name="${extracted_name:0:7}"
-        echo "  Warning: Filename truncated to fit 8.3 format: $extracted_name"
-    fi
-    
-    # Create uppercase filename with .BAS extension
-    filename="${extracted_name^^}"
-    tokenized_file="$TEMP_DIR/$filename"
-    
-    echo "  Tokenizing: $(basename "$bas_file") -> $filename"
-    
-    # Tokenize the file
-    if ! basictool -2 -t "$bas_file" "$tokenized_file"; then
-        echo "Error: Failed to tokenize $bas_file"
-        exit 1
-    fi
-    
-    TOKENIZED_FILES+=("$tokenized_file")
-    TOKENIZED_NAMES+=("$filename")
+echo "Found ${#DAT_FILES[@]} .dat files to process:"
+for file in "${DAT_FILES[@]}"; do
+    echo "  - $(basename "$file")"
 done
+
+# Arrays to hold all processed files
+PROCESSED_FILES=()
+PROCESSED_NAMES=()
+FILE_TYPES=()
+
+# Tokenize all BAS files
+if [ ${#BAS_FILES[@]} -gt 0 ]; then
+    echo ""
+    echo "Tokenizing BAS files..."
+    for bas_file in "${BAS_FILES[@]}"; do
+        # Get base filename without extension as fallback
+        base_filename=$(basename "$bas_file" .bas)
+        
+        # Try to extract filename from first line of BAS file
+        extracted_name=$(extract_filename_from_bas "$bas_file" "$base_filename")
+        
+        # Convert to uppercase and ensure it fits 8.3 format
+        # BBC Micro filenames are max 7 chars + .BAS (8.3 total)
+        if [ ${#extracted_name} -gt 7 ]; then
+            extracted_name="${extracted_name:0:7}"
+            echo "  Warning: Filename truncated to fit 8.3 format: $extracted_name"
+        fi
+        
+        # Create uppercase filename with .BAS extension
+        filename="${extracted_name^^}"
+        tokenized_file="$TEMP_DIR/$filename"
+        
+        echo "  Tokenizing: $(basename "$bas_file") -> $filename"
+        
+        # Tokenize the file
+        if ! basictool -2 -t "$bas_file" "$tokenized_file"; then
+            echo "Error: Failed to tokenize $bas_file"
+            exit 1
+        fi
+        
+        PROCESSED_FILES+=("$tokenized_file")
+        PROCESSED_NAMES+=("$filename")
+        FILE_TYPES+=("basic")
+    done
+fi
+
+# Copy all DAT files
+if [ ${#DAT_FILES[@]} -gt 0 ]; then
+    echo ""
+    echo "Copying DAT files..."
+    for dat_file in "${DAT_FILES[@]}"; do
+        # Get base filename without extension
+        base_filename=$(basename "$dat_file" .dat)
+        
+        # Convert to uppercase and ensure it fits BBC Micro filename constraints
+        # BBC Micro filenames are max 7 chars
+        if [ ${#base_filename} -gt 7 ]; then
+            base_filename="${base_filename:0:7}"
+            echo "  Warning: Filename truncated to fit BBC format: $base_filename"
+        fi
+        
+        # Create uppercase filename
+        filename="${base_filename^^}"
+        copied_file="$TEMP_DIR/$filename"
+        
+        echo "  Copying: $(basename "$dat_file") -> $filename"
+        
+        # Copy the file as-is
+        if ! cp "$dat_file" "$copied_file"; then
+            echo "Error: Failed to copy $dat_file"
+            exit 1
+        fi
+        
+        PROCESSED_FILES+=("$copied_file")
+        PROCESSED_NAMES+=("$filename")
+        FILE_TYPES+=("data")
+    done
+fi
 
 # Create JSON manifest
 JSON_FILE="$TEMP_DIR/manifest.json"
@@ -133,13 +178,24 @@ cat > "$JSON_FILE" << EOF
   "files": [
 EOF
 
-# Add each tokenized file to JSON
-for i in "${!TOKENIZED_FILES[@]}"; do
-    tokenized_file="${TOKENIZED_FILES[$i]}"
-    filename="${TOKENIZED_NAMES[$i]}"
+# Add each processed file to JSON
+for i in "${!PROCESSED_FILES[@]}"; do
+    processed_file="${PROCESSED_FILES[$i]}"
+    filename="${PROCESSED_NAMES[$i]}"
+    file_type="${FILE_TYPES[$i]}"
+    
+    # Set addresses based on file type
+    if [ "$file_type" = "basic" ]; then
+        load_addr="&1900"
+        exec_addr="&8023"
+    else
+        # Data files get 0000 addresses
+        load_addr="&0000"
+        exec_addr="&0000"
+    fi
     
     # Add comma if not the last file
-    if [ $i -lt $((${#TOKENIZED_FILES[@]} - 1)) ]; then
+    if [ $i -lt $((${#PROCESSED_FILES[@]} - 1)) ]; then
         comma=","
     else
         comma=""
@@ -150,10 +206,10 @@ for i in "${!TOKENIZED_FILES[@]}"; do
       "fileName": "$filename",
       "directory": "$",
       "locked": false,
-      "loadAddress": "&1900",
-      "executionAddress": "&8023",
-      "contentPath": "$tokenized_file",
-      "type": "basic"
+      "loadAddress": "$load_addr",
+      "executionAddress": "$exec_addr",
+      "contentPath": "$processed_file",
+      "type": "$file_type"
     }$comma
 EOF
 done
@@ -165,7 +221,7 @@ cat >> "$JSON_FILE" << EOF
 EOF
 
 # cat $JSON_FILE
-echo "JSON manifest created with ${#TOKENIZED_FILES[@]} files"
+echo "JSON manifest created with ${#PROCESSED_FILES[@]} files"
 
 # Create SSD disk image
 echo ""
@@ -179,8 +235,10 @@ fi
 echo ""
 echo "Success! SSD disk image created: $OUTPUT_SSD"
 echo "Files included:"
-for filename in "${TOKENIZED_NAMES[@]}"; do
-    echo "  - $filename"
+for i in "${!PROCESSED_NAMES[@]}"; do
+    filename="${PROCESSED_NAMES[$i]}"
+    file_type="${FILE_TYPES[$i]}"
+    echo "  - $filename ($file_type)"
 done
 
 echo ""

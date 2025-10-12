@@ -79,6 +79,32 @@
         .export  fuji_ch_ext_hi
         .export  fuji_ch_flg
 
+        .export  fuji_ch_1101
+        .export  fuji_ch_1102
+        .export  fuji_ch_1103
+        .export  fuji_ch_1104
+        .export  fuji_ch_1105
+        .export  fuji_ch_1106
+        .export  fuji_ch_1107
+        .export  fuji_ch_1108
+        .export  fuji_ch_1109
+        .export  fuji_ch_110A
+        .export  fuji_ch_110B
+
+        .export  fuji_ch_1118
+        .export  fuji_ch_1119
+        .export  fuji_ch_111A
+
+        .export  fuji_buf_1072
+        .export  fuji_buf_1073
+        .export  fuji_buf_1074
+        .export  fuji_buf_1075
+        .export  fuji_buf_1076
+        .export  fuji_buf_1077
+        .export  fuji_buf_1078
+        .export  fuji_buf_1079
+        .export  fuji_buf_107A
+
         .export  fuji_state
         .export  fuji_current_disk
         .export  fuji_operation_type
@@ -316,7 +342,17 @@ fuji_workspace          = 0  ; Base address for FujiNet workspace - this will ev
 
 fuji_filename_buffer    = fuji_workspace + $1000
 
-; 1074 to 107A used in osfile_helpers.s
+; 1072 to 107A used in osfile_helpers.s and findv_entry
+fuji_buf_1072           = $1072
+fuji_buf_1073           = $1073
+fuji_buf_1074           = $1074
+fuji_buf_1075           = $1075
+fuji_buf_1076           = $1076
+fuji_buf_1077           = $1077
+fuji_buf_1078           = $1078
+fuji_buf_1079           = $1079
+fuji_buf_107A           = $107A
+
 
 ; 1090 seems to be a copy of BC to CB, restoring it
 ; in MMC_END
@@ -397,9 +433,9 @@ fuji_ch_ext_low         = fuji_channel_start + $14  ; EXT low byte
 fuji_ch_ext_mid         = fuji_channel_start + $15  ; EXT mid byte
 fuji_ch_ext_hi          = fuji_channel_start + $16  ; EXT high byte
 fuji_ch_flg             = fuji_channel_start + $17  ; Channel flags - EOF usage here
-fuji_1118               = fuji_channel_start + $18  ; ???
-fuji_1119               = fuji_channel_start + $19  ; ???
-fuji_111a               = fuji_channel_start + $1A  ; ???
+fuji_ch_1118            = fuji_channel_start + $18  ; ???
+fuji_ch_1119            = fuji_channel_start + $19  ; ??? - sector count
+fuji_ch_111A            = fuji_channel_start + $1A  ; ??? - len 2
 fuji_ch_bitmask         = fuji_channel_start + $1B  ; Bit mask
 fuji_ch_sect_lo         = fuji_channel_start + $1C  ; buffer sector low
 fuji_ch_sect_hi         = fuji_channel_start + $1D  ; buffer sector high

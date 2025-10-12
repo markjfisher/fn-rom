@@ -13,6 +13,7 @@
 ; rAXY_restore-1 L
 
         .export remember_axy
+        .export remember_xy_only
         .export return_with_a0
         .export rAXY_restore            ; useful for trace logging
 
@@ -37,6 +38,7 @@ remember_axy:
         ; to calling it, and we have the desired values on the stack for subsequent
         ; recall of state after the wrapped function is called.
 
+raxy_loop_init:
         ldy     #$05        
 @rAXY_loop:
         tsx                     ; Get current stack pointer
@@ -71,6 +73,18 @@ rAXY_restore:
         ; Second time when returning to the remembered location, returns to whatever
         ; was on the stack prior to calling remember_axy with A/X/Y again restored.
         rts
+
+remember_xy_only:
+        pha
+        txa
+        pha
+        tya
+        pha
+        jsr     raxy_loop_init
+axy_ret1:
+        tsx
+        sta     $0103, x
+        jmp     rAXY_restore
 
 return_with_a0:
         ; Overwrites A with 0 in the remember_axy stack values
