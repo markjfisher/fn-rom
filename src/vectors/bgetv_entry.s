@@ -14,6 +14,7 @@
         .import print_hex
         .import print_newline
         .import remember_axy
+        .import remember_xy_only
         .import report_error_cb
 
         .include "fujinet.inc"
@@ -34,7 +35,7 @@
 bgetv_entry:
         ;dbg_string_axy "BGETV: "
 
-        jsr     remember_axy
+        jsr     remember_xy_only
         jsr     check_channel_yhndl_exyintch_tya_cmpptr  ; A=Y
 
         bne     @bg_not_eof              ; If PTR<>EXT
