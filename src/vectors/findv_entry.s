@@ -24,8 +24,6 @@
         .export close_file_yintch
         .export close_files_yhandle
 
-        .export stop_here
-
         .import read_fspba_find_cat_entry
         .import a_rolx4
         .import a_rolx5
@@ -35,9 +33,6 @@
         .import check_channel_yhndl_exyintch
         .import create_file_fsp
         .import err_disk
-.ifdef FUJINET_INTERFACE_DUMMY
-        .import fuji_create_ram_file
-.endif
         .import get_cat_firstentry80_fname
         .import get_cat_firstentry80
         .import is_hndlin_use_yintch
@@ -232,12 +227,6 @@ findv_loop1:
         dec     fuji_buf_1077
         lda     #$40
         sta     pws_tmp03               ; End address = &4000
-        
-        ; Create file in RAM filesystem for DUMMY interface
-.ifdef FUJINET_INTERFACE_DUMMY
-        jsr     fuji_create_ram_file    ; Create file in RAM
-.endif
-
         jsr     create_file_fsp         ; Creates 40 sec buffer
 findv_filefound:
         ; sty     fuji_cat_file_offset    ; Store catalog offset for later use
@@ -349,7 +338,6 @@ chnlblock_loop2:
         dex
         bne     chnlblock_loop2
 
-stop_here:
         lda     fuji_intch              ; A=intch
         tay
         jsr     a_rorx5

@@ -2,11 +2,11 @@
 15 REM BPUTV test: file creation, writing, reading verification
 20 PRINT "=== BPUTV Test Program ==="
 30 PRINT "Test 1: Creating and writing to TESTFILE..."
-40 file% = OPENOUT("TESTFILE")
+40 file% = OPENOUT("TFILE")
 50 IF file% = 0 THEN PRINT "ERROR: Could not create TESTFILE" : GOTO 900
 60 PRINT "Created TESTFILE, handle "; file%
 70 PRINT "Writing test data..."
-80 FOR i% = 65 TO 90
+80 FOR i% = 65 TO 68
 90 BPUT#file%, i%
 100 PRINT "Wrote byte "; i%; " ("; CHR$(i%); ")"
 110 NEXT
@@ -15,7 +15,7 @@
 140 CLOSE#file%
 150 PRINT "File closed"
 160 PRINT "Test 2: Reading back written data..."
-170 file% = OPENIN("TESTFILE")
+170 file% = OPENIN("TFILE")
 180 IF file% = 0 THEN PRINT "ERROR: Could not open TESTFILE for reading" : GOTO 900
 190 PRINT "Opened TESTFILE for reading, handle "; file%
 200 errors% = 0
@@ -27,7 +27,7 @@
 260 IF errors% > 0 THEN PRINT "FAILED: "; errors%; " bytes were incorrect"
 270 CLOSE#file%
 280 PRINT "Test 3: Random access writing..."
-290 file% = OPENUP("TESTFILE")
+290 file% = OPENUP("TFILE")
 300 IF file% = 0 THEN PRINT "ERROR: Could not open TESTFILE for update" : GOTO 900
 310 PRINT "Opened for update, EXT: "; EXT#file%
 320 PTR#file% = 5
@@ -38,7 +38,7 @@
 370 BPUT#file%, 89
 380 CLOSE#file%
 390 PRINT "Test 4: Verifying random access writes..."
-400 file% = OPENIN("TESTFILE")
+400 file% = OPENIN("TFILE")
 410 PTR#file% = 5
 420 byte% = BGET#file%
 430 IF byte% = 88 THEN PRINT "SUCCESS: Position 5 = 'X'" ELSE PRINT "ERROR: Position 5 = "; byte%

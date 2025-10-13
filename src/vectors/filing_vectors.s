@@ -44,7 +44,7 @@ fscv_entry:
         cmp     #$0C
         bcs     unknown_op
         stx     aws_tmp05              ; Save X
-        dbg_string_axy "FSCV: "
+
         tax
         lda     fscv_table_hi,x         ; High byte first
         pha

@@ -22,7 +22,6 @@
         .export world_app_start
         .export test_app_start
 
-        .export fuji_create_ram_file
         .export fuji_init_ram_filesystem
 
         .import print_string
@@ -36,11 +35,13 @@
 
 FUJI_ROM_SLOT = 14
 
+RAM_FS_START = $5000
+
 ; Simple RAM filesystem layout ($6000-$7FFF = 8KB)
-RAM_CATALOG_START = $6000       ; Dynamic catalog (512 bytes)
-RAM_ALLOC_TABLE   = $6200       ; Page allocation table (32 bytes, 1 bit per page)
-RAM_FILES_START   = $6220       ; File storage area start (32 pages of 256 bytes each)
-RAM_FILES_END     = $7FFF       ; File storage area end
+RAM_CATALOG_START = RAM_FS_START                ; Dynamic catalog (512 bytes)
+RAM_ALLOC_TABLE   = RAM_FS_START + $200         ; Page allocation table (32 bytes, 1 bit per page)
+RAM_FILES_START   = RAM_ALLOC_TABLE + $20       ; File storage area start (32 pages of 256 bytes each)
+RAM_FILES_END     = RAM_FS_START + $7FF         ; File storage area end
 MAX_RAM_FILES     = 32          ; Maximum files (32 pages available)
 
 ; Static test data - a simple BBC Micro disc image
@@ -456,10 +457,58 @@ fuji_read_catalog_data:
 fuji_write_catalog_data:
         jsr     remember_axy
 
-        ; For dummy interface, we'll just acknowledge the write
-        ; In a real implementation, this would send catalogue to network
-
-        ; Simple test: just return success
+        ; Sync catalog changes to RAM filesystem
+        ; This is called whenever the catalog is updated (including file creation)
+        
+        ; Copy current catalog to RAM catalog (includes any new files)
+        ldy     #0
+@sync_cat_loop1:
+        lda     dfs_cat_s0_header,y     ; Copy catalog sector 0
+        sta     RAM_CATALOG_START,y
+        iny
+        bne     @sync_cat_loop1
+        
+        ; Copy catalog sector 1  
+        ldy     #0
+@sync_cat_loop2:
+        lda     dfs_cat_s1_header,y     ; Copy catalog sector 1
+        sta     RAM_CATALOG_START+256,y
+        iny
+        bne     @sync_cat_loop2
+        
+        ; We ARE the filing system - we need to handle RAM file allocation
+        ; Check if new files were created and need RAM sector assignment
+        lda     dfs_cat_num_x8          ; Get current file count (count*8)
+        cmp     #24                     ; More than 3 files? (3*8=24)
+        bcc     @sync_done              ; No new files
+        
+        ; New files detected - ensure they have proper RAM sector assignments
+        ; The file creation logic should have already assigned sectors >= $80
+        ; We just need to mark those pages as allocated
+        lda     dfs_cat_num_x8
+        lsr     a                       ; Convert to file count
+        lsr     a  
+        lsr     a
+        sec
+        sbc     #3                      ; Number of new files beyond original ROM files
+        tax                             ; X = number of new files
+        
+        ; Mark RAM pages as allocated for new files
+        lda     #$80                    ; Start sector for RAM files
+@alloc_loop:
+        pha
+        sec
+        sbc     #$80                    ; Convert sector to page number (0-31)
+        tay
+        lda     #$01
+        sta     RAM_ALLOC_TABLE,y       ; Mark page as used
+        pla
+        clc
+        adc     #$01                    ; Next sector
+        dex
+        bne     @alloc_loop
+        
+@sync_done:
         clc
         rts
 
@@ -547,106 +596,8 @@ fuji_init_ram_filesystem:
         
         rts
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; FUJI_CREATE_RAM_FILE - Create a new file in RAM
-; Input: Filename in fuji_filename_buffer
-; Output: Success in A (1=success, 0=fail)
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-fuji_create_ram_file:
-        jsr     remember_axy
-        
-        ; 1. Find a free page (simple linear search)
-        ldx     #$00                    ; Start with page 0
-@find_free_page:
-        cpx     #MAX_RAM_FILES
-        bcs     @no_free_pages          ; No free pages available
-        
-        lda     RAM_ALLOC_TABLE,x       ; Check if page is free
-        bne     @page_used              ; Page is used, try next
-        
-        ; Found free page, mark it as used
-        lda     #$01
-        sta     RAM_ALLOC_TABLE,x       ; Mark page as allocated
-        stx     ram_allocated_page      ; Save page number
-        
-        ; 2. Find free slot in catalog (after existing 3 files)
-        lda     RAM_CATALOG_START+$F05  ; Get current file count
-        lsr     a                       ; Divide by 8 to get file index
-        lsr     a
-        lsr     a
-        tay                             ; Y = catalog offset for new file
-        
-        ; 3. Add filename to catalog
-        ldx     #$00
-@copy_filename:
-        lda     fuji_filename_buffer,x
-        sta     RAM_CATALOG_START+$08,y ; Store in catalog sector 0
-        iny
-        inx
-        cpx     #$08                    ; 7 bytes filename + 1 byte directory
-        bne     @copy_filename
-        
-        ; 4. Add file details to catalog sector 1 
-        lda     RAM_CATALOG_START+$F05  ; Get file count again
-        tay                             ; Y = offset in sector 1
-        
-        ; Load address = $2000 (default for created files)
-        lda     #$00
-        sta     RAM_CATALOG_START+$100,y ; Load address low
-        iny
-        lda     #$20
-        sta     RAM_CATALOG_START+$100,y ; Load address high  
-        iny
-        
-        ; Exec address = $2000 (same as load)
-        lda     #$00
-        sta     RAM_CATALOG_START+$100,y ; Exec address low
-        iny
-        lda     #$20
-        sta     RAM_CATALOG_START+$100,y ; Exec address high
-        iny
-        
-        ; File length = 0 (will grow as data is written)
-        lda     #$00
-        sta     RAM_CATALOG_START+$100,y ; Length low
-        iny
-        sta     RAM_CATALOG_START+$100,y ; Length high  
-        iny
-        
-        ; Mixed byte = 0 (no high bits)
-        sta     RAM_CATALOG_START+$100,y ; Mixed byte
-        iny
-        
-        ; Start sector = allocated page + offset for RAM files
-        lda     ram_allocated_page
-        clc
-        adc     #$80                    ; RAM files start at sector $80+
-        sta     RAM_CATALOG_START+$100,y ; Start sector
-        
-        ; 5. Update file count
-        inc     RAM_CATALOG_START+$F05  ; Increment file count
-        inc     RAM_CATALOG_START+$F05  ; (MMFS uses count*8)
-        inc     RAM_CATALOG_START+$F05
-        inc     RAM_CATALOG_START+$F05
-        inc     RAM_CATALOG_START+$F05
-        inc     RAM_CATALOG_START+$F05
-        inc     RAM_CATALOG_START+$F05
-        inc     RAM_CATALOG_START+$F05
-        
-        lda     #$01                    ; Success
-        rts
-
-@page_used:
-        inx                             ; Try next page
-        jmp     @find_free_page
-
-@no_free_pages:
-        lda     #$00                    ; Failure - no free pages
-        rts
-
-; RAM filesystem variables
-ram_allocated_page:
-        .byte   $00
+; RAM filesystem variables (kept for future use)
+ram_file_alloc_ptr:
+        .word   RAM_FILES_START
 
 .endif  ; FUJINET_INTERFACE_DUMMY
