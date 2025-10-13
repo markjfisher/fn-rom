@@ -35,12 +35,14 @@
         .import check_channel_yhndl_exyintch
         .import create_file_fsp
         .import err_disk
+.ifdef FUJINET_INTERFACE_DUMMY
+        .import fuji_create_ram_file
+.endif
         .import get_cat_firstentry80_fname
         .import get_cat_firstentry80
         .import is_hndlin_use_yintch
         .import load_cur_drv_cat2
         .import parameter_fsp
-        .import print_axy
         .import print_hex
         .import print_newline
         .import print_string
@@ -149,7 +151,7 @@ err_disk_changed:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 findv_entry:
-        dbg_string_axy "FINDV: "
+        ; dbg_string_axy "FINDV: "
 
         and     #$C0                    ; Bit 7=open for output, Bit 6=open for input
         bne     findv_openfile          ; If opening a file
@@ -230,6 +232,12 @@ findv_loop1:
         dec     fuji_buf_1077
         lda     #$40
         sta     pws_tmp03               ; End address = &4000
+        
+        ; Create file in RAM filesystem for DUMMY interface
+.ifdef FUJINET_INTERFACE_DUMMY
+        jsr     fuji_create_ram_file    ; Create file in RAM
+.endif
+
         jsr     create_file_fsp         ; Creates 40 sec buffer
 findv_filefound:
         ; sty     fuji_cat_file_offset    ; Store catalog offset for later use

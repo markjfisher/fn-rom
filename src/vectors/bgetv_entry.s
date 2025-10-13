@@ -3,15 +3,16 @@
 ; Translated from MMFS mmfs100.asm lines 5169-5195
 
         .export bgetv_entry
+        .export channel_buffer_rw_yintch_c1read
+        .export channel_buffer_to_disk_yintch
+        .export load_then_inc_seq_ptr_yintch
 
         .import calc_buffer_sector_for_ptr
+        .import channel_flags_set_bits
         .import channel_set_dir_drive_yintch
         .import check_channel_yhndl_exyintch_tya_cmpptr
         .import LoadMemBlock
         .import SaveMemBlock
-        .import print_axy
-        .import print_string
-        .import print_hex
         .import print_newline
         .import remember_axy
         .import remember_xy_only
@@ -47,7 +48,7 @@ bgetv_entry:
         ldx     fuji_saved_x
         lda     #$FE
 
-        dbg_string_axy "exiting bgetv_entry:"
+        ; dbg_string_axy "exiting bgetv_entry:"
 
         sec
         rts                              ; C=1=EOF
@@ -64,19 +65,19 @@ bgetv_entry:
         jsr     load_then_inc_seq_ptr_yintch  ; load buffer ptr into BA/BB then increments Seq Ptr
         lda     (aws_tmp10, x)          ; Byte from buffer
 
-.ifdef FN_DEBUG
+; .ifdef FN_DEBUG
         ; Debug: show what byte we just read
-        pha
-        jsr     print_string
-        .byte   "Read b: $"
-        nop
-        pla
-        pha
-        jsr     print_hex
-        jsr     print_newline
+        ; pha
+        ; jsr     print_string
+        ; .byte   "Read b: $"
+        ; nop
+        ; pla
+        ; pha
+        ; jsr     print_hex
+        ; jsr     print_newline
 
-        pla
-.endif
+        ; pla
+; .endif
 
         clc
         rts                             ; C=0=NOT EOF
@@ -90,12 +91,6 @@ bgetv_entry:
 ; Helper functions
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-channel_flags_set_bits:
-        ; Set bits in channel flags (A contains bits to set)
-        ora     fuji_ch_flg,y
-        sta     fuji_ch_flg,y
-        clc
-        rts
 
 channel_buffer_to_disk_yintch:
         ; Save channel buffer to disk
@@ -133,11 +128,11 @@ channel_buffer_rw_yintch_c1read:
         jsr     channel_flags_clear_bits ; (MMFS line 5251)
         bcc     chnbuf_exit             ; always (MMFS line 5252)
 chnbuf_read:
-        dbg_string_axy "chnbuf_read called"
+        ; dbg_string_axy "chnbuf_read called"
         jsr     calc_buffer_sector_for_ptr ; Calculate which sector to load
-        dbg_string_axy "calc_buffer_sector done"
+        ; dbg_string_axy "calc_buffer_sector done"
         jsr     LoadMemBlock               ; Load buffer (high-level interface)
-        dbg_string_axy "LoadMemBlock done"
+        ; dbg_string_axy "LoadMemBlock done"
 
 chnbuf_exit:
         dec     fuji_error_flag         ; MMFS line 5257
@@ -151,18 +146,18 @@ load_then_inc_seq_ptr_yintch:
         lda     fuji_ch_buf_page,y      ; Buffer page
         sta     aws_tmp11               ; BB
 
-.ifdef FN_DEBUG
-        pha
+; .ifdef FN_DEBUG
+        ; pha
         ; Debug: show what address we're about to read from
-        jsr     print_string
-        .byte   "Reading from: $"
-        lda     aws_tmp11
-        jsr     print_hex
-        lda     aws_tmp10
-        jsr     print_hex
-        jsr     print_newline
-        pla
-.endif
+        ; jsr     print_string
+        ; .byte   "Reading from: $"
+        ; lda     aws_tmp11
+        ; jsr     print_hex
+        ; lda     aws_tmp10
+        ; jsr     print_hex
+        ; jsr     print_newline
+        ; pla
+; .endif
 
         tya
         tax

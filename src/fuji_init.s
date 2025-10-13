@@ -14,6 +14,9 @@
         .import return_with_a0
         .import tube_check_if_present
         .import vectors_table
+.ifdef FUJINET_INTERFACE_DUMMY
+        .import fuji_init_ram_filesystem
+.endif
 
         .include "fujinet.inc"
 
@@ -195,6 +198,11 @@ setdefaults:
         ; lda     paged_rom_priv_ws,x
         ; and     #$BF                  ; Clear bit 6 (OPT 5,0 default)
         ; sta     paged_rom_priv_ws,x
+
+        ; Initialize RAM filesystem for file creation/writing
+.ifdef FUJINET_INTERFACE_DUMMY
+        jsr     fuji_init_ram_filesystem
+.endif
 
         ; INITIALISE VID VARIABLES
         jsr     vid_reset
