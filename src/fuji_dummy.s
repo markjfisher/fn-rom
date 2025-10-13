@@ -19,6 +19,8 @@
         .export dummy_sector4_data
 
         .import print_string
+        .import print_hex
+        .import print_newline
         .import remember_axy
 
         .include "fujinet.inc"
@@ -225,6 +227,31 @@ dummy_sector4_data_end:
 fuji_read_block_data:
         jsr     remember_axy
 
+.ifdef FN_DEBUG
+        pha
+        jsr     print_string
+        .byte   "fuji_read_block_data: sector="
+        nop
+        lda     fuji_file_offset
+        jsr     print_hex
+        jsr     print_string
+        .byte   " data_ptr=$"
+        nop
+        lda     data_ptr+1
+        jsr     print_hex
+        lda     data_ptr
+        jsr     print_hex
+        jsr     print_string
+        .byte   " size="
+        nop
+        lda     fuji_block_size+1
+        jsr     print_hex
+        lda     fuji_block_size
+        jsr     print_hex
+        jsr     print_newline
+        pla
+.endif
+
         ; For dummy interface, read from our sector data
         ; In a real implementation, this would read from network
 
@@ -298,6 +325,26 @@ fuji_read_block_data:
         bne     @copy_loop2
         
 @copy_done:
+.ifdef FN_DEBUG
+        pha
+        jsr     print_string
+        .byte   "fuji_read_block_data: copied first 4 bytes: "
+        nop
+        ldy     #0
+        lda     (data_ptr),y
+        jsr     print_hex
+        iny
+        lda     (data_ptr),y
+        jsr     print_hex
+        iny
+        lda     (data_ptr),y
+        jsr     print_hex
+        iny
+        lda     (data_ptr),y
+        jsr     print_hex
+        jsr     print_newline
+        pla
+.endif
         lda     #1                       ; Success
         rts
 

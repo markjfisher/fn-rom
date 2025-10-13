@@ -26,6 +26,7 @@
 
         .import GSINIT_A
         .import a_rolx5
+        .import a_rorx5
         .import clear_exec_spool_file_handle
         .import err_bad
         .import fuji_read_catalog
@@ -133,7 +134,7 @@ getcatsetupb7:
         ldy     #$07
         jsr     match_chr
         bne     @get_cat_loop2          ; If directory doesn't match
-        ldy     aws_tmp06               ; &B6
+        ldy     aws_tmp06               ; &B6  
         sec                             ; Return, Y=offset-8, C=1
 
 ; DO NOT MOVE THIS! It's used by above as a fall through.
@@ -748,7 +749,7 @@ is_hndlin_use_yintch:
         and     #$E0
         sta     fuji_intch              ; Save intch
         beq     hndlinuse_notused_c1
-        jsr     a_rolx5                 ; ch.1-7
+        jsr     a_rorx5                 ; ch.1-7
         tay                             ; create bit mask
         lda     #$00                    ; 1=10000000
         sec                             ; 2=01000000 etc

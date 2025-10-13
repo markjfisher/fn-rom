@@ -14,10 +14,21 @@
         .export findv_entry
         .export setup_channel_info_block_yintch
 
+        .export findv_createfile
+        .export findv_filefound
+        .export findv_openchannel
+        .export findv_openfile
+        .export findv_readorupdate
+        .export close_file_yintch
+        .export close_files_yhandle
+
+        .export stop_here
+
         .import read_fspba_find_cat_entry
         .import a_rolx4
         .import a_rolx5
         .import a_rorx4and3
+        .import a_rorx5
         .import channel_buffer_to_disk_yhandle
         .import check_channel_yhndl_exyintch
         .import create_file_fsp
@@ -28,7 +39,10 @@
         .import load_cur_drv_cat2
         .import parameter_fsp
         .import print_axy
+        .import print_hex
+        .import print_newline
         .import print_string
+        .import dump_memory_block
         .import read_fspba_reset
         .import remember_axy
         .import remember_xy_only
@@ -216,6 +230,7 @@ findv_loop1:
         sta     pws_tmp03               ; End address = &4000
         jsr     create_file_fsp         ; Creates 40 sec buffer
 findv_filefound:
+        ; sty     fuji_cat_file_offset    ; Store catalog offset for later use
         plp                             ; in case another file created
         php
         bvs     findv_readorupdate      ; If opened for read or update
@@ -243,7 +258,7 @@ err_toomanyfilesopen:
 err_fileopen:
         jsr     report_error_cb
         .byte   $C2
-        .byte   "Open",0
+        .byte   "Open", 0
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; SetupChannelInfoBlock_Yintch
@@ -251,13 +266,65 @@ err_fileopen:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 setup_channel_info_block_yintch:
+; .ifdef FN_DEBUG
+;         ; Preserve all registers during debug
+;         php
+;         pha
+;         txa
+;         pha
+;         tya
+;         pha
+        
+;         jsr     print_string
+;         .byte   "Channel setup: fuji_cat_file_offset=$"
+;         nop
+;         lda     fuji_cat_file_offset
+;         jsr     print_hex
+;         jsr     print_string
+;         .byte   " X=$"
+;         nop
+;         txa
+;         jsr     print_hex
+;         jsr     print_string
+;         .byte   " Y=$"
+;         nop
+;         tya
+;         jsr     print_hex
+;         jsr     print_newline
+        
+;         ; Dump catalog data where we expect HELLO file info
+;         jsr     print_string
+;         .byte   "Catalog s0 at $0E10: "
+;         nop
+;         lda     #$10            ; $0E10 = $0E08 + 8 (HELLO offset)
+;         ldx     #$0E
+;         ldy     #$08
+;         jsr     dump_memory_block
+        
+;         jsr     print_string
+;         .byte   "Catalog s1 at $0F10: "
+;         nop
+;         lda     #$10            ; $0F10 = $0F08 + 8 (HELLO offset)  
+;         ldx     #$0F
+;         ldy     #$08
+;         jsr     dump_memory_block
+        
+;         ; Restore all registers
+;         pla
+;         tay
+;         pla
+;         tax
+;         pla
+;         plp
+; .endif
+
         lda     #$08
         sta     fuji_channel_block_size
 chnlblock_loop1:
-        lda     dfs_cat_file_name,x             ; Copy file name & attributes
-        sta     fuji_channel_start,y      ; to channel info block
+        lda     dfs_cat_file_s0_start,x         ; Copy filename sector (name + dir)
+        sta     fuji_channel_start,y            ; to channel info block
         iny
-        lda     dfs_cat_file_load_addr,x
+        lda     dfs_cat_file_s1_start,x         ; Copy file details sector (load, exec, size, mixed, start sector)
         sta     fuji_channel_start,y
         iny
         inx
@@ -272,6 +339,7 @@ chnlblock_loop2:
         dex
         bne     chnlblock_loop2
 
+stop_here:
         lda     fuji_intch              ; A=intch
         tay
         jsr     a_rolx5
@@ -311,7 +379,7 @@ chnlblock_cont:
         ora     fuji_ch_flg,y
         sta     fuji_ch_flg,y
         tya                             ; convert intch to handle
-        jsr     a_rolx5
+        jsr     a_rorx5                 ; RIGHT shift (not left!)
         ora     #filehndl               ; &10
         rts                             ; RETURN A=handle
 
