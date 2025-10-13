@@ -99,3 +99,4 @@ LoadMemBlock:
         lda     #$85                     ; Read operation
         jsr     fuji_execute_block_rw
         rts
+
