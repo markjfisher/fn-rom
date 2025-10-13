@@ -1,57 +1,50 @@
 10 REM filename: FBGET
-20 REM Test program for FINDV and BGETV functionality - tests file opening, byte reading, and EOF detection
-30 REM
-40 REM Test 1: Try to open HELLO file for reading
-50 PRINT "=== FINDV/BGETV Test Program ==="
-60 PRINT
-70 PRINT "Test 1: Opening HELLO file for reading..."
-80 
-90 REM Open file for input using OPENIN
-100 file% = OPENIN("HELLO")
-110 
-120 IF file% = 0 THEN PRINT "ERROR: Could not open HELLO" : GOTO 720
-160 
-170 PRINT "SUCCESS: Opened HELLO with handle "; file%
-180 
-190 REM Test 2: Read bytes from the file
-200 PRINT
-210 PRINT "Test 2: Reading bytes from file..."
-220 
-230 byte_count% = 0
-240 REPEAT
-250   byte% = BGET#file%
-260   IF NOT EOF#file% THEN byte_count% = byte_count% + 1 : PRINT "Byte "; byte_count%; ": "; byte%; " ('"; CHR$(byte%); "')"
-300 UNTIL EOF#file%
-310 
-320 PRINT "Total bytes read: "; byte_count%
-330 
-340 REM Test 3: Close the file
-350 PRINT
-360 PRINT "Test 3: Closing file..."
-370 CLOSE#file%
-380 PRINT "File closed successfully"
-390 
-400 REM Test 4: Try to open WORLD file
-410 PRINT
-420 PRINT "Test 4: Opening WORLD file for reading..."
-430 
-440 file% = OPENIN("WORLD")
-450 
-460 IF file% = 0 THEN PRINT "ERROR: Could not open WORLD" : GOTO 720
-500 
-510 PRINT "SUCCESS: Opened WORLD with handle "; file%
-520 
-530 REM Read a few bytes from WORLD
-540 PRINT
-550 PRINT "Reading first 10 bytes from WORLD:"
-560 FOR i% = 1 TO 10
-570   IF NOT EOF#file% THEN byte% = BGET#file% : PRINT "Byte "; i%; ": "; byte%; " ('"; CHR$(byte%); "')" ELSE PRINT "EOF reached at byte "; i% : EXIT FOR
-640 NEXT
-650 
-660 CLOSE#file%
-670 PRINT "WORLD file closed"
-680 
-690 PRINT
-700 PRINT "=== All tests completed ==="
-710 
-720 END
+15 REM Advanced FINDV/BGETV test: random access, multiple files, PTR manipulation
+20 PRINT "=== Advanced FINDV/BGETV Tests ==="
+30 PRINT "Test 1: Random access reading..."
+40 file1% = OPENIN("HELLO")
+50 IF file1% = 0 THEN PRINT "ERROR: Could not open HELLO" : GOTO 900
+60 PRINT "Opened HELLO, handle "; file1%
+70 PRINT "Reading byte 1: "; BGET#file1%
+80 PRINT "Reading byte 2: "; BGET#file1%
+90 PRINT "Current PTR: "; PTR#file1%
+100 PRINT "Setting PTR to 66 (67th byte - expect 'HELLO')..."
+110 PTR#file1% = 66
+120 name$ = ""
+130 FOR i% = 1 TO 5
+140 name$ = name$ + CHR$(BGET#file1%)
+150 NEXT
+160 PRINT "Read string: '"; name$; "'"
+170 IF name$ = "HELLO" THEN PRINT "SUCCESS: Found expected HELLO text" ELSE PRINT "ERROR: Expected 'HELLO', got '"; name$; "'"
+180 PRINT "Test 2: Multiple files open..."
+190 file2% = OPENIN("WORLD")
+200 IF file2% = 0 THEN PRINT "ERROR: Could not open WORLD" : GOTO 850
+210 PRINT "Opened WORLD, handle "; file2%
+220 PRINT "Testing WORLD file string at byte 67..."
+230 PTR#file2% = 66
+240 name2$ = ""
+250 FOR i% = 1 TO 5
+260 name2$ = name2$ + CHR$(BGET#file2%)
+270 NEXT
+280 PRINT "Read string: '"; name2$; "'"
+290 IF name2$ = "WORLD" THEN PRINT "SUCCESS: Found expected WORLD text" ELSE PRINT "ERROR: Expected 'WORLD', got '"; name2$; "'"
+300 PRINT "Test 3: EOF and EXT testing..."
+310 PRINT "HELLO EXT: "; EXT#file1%
+320 PRINT "WORLD EXT: "; EXT#file2%
+330 PTR#file1% = EXT#file1% - 1
+340 PRINT "Set HELLO PTR to EXT-1, reading last byte: "; BGET#file1%
+350 IF EOF#file1% THEN PRINT "EOF detected correctly" ELSE PRINT "ERROR: EOF not detected"
+360 PRINT "Test 4: Seek and read patterns..."
+370 PTR#file2% = 5
+380 FOR i% = 1 TO 5
+390 PRINT "Pos "; PTR#file2%; ": "; BGET#file2%
+400 NEXT
+410 PRINT "All tests completed successfully!"
+420 CLOSE#file2%
+430 PRINT "Closed WORLD"
+440 CLOSE#file1%
+450 PRINT "Closed HELLO"
+460 GOTO 900
+850 CLOSE#file1%
+860 PRINT "Closed HELLO due to error"
+900 END

@@ -18,6 +18,10 @@
         .export dummy_sector3_data
         .export dummy_sector4_data
 
+        .export hello_app_start
+        .export world_app_start
+        .export test_app_start
+
         .import print_string
         .import print_hex
         .import print_newline
@@ -325,26 +329,6 @@ fuji_read_block_data:
         bne     @copy_loop2
         
 @copy_done:
-.ifdef FN_DEBUG
-        pha
-        jsr     print_string
-        .byte   "fuji_read_block_data: copied first 4 bytes: "
-        nop
-        ldy     #0
-        lda     (data_ptr),y
-        jsr     print_hex
-        iny
-        lda     (data_ptr),y
-        jsr     print_hex
-        iny
-        lda     (data_ptr),y
-        jsr     print_hex
-        iny
-        lda     (data_ptr),y
-        jsr     print_hex
-        jsr     print_newline
-        pla
-.endif
         lda     #1                       ; Success
         rts
 

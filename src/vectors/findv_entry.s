@@ -11,6 +11,8 @@
         .export close_files_yhandle
         .export close_spool_exec_files
         .export cmd_fs_close
+        .export err_file_locked
+        .export err_file_open
         .export findv_entry
         .export setup_channel_info_block_yintch
 
@@ -240,10 +242,10 @@ findv_readorupdate:
         bcc     findv_openchannel       ; If file not open
 findv_loop2:
         lda     fuji_ch_name7,y
-        bpl     err_fileopen            ; If already opened for writing
+        bpl     err_file_open            ; If already opened for writing
         plp
         php
-        bmi     err_fileopen            ; If opening again to write
+        bmi     err_file_open            ; If opening again to write
         jsr     is_file_open_continue   ; ** File can only be opened  **
         bcs     findv_loop2             ; ** once if being written to **
 findv_openchannel:
@@ -255,10 +257,10 @@ err_toomanyfilesopen:
         .byte   $C0
         .byte   "Too many open",0
 
-err_fileopen:
+err_file_open:
         jsr     report_error_cb
         .byte   $C2
-        .byte   "Open", 0
+        .byte   "Open",0
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; SetupChannelInfoBlock_Yintch
@@ -426,14 +428,6 @@ exit_calling_subroutine:
 
 chklock_exit:
         rts
-
-
-err_file_open:
-        jsr     report_error_cb
-        .byte   $C2
-        .byte   "Open",0
-
-
 
 
 is_file_open_continue:

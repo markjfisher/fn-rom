@@ -53,8 +53,6 @@ bgetv_entry:
         rts                              ; C=1=EOF
 
 @bg_not_eof:
-        dbg_string_axy "bgnoteof:"
-
         lda     fuji_ch_flg,y
         bmi     @bg_samesector1          ; If buffer ok
         jsr     channel_set_dir_drive_yintch

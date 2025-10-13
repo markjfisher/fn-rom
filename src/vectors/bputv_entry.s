@@ -3,14 +3,18 @@
 ; Translated from MMFS mmfs100.asm lines 5274-5303
 
         .export bputv_entry
+        .export bput_yintchan
+        .export err_file_read_only
 
         .import channel_get_cat_entry_yintch
         .import channel_set_dir_drive_yintch
         .import check_channel_yhndl_exyintch
         .import cmp_ptr_ext
+        .import err_file_locked
         .import print_axy
         .import print_string
         .import remember_axy
+        .import report_error_cb
 
         .include "fujinet.inc"
 
@@ -32,12 +36,12 @@ bputv_entry:
 
         jsr     remember_axy
         jsr     check_channel_yhndl_exyintch
-@bp_entry:
+bp_entry:
         pha
         lda     fuji_channel_start,y
-        bmi     @err_file_readonly
+        bmi     err_file_read_only
         lda     fuji_channel_start+1,y
-        bmi     @err_file_locked2
+        bmi     err_file_locked2
         jsr     channel_set_dir_drive_yintch
         tya
         clc
@@ -72,14 +76,14 @@ bputv_entry:
         clc
         rts
 
-@err_file_readonly:
-        ; TODO: Implement read-only error
-        pla
-        sec
-        rts
+err_file_locked2:
+        jmp     err_file_locked
 
-@err_file_locked2:
-        ; TODO: Implement file locked error
-        pla
-        sec
-        rts
+err_file_read_only:
+        jsr     report_error_cb
+        .byte   $C1
+        .byte   "Read only", 0
+
+bput_yintchan:
+        jsr     remember_axy
+        jmp     bp_entry
