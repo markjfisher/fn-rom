@@ -476,37 +476,60 @@ fuji_write_catalog_data:
         iny
         bne     @sync_cat_loop2
         
-        ; We ARE the filing system - we need to handle RAM file allocation
-        ; Check if new files were created and need RAM sector assignment
+        ; We ARE the filing system - translate ROM sectors to RAM sectors for new files
+        ; Check if new files were created (beyond the original 3 ROM files)
         lda     dfs_cat_num_x8          ; Get current file count (count*8)
         cmp     #24                     ; More than 3 files? (3*8=24)
         bcc     @sync_done              ; No new files
         
-        ; New files detected - ensure they have proper RAM sector assignments
-        ; The file creation logic should have already assigned sectors >= $80
-        ; We just need to mark those pages as allocated
-        lda     dfs_cat_num_x8
-        lsr     a                       ; Convert to file count
-        lsr     a  
-        lsr     a
-        sec
-        sbc     #3                      ; Number of new files beyond original ROM files
-        tax                             ; X = number of new files
+        ; New files detected - translate their ROM sectors to RAM sectors
+        ; MMFS assigned sectors 04, 05, 06... we need to map to 80, 81, 82...
+        ldy     #24                     ; Start at 4th file entry offset
+        lda     #$80                    ; RAM sector base
         
-        ; Mark RAM pages as allocated for new files
-        lda     #$80                    ; Start sector for RAM files
-@alloc_loop:
-        pha
+@translate_loop:
+        cpy     dfs_cat_num_x8          ; Past end of files?
+        bcs     @translate_done         ; Yes, done translating
+        
+        ; Get the sector assigned by MMFS for this file
+        ; File sectors are stored in catalog sector 1 at offset (y-16)+5
+        ; This maps to RAM_CATALOG_START + 256 + (y-16) + 5  
+        tya
         sec
-        sbc     #$80                    ; Convert sector to page number (0-31)
-        tay
-        lda     #$01
-        sta     RAM_ALLOC_TABLE,y       ; Mark page as used
-        pla
+        sbc     #16                     ; Convert file offset to sector 1 offset
         clc
-        adc     #$01                    ; Next sector
-        dex
-        bne     @alloc_loop
+        adc     #5                      ; Add sector offset in file entry
+        tax
+        
+        ; Check if this is a new file (sector >= 04)
+        lda     RAM_CATALOG_START+256,x ; Get current sector
+        cmp     #$04                    ; Is it >= ROM continuation sector?
+        bcc     @next_file              ; No, skip (ROM file)
+        
+        ; Translate ROM sector to RAM sector  
+        sec
+        sbc     #$04                    ; Get relative sector (0, 1, 2...)
+        clc
+        adc     #$80                    ; Add RAM base (80, 81, 82...)
+        sta     RAM_CATALOG_START+256,x ; Store translated sector
+        
+        ; Mark RAM page as allocated
+        pha                             ; Save translated sector
+        sec  
+        sbc     #$80                    ; Convert to page number (0-31)
+        tax
+        lda     #$01
+        sta     RAM_ALLOC_TABLE,x       ; Mark page as used
+        pla                             ; Restore translated sector
+        
+@next_file:
+        tya
+        clc
+        adc     #$08                    ; Move to next file entry  
+        tay
+        jmp     @translate_loop
+        
+@translate_done:
         
 @sync_done:
         clc
