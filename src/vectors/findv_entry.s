@@ -342,20 +342,20 @@ chnlblock_loop2:
 stop_here:
         lda     fuji_intch              ; A=intch
         tay
-        jsr     a_rolx5
+        jsr     a_rorx5
         adc     #$11                    ; Buffer page
         sta     fuji_ch_buf_page,y      ; Buffer page
         lda     fuji_channel_flag_bit
-        sta     fuji_ch_bitmask,y           ; Mask bit
+        sta     fuji_ch_bitmask,y       ; Mask bit
         ora     fuji_open_channels
         sta     fuji_open_channels      ; Set bit in open flag byte
 
-        lda     fuji_ch_1109,y             ; Length0
+        lda     fuji_ch_1109,y          ; Length0
         adc     #$FF                    ; If Length0>0 C=1
-        lda     fuji_ch_110B,y             ; Length1
+        lda     fuji_ch_110B,y          ; Length1
         adc     #$00
-        sta     fuji_ch_1119,y       ; Sector count
-        lda     fuji_ch_op,y             ; Mixed byte
+        sta     fuji_ch_1119,y          ; Sector count
+        lda     fuji_ch_op,y            ; Mixed byte
         ora     #$0F
         adc     #$00                    ; Add carry flag
         jsr     a_rorx4and3             ; Length2
@@ -367,7 +367,7 @@ stop_here:
         ora     fuji_ch_name7,y
         sta     fuji_ch_name7,y
 chnlblock_setext:
-        lda     fuji_ch_1109,y             ; EXTENT=file length
+        lda     fuji_ch_1109,y          ; EXTENT=file length
         sta     fuji_ch_ext_low,y
         lda     fuji_ch_110B,y
         sta     fuji_ch_ext_mid,y
@@ -379,7 +379,7 @@ chnlblock_cont:
         ora     fuji_ch_flg,y
         sta     fuji_ch_flg,y
         tya                             ; convert intch to handle
-        jsr     a_rorx5                 ; RIGHT shift (not left!)
+        jsr     a_rorx5
         ora     #filehndl               ; &10
         rts                             ; RETURN A=handle
 

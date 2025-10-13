@@ -15,7 +15,6 @@
         .import print_newline
         .import remember_axy
         .import report_error_cb
-        .import a_rolx5
 
         .include "fujinet.inc"
 

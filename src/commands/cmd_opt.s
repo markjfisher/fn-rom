@@ -58,18 +58,20 @@ set_boot_option_yoption:
         jsr     load_cur_drv_cat           ; load cat
         pla
         jsr     a_rolx4                    ; A = A * 16
-        eor     $0F06                      ; XOR with catalog header
+        eor     dfs_cat_boot_option        ; XOR with catalog header
         and     #$30                       ; Mask boot option bits
-        eor     $0F06                      ; XOR back to preserve other bits
-        sta     $0F06                      ; Store modified header
+        eor     dfs_cat_boot_option        ; XOR back to preserve other bits
+        sta     dfs_cat_boot_option        ; Store modified header
 
 .ifdef FN_DEBUG
+        pha
         jsr     print_string
         .byte   "OPT: Boot opt, hdr: "
         nop
-        lda     $0F06
+        lda     dfs_cat_boot_option
         jsr     print_hex
         jsr     print_newline
+        pla
 .endif
 
         jmp     save_cat_to_disk           ; save cat
@@ -94,7 +96,7 @@ skip_set_bit6:
         sta     paged_rom_priv_ws,x    ; Store updated flags
 
 .ifdef FN_DEBUG
-        pla
+        pha
         lda     paged_rom_priv_ws,x
         pha
         jsr     print_string

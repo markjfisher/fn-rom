@@ -76,14 +76,14 @@ runfile_found:
         nop
 .endif
         ; Check if this is an *EXEC file (exec address = &FFFFFFFF)
-        lda     $0F0E,y                ; Mixed byte from catalog
+        lda     dfs_cat_file_op,y      ; Mixed byte from catalog
         jsr     a_rorx6and3            ; Extract high bits
         cmp     #$03                   ; If high bits = 3
         bne     runfile_run            ; If not &FFFFFFFF, run normally
         
         ; Check if exec address is &FFFFFFFF
-        lda     $0F0A,y                ; Exec address low byte
-        and     $0F0B,y                ; Exec address high byte
+        lda     dfs_cat_file_exec_addr,y       ; Exec address low byte
+        and     dfs_cat_file_exec_addr+1,y     ; Exec address high byte
         cmp     #$FF
         bne     runfile_run            ; If not &FFFFFFFF, run normally
 
@@ -126,9 +126,9 @@ runfile_run:
         jsr     print_string
         .byte   "Catalog entry exec addr: "
         nop
-        lda     $0F0B,y                ; High byte of exec address from catalog
+        lda     dfs_cat_file_exec_addr+1,y      ; High byte of exec address from catalog
         jsr     print_hex
-        lda     $0F0A,y                ; Low byte of exec address from catalog
+        lda     dfs_cat_file_exec_addr,y        ; Low byte of exec address from catalog
         jsr     print_hex
         jsr     print_newline
         
@@ -149,9 +149,9 @@ runfile_run:
         
         ; Store execution address from catalog entry for final jump
         ; TODO: work out why this is needed, as it differs from MMFS where the values are already good
-        lda     $0F0A,y                ; Exec address low byte from catalog
+        lda     dfs_cat_file_exec_addr,y        ; Exec address low byte from catalog
         sta     aws_tmp14              ; Store in workspace (&BE)
-        lda     $0F0B,y                ; Exec address high byte from catalog
+        lda     dfs_cat_file_exec_addr+1,y      ; Exec address high byte from catalog
         sta     aws_tmp15              ; Store in workspace (&BF)
         
 .ifdef FN_DEBUG

@@ -74,15 +74,15 @@ load_and_execute_addr_hi2:
 
 exec_addr_hi2:
         lda     #$00
-        sta     $1077                    ; MA+&1077
+        sta     fuji_buf_1077            ; MA+&1077
         lda     pws_tmp02                ; &C2
         jsr     a_rorx6and3              ; Shift right 6 bits and mask with 3
         cmp     #$03
         bne     @exadd_nothost
         lda     #$FF
-        sta     $1077                    ; MA+&1077
+        sta     fuji_buf_1077            ; MA+&1077
 @exadd_nothost:
-        sta     $1076                    ; MA+&1076
+        sta     fuji_buf_1076            ; MA+&1076
         rts
 
 

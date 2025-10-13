@@ -728,6 +728,8 @@ conv_yhndl_intch_exyintch:
         ; Based on MMFS conv_Yhndl_intch_exYintch (line 5083)
         pha                             ; Save A
         tya
+; label not actively used
+conv_hndl_x_entry:
         cmp     #filehndl
         bcc     conv_hndl10
         cmp     #filehndl + 8
