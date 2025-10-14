@@ -83,7 +83,7 @@ err_file_not_found:
 ; get_cat_firstentry80 (MMFS line 672-676)
 get_cat_firstentry81:
 get_cat_firstentry80:
-        dbg_string_axy "get_cat80: "
+        ; dbg_string_axy "get_cat80: "
         jsr     check_cur_drv_cat       ; Get cat entry
         ldx     #$00                    ; now first byte @ &1000+X
         beq     get_cat_entry_2            ; always

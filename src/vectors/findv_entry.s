@@ -24,6 +24,9 @@
         .export close_file_yintch
         .export close_files_yhandle
 
+        .export calling_createfile
+        .export chklock_exit
+
         .import read_fspba_find_cat_entry
         .import a_rolx4
         .import a_rolx5
@@ -146,7 +149,6 @@ err_disk_changed:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 findv_entry:
-        ; dbg_string_axy "FINDV: "
 
         and     #$C0                    ; Bit 7=open for output, Bit 6=open for input
         bne     findv_openfile          ; If opening a file
@@ -208,11 +210,19 @@ findv_openfile:
         bcs     findv_filefound         ; If file found
         lda     #$00
         plp
+calling_createfile:
         bvc     findv_createfile        ; If not read only = write only
         ; A=0=file not found
         rts                             ; EXIT
 
 findv_createfile:
+.ifdef FN_DEBUG_CREATE_FILE
+        pha
+        ; Mark file creation start
+        lda     #$AA
+        sta     $6FF0               ; Debug marker - file creation start
+        pla
+.endif
         php                             ; Clear data
         ; A=0 BC-C3=0
         ldx     #$07                    ; 1074-107B=0

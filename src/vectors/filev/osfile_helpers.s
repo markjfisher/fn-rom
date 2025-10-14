@@ -8,6 +8,11 @@
         .export copy_vars_b0ba
         .export copy_word_b0ba
         .export read_fspba_find_cat_entry
+        .export debug_here
+        .export create_file_2
+        .export create_file_3
+        .export cfile_copyfnloop
+        .export cfile_atcatentry
 
         .import a_rorx4and3
         .import a_rorx6and3
@@ -22,6 +27,12 @@
         .import save_cat_to_disk
         .import y_add8
         .import y_sub8
+.ifdef FN_DEBUG
+        .import print_axy
+        .import print_string
+        .import print_hex
+        .import print_newline
+.endif
 
         .include "fujinet.inc"
 
@@ -114,14 +125,14 @@ create_file_fsp:
         lda     pws_tmp03
         sbc     pws_tmp01
         sta     pws_tmp01
-        lda     $107A
-        sbc     $1078
+        lda     fuji_buf_107A
+        sbc     fuji_buf_1078
 
         jsr     create_file_2
-        lda     $1079                    ; Load Address=Start Address
-        sta     $1075                    ; 4 bytes
-        lda     $1078
-        sta     $1074
+        lda     fuji_buf_1079            ; Load Address=Start Address
+        sta     fuji_buf_1075            ; 4 bytes
+        lda     fuji_buf_1078
+        sta     fuji_buf_1074
         pla
         sta     aws_tmp13
         pla
@@ -161,15 +172,19 @@ err_cat_full:
 cfile_loop:
         beq     err_disk_full
         jsr     y_sub8
+
         lda     dfs_cat_file_op,y
         jsr     a_rorx4and3
         sta     pws_tmp02
+
         clc
         lda     #$FF
         adc     dfs_cat_file_size,y
+
         lda     dfs_cat_file_sect,y
         adc     dfs_cat_file_size+1,y
         sta     pws_tmp03
+
         lda     dfs_cat_file_op,y
         and     #$03
         adc     pws_tmp02
@@ -190,6 +205,7 @@ getfirstblock_yoffset:
         sbc     pws_tmp01
         txa
         sbc     pws_tmp04
+
         tya
         bcc     cfile_loop
         sty     aws_tmp00
@@ -199,12 +215,12 @@ getfirstblock_yoffset:
         beq     cfile_atcatentry
         lda     dfs_cat_s0_title+7,y
         sta     dfs_cat_file_dir,y
-        lda     dfs_cat_sect_count,y
-        sta     dfs_cat_file_sect,y
+        lda     dfs_cat_sect_count,y     ; Load from 0F07+Y 
+        sta     dfs_cat_file_sect,y     ; Store to 0F0F+Y (shift by 8)
         dey
         bcs     @cfile_insertfileloop
 cfile_atcatentry:
-        lda     $1076,y
+        lda     fuji_buf_1076,y
         and     #$03
         asl     a
         asl     a
@@ -213,23 +229,33 @@ cfile_atcatentry:
         eor     pws_tmp04
         asl     a
         asl     a
-        eor     $1074
+        eor     fuji_buf_1074           ; Load address
         and     #$FC
-        eor     $1074
+        eor     fuji_buf_1074
         asl     a
         asl     a
-        eor     pws_tmp02
+        eor     pws_tmp02               ; Sector
         and     #$FC
         eor     pws_tmp02
-        sta     pws_tmp02
+        sta     pws_tmp02               ; C2 is mixed byte
 
         ldx     #$00
         tya
         pha
 cfile_copyfnloop:
-        lda     pws_tmp05,x
+.ifdef FN_DEBUG_CREATE_FILE
+        cpx     #0
+        bne     @skip_debug
+        ; Mark catalog copy start - store load address low byte
+        lda     aws_tmp12
+        sta     $6FF1               ; Debug marker - load address low
+        lda     aws_tmp12+1  
+        sta     $6FF2               ; Debug marker - load address high
+@skip_debug:
+.endif
+        lda     pws_tmp05,x             ; Copy filename from &C5
         sta     dfs_cat_file_name,y
-        lda     aws_tmp12,x
+        lda     aws_tmp12,x             ; Copy attributes
         sta     dfs_cat_file_load_addr,y
         iny
         inx
@@ -241,8 +267,11 @@ cfile_copyfnloop:
         jsr     prt_info_msg_yoffset
 
         ldy     dfs_cat_num_x8
+
         jsr     y_add8
-        sta     dfs_cat_num_x8
+        sty     dfs_cat_num_x8
+
+debug_here:
         jsr     save_cat_to_disk
         pla
         tay

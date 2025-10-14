@@ -5,6 +5,7 @@
 40 file% = OPENOUT("TFILE")
 50 IF file% = 0 THEN PRINT "ERROR: Could not create TESTFILE" : GOTO 900
 60 PRINT "Created TESTFILE, handle "; file%
+65 INPUT "Press RETURN to continue", dummy$
 70 PRINT "Writing test data..."
 80 FOR i% = 65 TO 68
 90 BPUT#file%, i%
@@ -14,6 +15,7 @@
 130 PRINT "Current EXT: "; EXT#file%
 140 CLOSE#file%
 150 PRINT "File closed"
+155 INPUT "Press RETURN to continue", dummy$
 160 PRINT "Test 2: Reading back written data..."
 170 file% = OPENIN("TFILE")
 180 IF file% = 0 THEN PRINT "ERROR: Could not open TESTFILE for reading" : GOTO 900

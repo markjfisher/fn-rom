@@ -22,12 +22,21 @@
         .export world_app_start
         .export test_app_start
 
+        .export assign_ram_sectors_to_new_files
         .export fuji_init_ram_filesystem
+        
+        ; Export debug labels for tracing
+        .export assign_check_file
+        .export assign_next_file 
+        .export assign_done
 
         .import print_string
         .import print_hex
         .import print_newline
         .import remember_axy
+.ifdef FN_DEBUG
+        .import print_axy
+.endif
 
         .include "fujinet.inc"
 
@@ -37,12 +46,14 @@ FUJI_ROM_SLOT = 14
 
 RAM_FS_START = $5000
 
-; Simple RAM filesystem layout ($6000-$7FFF = 8KB)
-RAM_CATALOG_START = RAM_FS_START                ; Dynamic catalog (512 bytes)
-RAM_ALLOC_TABLE   = RAM_FS_START + $200         ; Page allocation table (32 bytes, 1 bit per page)
-RAM_FILES_START   = RAM_ALLOC_TABLE + $20       ; File storage area start (32 pages of 256 bytes each)
-RAM_FILES_END     = RAM_FS_START + $7FF         ; File storage area end
-MAX_RAM_FILES     = 32          ; Maximum files (32 pages available)
+; Simple page-based RAM filesystem
+RAM_CATALOG_START = RAM_FS_START                ; Catalog (512 bytes)
+RAM_PAGE_ALLOC    = RAM_FS_START + $200         ; Page allocation table (32 bytes)  
+RAM_PAGE_LENGTH   = RAM_FS_START + $220         ; Page length table (32 bytes)
+RAM_PAGES_START   = RAM_FS_START + $240         ; File pages start
+MAX_PAGES         = 32                          ; Maximum pages
+PAGE_SIZE         = 256                         ; Bytes per page
+FIRST_RAM_SECTOR  = 10                          ; Sectors 10+ are RAM pages
 
 ; Static test data - a simple BBC Micro disc image
 dummy_disc_title:
@@ -242,44 +253,38 @@ dummy_sector4_data_end:
 fuji_read_block_data:
         jsr     remember_axy
 
-.ifdef FN_DEBUG
-        pha
-        jsr     print_string
-        .byte   "fuji_read_block_data: sector="
-        nop
-        lda     fuji_file_offset
-        jsr     print_hex
-        jsr     print_string
-        .byte   " data_ptr=$"
-        nop
-        lda     data_ptr+1
-        jsr     print_hex
-        lda     data_ptr
-        jsr     print_hex
-        jsr     print_string
-        .byte   " size="
-        nop
-        lda     fuji_block_size+1
-        jsr     print_hex
-        lda     fuji_block_size
-        jsr     print_hex
-        jsr     print_newline
-        pla
-.endif
+; .ifdef FN_DEBUG
+;         pha
+;         jsr     print_string
+;         .byte   "fuji_read_block_data: sector="
+;         nop
+;         lda     fuji_file_offset
+;         jsr     print_hex
+;         jsr     print_string
+;         .byte   " data_ptr=$"
+;         nop
+;         lda     data_ptr+1
+;         jsr     print_hex
+;         lda     data_ptr
+;         jsr     print_hex
+;         jsr     print_string
+;         .byte   " size="
+;         nop
+;         lda     fuji_block_size+1
+;         jsr     print_hex
+;         lda     fuji_block_size
+;         jsr     print_hex
+;         jsr     print_newline
+;         pla
+; .endif
 
         ; For dummy interface, read from our sector data
         ; In a real implementation, this would read from network
 
-        ; Calculate which sector to read based on file offset
-        ; fuji_file_offset contains the start sector number (not byte offset)
-        ; For dummy interface, we'll use this directly as sector number
-        
-        lda     fuji_file_offset         ; Get start sector number
-        sta     fuji_current_sector      ; Store sector number
-        
-        ; Check if this is a RAM file (sector >= $80)
-        cmp     #$80
-        bcs     @read_ram_file
+        ; Simple sector to page mapping
+        lda     fuji_file_offset         ; Get sector number
+        cmp     #FIRST_RAM_SECTOR       ; Is it a RAM sector (10+)?
+        bcs     @read_ram_page          ; Yes, read from RAM page
         
         ; ROM files: sectors 2, 3, 4 with test data
         cmp     #2
@@ -293,19 +298,17 @@ fuji_read_block_data:
         lda     #0
         rts
 
-@read_ram_file:
-        ; RAM file: calculate page address
+@read_ram_page:
+        ; Convert sector to page: page = sector - FIRST_RAM_SECTOR  
         sec
-        sbc     #$80                    ; Convert to page number (0-31)
-        sta     aws_tmp14               ; Save page number
+        sbc     #FIRST_RAM_SECTOR       ; A = page number (0, 1, 2...)
         
-        ; Calculate RAM address: RAM_FILES_START + (page * 256)
-        lda     #>RAM_FILES_START       ; High byte base address
+        ; Calculate page address: RAM_PAGES_START + (page * 256)
         clc
-        adc     aws_tmp14               ; Add page number (each page is 256 bytes)
-        sta     aws_tmp13               ; High byte of source address
-        lda     #<RAM_FILES_START       ; Low byte is always 0 (page boundary)
-        sta     aws_tmp12               ; Low byte of source address
+        adc     #>RAM_PAGES_START       ; Add page number to high byte
+        sta     aws_tmp13               ; High byte of page address
+        lda     #<RAM_PAGES_START       ; Low byte
+        sta     aws_tmp12
         jmp     @copy_sector_data
         
 @read_sector2:
@@ -370,47 +373,35 @@ fuji_read_block_data:
 fuji_write_block_data:
         jsr     remember_axy
 
-        ; Calculate which sector to write based on file offset
-        lda     fuji_file_offset         ; Get start sector number
-        sta     fuji_current_sector      ; Store sector number
+        lda     fuji_file_offset         ; Get sector number
+        cmp     #FIRST_RAM_SECTOR       ; Is it a RAM sector (10+)?
+        bcs     @write_ram_page         ; Yes, write to RAM page
         
-        ; Check if this is a RAM file (sector >= $80)
-        cmp     #$80
-        bcs     @write_ram_file
-        
-        ; ROM files: cannot write to ROM, return error
+        ; ROM sectors: cannot write to ROM, return error
         lda     #0
         rts
         
-@write_ram_file:
-        ; RAM file: calculate page address  
+@write_ram_page:
+        ; Convert sector to page: page = sector - FIRST_RAM_SECTOR
         sec
-        sbc     #$80                    ; Convert to page number (0-31)
-        sta     aws_tmp14               ; Save page number
+        sbc     #FIRST_RAM_SECTOR       ; A = page number (0, 1, 2...)
         
-        ; Calculate RAM address: RAM_FILES_START + (page * 256)
-        lda     #>RAM_FILES_START       ; High byte base address
+        ; Calculate page address: RAM_PAGES_START + (page * 256)
         clc
-        adc     aws_tmp14               ; Add page number  
-        sta     aws_tmp13               ; High byte of destination address
-        lda     #<RAM_FILES_START       ; Low byte is always 0 (page boundary)
-        sta     aws_tmp12               ; Low byte of destination address
+        adc     #>RAM_PAGES_START       ; Add page number to high byte
+        sta     aws_tmp13               ; High byte of page address
+        lda     #<RAM_PAGES_START       ; Low byte
+        sta     aws_tmp12
         
-        ; Copy data from buffer to RAM file page
-        lda     fuji_block_size         ; Get size to write
-        sta     aws_tmp15               ; Save size
-        
+        ; Copy data to page (simple 256 byte copy)
         ldy     #0
 @write_loop:
         lda     (data_ptr),y            ; Read from buffer
-        sta     (aws_tmp12),y           ; Write to RAM file
+        sta     (aws_tmp12),y           ; Write to page
         iny
-        cpy     aws_tmp15               ; Check if done
-        bne     @write_loop
+        bne     @write_loop             ; Copy full page
         
-        ; TODO: Update file length in catalog based on PTR position
-        ; For now, just return success
-        
+        ; dbg_string_axy "WROTE to sector: "
         lda     #1                      ; Success
         rts
 
@@ -422,6 +413,13 @@ fuji_write_block_data:
 
 fuji_read_catalog_data:
         jsr     remember_axy
+
+.ifdef FN_DEBUG
+        jsr     print_string
+        .byte   "fuji_read_catalog_data: called"
+        nop
+        jsr     print_newline
+.endif
 
         ; Copy RAM catalogue data to buffer (512 bytes) - includes created files
         ldy     #0
@@ -445,6 +443,12 @@ fuji_read_catalog_data:
         ; Restore data_ptr
         dec     data_ptr+1
 
+.ifdef FN_DEBUG
+        jsr     print_string
+        .byte   "fuji_read_catalog_data: completed, returning 512 bytes"
+        nop
+        jsr     print_newline
+.endif
         clc
         rts
 
@@ -455,84 +459,137 @@ fuji_read_catalog_data:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 fuji_write_catalog_data:
+.ifdef FN_DEBUG_CREATE_FILE
+        ; Mark catalog sync start
+        lda     #$BB
+        sta     $6FF3               ; Debug marker - RAM sync start
+.endif
         jsr     remember_axy
 
-        ; Sync catalog changes to RAM filesystem
-        ; This is called whenever the catalog is updated (including file creation)
+        ; Simple catalog sync - just copy system catalog to RAM
+        ; No complex translation needed with page-based approach
         
-        ; Copy current catalog to RAM catalog (includes any new files)
+        ; Copy catalog sector 0
         ldy     #0
-@sync_cat_loop1:
-        lda     dfs_cat_s0_header,y     ; Copy catalog sector 0
+@copy_s0:
+        lda     dfs_cat_s0_header,y
         sta     RAM_CATALOG_START,y
         iny
-        bne     @sync_cat_loop1
+        bne     @copy_s0
         
         ; Copy catalog sector 1  
         ldy     #0
-@sync_cat_loop2:
-        lda     dfs_cat_s1_header,y     ; Copy catalog sector 1
+@copy_s1:
+        lda     dfs_cat_s1_header,y
         sta     RAM_CATALOG_START+256,y
         iny
-        bne     @sync_cat_loop2
+        bne     @copy_s1
         
-        ; We ARE the filing system - translate ROM sectors to RAM sectors for new files
-        ; Check if new files were created (beyond the original 3 ROM files)
-        lda     dfs_cat_num_x8          ; Get current file count (count*8)
-        cmp     #24                     ; More than 3 files? (3*8=24)
-        bcc     @sync_done              ; No new files
+        ; Update any new files to use fake RAM sectors (10+)
+        ; This is where we assign fake sectors to new files
+        jsr     assign_ram_sectors_to_new_files
         
-        ; New files detected - translate their ROM sectors to RAM sectors
-        ; MMFS assigned sectors 04, 05, 06... we need to map to 80, 81, 82...
-        ldy     #24                     ; Start at 4th file entry offset
-        lda     #$80                    ; RAM sector base
+        ; dbg_string_axy "Catalog synced: "
+
+        clc
+        rts
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; assign_ram_sectors_to_new_files - Assign fake sectors to new files
+; Simple approach: any file with sector >= 4 gets fake sector 10+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+assign_ram_sectors_to_new_files:
+        ; Process files starting from file 3 (offset 24) - this includes TFILE 
+        ldy     #24                     ; Start at offset 24 (file 3)
         
-@translate_loop:
+assign_check_file:
+@check_file:
         cpy     dfs_cat_num_x8          ; Past end of files?
-        bcs     @translate_done         ; Yes, done translating
+        bcs     assign_done             ; Yes, done
         
-        ; Get the sector assigned by MMFS for this file
-        ; File sectors are stored in catalog sector 1 at offset (y-16)+5
-        ; This maps to RAM_CATALOG_START + 256 + (y-16) + 5  
+        ; Check if this file has incomplete data (load address = 0)
+        ; This indicates a file created by OSFILE but not yet processed
+        tya
+        sta     aws_tmp14               ; Save file offset
+        clc
+        adc     #0                      ; Load address offset in sector 1
+        tax
+        
+        lda     RAM_CATALOG_START+256,x ; Get load address low
+        sta     aws_tmp12               ; Save for later
+        inx
+        lda     RAM_CATALOG_START+256,x ; Get load address high
+        ora     aws_tmp12               ; Check if both bytes are zero
+        bne     assign_next_file        ; Not zero, file already has data
+        
+        ; File has incomplete data - fill in defaults for new RAM file
+        ldy     aws_tmp14               ; Restore file offset
+        
+        ; Set default load address ($FFFF = host address)
+        tya
+        clc
+        adc     #0                      ; Load address offset
+        tax
+        lda     #$FF
+        sta     RAM_CATALOG_START+256,x   ; Load address low
+        inx
+        sta     RAM_CATALOG_START+256,x   ; Load address high
+        
+        ; Set default exec address ($FFFF = host address)  
+        inx
+        sta     RAM_CATALOG_START+256,x   ; Exec address low
+        inx
+        sta     RAM_CATALOG_START+256,x   ; Exec address high
+        
+        ; Set initial file size (0)
+        inx
+        lda     #0
+        sta     RAM_CATALOG_START+256,x   ; Size low
+        inx
+        sta     RAM_CATALOG_START+256,x   ; Size high
+        
+        ; Set mixed byte (all bits 0 for host addresses)
+        inx
+        lda     #0
+        sta     RAM_CATALOG_START+256,x
+        
+        ; Assign fake RAM sector
+        ldy     aws_tmp14               ; Restore file offset
         tya
         sec
-        sbc     #16                     ; Convert file offset to sector 1 offset
+        sbc     #24                     ; Convert to file index from offset 24 
+        lsr     a                       ; Divide by 8 to get file index  
+        lsr     a
+        lsr     a
         clc
-        adc     #5                      ; Add sector offset in file entry
+        adc     #FIRST_RAM_SECTOR       ; Add to base (10+)
+        
+        ; Store fake sector
+        tya
+        clc  
+        adc     #7                      ; Sector offset
         tax
+        sta     RAM_CATALOG_START+256,x ; Store fake sector
         
-        ; Check if this is a new file (sector >= 04)
-        lda     RAM_CATALOG_START+256,x ; Get current sector
-        cmp     #$04                    ; Is it >= ROM continuation sector?
-        bcc     @next_file              ; No, skip (ROM file)
-        
-        ; Translate ROM sector to RAM sector  
+        ; Mark page as allocated
         sec
-        sbc     #$04                    ; Get relative sector (0, 1, 2...)
-        clc
-        adc     #$80                    ; Add RAM base (80, 81, 82...)
-        sta     RAM_CATALOG_START+256,x ; Store translated sector
-        
-        ; Mark RAM page as allocated
-        pha                             ; Save translated sector
-        sec  
-        sbc     #$80                    ; Convert to page number (0-31)
+        sbc     #FIRST_RAM_SECTOR       ; Convert to page number
         tax
-        lda     #$01
-        sta     RAM_ALLOC_TABLE,x       ; Mark page as used
-        pla                             ; Restore translated sector
+        lda     #1
+        sta     RAM_PAGE_ALLOC,x        ; Mark page as used
         
+assign_next_file:
 @next_file:
+        ldy     aws_tmp14               ; Restore file offset
         tya
         clc
-        adc     #$08                    ; Move to next file entry  
+        adc     #8                      ; Move to next file
         tay
-        jmp     @translate_loop
+        jmp     assign_check_file
         
-@translate_done:
-        
-@sync_done:
-        clc
+assign_done:
+@assign_done:
         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -613,14 +670,22 @@ fuji_init_ram_filesystem:
         lda     #$00
         ldy     #$1F                    ; 32 bytes for allocation table
 @clear_alloc_loop:
-        sta     RAM_ALLOC_TABLE,y
+        sta     RAM_PAGE_ALLOC,y
         dey
         bpl     @clear_alloc_loop
+        
+        ; Clear page length table
+        lda     #$00
+        ldy     #$1F                    ; 32 bytes for length table
+@clear_length_loop:
+        sta     RAM_PAGE_LENGTH,y
+        dey
+        bpl     @clear_length_loop
         
         rts
 
 ; RAM filesystem variables (kept for future use)
 ram_file_alloc_ptr:
-        .word   RAM_FILES_START
+        .word   RAM_PAGES_START
 
 .endif  ; FUJINET_INTERFACE_DUMMY
