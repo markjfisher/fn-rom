@@ -283,7 +283,7 @@ setup_channel_info_block_yintch:
 ;         pha
 ;         tya
 ;         pha
-        
+
 ;         jsr     print_string
 ;         .byte   "Channel setup: fuji_cat_file_offset=$"
 ;         nop
@@ -300,7 +300,7 @@ setup_channel_info_block_yintch:
 ;         tya
 ;         jsr     print_hex
 ;         jsr     print_newline
-        
+
 ;         ; Dump catalog data where we expect HELLO file info
 ;         jsr     print_string
 ;         .byte   "Catalog s0 at $0E10: "
@@ -309,7 +309,7 @@ setup_channel_info_block_yintch:
 ;         ldx     #$0E
 ;         ldy     #$08
 ;         jsr     dump_memory_block
-        
+
 ;         jsr     print_string
 ;         .byte   "Catalog s1 at $0F10: "
 ;         nop
@@ -317,7 +317,7 @@ setup_channel_info_block_yintch:
 ;         ldx     #$0F
 ;         ldy     #$08
 ;         jsr     dump_memory_block
-        
+
 ;         ; Restore all registers
 ;         pla
 ;         tay

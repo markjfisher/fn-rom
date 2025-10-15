@@ -68,7 +68,7 @@ unknown_op:
 gbpbv_entry:
         cmp     #$09
         bcs     @unknown_op
-        
+
         dbg_string_axy "GBPBV: "
 
         ; Look up function in FSCV table
@@ -176,21 +176,21 @@ extendedvectors_table:
         ; Each entry: 2 bytes vector, 1 byte BRK
         .word   filev_entry           ; FILEV extended
         .byte   $00                   ; BRK
-        
+
         .word   argsv_entry           ; ARGSV extended  
         .byte   $00                   ; BRK
-        
+
         .word   bgetv_entry           ; BGETV extended
         .byte   $00                   ; BRK
-        
+
         .word   bputv_entry           ; BPUTV extended
         .byte   $00                   ; BRK
-        
+
         .word   gbpbv_entry           ; GBPBV extended
         .byte   $00                   ; BRK
-        
+
         .word   findv_entry           ; FINDV extended
         .byte   $00                   ; BRK
-        
+
         .word   fscv_entry            ; FSCV extended
         .byte   $00                   ; BRK

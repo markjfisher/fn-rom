@@ -30,11 +30,11 @@ fscv6_shutdown_filing_system:
 
         ; Close any SPOOL or EXEC files (following MMFS pattern)
         jsr     close_spool_exec_files
-        
+
         ; Close all open files
         jsr     close_all_files
-        
+
         ; TODO: Save static workspace to private workspace if needed
         ; (MMFS does this for Master systems)
-        
+
         rts

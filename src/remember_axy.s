@@ -26,7 +26,7 @@ remember_axy:
         pha
         tya
         pha
-        
+
         ; Set up return address to rAXY_restore
         lda     #>(rAXY_restore-1)
         pha
@@ -46,7 +46,7 @@ raxy_loop_init:
         pha                     ; Push to stack (changes SP)
         dey
         bne     @rAXY_loop
-        
+
         ; Now shift 10 bytes up the stack to get the shape we require
         ldy     #$0A
 @rAXY_loop2:

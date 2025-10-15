@@ -39,7 +39,7 @@ fuji_init:
         ; TODO - check if device is responding
         jsr     fuji_check_device_status
         bcs     @init_failed
-        
+
         ; Device initialized successfully
         lda     #$40
         sta     fuji_state
@@ -84,13 +84,13 @@ fuji_write_block:
 fuji_read_catalog:
         jsr     remember_axy
         jsr     fuji_begin_transaction
-        
+
         ; Set up catalog buffer at page 0x0E (512 bytes)
         lda     #$00
         sta     data_ptr
         lda     #$0E                    ; Catalogue buffer at page 0x0E
         sta     data_ptr+1
-        
+
         ; For FujiNet, we need to request the disc catalog from the network
         ; This is NOT reading physical sectors - it's requesting directory info
         ; TODO: Implement network request for disc catalog
@@ -98,7 +98,7 @@ fuji_read_catalog:
         ; 1. Send "GET_CATALOGUE" command to FujiNet
         ; 2. Receive 512-byte catalog data
         ; 3. Store it in the buffer at 0x0E00-0x0FFF
-        
+
         jsr     fuji_read_catalog_data
         jmp     fuji_end_transaction
 
@@ -109,13 +109,13 @@ fuji_read_catalog:
 fuji_write_catalog:
         jsr     remember_axy
         jsr     fuji_begin_transaction
-        
+
         ; Set up catalog buffer at page 0x0E (512 bytes)
         lda     #$00
         sta     data_ptr
         lda     #$0E                    ; Catalog buffer at page 0x0E
         sta     data_ptr+1
-        
+
         ; For FujiNet, we need to send the updated catalog to the network
         ; This is NOT writing physical sectors - it's updating directory info
         ; TODO: Implement network request to update disc catalog
@@ -123,7 +123,7 @@ fuji_write_catalog:
         ; 1. Send "PUT_CATALOG" command to FujiNet
         ; 2. Send 512-byte catalog data from buffer 0x0E00-0x0FFF
         ; 3. Confirm successful update
-        
+
         jsr     fuji_write_catalog_data
         jmp     fuji_end_transaction
 
@@ -139,7 +139,7 @@ fuji_read_disc_title:
         sta     data_ptr
         lda     #$10                    ; Buffer at page 0x10
         sta     data_ptr+1
-        
+
         ; For FujiNet, we need to request just the disc title
         ; This is NOT reading a physical sector - it's requesting title info
         ; TODO: Implement network request for disc title
@@ -147,7 +147,7 @@ fuji_read_disc_title:
         ; 1. Send "GET_DISC_TITLE" command to FujiNet
         ; 2. Receive disc title string (up to 16 chars)
         ; 3. Store it in the buffer at 0x1000-0x100F
-        
+
         jsr     fuji_read_disc_title_data
         rts
 
@@ -163,19 +163,19 @@ fuji_begin_transaction:
         sta     $1090,x
         dex
         bpl     @save_loop
-        
+
         ; Check if FujiNet initialized
         bit     fuji_state
         bvs     @already_init
-        
+
         ; Initialize if needed
         jsr     fuji_init
         bcs     @init_failed
-        
+
         ; Check device status
         jsr     fuji_check_device_status
         bcs     @init_failed
-        
+
 @already_init:
         rts
 

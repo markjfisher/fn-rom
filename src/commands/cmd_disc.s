@@ -22,7 +22,7 @@ cmd_fs_disc:
 
         ; Following MMFS CMD_DISC pattern (lines 2928-2941)
         ; Check bit 6 of PagedROM_PrivWorkspaces to see if DISC/DISK should pass to DFS
-        
+
         ldx     paged_ram_copy          ; Get current ROM number
         lda     paged_rom_priv_ws,x     ; Get private workspace flags  
         and     #$40                    ; Test bit 6 (OPT 5 flag)

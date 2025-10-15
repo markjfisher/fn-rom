@@ -29,7 +29,7 @@ service0A_claim_statworkspace:
         ; Save any open file buffers first
         ldy     #$00                    ; Handle 0 = all files
         jsr     channel_buffer_to_disk_yhandle
-        
+
         ; Save static to private workspace
         jsr     save_static_to_private_workspace
 

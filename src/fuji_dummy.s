@@ -20,7 +20,7 @@
 
         .export assign_ram_sectors_to_new_files
         .export fuji_init_ram_filesystem
-        
+
         ; Export debug labels for tracing
         .export assign_check_file
         .export assign_next_file 
@@ -120,17 +120,17 @@ dummy_sector2_data:
         lda     #FUJI_ROM_SLOT          ; FujiNet ROM slot
         sta     paged_ram_copy          ; Update RAM copy
         sta     ROMSEL                  ; Update hardware register
-        
+
         jsr     print_string
         .byte   "ERROR: Running at load address!", $0D
         nop
-        
+
         ; Restore original ROM
         pla
         sta     paged_ram_copy          ; Restore RAM copy
         sta     ROMSEL                  ; Restore hardware register
         rts
-        
+
         ; Real application starts here (execute address)
 test_app_start:
         ; Save current ROM and switch to FujiNet ROM (slot 5)
@@ -139,11 +139,11 @@ test_app_start:
         lda     #FUJI_ROM_SLOT          ; FujiNet ROM slot
         sta     paged_ram_copy          ; Update RAM copy
         sta     ROMSEL                  ; Update hardware register
-        
+
         jsr     print_string
         .byte   "TEST app running!", $0D
         nop
-        
+
         ; Restore original ROM
         pla
         sta     paged_ram_copy          ; Restore RAM copy
@@ -160,17 +160,17 @@ dummy_sector3_data:
         lda     #FUJI_ROM_SLOT          ; FujiNet ROM slot
         sta     paged_ram_copy          ; Update RAM copy
         sta     ROMSEL                  ; Update hardware register
-        
+
         jsr     print_string
         .byte   "ERROR: Running at load address!", $0D
         nop
-        
+
         ; Restore original ROM
         pla
         sta     paged_ram_copy          ; Restore RAM copy
         sta     ROMSEL                  ; Restore hardware register
         rts
-        
+
         ; Real application starts here (execute address)
 world_app_start:
         ; Save current ROM and switch to FujiNet ROM (slot 5)
@@ -179,14 +179,14 @@ world_app_start:
         lda     #FUJI_ROM_SLOT          ; FujiNet ROM slot
         sta     paged_ram_copy          ; Update RAM copy
         sta     ROMSEL                  ; Update hardware register
-        
+
         jsr     print_string
         .byte   "WORLD application loaded!", $0D
         nop
         jsr     print_string
         .byte   "This is a longer program", $0D
         nop
-        
+
         ; Restore original ROM
         pla
         sta     paged_ram_copy          ; Restore RAM copy
@@ -203,17 +203,17 @@ dummy_sector4_data:
         lda     #FUJI_ROM_SLOT          ; FujiNet ROM slot
         sta     paged_ram_copy          ; Update RAM copy
         sta     ROMSEL                  ; Update hardware register
-        
+
         jsr     print_string
         .byte   "ERROR: Running at load address!", $0D
         nop
-        
+
         ; Restore original ROM
         pla
         sta     paged_ram_copy          ; Restore RAM copy
         sta     ROMSEL                  ; Restore hardware register
         rts
-        
+
         ; Real application starts here (execute address)
 hello_app_start:
         ; Save current ROM and switch to FujiNet ROM (slot 5)
@@ -222,14 +222,14 @@ hello_app_start:
         lda     #FUJI_ROM_SLOT          ; FujiNet ROM slot
         sta     paged_ram_copy          ; Update RAM copy
         sta     ROMSEL                  ; Update hardware register
-        
+
         jsr     print_string
         .byte   "HELLO from FujiNet!", $0D
         nop
         jsr     print_string
         .byte   "File loaded OK", $0D
         nop
-        
+
         ; Restore original ROM
         pla
         sta     paged_ram_copy          ; Restore RAM copy
@@ -266,11 +266,11 @@ fuji_read_block_data:
 
         ; For dummy interface, read from RAM pages
         ; All sectors 2+ are now stored in RAM
-        
+
         lda     fuji_file_offset         ; Get sector number
         cmp     #FIRST_RAM_SECTOR       ; Is it a RAM sector (2+)?
         bcs     @read_ram_page          ; Yes, read from RAM page
-        
+
         ; Sectors 0-1 (catalog) not handled here, return error
         lda     #0
         rts
@@ -279,7 +279,7 @@ fuji_read_block_data:
         ; Convert sector to page: page = sector - FIRST_RAM_SECTOR  
         sec
         sbc     #FIRST_RAM_SECTOR       ; A = page number (0, 1, 2...)
-        
+
 .ifdef FN_DEBUG_READ_DATA
         pha
         jsr     print_string
@@ -288,18 +288,18 @@ fuji_read_block_data:
         jsr     print_hex
         pla
 .endif
-        
+
         ; Check if page is within bounds
         cmp     #MAX_PAGES
         bcs     @read_error             ; Page >= MAX_PAGES, error
-        
+
         ; Calculate page address: RAM_PAGES_START + (page * 256)
         clc
         adc     #>RAM_PAGES_START       ; Add page number to high byte
         sta     aws_tmp13               ; High byte of page address
         lda     #<RAM_PAGES_START       ; Low byte
         sta     aws_tmp12
-        
+
 .ifdef FN_DEBUG_READ_DATA
         jsr     print_string
         .byte   " addr=$"
@@ -310,13 +310,13 @@ fuji_read_block_data:
         jsr     print_hex
         jsr     print_newline
 .endif
-        
+
         jmp     @copy_sector_data
 
 @read_error:
         lda     #0                      ; Return error
         rts
-        
+
 @copy_sector_data:
         ; Copy data from sector to buffer
         ; Use block size from fuji_block_size
@@ -324,11 +324,11 @@ fuji_read_block_data:
         sta     aws_tmp14                ; Use temporary workspace variable
         lda     fuji_block_size+1
         sta     aws_tmp15                ; Use temporary workspace variable
-        
+
         ldy     #0
 @copy_loop:
         lda     (aws_tmp12),y            ; Use zero-page variable for indirect addressing
-        
+
 ; .ifdef FN_DEBUG_READ_DATA
 ;         pha
 ;         jsr     print_string
@@ -337,16 +337,16 @@ fuji_read_block_data:
 ;         jsr     print_hex
 ;         pla
 ; .endif
-        
+
         sta     (data_ptr),y
         iny
         cpy     aws_tmp14                ; Compare with temporary variable
         bne     @copy_loop
-        
+
         ; Check if we need to copy more bytes (high byte)
         lda     aws_tmp15                ; Use temporary workspace variable
         beq     @copy_done
-        
+
         ; Copy remaining bytes (simplified - just copy 256 bytes max)
         ldy     #0
 @copy_loop2:
@@ -354,7 +354,7 @@ fuji_read_block_data:
         sta     (data_ptr),y
         iny
         bne     @copy_loop2
-        
+
 @copy_done:
         lda     #1                       ; Success
         rts
@@ -371,27 +371,27 @@ fuji_write_block_data:
         lda     fuji_file_offset         ; Get sector number
         cmp     #FIRST_RAM_SECTOR       ; Is it a RAM sector (2+)?
         bcs     @write_ram_page         ; Yes, write to RAM page
-        
+
         ; Sectors 0-1 (catalog) not handled here, return error
         lda     #0
         rts
-        
+
 @write_ram_page:
         ; Convert sector to page: page = sector - FIRST_RAM_SECTOR
         sec
         sbc     #FIRST_RAM_SECTOR       ; A = page number (0, 1, 2...)
-        
+
         ; Check if page is within bounds
         cmp     #MAX_PAGES
         bcs     @write_error            ; Page >= MAX_PAGES, error
-        
+
         ; Calculate page address: RAM_PAGES_START + (page * 256)
         clc
         adc     #>RAM_PAGES_START       ; Add page number to high byte
         sta     aws_tmp13               ; High byte of page address
         lda     #<RAM_PAGES_START       ; Low byte
         sta     aws_tmp12
-        
+
         ; Copy data to page (simple 256 byte copy)
         ldy     #0
 @write_loop:
@@ -399,7 +399,7 @@ fuji_write_block_data:
         sta     (aws_tmp12),y           ; Write to page
         iny
         bne     @write_loop             ; Copy full page
-        
+
         ; dbg_string_axy "WROTE to sector: "
         lda     #1                      ; Success
         rts
@@ -471,7 +471,7 @@ fuji_write_catalog_data:
 
         ; Simple catalog sync - just copy system catalog to RAM
         ; No complex translation needed with page-based approach
-        
+
         ; Copy catalog sector 0
         ldy     #0
 @copy_s0:
@@ -479,7 +479,7 @@ fuji_write_catalog_data:
         sta     RAM_CATALOG_START,y
         iny
         bne     @copy_s0
-        
+
         ; Copy catalog sector 1  
         ldy     #0
 @copy_s1:
@@ -487,11 +487,11 @@ fuji_write_catalog_data:
         sta     RAM_CATALOG_START+256,y
         iny
         bne     @copy_s1
-        
+
         ; Update any new files to use fake RAM sectors (10+)
         ; This is where we assign fake sectors to new files
         jsr     assign_ram_sectors_to_new_files
-        
+
         ; dbg_string_axy "Catalog synced: "
 
         clc
@@ -505,12 +505,12 @@ fuji_write_catalog_data:
 assign_ram_sectors_to_new_files:
         ; Process files starting from file 3 (offset 24) - this includes TFILE 
         ldy     #24                     ; Start at offset 24 (file 3)
-        
+
 assign_check_file:
 @check_file:
         cpy     dfs_cat_num_x8          ; Past end of files?
         bcs     assign_done             ; Yes, done
-        
+
         ; Check if this file has incomplete data (load address = 0)
         ; This indicates a file created by OSFILE but not yet processed
         tya
@@ -518,17 +518,17 @@ assign_check_file:
         clc
         adc     #0                      ; Load address offset in sector 1
         tax
-        
+
         lda     RAM_CATALOG_START+256,x ; Get load address low
         sta     aws_tmp12               ; Save for later
         inx
         lda     RAM_CATALOG_START+256,x ; Get load address high
         ora     aws_tmp12               ; Check if both bytes are zero
         bne     assign_next_file        ; Not zero, file already has data
-        
+
         ; File has incomplete data - fill in defaults for new RAM file
         ldy     aws_tmp14               ; Restore file offset
-        
+
         ; Set default load address ($FFFF = host address)
         tya
         clc
@@ -538,25 +538,25 @@ assign_check_file:
         sta     RAM_CATALOG_START+256,x   ; Load address low
         inx
         sta     RAM_CATALOG_START+256,x   ; Load address high
-        
+
         ; Set default exec address ($FFFF = host address)  
         inx
         sta     RAM_CATALOG_START+256,x   ; Exec address low
         inx
         sta     RAM_CATALOG_START+256,x   ; Exec address high
-        
+
         ; Set initial file size (0)
         inx
         lda     #0
         sta     RAM_CATALOG_START+256,x   ; Size low
         inx
         sta     RAM_CATALOG_START+256,x   ; Size high
-        
+
         ; Set mixed byte (all bits 0 for host addresses)
         inx
         lda     #0
         sta     RAM_CATALOG_START+256,x
-        
+
         ; Assign fake RAM sector for new files (sectors 5+)
         ldy     aws_tmp14               ; Restore file offset
         tya
@@ -567,21 +567,21 @@ assign_check_file:
         lsr     a
         clc
         adc     #5                      ; New files start at sector 5 (after TEST, WORLD, HELLO)
-        
+
         ; Store fake sector
         tya
         clc  
         adc     #7                      ; Sector offset
         tax
         sta     RAM_CATALOG_START+256,x ; Store fake sector
-        
+
         ; Mark page as allocated (page = sector - FIRST_RAM_SECTOR)
         sec
         sbc     #FIRST_RAM_SECTOR       ; Convert sector to page number (page = sector - 2)
         tax
         lda     #1
         sta     RAM_PAGE_ALLOC,x        ; Mark page as used
-        
+
 assign_next_file:
 @next_file:
         ldy     aws_tmp14               ; Restore file offset
@@ -590,7 +590,7 @@ assign_next_file:
         adc     #8                      ; Move to next file
         tay
         jmp     assign_check_file
-        
+
 assign_done:
 @assign_done:
         rts
@@ -635,7 +635,7 @@ fuji_read_disc_title_data:
 
 fuji_init_ram_filesystem:
         jsr     remember_axy
-        
+
         ; Copy actual catalog data (not full sectors)  
         ; Sector 0: Copy actual data then clear rest
         ldy     #0
@@ -679,7 +679,7 @@ fuji_init_ram_filesystem:
         jmp     @clear_sector1_loop
 
 @catalog_copy_done:
-        
+
         ; Clear page allocation table (all pages free initially)
         lda     #$00
         ldy     #11                     ; 12 pages (0-11)
@@ -687,7 +687,7 @@ fuji_init_ram_filesystem:
         sta     RAM_PAGE_ALLOC,y
         dey
         bpl     @clear_alloc_loop
-        
+
         ; Clear page length table
         lda     #$00
         ldy     #11                     ; 12 pages (0-11)
@@ -695,23 +695,23 @@ fuji_init_ram_filesystem:
         sta     RAM_PAGE_LENGTH,y
         dey
         bpl     @clear_length_loop
-        
+
         ; Copy existing ROM files to RAM pages
         ; TEST file (sector 2) -> RAM page 0
         jsr     @copy_test_to_ram
-        
+
         ; WORLD file (sector 3) -> RAM page 1  
         jsr     @copy_world_to_ram
-        
+
         ; HELLO file (sector 4) -> RAM page 2
         jsr     @copy_hello_to_ram
-        
+
         ; Mark first 3 pages as allocated for existing files
         lda     #1
         sta     RAM_PAGE_ALLOC+0        ; TEST file
         sta     RAM_PAGE_ALLOC+1        ; WORLD file
         sta     RAM_PAGE_ALLOC+2        ; HELLO file
-        
+
         rts
 
 ; Helper functions to copy ROM file data to RAM pages

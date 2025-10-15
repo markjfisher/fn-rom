@@ -24,9 +24,9 @@
 
 cmd_fs_drive:
         dbg_string_axy "CMD_FS_DRIVE: "
-        
+
         ; TODO: Implement DRIVE command
-        
+
         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -35,7 +35,7 @@ cmd_fs_drive:
 
 cmd_fs_fboot:
         dbg_string_axy "CMD_FS_FBOOT: "
-        
+
         ; TODO: Implement FBOOT command
 
         rts
@@ -46,7 +46,7 @@ cmd_fs_fboot:
 
 cmd_fs_fuji:
         dbg_string_axy "CMD_FS_FUJI: "
-        
+
         ; Initialize FujiNet filing system (following MMFS CMD_CARD pattern)
         lda     #$FF                    ; Set A=$FF to indicate not a boot file
         jmp     init_fuji               ; Call the initialization function
@@ -57,10 +57,10 @@ cmd_fs_fuji:
 
 cmd_utils_roms:
         dbg_string_axy "CMD_UTILS_ROMS: "
-        
+
         ; TODO: Implement ROMS command
 
-        
+
         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

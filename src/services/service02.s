@@ -17,7 +17,7 @@ service02_claim_privworkspace:
         ; Y contains first available page for private workspace
         tya
         pha                             ; Save Y=PWS Page
-        
+
         ; Set up workspace pointer at $B0/$B1
         sta     aws_tmp01                ; $B1 = PWS page
         ldy     paged_rom_priv_ws,x
@@ -27,19 +27,19 @@ service02_claim_privworkspace:
         sta     paged_rom_priv_ws,x
         lda     #$00
         sta     aws_tmp00                ; $B0 = 0 (low byte)
-        
+
         cpy     aws_tmp01                ; Private workspace may have moved!
         beq     @samepage                ; If same as before
-        
+
         ldy     #<fuji_force_reset             ; $D3
         sta     (aws_tmp00),y            ; PWSP+$D3=0
-        
+
 @samepage:
         ; Read hard/soft BREAK
         lda     #$FD
         jsr     osbyte_X0YFF             ; X=0=soft,1=power up,2=hard
         dex                              ; X=FF=soft,0=power up,1=hard
-        
+
         txa                              ; A=FF=soft,0=power up,1=hard
         ldy     #<fuji_force_reset             ; $D3
         and     (aws_tmp00),y
@@ -48,14 +48,14 @@ service02_claim_privworkspace:
         iny                              ; $D4
         plp
         bpl     @notsoft                 ; If not soft break
-        
+
         lda     (aws_tmp00),y            ; A=PWSP+$D4
         bpl     @notsoft                 ; If PWSP "full"
-        
+
         ; If soft break and pws is empty then I must have owned sws,
         ; so copy it to my pws.
         jsr     save_static_to_private_workspace
-        
+
 @notsoft:
         lda     #$00
         sta     (aws_tmp00),y            ; PWSP+$D4=0 = PWSP "full"
@@ -66,5 +66,5 @@ service02_claim_privworkspace:
         lda     #$02
         iny
         iny
-        
+
         rts

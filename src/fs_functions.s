@@ -376,7 +376,7 @@ load_cur_drv_cat2:
 load_cur_drv_cat:
         ; Load catalog from FujiNet interface (equivalent to OW7F_Execute_and_ReportIfDiskFault)
         jsr     fuji_read_catalog
-        
+
         ; Mark catalog as loaded for current drive (equivalent to MMFS line 7322-7323)
 write_current_drv_to_cat:
         lda     CurrentDrv
@@ -544,7 +544,7 @@ print_catalog:
         iny
         cpy     #$08
         bne     @title_loop
-        
+
         ; Print cycle number in parentheses
         jsr     print_string
         .byte   " (", $80
@@ -555,14 +555,14 @@ print_catalog:
         .byte   ")", $80
         nop
         jsr     print_newline
-        
+
         ; Print "Drive X"
         jsr     print_string
         .byte   "Drive ", $80
         nop
         lda     CurrentDrv
         jsr     print_decimal
-        
+
         ; Print 13 spaces
         ldy     #$0D
 @spaces_loop:
@@ -570,7 +570,7 @@ print_catalog:
         jsr     print_char
         dey
         bne     @spaces_loop
-        
+
         ; Print "Option X (LOAD)"
         jsr     print_string
         .byte   "Option ", $80
@@ -581,7 +581,7 @@ print_catalog:
         .byte   " (LOAD)", $80
         nop
         jsr     print_newline
-        
+
         ; Print "Dir. :X.$"
         jsr     print_string
         .byte   "Dir. :", $80
@@ -592,7 +592,7 @@ print_catalog:
         jsr     print_char
         lda     fuji_default_dir
         jsr     print_char
-        
+
         ; Print 11 spaces
         ldy     #$0B
 @spaces_loop2:
@@ -600,7 +600,7 @@ print_catalog:
         jsr     print_char
         dey
         bne     @spaces_loop2
-        
+
         ; Print "Lib. :X.$"
         jsr     print_string
         .byte   "Lib. :", $80
@@ -612,25 +612,25 @@ print_catalog:
         lda     fuji_lib_dir
         jsr     print_char
         jsr     print_newline
-        
+
         ; Print file list
         ldy     #$00
 @file_loop:
         cpy     dfs_cat_num_x8
         bcs     @done
-        
+
         ; Check if file is marked (bit 7 set)
         lda     $0E08,y
         bmi     @next_file
-        
+
         ; Print filename
         jsr     print_filename_at_y
-        
+
         ; Mark file as printed
         lda     $0E08,y
         ora     #$80
         sta     $0E08,y
-        
+
 @next_file:
         ; Move to next file (8 bytes per entry)
         tya
@@ -638,7 +638,7 @@ print_catalog:
         adc     #$08
         tay
         jmp     @file_loop
-        
+
 @done:
         jsr     print_newline
         rts
@@ -653,7 +653,7 @@ print_filename_at_y:
         jsr     print_char
         lda     #' '
         jsr     print_char
-        
+
         ; Print filename (7 bytes)
         ldx     #$00
 @name_loop:
@@ -663,14 +663,14 @@ print_filename_at_y:
         inx
         cpx     #$07
         bne     @name_loop
-        
+
         ; Skip directory character (don't print it)
         ; Just restore Y to start of file entry
         tya
         sec
         sbc     #$07
         tay
-        
+
         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

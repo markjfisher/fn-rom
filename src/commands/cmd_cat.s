@@ -13,7 +13,7 @@
 
 fscv5_starCAT:
         dbg_string_axy "FSCV5_STARCAT: "
-        
+
         ; Load and print catalog from implementation
         jsr     fuji_read_catalog
         jsr     print_catalog

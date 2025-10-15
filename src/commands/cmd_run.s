@@ -80,7 +80,7 @@ runfile_found:
         jsr     a_rorx6and3            ; Extract high bits
         cmp     #$03                   ; If high bits = 3
         bne     runfile_run            ; If not &FFFFFFFF, run normally
-        
+
         ; Check if exec address is &FFFFFFFF
         lda     dfs_cat_file_exec_addr,y       ; Exec address low byte
         and     dfs_cat_file_exec_addr+1,y     ; Exec address high byte
@@ -94,7 +94,7 @@ runfile_found:
         sta     fuji_filename_buffer+7,x
         dex
         bpl     @runfile_exec_loop
-        
+
         ; Build *EXEC command: "E.:X.D.FILENAME" (following MMFS pattern)
         lda     #$0D
         sta     fuji_filename_buffer+14
@@ -111,7 +111,7 @@ runfile_found:
         sta     fuji_filename_buffer+6
         lda     DirectoryParam         ; Directory D
         sta     fuji_filename_buffer+5
-        
+
         ; Execute the *EXEC command
         ldx     #$00
         ldy     #$10                   ; MP+&10
@@ -119,7 +119,7 @@ runfile_found:
 
 runfile_run:
         dbg_string_axy "Loading file: "
-        
+
 .ifdef FN_DEBUG
         pha
         ; Debug: Check what's in the catalog entry before loading
@@ -131,7 +131,7 @@ runfile_run:
         lda     dfs_cat_file_exec_addr,y        ; Low byte of exec address from catalog
         jsr     print_hex
         jsr     print_newline
-        
+
         ; Debug: Check what's in aws_tmp14/15 before loading
         jsr     print_string
         .byte   "aws_tmp14/15 before load: "
@@ -143,38 +143,34 @@ runfile_run:
         jsr     print_newline
         pla
 .endif
-        
+
         ; Load the file normally
         jsr     LoadFile_Ycatoffset    ; Load file
-        
+
         ; Store execution address from catalog entry for final jump
         ; TODO: work out why this is needed, as it differs from MMFS where the values are already good
         lda     dfs_cat_file_exec_addr,y        ; Exec address low byte from catalog
         sta     aws_tmp14              ; Store in workspace (&BE)
         lda     dfs_cat_file_exec_addr+1,y      ; Exec address high byte from catalog
         sta     aws_tmp15              ; Store in workspace (&BF)
-        
-.ifdef FN_DEBUG
-        ; Debug: Check what's in the workspace after loading
-        jsr     print_string
-        .byte   "After LoadFile_Ycatoffset:"
-        nop
-        jsr     print_newline
-        
-        ; Dump the execution address area (aws_tmp14/15 should contain exec address)
-        lda     aws_tmp14
-        jsr     print_hex
-        lda     aws_tmp15  
-        jsr     print_hex
-        jsr     print_newline
-        
-        ; Also dump the workspace area that MMFS uses for exec address
-        lda     #$76                    ; Low byte of $1076
-        ldx     #$10                    ; High byte of $1076
-        ldy     #$04                    ; Dump 4 bytes ($1076-$1079)
-        jsr     dump_memory_block
-.endif
-        
+
+; .ifdef FN_DEBUG
+;         pha
+
+;         ; Debug: Check what's in the workspace after loading
+;         jsr     print_string
+;         .byte   "After LoadFile_Ycatoffset:"
+
+;         ; Dump the execution address area (aws_tmp14/15 should contain exec address)
+;         lda     aws_tmp14
+;         jsr     print_hex
+;         lda     aws_tmp15  
+;         jsr     print_hex
+;         jsr     print_newline
+
+;         pla
+; .endif
+
         ; Set up execution parameters
         clc
         lda     fuji_text_ptr_offset   ; MA+&10D9 += text ptr (parameters)

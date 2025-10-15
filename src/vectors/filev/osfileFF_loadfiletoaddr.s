@@ -32,10 +32,10 @@
 osfileFF_loadfiletoaddr:
         jsr     get_cat_entry_fspba        ; Get Load Addr etc.
         bcc     @file_not_found            ; If file not found, exit with error
-        
+
         jsr     set_param_block_pointer_b0  ; from catalog
         jsr     read_file_attribs_to_b0_yoffset  ; (Just for info?)
-        
+
         ; Y now contains the catalog offset from get_cat_entry_fspba
         ; Fall into LoadFile_Ycatoffset
         jmp     LoadFile_Ycatoffset
@@ -52,7 +52,7 @@ LoadFile_Ycatoffset:
         sty     aws_tmp10                ; STY &BA
         ldx     #$00
         lda     aws_tmp14                ; If ?BE=0 don't do Load Addr
-        
+
         bne     @load_at_load_addr
 
         ; use load address in control block

@@ -27,13 +27,13 @@
 
 fuji_read_block_data:
         jsr     remember_axy
-        
+
         ; TODO: Implement serial communication to read block
         ; 1. Send read command to FujiNet
         ; 2. Send block parameters (sector, count, etc.)
         ; 3. Receive data into buffer at data_ptr
         ; 4. Handle any errors
-        
+
         ; For now, just return success
         clc
         rts
@@ -46,13 +46,13 @@ fuji_read_block_data:
 
 fuji_write_block_data:
         jsr     remember_axy
-        
+
         ; TODO: Implement serial communication to write block
         ; 1. Send write command to FujiNet
         ; 2. Send block parameters (sector, count, etc.)
         ; 3. Send data from buffer at data_ptr
         ; 4. Handle any errors
-        
+
         ; For now, just return success
         clc
         rts
@@ -65,13 +65,13 @@ fuji_write_block_data:
 
 fuji_read_catalog_data:
         jsr     remember_axy
-        
+
         ; TODO: Implement serial communication to read catalog
         ; 1. Send "GET_CATALOGUE" command to FujiNet
         ; 2. Receive 512-byte catalog data
         ; 3. Store in buffer at data_ptr (0x0E00)
         ; 4. Handle any errors
-        
+
         ; For now, just return success
         clc
         rts
@@ -84,13 +84,13 @@ fuji_read_catalog_data:
 
 fuji_write_catalog_data:
         jsr     remember_axy
-        
+
         ; TODO: Implement serial communication to write catalog
         ; 1. Send "PUT_CATALOGUE" command to FujiNet
         ; 2. Send 512-byte catalog data from buffer at data_ptr
         ; 3. Confirm successful update
         ; 4. Handle any errors
-        
+
         ; For now, just return success
         clc
         rts
@@ -103,13 +103,13 @@ fuji_write_catalog_data:
 
 fuji_read_disc_title_data:
         jsr     remember_axy
-        
+
         ; TODO: Implement serial communication to read disc title
         ; 1. Send "GET_DISC_TITLE" command to FujiNet
         ; 2. Receive disc title string (up to 16 chars)
         ; 3. Store in buffer at data_ptr (0x1000)
         ; 4. Handle any errors
-        
+
         ; For now, just return success
         clc
         rts

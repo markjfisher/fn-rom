@@ -48,25 +48,25 @@ print_help_table:
         ; Print newline first
         lda     #$0D
         jsr     print_char
-        
+
         ; Print system name and version using ROM header strings
         lda     #<rom_title
         ldx     #>rom_title
         jsr     print_string_ax
-        
+
         ; Print space
         lda     #' '
         jsr     print_char
-        
+
         ; Print version (skip the 0 byte by adding 1 to location)
         lda     #<(rom_version_string + 1)
         ldx     #>(rom_version_string + 1)
         jsr     print_string_ax
-        
+
         ; Print newline
         lda     #$0D
         jsr     print_char
-        
+
         ; now do the commands
 @loop:
         lda     #$00

@@ -263,7 +263,7 @@ print_decimal:
         sta     aws_tmp01              ; Tens
         pla
         sta     aws_tmp02              ; Units
-        
+
         ; Calculate hundreds
 @hundreds_loop:
         lda     aws_tmp02
@@ -273,7 +273,7 @@ print_decimal:
         sta     aws_tmp02
         inc     aws_tmp00
         jmp     @hundreds_loop
-        
+
 @hundreds_done:
         ; Calculate tens
 @tens_loop:
@@ -284,24 +284,24 @@ print_decimal:
         sta     aws_tmp02
         inc     aws_tmp01
         jmp     @tens_loop
-        
+
 @tens_done:
         ; Print hundreds (if any)
         lda     aws_tmp00
         beq     @skip_hundreds
         jsr     print_nibble
-        
+
 @skip_hundreds:
         ; Print tens (if any, or if we printed hundreds)
         lda     aws_tmp00
         bne     @print_tens
         lda     aws_tmp01
         beq     @skip_tens
-        
+
 @print_tens:
         lda     aws_tmp01
         jsr     print_nibble
-        
+
 @skip_tens:
         ; Always print units
         lda     aws_tmp02
@@ -385,7 +385,7 @@ dump_hex_row:
 
         ; the above leaves A correct
         tay                             ; Use Y as offset from $A8
-        
+
         ldx     #0                      ; Loop counter
 @loop:
         lda     $A8,y                   ; Load byte using direct addressing
@@ -395,7 +395,7 @@ dump_hex_row:
         inx                             ; Increment counter
         cpx     #8                      ; 8 bytes per row
         bne     @loop
-        
+
         jsr     print_newline
         rts
 
@@ -413,7 +413,7 @@ dump_memory_block:
         pha                             ; Save X
         tya
         pha                             ; Save Y (length)
-        
+
         ldy     #0
 @dump_loop:
         lda     (cws_tmp7),y           ; Load byte
@@ -422,7 +422,7 @@ dump_memory_block:
         iny
         cpy     aws_tmp00              ; Compare with saved length
         bne     @dump_loop
-        
+
         jsr     print_newline
         pla                             ; Restore Y
         tay
