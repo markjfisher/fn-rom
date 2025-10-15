@@ -13,9 +13,6 @@
         .export fuji_read_disc_title_data
 
         .export dummy_catalog
-        .export dummy_sector2_data
-        .export dummy_sector3_data
-        .export dummy_sector4_data
 
         .export hello_app_start
         .export world_app_start
@@ -50,9 +47,9 @@ RAM_CATALOG_START = RAM_FS_START                ; Catalog (512 bytes)
 RAM_PAGE_ALLOC    = RAM_FS_START + $200         ; Page allocation table (32 bytes)  
 RAM_PAGE_LENGTH   = RAM_FS_START + $220         ; Page length table (32 bytes)
 RAM_PAGES_START   = RAM_FS_START + $240         ; File pages start
-MAX_PAGES         = 32                          ; Maximum pages
+MAX_PAGES         = 12                          ; Maximum pages (12 * 256 + 512 = $E00 total)
 PAGE_SIZE         = 256                         ; Bytes per page
-FIRST_RAM_SECTOR  = 10                          ; Sectors 10+ are RAM pages
+FIRST_RAM_SECTOR  = 2                           ; Sectors 2+ are now RAM pages (TEST, WORLD, HELLO, then new files)
 
 ; Static test data - a simple BBC Micro disc image
 dummy_disc_title:
@@ -75,9 +72,10 @@ dummy_catalog:
 
         ; File entry 3 (bytes 24-31): Filename + directory
         .byte "TEST   ", $24  ; Filename (7 bytes) + directory "$" (unlocked)
+end_of_sector0_data:
 
-        ; Fill rest of sector 0 with zeros
-        .res 256 - (* - dummy_catalog), $00
+; TODO: need to mark this location so we can get the size of first sector above
+end_of_sector0:
 
         ; SECTOR 1 (bytes 256-511)
         ; Catalog header entry 0 (bytes 256-263): Disk title last 4 bytes + cycle + count + options
@@ -107,9 +105,8 @@ dummy_catalog:
         .byte <(dummy_sector2_data_end - dummy_sector2_data), >(dummy_sector2_data_end - dummy_sector2_data)  ; File length
         .byte $00        ; Mixed byte - all high bits = 0
         .byte $02        ; Start sector = sector 2
+end_of_sector1_data:
 
-        ; Fill rest of sector 1 with zeros
-        .res 512 - (* - dummy_catalog), $00
 
 ; Dummy file data - 3 sectors of 256 bytes each
 ; These contain actual executable BBC Micro code that can be loaded and run
@@ -153,7 +150,6 @@ test_app_start:
         sta     ROMSEL                  ; Restore hardware register
         rts
 dummy_sector2_data_end:
-        .res 256 - (* - dummy_sector2_data), $00  ; Fill rest with zeros
 
 ; Sector 3: WORLD file
 dummy_sector3_data:
@@ -197,7 +193,6 @@ world_app_start:
         sta     ROMSEL                  ; Restore hardware register
         rts
 dummy_sector3_data_end:
-        .res 256 - (* - dummy_sector3_data), $00  ; Fill rest with zeros
 
 ; Sector 4: HELLO file
 dummy_sector4_data:
@@ -241,7 +236,6 @@ hello_app_start:
         sta     ROMSEL                  ; Restore hardware register
         rts
 dummy_sector4_data_end:
-        .res 256 - (* - dummy_sector4_data), $00  ; Fill rest with zeros
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; FUJI_READ_BLOCK_DATA - Read data block from dummy interface
@@ -277,23 +271,14 @@ fuji_read_block_data:
 ;         pla
 ; .endif
 
-        ; For dummy interface, read from our sector data
-        ; In a real implementation, this would read from network
-
-        ; Simple sector to page mapping
+        ; For dummy interface, read from RAM pages
+        ; All sectors 2+ are now stored in RAM
+        
         lda     fuji_file_offset         ; Get sector number
-        cmp     #FIRST_RAM_SECTOR       ; Is it a RAM sector (10+)?
+        cmp     #FIRST_RAM_SECTOR       ; Is it a RAM sector (2+)?
         bcs     @read_ram_page          ; Yes, read from RAM page
         
-        ; ROM files: sectors 2, 3, 4 with test data
-        cmp     #2
-        beq     @read_sector2
-        cmp     #3
-        beq     @read_sector3
-        cmp     #4
-        beq     @read_sector4
-        
-        ; Unknown ROM sector, return error
+        ; Sectors 0-1 (catalog) not handled here, return error
         lda     #0
         rts
 
@@ -302,6 +287,10 @@ fuji_read_block_data:
         sec
         sbc     #FIRST_RAM_SECTOR       ; A = page number (0, 1, 2...)
         
+        ; Check if page is within bounds
+        cmp     #MAX_PAGES
+        bcs     @read_error             ; Page >= MAX_PAGES, error
+        
         ; Calculate page address: RAM_PAGES_START + (page * 256)
         clc
         adc     #>RAM_PAGES_START       ; Add page number to high byte
@@ -309,27 +298,10 @@ fuji_read_block_data:
         lda     #<RAM_PAGES_START       ; Low byte
         sta     aws_tmp12
         jmp     @copy_sector_data
-        
-@read_sector2:
-        lda     #<dummy_sector2_data
-        sta     aws_tmp12                ; Use zero-page variable for indirect addressing
-        lda     #>dummy_sector2_data
-        sta     aws_tmp13                ; Use zero-page variable for indirect addressing
-        jmp     @copy_sector_data
-        
-@read_sector3:
-        lda     #<dummy_sector3_data
-        sta     aws_tmp12                ; Use zero-page variable for indirect addressing
-        lda     #>dummy_sector3_data
-        sta     aws_tmp13                ; Use zero-page variable for indirect addressing
-        jmp     @copy_sector_data
-        
-@read_sector4:
-        lda     #<dummy_sector4_data
-        sta     aws_tmp12                ; Use zero-page variable for indirect addressing
-        lda     #>dummy_sector4_data
-        sta     aws_tmp13                ; Use zero-page variable for indirect addressing
-        jmp     @copy_sector_data
+
+@read_error:
+        lda     #0                      ; Return error
+        rts
         
 @copy_sector_data:
         ; Copy data from sector to buffer
@@ -373,10 +345,10 @@ fuji_write_block_data:
         jsr     remember_axy
 
         lda     fuji_file_offset         ; Get sector number
-        cmp     #FIRST_RAM_SECTOR       ; Is it a RAM sector (10+)?
+        cmp     #FIRST_RAM_SECTOR       ; Is it a RAM sector (2+)?
         bcs     @write_ram_page         ; Yes, write to RAM page
         
-        ; ROM sectors: cannot write to ROM, return error
+        ; Sectors 0-1 (catalog) not handled here, return error
         lda     #0
         rts
         
@@ -384,6 +356,10 @@ fuji_write_block_data:
         ; Convert sector to page: page = sector - FIRST_RAM_SECTOR
         sec
         sbc     #FIRST_RAM_SECTOR       ; A = page number (0, 1, 2...)
+        
+        ; Check if page is within bounds
+        cmp     #MAX_PAGES
+        bcs     @write_error            ; Page >= MAX_PAGES, error
         
         ; Calculate page address: RAM_PAGES_START + (page * 256)
         clc
@@ -402,6 +378,10 @@ fuji_write_block_data:
         
         ; dbg_string_axy "WROTE to sector: "
         lda     #1                      ; Success
+        rts
+
+@write_error:
+        lda     #0                      ; Return error
         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -553,7 +533,7 @@ assign_check_file:
         lda     #0
         sta     RAM_CATALOG_START+256,x
         
-        ; Assign fake RAM sector
+        ; Assign fake RAM sector for new files (sectors 5+)
         ldy     aws_tmp14               ; Restore file offset
         tya
         sec
@@ -562,7 +542,7 @@ assign_check_file:
         lsr     a
         lsr     a
         clc
-        adc     #FIRST_RAM_SECTOR       ; Add to base (10+)
+        adc     #5                      ; New files start at sector 5 (after TEST, WORLD, HELLO)
         
         ; Store fake sector
         tya
@@ -571,9 +551,9 @@ assign_check_file:
         tax
         sta     RAM_CATALOG_START+256,x ; Store fake sector
         
-        ; Mark page as allocated
+        ; Mark page as allocated (page = sector - FIRST_RAM_SECTOR)
         sec
-        sbc     #FIRST_RAM_SECTOR       ; Convert to page number
+        sbc     #FIRST_RAM_SECTOR       ; Convert sector to page number (page = sector - 2)
         tax
         lda     #1
         sta     RAM_PAGE_ALLOC,x        ; Mark page as used
@@ -632,25 +612,53 @@ fuji_read_disc_title_data:
 fuji_init_ram_filesystem:
         jsr     remember_axy
         
-        ; Copy ROM catalog to RAM catalog area
+        ; Copy actual catalog data (not full sectors)  
+        ; Sector 0: Copy actual data then clear rest
         ldy     #0
-@copy_catalog_loop:
+@copy_sector0_loop:
+        cpy     #<(end_of_sector0_data - dummy_catalog)  ; Compare with calculated size
+        bcs     @clear_sector0_rest
         lda     dummy_catalog,y
         sta     RAM_CATALOG_START,y
         iny
-        bne     @copy_catalog_loop      ; Copy first 256 bytes
-        
-        ; Copy second 256 bytes  
+        jmp     @copy_sector0_loop
+
+@clear_sector0_rest:
+        ; Clear rest of sector 0 (bytes 32-255) 
+        lda     #0
+@clear_sector0_loop:
+        cpy     #0                      ; Y wraps to 0 after 255
+        beq     @copy_sector1
+        sta     RAM_CATALOG_START,y
+        iny
+        jmp     @clear_sector0_loop
+
+@copy_sector1:
+        ; Sector 1: Copy actual data then clear rest
         ldy     #0
-@copy_catalog_loop2:
+@copy_sector1_loop:
+        cpy     #<(end_of_sector1_data - end_of_sector0_data)  ; Compare with calculated size
+        bcs     @clear_sector1_rest  
         lda     dummy_catalog+256,y
         sta     RAM_CATALOG_START+256,y
         iny
-        bne     @copy_catalog_loop2     ; Copy second 256 bytes
+        jmp     @copy_sector1_loop
+
+@clear_sector1_rest:
+        ; Clear rest of sector 1 (bytes 32-255)
+        lda     #0
+@clear_sector1_loop:
+        cpy     #0                      ; Y wraps to 0 after 255
+        beq     @catalog_copy_done
+        sta     RAM_CATALOG_START+256,y
+        iny
+        jmp     @clear_sector1_loop
+
+@catalog_copy_done:
         
-        ; Clear page allocation table (all pages free)
+        ; Clear page allocation table (all pages free initially)
         lda     #$00
-        ldy     #$1F                    ; 32 bytes for allocation table
+        ldy     #11                     ; 12 pages (0-11)
 @clear_alloc_loop:
         sta     RAM_PAGE_ALLOC,y
         dey
@@ -658,12 +666,74 @@ fuji_init_ram_filesystem:
         
         ; Clear page length table
         lda     #$00
-        ldy     #$1F                    ; 32 bytes for length table
+        ldy     #11                     ; 12 pages (0-11)
 @clear_length_loop:
         sta     RAM_PAGE_LENGTH,y
         dey
         bpl     @clear_length_loop
         
+        ; Copy existing ROM files to RAM pages
+        ; TEST file (sector 2) -> RAM page 0
+        jsr     @copy_test_to_ram
+        
+        ; WORLD file (sector 3) -> RAM page 1  
+        jsr     @copy_world_to_ram
+        
+        ; HELLO file (sector 4) -> RAM page 2
+        jsr     @copy_hello_to_ram
+        
+        ; Mark first 3 pages as allocated for existing files
+        lda     #1
+        sta     RAM_PAGE_ALLOC+0        ; TEST file
+        sta     RAM_PAGE_ALLOC+1        ; WORLD file
+        sta     RAM_PAGE_ALLOC+2        ; HELLO file
+        
+        rts
+
+; Helper functions to copy ROM file data to RAM pages
+@copy_test_to_ram:
+        ; Copy TEST file from ROM to RAM page 0 (actual size only)
+        ldy     #0
+        ldx     #<(dummy_sector2_data_end - dummy_sector2_data)  ; File size
+@copy_test_loop:
+        cpx     #0                      ; Check if done
+        beq     @copy_test_done
+        lda     dummy_sector2_data,y
+        sta     RAM_PAGES_START,y       ; Page 0 = RAM_PAGES_START + 0*256
+        iny
+        dex
+        jmp     @copy_test_loop
+@copy_test_done:
+        rts
+
+@copy_world_to_ram:
+        ; Copy WORLD file from ROM to RAM page 1 (actual size only)
+        ldy     #0
+        ldx     #<(dummy_sector3_data_end - dummy_sector3_data)  ; File size
+@copy_world_loop:
+        cpx     #0                      ; Check if done
+        beq     @copy_world_done
+        lda     dummy_sector3_data,y
+        sta     RAM_PAGES_START+256,y   ; Page 1 = RAM_PAGES_START + 1*256
+        iny
+        dex
+        jmp     @copy_world_loop
+@copy_world_done:
+        rts
+
+@copy_hello_to_ram:
+        ; Copy HELLO file from ROM to RAM page 2 (actual size only)
+        ldy     #0
+        ldx     #<(dummy_sector4_data_end - dummy_sector4_data)  ; File size
+@copy_hello_loop:
+        cpx     #0                      ; Check if done
+        beq     @copy_hello_done
+        lda     dummy_sector4_data,y
+        sta     RAM_PAGES_START+512,y   ; Page 2 = RAM_PAGES_START + 2*256
+        iny
+        dex
+        jmp     @copy_hello_loop
+@copy_hello_done:
         rts
 
 ; RAM filesystem variables (kept for future use)
