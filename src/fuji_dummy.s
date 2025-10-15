@@ -246,30 +246,23 @@ dummy_sector4_data_end:
 fuji_read_block_data:
         jsr     remember_axy
 
-; .ifdef FN_DEBUG
-;         pha
-;         jsr     print_string
-;         .byte   "fuji_read_block_data: sector="
-;         nop
-;         lda     fuji_file_offset
-;         jsr     print_hex
-;         jsr     print_string
-;         .byte   " data_ptr=$"
-;         nop
-;         lda     data_ptr+1
-;         jsr     print_hex
-;         lda     data_ptr
-;         jsr     print_hex
-;         jsr     print_string
-;         .byte   " size="
-;         nop
-;         lda     fuji_block_size+1
-;         jsr     print_hex
-;         lda     fuji_block_size
-;         jsr     print_hex
-;         jsr     print_newline
-;         pla
-; .endif
+.ifdef FN_DEBUG_READ_DATA
+         pha
+         jsr     print_string
+         .byte   "READ: sector="
+         nop
+         lda     fuji_file_offset
+         jsr     print_hex
+         jsr     print_string
+         .byte   " size="
+         nop
+         lda     fuji_block_size+1
+         jsr     print_hex
+         lda     fuji_block_size
+         jsr     print_hex
+         jsr     print_newline
+         pla
+.endif
 
         ; For dummy interface, read from RAM pages
         ; All sectors 2+ are now stored in RAM
@@ -287,6 +280,15 @@ fuji_read_block_data:
         sec
         sbc     #FIRST_RAM_SECTOR       ; A = page number (0, 1, 2...)
         
+.ifdef FN_DEBUG_READ_DATA
+        pha
+        jsr     print_string
+        .byte   " page="
+        nop
+        jsr     print_hex
+        pla
+.endif
+        
         ; Check if page is within bounds
         cmp     #MAX_PAGES
         bcs     @read_error             ; Page >= MAX_PAGES, error
@@ -297,6 +299,18 @@ fuji_read_block_data:
         sta     aws_tmp13               ; High byte of page address
         lda     #<RAM_PAGES_START       ; Low byte
         sta     aws_tmp12
+        
+.ifdef FN_DEBUG_READ_DATA
+        jsr     print_string
+        .byte   " addr=$"
+        nop
+        lda     aws_tmp13
+        jsr     print_hex
+        lda     aws_tmp12
+        jsr     print_hex
+        jsr     print_newline
+.endif
+        
         jmp     @copy_sector_data
 
 @read_error:
@@ -314,6 +328,16 @@ fuji_read_block_data:
         ldy     #0
 @copy_loop:
         lda     (aws_tmp12),y            ; Use zero-page variable for indirect addressing
+        
+; .ifdef FN_DEBUG_READ_DATA
+;         pha
+;         jsr     print_string
+;         .byte   " byte="
+;         nop
+;         jsr     print_hex
+;         pla
+; .endif
+        
         sta     (data_ptr),y
         iny
         cpy     aws_tmp14                ; Compare with temporary variable
@@ -639,7 +663,7 @@ fuji_init_ram_filesystem:
 @copy_sector1_loop:
         cpy     #<(end_of_sector1_data - end_of_sector0_data)  ; Compare with calculated size
         bcs     @clear_sector1_rest  
-        lda     dummy_catalog+256,y
+        lda     end_of_sector0_data,y
         sta     RAM_CATALOG_START+256,y
         iny
         jmp     @copy_sector1_loop

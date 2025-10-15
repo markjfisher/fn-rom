@@ -32,34 +32,26 @@ fuji_execute_block_rw:
         lda     aws_tmp13                ; &BD (buffer address high)
         sta     fuji_buffer_addr+1
         
-        ; Get start sector from workspace (set by LoadFile_Ycatoffset)
-        ; The start sector is in the last byte of the 8-byte file info
-        ; It's stored in aws_tmp12+7 after the copy loop
-        lda     aws_tmp12+7              ; Start sector
+        ; Get start sector from MMFS workspace variables (set by calc_buffer_sector_for_ptr)
+        ; Channel buffer system uses pws_tmp02/pws_tmp03 for sector info
+        lda     pws_tmp03               ; Start sector low byte
         sta     fuji_file_offset
-        lda     #0
+        lda     pws_tmp02               ; Start sector high byte (mixed byte)
         sta     fuji_file_offset+1
+        lda     #0
         sta     fuji_file_offset+2
         
-        ; Get block size from workspace (set by LoadFile_Ycatoffset)
-        ; The file length is in bytes 4-5 of the 8-byte file info (aws_tmp12+4, aws_tmp12+5)  
-        ; Plus high bits from the mixed byte (aws_tmp12+6)
-        ; Mixed byte bits 5-4 contain file length high bits
-        lda     aws_tmp12+4              ; File length low byte ($BC+4 = $C0)
+        ; Get block size from MMFS workspace variables 
+        ; Channel buffer system uses pws_tmp00/pws_tmp01 for number of sectors
+        ; Each sector is 256 bytes, so we convert sectors to bytes
+        lda     pws_tmp00               ; Number of sectors low byte  
         sta     fuji_block_size
         
-        lda     aws_tmp12+5              ; File length high byte ($BC+5 = $C1) 
-        sta     fuji_block_size+1
-        
-        ; Extract high bits from mixed byte and add to high byte
-        lda     aws_tmp12+6              ; Mixed byte
-        and     #$30                     ; Extract bits 5-4 (file length high bits)
-        lsr                             ; Shift right 4 positions
-        lsr
-        lsr
-        lsr
-        clc
-        adc     fuji_block_size+1        ; Add to existing high byte
+        ; For channel buffers, we typically read 1 sector = 256 bytes
+        ; Set block size to 256 bytes for channel buffer operations
+        lda     #$00                     ; 256 bytes = $0100
+        sta     fuji_block_size
+        lda     #$01
         sta     fuji_block_size+1
         
         ; Execute network operation

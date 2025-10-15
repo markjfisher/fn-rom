@@ -28,7 +28,7 @@
         .import GSINIT_A
         .import a_rolx5
         .import a_rorx5
-        .import fuji_write_catalog_data
+        .import fuji_write_catalog
         .import clear_exec_spool_file_handle
         .import err_bad
         .import fuji_read_catalog
@@ -391,7 +391,7 @@ save_cat_to_disk:
         sta     dfs_cat_cycle
         cld
 
-        jsr     fuji_write_catalog_data
+        jsr     fuji_write_catalog
         jmp     write_current_drv_to_cat
 
 
