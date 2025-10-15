@@ -11,9 +11,8 @@
         .export fuji_read_catalog_data
         .export fuji_write_catalog_data
         .export fuji_read_disc_title_data
-        .export fuji_read_catalog
 
-        .export dummy_catalogue
+        .export dummy_catalog
         .export dummy_sector2_data
         .export dummy_sector3_data
         .export dummy_sector4_data
@@ -59,11 +58,11 @@ FIRST_RAM_SECTOR  = 10                          ; Sectors 10+ are RAM pages
 dummy_disc_title:
         .byte "TESTDISC", 0
 
-; Dummy catalogue data (512 bytes = 2 sectors of 256 bytes each)
-; This simulates a BBC Micro disc catalogue following DFS format
+; Dummy catalog data (512 bytes = 2 sectors of 256 bytes each)
+; This simulates a BBC Micro disc catalog following DFS format
 ; Sector 0: Catalog header + file names
 ; Sector 1: Catalog info + file details
-dummy_catalogue:
+dummy_catalog:
         ; SECTOR 0 (bytes 0-255)
         ; Catalog header entry 0 (bytes 0-7): Disk title first 8 bytes
         .byte "TESTDISC"
@@ -78,7 +77,7 @@ dummy_catalogue:
         .byte "TEST   ", $24  ; Filename (7 bytes) + directory "$" (unlocked)
 
         ; Fill rest of sector 0 with zeros
-        .res 256 - (* - dummy_catalogue), $00
+        .res 256 - (* - dummy_catalog), $00
 
         ; SECTOR 1 (bytes 256-511)
         ; Catalog header entry 0 (bytes 256-263): Disk title last 4 bytes + cycle + count + options
@@ -110,7 +109,7 @@ dummy_catalogue:
         .byte $02        ; Start sector = sector 2
 
         ; Fill rest of sector 1 with zeros
-        .res 512 - (* - dummy_catalogue), $00
+        .res 512 - (* - dummy_catalog), $00
 
 ; Dummy file data - 3 sectors of 256 bytes each
 ; These contain actual executable BBC Micro code that can be loaded and run
@@ -407,7 +406,7 @@ fuji_write_block_data:
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; FUJI_READ_CATALOG_DATA - Read catalog from dummy interface
-; Input: data_ptr points to 512-byte catalogue buffer
+; Input: data_ptr points to 512-byte catalog buffer
 ; Output: Catalogue data in buffer, Carry=0 if success, Carry=1 if error
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -421,7 +420,7 @@ fuji_read_catalog_data:
         jsr     print_newline
 .endif
 
-        ; Copy RAM catalogue data to buffer (512 bytes) - includes created files
+        ; Copy RAM catalog data to buffer (512 bytes) - includes created files
         ldy     #0
 @copy_loop:
         lda     RAM_CATALOG_START,y     ; Read from RAM catalog, not ROM
@@ -454,7 +453,7 @@ fuji_read_catalog_data:
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; FUJI_WRITE_CATALOG_DATA - Write catalog to dummy interface
-; Input: data_ptr points to 512-byte catalogue buffer
+; Input: data_ptr points to 512-byte catalog buffer
 ; Output: Carry=0 if success, Carry=1 if error
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -620,23 +619,6 @@ fuji_read_disc_title_data:
 ; This is a high-level function that loads catalog into $0E00-$0FFF
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-fuji_read_catalog:
-        jsr     remember_axy
-
-        ; Set data_ptr to point to BBC catalog area ($0E00)
-        lda     #<$0E00
-        sta     data_ptr
-        lda     #>$0E00
-        sta     data_ptr+1
-
-        ; Call the low-level catalog read function
-        jsr     fuji_read_catalog_data
-
-        ; The cycle number and boot option are already in the catalog data
-        ; at $0F04 and $0F06, so we don't need to copy them anywhere
-
-        clc
-        rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; RAM Filesystem Functions
@@ -653,7 +635,7 @@ fuji_init_ram_filesystem:
         ; Copy ROM catalog to RAM catalog area
         ldy     #0
 @copy_catalog_loop:
-        lda     dummy_catalogue,y
+        lda     dummy_catalog,y
         sta     RAM_CATALOG_START,y
         iny
         bne     @copy_catalog_loop      ; Copy first 256 bytes
@@ -661,7 +643,7 @@ fuji_init_ram_filesystem:
         ; Copy second 256 bytes  
         ldy     #0
 @copy_catalog_loop2:
-        lda     dummy_catalogue+256,y
+        lda     dummy_catalog+256,y
         sta     RAM_CATALOG_START+256,y
         iny
         bne     @copy_catalog_loop2     ; Copy second 256 bytes

@@ -271,7 +271,7 @@ VID2            := VID
 MMC_CIDCRC      := VID2+$0E
 CHECK_CRC7      := VID2+$10
 
-; 0E00 is a copy of the disk catalogue, see fuji_read_catalogue in fuji_fs.s
+; 0E00 is a copy of the disk catalog, see fuji_read_catalog in fuji_fs.s
 ; e.g. 0F05 = Num*8, 0F0C,X = size of nth file where X = 8 + n*8
 ;
 ; Catalog header:

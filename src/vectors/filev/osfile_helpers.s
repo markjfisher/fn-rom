@@ -272,6 +272,11 @@ cfile_copyfnloop:
         sty     dfs_cat_num_x8
 
 debug_here:
+.ifdef FN_DEBUG_CREATE_FILE
+        ; Mark before catalog save
+        lda     #$CC
+        sta     $6FF4               ; Debug marker - before save
+.endif
         jsr     save_cat_to_disk
         pla
         tay

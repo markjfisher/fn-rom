@@ -28,10 +28,10 @@
         .import GSINIT_A
         .import a_rolx5
         .import a_rorx5
+        .import fuji_write_catalog_data
         .import clear_exec_spool_file_handle
         .import err_bad
         .import fuji_read_catalog
-        .import fuji_write_catalog_data
         .import is_alpha_char
         .import parameter_afsp
         .import print_2_spaces_spl
@@ -103,7 +103,7 @@ get_cat_firstentry80_fname:
         lda     #' '
         sta     $105F
 
-        jsr     check_cur_drv_cat       ; catalogue entry matching
+        jsr     check_cur_drv_cat       ; catalog entry matching
         ldx     #$58                    ; string at &1058
 
 get_cat_entry_2:

@@ -33,7 +33,7 @@ osfileFF_loadfiletoaddr:
         jsr     get_cat_entry_fspba        ; Get Load Addr etc.
         bcc     @file_not_found            ; If file not found, exit with error
         
-        jsr     set_param_block_pointer_b0  ; from catalogue
+        jsr     set_param_block_pointer_b0  ; from catalog
         jsr     read_file_attribs_to_b0_yoffset  ; (Just for info?)
         
         ; Y now contains the catalog offset from get_cat_entry_fspba

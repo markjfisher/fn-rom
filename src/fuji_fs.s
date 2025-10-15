@@ -5,8 +5,8 @@
         .export fuji_init
         .export fuji_read_block
         .export fuji_write_block
-        .export fuji_read_catalogue
-        .export fuji_write_catalogue
+        .export fuji_read_catalog
+        .export fuji_write_catalog
         .export fuji_read_disc_title
         .export fuji_begin_transaction
         .export fuji_end_transaction
@@ -73,61 +73,61 @@ fuji_write_block:
         jmp     fuji_end_transaction
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; FUJI_READ_CATALOGUE - Read the disc catalogue (512-byte directory)
-; The catalogue contains:
+; fuji_read_catalog - Read the disc catalog (512-byte directory)
+; The catalog contains:
 ; - Bytes 0-7: Disc title (first 8 chars)
 ; - Bytes 248-255: Disc title (last 8 chars, if title > 8 chars)
 ; - Bytes 8-247: File directory entries (8 bytes each)
 ; - Each file entry: filename, load/exec addresses, length, attributes
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-fuji_read_catalogue:
+fuji_read_catalog:
         jsr     remember_axy
         jsr     fuji_begin_transaction
         
-        ; Set up catalogue buffer at page 0x0E (512 bytes)
+        ; Set up catalog buffer at page 0x0E (512 bytes)
         lda     #$00
         sta     data_ptr
         lda     #$0E                    ; Catalogue buffer at page 0x0E
         sta     data_ptr+1
         
-        ; For FujiNet, we need to request the disc catalogue from the network
+        ; For FujiNet, we need to request the disc catalog from the network
         ; This is NOT reading physical sectors - it's requesting directory info
-        ; TODO: Implement network request for disc catalogue
+        ; TODO: Implement network request for disc catalog
         ; For now, this is a placeholder that would:
         ; 1. Send "GET_CATALOGUE" command to FujiNet
-        ; 2. Receive 512-byte catalogue data
+        ; 2. Receive 512-byte catalog data
         ; 3. Store it in the buffer at 0x0E00-0x0FFF
         
         jsr     fuji_read_catalog_data
         jmp     fuji_end_transaction
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; FUJI_WRITE_CATALOGUE - Write the disc catalogue back to network
+; fuji_write_catalog - Write the disc catalog back to network
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-fuji_write_catalogue:
-        ; Set up catalogue buffer at page 0x0E (512 bytes)
+fuji_write_catalog:
+        ; Set up catalog buffer at page 0x0E (512 bytes)
         lda     #$00
         sta     data_ptr
         lda     #$0E                    ; Catalogue buffer at page 0x0E
         sta     data_ptr+1
         
-        ; For FujiNet, we need to send the updated catalogue to the network
+        ; For FujiNet, we need to send the updated catalog to the network
         ; This is NOT writing physical sectors - it's updating directory info
-        ; TODO: Implement network request to update disc catalogue
+        ; TODO: Implement network request to update disc catalog
         ; For now, this is a placeholder that would:
         ; 1. Send "PUT_CATALOGUE" command to FujiNet
-        ; 2. Send 512-byte catalogue data from buffer 0x0E00-0x0FFF
+        ; 2. Send 512-byte catalog data from buffer 0x0E00-0x0FFF
         ; 3. Confirm successful update
         
         jsr     fuji_write_catalog_data
         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; FUJI_READ_DISC_TITLE - Read disc title from catalogue
-; For FujiNet, this reads the disc title from the catalogue buffer
-; (bytes 0-7 and 248-255 of the 512-byte catalogue)
+; FUJI_READ_DISC_TITLE - Read disc title from catalog
+; For FujiNet, this reads the disc title from the catalog buffer
+; (bytes 0-7 and 248-255 of the 512-byte catalog)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 fuji_read_disc_title:
