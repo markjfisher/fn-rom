@@ -110,6 +110,9 @@ OS_INC = 1
         .import  dfs_cat_file_op
         .import  dfs_cat_file_sect
 
+        .import  fuji_buf_1060
+        .import  fuji_buf_1067
+
         .import  fuji_buf_1072
         .import  fuji_buf_1073
         .import  fuji_buf_1074

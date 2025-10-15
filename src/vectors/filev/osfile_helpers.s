@@ -38,6 +38,9 @@
 
         .segment "CODE"
 
+; NOTE: fsp == file specification
+;      afsp == ambiguous file specification, multiple possible matches
+
 
 read_fspba_find_cat_entry:
         jsr     read_fspba_reset
@@ -48,7 +51,7 @@ read_fspba_find_cat_entry:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; set_param_block_pointer_b0 - Set parameter block pointer
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
+; keep original name "b0" instead of "aws_tmp00" to make it easier to find in MMFS
 set_param_block_pointer_b0:
         lda     fuji_param_block_lo
         sta     aws_tmp00
@@ -63,15 +66,15 @@ check_exit:
 
 load_addr_hi2:
         lda     #$00
-        sta     $1075                    ; MA+&1075
+        sta     fuji_buf_1075            ; MA+&1075
         lda     pws_tmp02                ; &C2
         and     #$08
-        sta     $1074                    ; MA+&1074
+        sta     fuji_buf_1074            ; MA+&1074
         beq     ldadd_nothost
 set_load_addr_to_host:
         lda     #$FF
-        sta     $1075                    ; MA+&1075
-        sta     $1074                    ; MA+&1074
+        sta     fuji_buf_1075            ; MA+&1075
+        sta     fuji_buf_1074            ; MA+&1074
 ldadd_nothost:
         rts
 
@@ -213,18 +216,24 @@ getfirstblock_yoffset:
 @cfile_insertfileloop:
         cpy     aws_tmp00
         beq     cfile_atcatentry
-        lda     dfs_cat_s0_title+7,y
-        sta     dfs_cat_file_dir,y
-        lda     dfs_cat_sect_count,y     ; Load from 0F07+Y 
-        sta     dfs_cat_file_sect,y     ; Store to 0F0F+Y (shift by 8)
+        
+        ; Copy row in both sectors down from the last row backwards
+        ; to make room for the new row
+        lda     dfs_cat_s0_header+7,y
+        sta     dfs_cat_s0_header+7+8,y
+        lda     dfs_cat_s1_header+7,y 
+        sta     dfs_cat_s1_header+7+8,y
+
         dey
         bcs     @cfile_insertfileloop
+
+; and insert the new row from the buffers
 cfile_atcatentry:
-        lda     fuji_buf_1076,y
+        lda     fuji_buf_1076,y         ; Exec address b17,b16
         and     #$03
         asl     a
         asl     a
-        eor     pws_tmp04
+        eor     pws_tmp04               ; Length
         and     #$FC
         eor     pws_tmp04
         asl     a
@@ -243,20 +252,11 @@ cfile_atcatentry:
         tya
         pha
 cfile_copyfnloop:
-.ifdef FN_DEBUG_CREATE_FILE
-        cpx     #0
-        bne     @skip_debug
-        ; Mark catalog copy start - store load address low byte
-        lda     aws_tmp12
-        sta     $6FF1               ; Debug marker - load address low
-        lda     aws_tmp12+1  
-        sta     $6FF2               ; Debug marker - load address high
-@skip_debug:
-.endif
-        lda     pws_tmp05,x             ; Copy filename from &C5
-        sta     dfs_cat_file_name,y
-        lda     aws_tmp12,x             ; Copy attributes
-        sta     dfs_cat_file_load_addr,y
+        ; copy a "row" of catalog data
+        lda     pws_tmp05,x             ; Copy filename+dir from &C5
+        sta     dfs_cat_file_s0_start,y
+        lda     aws_tmp12,x             ; Copy attributes to 8 byte block at 0F08 + offset
+        sta     dfs_cat_file_s1_start,y
         iny
         inx
         cpx     #$08
@@ -266,37 +266,36 @@ cfile_copyfnloop:
         pha
         jsr     prt_info_msg_yoffset
 
+debug_here:
+        ; boost the catalog size by 8 bytes (one "row") before calling save_cat_to_disk
         ldy     dfs_cat_num_x8
-
         jsr     y_add8
         sty     dfs_cat_num_x8
 
-debug_here:
-.ifdef FN_DEBUG_CREATE_FILE
-        ; Mark before catalog save
-        lda     #$CC
-        sta     $6FF4               ; Debug marker - before save
-.endif
         jsr     save_cat_to_disk
         pla
         tay
         rts
 
-
 delete_cat_entry_yfileoffset:
         jsr     check_file_not_locked_or_open_y
 
+; move everything up by 1 row from the y'th row
 @del_cat_loop:
-        lda     dfs_cat_file_name+8,y
-        sta     dfs_cat_file_name,y
-        lda     dfs_cat_file_load_addr+8,y
-        sta     dfs_cat_file_load_addr,y
+        lda     dfs_cat_s0_header+8+8,y
+        sta     dfs_cat_s0_header+8,y
+        lda     dfs_cat_s1_header+8+8,y
+        sta     dfs_cat_s1_header+8,y
+
         iny
         cpy     dfs_cat_num_x8
         bcc     @del_cat_loop
+
+        ; reduce the catalog size by 8 bytes (one "row")
         tya
         sbc     #$08
         sta     dfs_cat_num_x8
+
         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -310,7 +309,7 @@ copy_vars_b0ba:
         jsr     @copy_byte
 @copy_byte:
         lda     (aws_tmp00),y
-        sta     $1072,x                 ; TODO: what is this?
+        sta     fuji_buf_1072,x                 ; TODO: what is this?
         inx
         iny
         rts

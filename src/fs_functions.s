@@ -12,10 +12,13 @@
         .export is_hndlin_use_yintch
         .export load_cur_drv_cat
         .export load_cur_drv_cat2
+        .export param_optional_drive_no
         .export parameter_afsp_param_syntaxerrorifnull_getcatentry_fsptxtp
         .export print_catalog
+        .export prt_filename_yoffset
         .export prt_info_msg_yoffset
         .export prt_infoline_yoffset
+        .export prt_y_spaces
         .export read_file_attribs_to_b0_yoffset
         .export read_fspba
         .export read_fspba_reset
@@ -120,15 +123,6 @@ getcatsetupb7:
         adc     #$08
         sta     aws_tmp06               ; word &B6 += 8
 
-.ifdef FN_DEBUG
-        pha
-        jsr     print_string
-        .byte   "Trying file at offset: "
-        lda     aws_tmp06
-        jsr     print_hex
-        jsr     print_newline
-        pla
-.endif
         jsr     match_filename
         bcc     @get_cat_loop2          ; not a match, try next file
         lda     DirectoryParam
@@ -350,6 +344,13 @@ set_current_drive_adrive_noand:
         sta     CurrentDrv
         rts
 
+; (<drive>)
+param_optional_drive_no:
+        jsr     GSINIT_A
+        beq     set_curdrv_to_default
+
+; <drive>
+; Exit: A=DrvNo, C=0, XY preserved
 param_drive_no_syntax:
         jsr     param_syntaxerrorifnull
 
@@ -361,6 +362,7 @@ param_drive_no_bad_drive:
         sec
         sbc     #'0'
         cmp     #4
+        ; exit with C=0
         bcc     set_current_drive_adrive_noand
 
 err_bad_drive:
@@ -415,10 +417,10 @@ read_fspba:
 rdafsp_entry:
         ldx     #' '                    ; Get drive & dir (X="space")
         jsr     GSREAD_A                ; Get character
-        bcs     err_bad_name           ; If end of string
-        sta     $1000                   ; Store first character
+        bcs     err_bad_name            ; If end of string
+        sta     fuji_filename_buffer    ; Store first character
         cmp     #'.'                    ; C="."?
-        bne     rdafsp_notdot          ; If not dot, continue
+        bne     rdafsp_notdot           ; If not dot, continue
 rdafsp_setdrv:
         stx     DirectoryParam          ; Save directory (X)
         beq     rdafsp_entry            ; Always (restart)
@@ -427,9 +429,9 @@ rdafsp_notdot:
         bne     rdafsp_notcolon
         jsr     param_drive_no_bad_drive ; Get drive no.
         jsr     GSREAD_A
-        bcs     err_bad_name           ; If end of string
+        bcs     err_bad_name            ; If end of string
         cmp     #'.'                    ; C="."?
-        beq     rdafsp_setdrv
+        beq     rdafsp_entry            ; err if not eg ":0."
 
 err_bad_name:
         jsr     err_bad
@@ -472,7 +474,7 @@ rdafsp_padall:
 rdafsp_padx:
         lda     #' '                    ; Pad with spaces
 @rdafsp_padloop:
-        sta     fuji_filename_buffer,x                 ; Store space
+        sta     fuji_filename_buffer,x  ; Store space
         inx
         cpx     #$40                    ; Pad to $40 (64 bytes)
         bne     @rdafsp_padloop
@@ -483,18 +485,18 @@ rdafsp_padx:
         dex
         bpl     @rdafsp_copyloop
 
-.ifdef FN_DEBUG
-        jsr     print_string
-        .byte   "Parsed filename: "
-        ldx     #$00
-@debug_filename_loop:
-        lda     fuji_filename_buffer,x
-        jsr     print_char
-        inx
-        cpx     #$07
-        bne     @debug_filename_loop
-        jsr     print_newline
-.endif
+; .ifdef FN_DEBUG
+;         jsr     print_string
+;         .byte   "Parsed filename: "
+;         ldx     #$00
+; @debug_filename_loop:
+;         lda     fuji_filename_buffer,x
+;         jsr     print_char
+;         inx
+;         cpx     #$07
+;         bne     @debug_filename_loop
+;         jsr     print_newline
+; .endif
 
         rts
 
@@ -503,7 +505,7 @@ rdafsp_padx:
 ; Y = offset into catalog filename area (0, 8, 16, etc.)
 prt_filename_yoffset:
         jsr     remember_axy
-        lda     $0E0F,y                 ; Directory byte (MA+&0E0F,Y)
+        lda     dfs_cat_file_dir,y      ; Directory byte (MA+&0E0F,Y)
         php                             ; Save flags (including lock bit)
         and     #$7F                    ; Remove lock bit, keep directory
         bne     @prt_filename_prtchr    ; If directory != 0, print it
@@ -515,12 +517,13 @@ prt_filename_yoffset:
 @prt_filename_nodir:
         ldx     #$06                    ; Print filename (7 characters)
 @prt_filename_loop:
-        lda     $0E08,y                 ; Filename byte (MA+&0E08,Y)
+        lda     dfs_cat_file_name,y     ; Filename byte (MA+&0E08,Y)
         and     #$7F                    ; Remove high bit
         jsr     print_char
         iny
         dex
         bpl     @prt_filename_loop
+
         jsr     print_2_spaces_spl      ; Print "  " (two spaces)
         lda     #' '                    ; Default to space
         plp                             ; Restore flags
@@ -529,6 +532,11 @@ prt_filename_yoffset:
 @prt_filename_notlocked:
         jsr     print_char              ; Print "L" or " "
         ldy     #$01                    ; Restore Y to start of file entry
+
+prt_y_spaces:
+        jsr     print_space_spl
+        dey
+        bne     prt_y_spaces
         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -547,44 +555,31 @@ print_catalog:
 
         ; Print cycle number in parentheses
         jsr     print_string
-        .byte   " (", $80
-        nop
+        .byte   " ("
         lda     $0F04
         jsr     print_decimal
         jsr     print_string
-        .byte   ")", $80
-        nop
-        jsr     print_newline
-
-        ; Print "Drive X"
-        jsr     print_string
-        .byte   "Drive ", $80
-        nop
+        .byte   ")", $0D, "Drive "
         lda     CurrentDrv
         jsr     print_decimal
 
         ; Print 13 spaces
         ldy     #$0D
-@spaces_loop:
-        lda     #' '
-        jsr     print_char
-        dey
-        bne     @spaces_loop
+        jsr     prt_y_spaces
 
         ; Print "Option X (LOAD)"
         jsr     print_string
-        .byte   "Option ", $80
-        nop
+        .byte   "Option "
         lda     $0F06
         jsr     print_decimal
         jsr     print_string
-        .byte   " (LOAD)", $80
+        .byte   " (LOAD)"
         nop
         jsr     print_newline
 
         ; Print "Dir. :X.$"
         jsr     print_string
-        .byte   "Dir. :", $80
+        .byte   "Dir. :"
         nop
         lda     fuji_default_drive
         jsr     print_decimal
@@ -595,16 +590,11 @@ print_catalog:
 
         ; Print 11 spaces
         ldy     #$0B
-@spaces_loop2:
-        lda     #' '
-        jsr     print_char
-        dey
-        bne     @spaces_loop2
+        jsr     prt_y_spaces
 
         ; Print "Lib. :X.$"
         jsr     print_string
-        .byte   "Lib. :", $80
-        nop
+        .byte   "Lib. :"
         lda     fuji_lib_drive
         jsr     print_decimal
         lda     #'.'
@@ -649,10 +639,7 @@ print_catalog:
 
 print_filename_at_y:
         ; Print 2 spaces
-        lda     #' '
-        jsr     print_char
-        lda     #' '
-        jsr     print_char
+        jsr     print_2_spaces_spl
 
         ; Print filename (7 bytes)
         ldx     #$00

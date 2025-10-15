@@ -40,11 +40,11 @@ fscv2_4_11_starRUN:
         sty     fuji_text_ptr_hi       ; MA+&10DA (Y=0)
         jsr     read_fspba_reset       ; Look in default drive/dir
         sty     fuji_text_ptr_offset   ; MA+&10D9 (Y=text ptr offset)
-.ifdef FN_DEBUG
-        jsr     print_string
-        .byte   "RUN: Searching def. dir", $0D
-        nop
-.endif
+; .ifdef FN_DEBUG
+;         jsr     print_string
+;         .byte   "RUN: Searching def. dir", $0D
+;         nop
+; .endif
         jsr     get_cat_firstentry81   ; Use correct function
         bcs     runfile_found          ; If file found
 
@@ -70,11 +70,11 @@ err_bad_command:
         .byte   "command", 0
 
 runfile_found:
-.ifdef FN_DEBUG
-        jsr     print_string
-        .byte   "File found! Loading...", $0D
-        nop
-.endif
+; .ifdef FN_DEBUG
+;         jsr     print_string
+;         .byte   "File found! Loading...", $0D
+;         nop
+; .endif
         ; Check if this is an *EXEC file (exec address = &FFFFFFFF)
         lda     dfs_cat_file_op,y      ; Mixed byte from catalog
         jsr     a_rorx6and3            ; Extract high bits
@@ -120,29 +120,29 @@ runfile_found:
 runfile_run:
         dbg_string_axy "Loading file: "
 
-.ifdef FN_DEBUG
-        pha
-        ; Debug: Check what's in the catalog entry before loading
-        jsr     print_string
-        .byte   "Catalog entry exec addr: "
-        nop
-        lda     dfs_cat_file_exec_addr+1,y      ; High byte of exec address from catalog
-        jsr     print_hex
-        lda     dfs_cat_file_exec_addr,y        ; Low byte of exec address from catalog
-        jsr     print_hex
-        jsr     print_newline
+; .ifdef FN_DEBUG
+;         pha
+;         ; Debug: Check what's in the catalog entry before loading
+;         jsr     print_string
+;         .byte   "Catalog entry exec addr: "
+;         nop
+;         lda     dfs_cat_file_exec_addr+1,y      ; High byte of exec address from catalog
+;         jsr     print_hex
+;         lda     dfs_cat_file_exec_addr,y        ; Low byte of exec address from catalog
+;         jsr     print_hex
+;         jsr     print_newline
 
-        ; Debug: Check what's in aws_tmp14/15 before loading
-        jsr     print_string
-        .byte   "aws_tmp14/15 before load: "
-        nop
-        lda     aws_tmp15
-        jsr     print_hex
-        lda     aws_tmp14
-        jsr     print_hex
-        jsr     print_newline
-        pla
-.endif
+;         ; Debug: Check what's in aws_tmp14/15 before loading
+;         jsr     print_string
+;         .byte   "aws_tmp14/15 before load: "
+;         nop
+;         lda     aws_tmp15
+;         jsr     print_hex
+;         lda     aws_tmp14
+;         jsr     print_hex
+;         jsr     print_newline
+;         pla
+; .endif
 
         ; Load the file normally
         jsr     LoadFile_Ycatoffset    ; Load file

@@ -95,6 +95,9 @@
         .export  fuji_ch_1119
         .export  fuji_ch_111A
 
+        .export  fuji_buf_1060
+        .export  fuji_buf_1067
+
         .export  fuji_buf_1072
         .export  fuji_buf_1073
         .export  fuji_buf_1074
@@ -341,6 +344,10 @@ dfs_cat_file_sect       = dfs_cat_file_s1_start + $07   ; 0F0F + index * 8
 fuji_workspace          = 0  ; Base address for FujiNet workspace - this will eventually vary for MASTER
 
 fuji_filename_buffer    = fuji_workspace + $1000
+
+; used in starCAT
+fuji_buf_1060           = $1060
+fuji_buf_1067           = $1067
 
 ; 1072 to 107A used in osfile_helpers.s and findv_entry
 fuji_buf_1072           = $1072

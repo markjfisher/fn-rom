@@ -42,11 +42,17 @@ FUJI_ROM_SLOT = 14
 
 RAM_FS_START = $5000
 
-; Simple page-based RAM filesystem
-RAM_CATALOG_START = RAM_FS_START                ; Catalog (512 bytes)
-RAM_PAGE_ALLOC    = RAM_FS_START + $200         ; Page allocation table (32 bytes)  
-RAM_PAGE_LENGTH   = RAM_FS_START + $220         ; Page length table (32 bytes)
-RAM_PAGES_START   = RAM_FS_START + $240         ; File pages start
+; RAM filesystem workspace and metadata  
+NEXT_AVAILABLE_SECTOR = RAM_FS_START            ; Next sector to allocate (1 byte at $5000)
+RAM_FS_WORKSPACE      = RAM_FS_START + $1       ; Workspace area ($5001-$5007, 7 bytes)
+
+RAM_FS_WORKSPACE_SIZE = $8
+
+; Simple page-based RAM filesystem (starts at $5008)
+RAM_CATALOG_START = RAM_FS_START + $8           ; Catalog (512 bytes at $5008)
+RAM_PAGE_ALLOC    = RAM_FS_START + $208         ; Page allocation table (32 bytes)  
+RAM_PAGE_LENGTH   = RAM_FS_START + $228         ; Page length table (32 bytes)
+RAM_PAGES_START   = RAM_FS_START + $248         ; File pages start
 MAX_PAGES         = 12                          ; Maximum pages (12 * 256 + 512 = $E00 total)
 PAGE_SIZE         = 256                         ; Bytes per page
 FIRST_RAM_SECTOR  = 2                           ; Sectors 2+ are now RAM pages (TEST, WORLD, HELLO, then new files)
@@ -417,12 +423,12 @@ fuji_write_block_data:
 fuji_read_catalog_data:
         jsr     remember_axy
 
-.ifdef FN_DEBUG
-        jsr     print_string
-        .byte   "fuji_read_catalog_data: called"
-        nop
-        jsr     print_newline
-.endif
+; .ifdef FN_DEBUG
+;         jsr     print_string
+;         .byte   "fuji_read_catalog_data: called"
+;         nop
+;         jsr     print_newline
+; .endif
 
         ; Copy RAM catalog data to buffer (512 bytes) - includes created files
         ldy     #0
@@ -446,12 +452,13 @@ fuji_read_catalog_data:
         ; Restore data_ptr
         dec     data_ptr+1
 
-.ifdef FN_DEBUG
-        jsr     print_string
-        .byte   "fuji_read_catalog_data: completed, returning 512 bytes"
-        nop
-        jsr     print_newline
-.endif
+; .ifdef FN_DEBUG
+;         jsr     print_string
+;         .byte   "fuji_read_catalog_data: completed, returning 512 bytes"
+;         nop
+;         jsr     print_newline
+; .endif
+
         clc
         rts
 
@@ -498,52 +505,94 @@ fuji_write_catalog_data:
         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; assign_ram_sectors_to_new_files - Assign fake sectors to new files
-; Simple approach: any file with sector >= 4 gets fake sector 10+
+; assign_ram_sectors_to_new_files - Assign sectors to files using RAM filesystem allocator
+; Simple approach: any file with sector = 0 gets next_available_sector (starting at 5)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 assign_ram_sectors_to_new_files:
-        ; Process files starting from file 3 (offset 24) - this includes TFILE 
-        ldy     #24                     ; Start at offset 24 (file 3)
+.ifdef FN_DEBUG_CREATE_FILE
+        pha
+        jsr     print_string
+        .byte   "=== ASSIGN_RAM_SECTORS CALLED, next_sector="
+        nop
+        lda     NEXT_AVAILABLE_SECTOR
+        jsr     print_hex
+        jsr     print_newline
+        pla
+.endif
+        ; Simple allocator: scan all files and assign next_available_sector to any file with sector=0
+        ldy     #RAM_FS_WORKSPACE_SIZE  ; Start at offset 8 (first file entry, after disc title)
 
 assign_check_file:
 @check_file:
         cpy     dfs_cat_num_x8          ; Past end of files?
-        bcs     assign_done             ; Yes, done
+        bcc     @continue_check         ; No, continue checking
+        jmp     assign_done             ; Yes, done
+@continue_check:
 
-        ; Check if this file has incomplete data (load address = 0)
-        ; This indicates a file created by OSFILE but not yet processed
+        ; Check if this file needs sector assignment (sector = 0 means needs allocation)
         tya
         sta     aws_tmp14               ; Save file offset
         clc
-        adc     #0                      ; Load address offset in sector 1
+        adc     #7                      ; Sector offset in catalog
         tax
 
-        lda     RAM_CATALOG_START+256,x ; Get load address low
-        sta     aws_tmp12               ; Save for later
-        inx
-        lda     RAM_CATALOG_START+256,x ; Get load address high
-        ora     aws_tmp12               ; Check if both bytes are zero
-        bne     assign_next_file        ; Not zero, file already has data
+        lda     RAM_CATALOG_START+256,x ; Get sector number
+        
+.ifdef FN_DEBUG_CREATE_FILE
+        pha
+        jsr     print_string
+        .byte   "CHECK: offset="
+        nop
+        lda     aws_tmp14
+        jsr     print_hex
+        jsr     print_string
+        .byte   " sector="
+        nop
+        pla
+        pha
+        jsr     print_hex
+        jsr     print_newline
+        pla
+.endif
+
+        cmp     #0                      ; Does file need sector assignment?
+        beq     @allocate_sector        ; Yes, needs allocation
+        jmp     assign_next_file        ; No, already has sector - skip
+        
+@allocate_sector:
+        
+        ; File needs sector assignment
+.ifdef FN_DEBUG_CREATE_FILE
+        pha
+        jsr     print_string
+        .byte   "ALLOCATE sector for file at offset="
+        nop
+        lda     aws_tmp14
+        jsr     print_hex
+        jsr     print_newline
+        pla
+.endif
 
         ; File has incomplete data - fill in defaults for new RAM file
         ldy     aws_tmp14               ; Restore file offset
 
-        ; Set default load address ($FFFF = host address)
+        ; Set default load address ($0000 for new files)
         tya
         clc
         adc     #0                      ; Load address offset
         tax
-        lda     #$FF
-        sta     RAM_CATALOG_START+256,x   ; Load address low
+        lda     #$00
+        sta     RAM_CATALOG_START+256,x   ; Load address low = $00
         inx
-        sta     RAM_CATALOG_START+256,x   ; Load address high
+        sta     RAM_CATALOG_START+256,x   ; Load address high = $00
 
         ; Set default exec address ($FFFF = host address)  
         inx
-        sta     RAM_CATALOG_START+256,x   ; Exec address low
+        lda     #$FF
+        sta     RAM_CATALOG_START+256,x   ; Exec address low = $FF
         inx
-        sta     RAM_CATALOG_START+256,x   ; Exec address high
+        sta     RAM_CATALOG_START+256,x   ; Exec address high = $FF
 
         ; Set initial file size (0)
         inx
@@ -557,23 +606,40 @@ assign_check_file:
         lda     #0
         sta     RAM_CATALOG_START+256,x
 
-        ; Assign fake RAM sector for new files (sectors 5+)
+        ; Assign next available sector from RAM filesystem allocator
         ldy     aws_tmp14               ; Restore file offset
+        
+        ; Get next available sector from RAM
+        lda     NEXT_AVAILABLE_SECTOR
+        
+.ifdef FN_DEBUG_CREATE_FILE
+        pha
+        jsr     print_string
+        .byte   "ASSIGN: offset="
+        nop
         tya
-        sec
-        sbc     #24                     ; Convert to file index from offset 24 
-        lsr     a                       ; Divide by 8 to get file index  
-        lsr     a
-        lsr     a
-        clc
-        adc     #5                      ; New files start at sector 5 (after TEST, WORLD, HELLO)
+        jsr     print_hex
+        jsr     print_string
+        .byte   " sector="
+        nop
+        pla
+        pha
+        jsr     print_hex
+        jsr     print_newline
+        pla
+.endif
 
-        ; Store fake sector
+        ; Store sector in catalog
+        sta     aws_tmp15               ; Save sector value
         tya
         clc  
-        adc     #7                      ; Sector offset
+        adc     #7                      ; Sector offset in catalog
         tax
-        sta     RAM_CATALOG_START+256,x ; Store fake sector
+        lda     aws_tmp15               ; Restore sector value
+        sta     RAM_CATALOG_START+256,x ; Store sector
+        
+        ; Increment next_available_sector for next allocation  
+        inc     NEXT_AVAILABLE_SECTOR
 
         ; Mark page as allocated (page = sector - FIRST_RAM_SECTOR)
         sec
@@ -593,6 +659,14 @@ assign_next_file:
 
 assign_done:
 @assign_done:
+.ifdef FN_DEBUG_CREATE_FILE
+        jsr     print_string
+        .byte   "=== ASSIGN_RAM_SECTORS DONE, next_sector="
+        nop
+        lda     NEXT_AVAILABLE_SECTOR
+        jsr     print_hex
+        jsr     print_newline
+.endif
         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -635,8 +709,12 @@ fuji_read_disc_title_data:
 
 fuji_init_ram_filesystem:
         jsr     remember_axy
-
-        ; Copy actual catalog data (not full sectors)  
+        
+        ; Initialize RAM filesystem metadata
+        lda     #5                      ; Start allocating sectors at 5
+        sta     NEXT_AVAILABLE_SECTOR   ; (after TEST=2, WORLD=3, HELLO=4)
+        
+        ; Copy actual catalog data (not full sectors)
         ; Sector 0: Copy actual data then clear rest
         ldy     #0
 @copy_sector0_loop:
@@ -759,9 +837,5 @@ fuji_init_ram_filesystem:
         jmp     @copy_hello_loop
 @copy_hello_done:
         rts
-
-; RAM filesystem variables (kept for future use)
-ram_file_alloc_ptr:
-        .word   RAM_PAGES_START
 
 .endif  ; FUJINET_INTERFACE_DUMMY

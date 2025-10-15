@@ -13,6 +13,7 @@
         .export  osbyte_YFF
         .export  set_text_pointer_yx
         .export  tube_check_if_present
+        .export  ucasea2
         .export  y_add7
         .export  y_add8
 
@@ -137,11 +138,21 @@ is_alpha_char:
         pha
         and     #$5F
         cmp     #$41
-        bcc     @exit1                ; If <"A"
+        bcc     @exit1                  ; If <"A"
         cmp     #$5B
-        bcc     @exit2                ; If <="Z"
+        bcc     @exit2                  ; If <="Z"
 @exit1:
         sec
 @exit2:
         pla
+        rts
+
+ucasea2:
+        php
+        jsr     is_alpha_char
+        bcs     @ucasea
+        and     #$5F                    ; A = Ucase(A)
+@ucasea:
+        and     #$7F                    ; Ignore bit 7
+        plp
         rts
