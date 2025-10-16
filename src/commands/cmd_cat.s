@@ -1,5 +1,22 @@
         .export fscv5_starCAT
 
+        ;; exports for debugging
+        ; .export cat_curdirloop
+        ; .export cat_curdirnext
+        ; .export cat_exit
+        ; .export cat_getnextunmarkedfile_loop
+        ; .export cat_getnextunmarkedfileY
+        ; .export cat_newline
+        ; .export cat_printfilename
+        ; .export cat_printfn
+        ; .export cat_printoptionnameloop
+        ; .export cat_samedir
+        ; .export cat_skipspaces
+        ; .export cat_sortloop1
+        ; .export cat_titleloop
+        ; .export cat_titlelo
+        ; .export end_title
+
         .import a_rorx4
         .import fuji_read_catalog
         .import param_optional_drive_no
@@ -9,6 +26,7 @@
         .import print_decimal
         .import print_fullstop
         .import print_newline
+        .import print_space
         .import print_string
         .import prt_filename_yoffset
         .import prt_y_spaces
@@ -25,7 +43,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 fscv5_starCAT:
-        dbg_string_axy "FSCV5_STARCAT: "
+        ; dbg_string_axy "FSCV5_STARCAT: "
 
         jsr     set_text_pointer_yx
         jsr     param_optional_drive_no         ; we need to check if this works with FujiNet impl
@@ -36,16 +54,22 @@ fscv5_starCAT:
         iny
         sty     cws_tmp3
 
-@cat_titleloop:
+cat_titleloop:
         lda     dfs_cat_s0_title,y
         cpy     #$08
-        bcc     @cat_titlelo
+        bcc     cat_titlelo
         lda     dfs_cat_s1_title-8,y
-@cat_titlelo:
+cat_titlelo:
+        ; terminate at first space - assumes no spaces in title
+        cmp     #' '
+        beq     end_title
+
         jsr     print_char
         iny
         cpy     #$0C
-        bne     @cat_titleloop
+        bne     cat_titleloop
+
+end_title:
         jsr     print_string
         .byte   " ("
         lda     dfs_cat_cycle
@@ -63,7 +87,6 @@ fscv5_starCAT:
         jsr     a_rorx4
         pha
         jsr     print_decimal
-
         jsr     print_string
         .byte   " ("
         ldy     #$03
@@ -71,13 +94,12 @@ fscv5_starCAT:
         asl     a
         asl     a
         tax
-@cat_printoptionnameloop:
+cat_printoptionnameloop:
         lda     diskoptions_table,x
-        and     #$03
         jsr     print_char
         inx
         dey
-        bne     @cat_printoptionnameloop
+        bpl     cat_printoptionnameloop
         jsr     print_string
         .byte   ")", $0D, "Dir. :"
         lda     fuji_default_drive
@@ -119,11 +141,13 @@ cat_sortloop1:
         lda     #$FF
         sta     CurrentCat
         jmp     print_newline
+cat_getnextunmarkedfile_loop:
+        jsr     y_add8
 cat_getnextunmarkedfileY:
         cpy     dfs_cat_num_x8
         bcs     cat_exit
         lda     dfs_cat_file_name,y
-        bmi     cat_getnextunmarkedfileY
+        bmi     cat_getnextunmarkedfile_loop
 cat_exit:
         rts
 
@@ -140,7 +164,7 @@ cat_printfilename:
         bne     @cat_copyfnloop
 @cat_comparefnloop1:
         jsr     cat_getnextunmarkedfileY
-        bcc     cat_printfn
+        bcs     cat_printfn
         sec
         ldx     #$06
 @cat_comparefnloop2:
@@ -158,17 +182,17 @@ cat_printfilename:
         jsr     y_add8
         bcs     @cat_comparefnloop1
 cat_printfn:
-        lda     cws_tmp4
-        lda     dfs_cat_file_dir,y
+        ldy     cws_tmp4
+        lda     dfs_cat_file_name,y
         ora     #$80
-        sta     dfs_cat_file_dir,y
+        sta     dfs_cat_file_name,y
         lda     fuji_buf_1067
         cmp     cws_tmp3
         beq     cat_samedir
         ldx     cws_tmp3
         sta     cws_tmp3
         bne     cat_samedir
-        jsr     print_newline
+        jsr     print_newline           ; 2 newlines after default dir
 cat_newline:
         jsr     print_newline
         ldy     #$FF
@@ -176,7 +200,7 @@ cat_newline:
 cat_samedir:
         ldy     cws_tmp1
         bne     cat_newline
-        ldy     #$05
+        ldy     #$05                    ; print column gap
         jsr     prt_y_spaces
 cat_skipspaces:
         iny

@@ -14,7 +14,6 @@
         .export load_cur_drv_cat2
         .export param_optional_drive_no
         .export parameter_afsp_param_syntaxerrorifnull_getcatentry_fsptxtp
-        .export print_catalog
         .export prt_filename_yoffset
         .export prt_info_msg_yoffset
         .export prt_infoline_yoffset
@@ -537,127 +536,6 @@ prt_y_spaces:
         jsr     print_space_spl
         dey
         bne     prt_y_spaces
-        rts
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; print_catalog - Print catalog
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-print_catalog:
-        ; Print disk title (first 8 bytes)
-        ldy     #$00
-@title_loop:
-        lda     $0E00,y
-        jsr     print_char
-        iny
-        cpy     #$08
-        bne     @title_loop
-
-        ; Print cycle number in parentheses
-        jsr     print_string
-        .byte   " ("
-        lda     $0F04
-        jsr     print_decimal
-        jsr     print_string
-        .byte   ")", $0D, "Drive "
-        lda     CurrentDrv
-        jsr     print_decimal
-
-        ; Print 13 spaces
-        ldy     #$0D
-        jsr     prt_y_spaces
-
-        ; Print "Option X (LOAD)"
-        jsr     print_string
-        .byte   "Option "
-        lda     $0F06
-        jsr     print_decimal
-        jsr     print_string
-        .byte   " (LOAD)"
-        nop
-        jsr     print_newline
-
-        ; Print "Dir. :X.$"
-        jsr     print_string
-        .byte   "Dir. :"
-        nop
-        lda     fuji_default_drive
-        jsr     print_decimal
-        lda     #'.'
-        jsr     print_char
-        lda     fuji_default_dir
-        jsr     print_char
-
-        ; Print 11 spaces
-        ldy     #$0B
-        jsr     prt_y_spaces
-
-        ; Print "Lib. :X.$"
-        jsr     print_string
-        .byte   "Lib. :"
-        lda     fuji_lib_drive
-        jsr     print_decimal
-        lda     #'.'
-        jsr     print_char
-        lda     fuji_lib_dir
-        jsr     print_char
-        jsr     print_newline
-
-        ; Print file list
-        ldy     #$00
-@file_loop:
-        cpy     dfs_cat_num_x8
-        bcs     @done
-
-        ; Check if file is marked (bit 7 set)
-        lda     $0E08,y
-        bmi     @next_file
-
-        ; Print filename
-        jsr     print_filename_at_y
-
-        ; Mark file as printed
-        lda     $0E08,y
-        ora     #$80
-        sta     $0E08,y
-
-@next_file:
-        ; Move to next file (8 bytes per entry)
-        tya
-        clc
-        adc     #$08
-        tay
-        jmp     @file_loop
-
-@done:
-        jsr     print_newline
-        rts
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; PRINT_FILENAME_AT_Y - Print filename at catalog offset Y
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-print_filename_at_y:
-        ; Print 2 spaces
-        jsr     print_2_spaces_spl
-
-        ; Print filename (7 bytes)
-        ldx     #$00
-@name_loop:
-        lda     $0E08,y
-        jsr     print_char
-        iny
-        inx
-        cpx     #$07
-        bne     @name_loop
-
-        ; Skip directory character (don't print it)
-        ; Just restore Y to start of file entry
-        tya
-        sec
-        sbc     #$07
-        tay
-
         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
