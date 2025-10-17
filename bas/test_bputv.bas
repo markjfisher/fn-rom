@@ -7,7 +7,7 @@
 60 PRINT "Created TESTFILE, handle "; file%
 65 INPUT "Press RETURN to continue", dummy$
 70 PRINT "Writing test data..."
-80 FOR i% = 65 TO 68
+80 FOR i% = 65 TO 97
 90 BPUT#file%, i%
 100 PRINT "Wrote byte "; i%; " ("; CHR$(i%); ")"
 110 NEXT
@@ -21,7 +21,7 @@
 180 IF file% = 0 THEN PRINT "ERROR: Could not open TESTFILE for reading" : GOTO 900
 190 PRINT "Opened TESTFILE for reading, handle "; file%
 200 errors% = 0
-210 FOR i% = 65 TO 90
+210 FOR i% = 65 TO 97
 220 byte% = BGET#file%
 230 IF byte% <> i% THEN PRINT "ERROR: Expected "; i%; ", got "; byte% : errors% = errors% + 1
 240 NEXT

@@ -14,6 +14,8 @@
         .import LoadMemBlock
         .import SaveMemBlock
         .import print_newline
+        .import print_string
+        .import print_hex
         .import remember_axy
         .import remember_xy_only
         .import report_error_cb
@@ -93,14 +95,31 @@ bgetv_entry:
 
 
 channel_buffer_to_disk_yintch:
-        ; Save channel buffer to disk
+        ; Save channel buffer to disk (MMFS lines 5223-5228)
+.ifdef FN_DEBUG_WRITE_DATA
+        pha
+        jsr     print_string
+        .byte   "BufToDisk: flg=$"
+        nop
+        lda     fuji_ch_flg,y
+        jsr     print_hex
+        jsr     print_newline
+        pla
+.endif
         lda     fuji_ch_flg,y
         and     #$40                    ; Bit 6 set?
+.ifdef FN_DEBUG_WRITE_DATA
+        pha
+        jsr     print_string
+        .byte   "  bit40=$"
+        nop
+        jsr     print_hex
+        jsr     print_newline
+        pla
+.endif
         beq     chnbuf_exit2            ; If no exit
         clc                             ; C=0=write buffer
-        ; TODO: Implement buffer save for FujiNet
-chnbuf_exit2:
-        rts
+        ; Fall through to channel_buffer_rw_yintch_c1read
 
 channel_buffer_rw_yintch_c1read:
         ; Read/write channel buffer
@@ -137,6 +156,7 @@ chnbuf_read:
 chnbuf_exit:
         dec     fuji_error_flag         ; MMFS line 5257
         ldy     fuji_intch              ; Y=intch (MMFS line 5258)
+chnbuf_exit2:
         rts
 
 load_then_inc_seq_ptr_yintch:

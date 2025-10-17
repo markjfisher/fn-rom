@@ -5,6 +5,7 @@
         .export bputv_entry
         .export bput_yintchan
         .export err_file_read_only
+        .export bp_entry
 
         .import calc_buffer_sector_for_ptr
         .import channel_buffer_rw_yintch_c1read
@@ -18,6 +19,8 @@
         .import load_then_inc_seq_ptr_yintch
         .import remember_axy
         .import report_error_cb
+        .import print_string
+        .import print_newline
 
         .include "fujinet.inc"
 
@@ -42,9 +45,15 @@ bputv_entry:
 bp_entry:
         pha
         lda     fuji_channel_start,y
-        bmi     err_file_read_only
+        bmi     @bp_err_readonly
         lda     fuji_channel_start+1,y
-        bmi     err_file_locked2
+        bmi     @bp_err_locked
+        jmp     @bp_continue
+@bp_err_readonly:
+        jmp     err_file_read_only
+@bp_err_locked:
+        jmp     err_file_locked2
+@bp_continue:
         jsr     channel_set_dir_drive_yintch
         tya
         clc
@@ -87,8 +96,18 @@ bp_entry:
         sec                             ; Load buffer (MMFS line 5345)
         jsr     channel_buffer_rw_yintch_c1read  ; (MMFS line 5346)
 @bp_savebyte:
+.ifdef FN_DEBUG_WRITE_DATA
+        lda     #$BB
+        sta     $5001                   ; Debug marker - bp_savebyte reached
+        lda     fuji_ch_flg,y
+        sta     $5002                   ; Debug: flags BEFORE setting bit 40
+.endif
         lda     #$40                    ; Bit 6 set = new data (MMFS line 5348)
         jsr     channel_flags_set_bits  ; (MMFS line 5349)
+.ifdef FN_DEBUG_WRITE_DATA
+        lda     fuji_ch_flg,y
+        sta     $5003                   ; Debug: flags AFTER setting bit 40
+.endif
         jsr     load_then_inc_seq_ptr_yintch  ; load buffer ptr, increment PTR (MMFS line 5350)
         pla                             ; Get byte to write (MMFS line 5351)
         sta     (aws_tmp10,x)   ; Byte to buffer (MMFS line 5352)

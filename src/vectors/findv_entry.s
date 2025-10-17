@@ -23,6 +23,7 @@
         .export findv_readorupdate
         .export close_file_yintch
         .export close_files_yhandle
+        .export close_file_buftodisk
 
         .export calling_createfile
         .export chklock_exit
@@ -33,6 +34,7 @@
         .import a_rorx4and3
         .import a_rorx5
         .import channel_buffer_to_disk_yhandle
+        .import channel_buffer_to_disk_yintch
         .import check_channel_yhndl_exyintch
         .import create_file_fsp
         .import err_disk
@@ -191,7 +193,11 @@ close_file_yintch:
         jsr     save_cat_to_disk
         ldy     fuji_intch
 close_file_buftodisk:
-        jsr     channel_buffer_to_disk_yhandle
+.ifdef FN_DEBUG_CLOSE_FILE
+        lda     fuji_ch_flg,y
+        sta     $5004                   ; Debug: flags at CLOSE before buffer flush
+.endif
+        jsr     channel_buffer_to_disk_yintch   ; CRITICAL FIX: Y=intch, not handle!
 close_file_exit:
         ldx     fuji_saved_x
         pla

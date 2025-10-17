@@ -374,6 +374,24 @@ fuji_read_block_data:
 fuji_write_block_data:
         jsr     remember_axy
 
+.ifdef FN_DEBUG_WRITE_DATA
+        pha
+        jsr     print_string
+        .byte   "WRITE: sector="
+        nop
+        lda     fuji_file_offset
+        jsr     print_hex
+        jsr     print_string
+        .byte   " buf=$"
+        nop
+        lda     data_ptr+1
+        jsr     print_hex
+        lda     data_ptr
+        jsr     print_hex
+        jsr     print_newline
+        pla
+.endif
+
         lda     fuji_file_offset         ; Get sector number
         cmp     #FIRST_RAM_SECTOR       ; Is it a RAM sector (2+)?
         bcs     @write_ram_page         ; Yes, write to RAM page
@@ -505,22 +523,20 @@ fuji_write_catalog_data:
         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; assign_ram_sectors_to_new_files - Assign sectors to files using RAM filesystem allocator
-; Simple approach: any file with sector = 0 gets next_available_sector (starting at 5)
+; assign_ram_sectors_to_new_files - Mark RAM pages as allocated based on catalog
+; MMFS handles sector calculation, this just marks pages as used for write operations
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 assign_ram_sectors_to_new_files:
 .ifdef FN_DEBUG_CREATE_FILE
         pha
         jsr     print_string
-        .byte   "=== ASSIGN_RAM_SECTORS CALLED, next_sector="
+        .byte   "=== MARKING RAM PAGES AS ALLOCATED ==="
         nop
-        lda     NEXT_AVAILABLE_SECTOR
-        jsr     print_hex
         jsr     print_newline
         pla
 .endif
-        ; Simple allocator: scan all files and assign next_available_sector to any file with sector=0
+        ; Scan all files and mark their RAM pages as allocated
         ldy     #RAM_FS_WORKSPACE_SIZE  ; Start at offset 8 (first file entry, after disc title)
 
 assign_check_file:
@@ -556,92 +572,11 @@ assign_check_file:
         pla
 .endif
 
-        cmp     #0                      ; Does file need sector assignment?
-        beq     @allocate_sector        ; Yes, needs allocation
-        jmp     assign_next_file        ; No, already has sector - skip
+        ; Is this a RAM sector that needs page allocation?
+        cmp     #FIRST_RAM_SECTOR       ; Is it a RAM sector (2+)?
+        bcc     assign_next_file        ; No, skip (catalog sectors 0-1)
         
-@allocate_sector:
-        
-        ; File needs sector assignment
-.ifdef FN_DEBUG_CREATE_FILE
-        pha
-        jsr     print_string
-        .byte   "ALLOCATE sector for file at offset="
-        nop
-        lda     aws_tmp14
-        jsr     print_hex
-        jsr     print_newline
-        pla
-.endif
-
-        ; File has incomplete data - fill in defaults for new RAM file
-        ldy     aws_tmp14               ; Restore file offset
-
-        ; Set default load address ($0000 for new files)
-        tya
-        clc
-        adc     #0                      ; Load address offset
-        tax
-        lda     #$00
-        sta     RAM_CATALOG_START+256,x   ; Load address low = $00
-        inx
-        sta     RAM_CATALOG_START+256,x   ; Load address high = $00
-
-        ; Set default exec address ($FFFF = host address)  
-        inx
-        lda     #$FF
-        sta     RAM_CATALOG_START+256,x   ; Exec address low = $FF
-        inx
-        sta     RAM_CATALOG_START+256,x   ; Exec address high = $FF
-
-        ; Set initial file size (0)
-        inx
-        lda     #0
-        sta     RAM_CATALOG_START+256,x   ; Size low
-        inx
-        sta     RAM_CATALOG_START+256,x   ; Size high
-
-        ; Set mixed byte (all bits 0 for host addresses)
-        inx
-        lda     #0
-        sta     RAM_CATALOG_START+256,x
-
-        ; Assign next available sector from RAM filesystem allocator
-        ldy     aws_tmp14               ; Restore file offset
-        
-        ; Get next available sector from RAM
-        lda     NEXT_AVAILABLE_SECTOR
-        
-.ifdef FN_DEBUG_CREATE_FILE
-        pha
-        jsr     print_string
-        .byte   "ASSIGN: offset="
-        nop
-        tya
-        jsr     print_hex
-        jsr     print_string
-        .byte   " sector="
-        nop
-        pla
-        pha
-        jsr     print_hex
-        jsr     print_newline
-        pla
-.endif
-
-        ; Store sector in catalog
-        sta     aws_tmp15               ; Save sector value
-        tya
-        clc  
-        adc     #7                      ; Sector offset in catalog
-        tax
-        lda     aws_tmp15               ; Restore sector value
-        sta     RAM_CATALOG_START+256,x ; Store sector
-        
-        ; Increment next_available_sector for next allocation  
-        inc     NEXT_AVAILABLE_SECTOR
-
-        ; Mark page as allocated (page = sector - FIRST_RAM_SECTOR)
+        ; Mark page as allocated for this sector
         sec
         sbc     #FIRST_RAM_SECTOR       ; Convert sector to page number (page = sector - 2)
         tax
