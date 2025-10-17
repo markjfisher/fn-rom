@@ -216,13 +216,6 @@ calling_createfile:
         rts                             ; EXIT
 
 findv_createfile:
-.ifdef FN_DEBUG_CREATE_FILE
-        pha
-        ; Mark file creation start
-        lda     #$AA
-        sta     $6FF0               ; Debug marker - file creation start
-        pla
-.endif
         php                             ; Clear data
         ; A=0 BC-C3=0
         ldx     #$07                    ; 1074-107B=0

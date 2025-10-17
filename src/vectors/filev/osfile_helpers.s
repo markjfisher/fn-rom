@@ -13,6 +13,8 @@
         .export create_file_3
         .export cfile_copyfnloop
         .export cfile_atcatentry
+        .export cfile_loop
+        .export getfirstblock_yoffset
 
         .import a_rorx4and3
         .import a_rorx6and3
@@ -163,7 +165,7 @@ create_file_2:
         sta     pws_tmp02
         lda     #$02
         sta     pws_tmp03
-        lda     dfs_cat_num_x8
+        ldy     dfs_cat_num_x8
         cpy     #$F8
         bcc     getfirstblock_yoffset
 
@@ -229,7 +231,7 @@ getfirstblock_yoffset:
 
 ; and insert the new row from the buffers
 cfile_atcatentry:
-        lda     fuji_buf_1076,y         ; Exec address b17,b16
+        lda     fuji_buf_1076           ; Exec address b17,b16
         and     #$03
         asl     a
         asl     a
@@ -251,6 +253,7 @@ cfile_atcatentry:
         ldx     #$00
         tya
         pha
+
 cfile_copyfnloop:
         ; copy a "row" of catalog data
         lda     pws_tmp05,x             ; Copy filename+dir from &C5
