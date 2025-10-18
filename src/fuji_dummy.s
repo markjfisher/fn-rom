@@ -20,6 +20,7 @@
 
         .export assign_ram_sectors_to_new_files
         .export fuji_init_ram_filesystem
+        .export get_next_available_sector
 
         ; Export debug labels for tracing
         .export assign_check_file
@@ -42,14 +43,15 @@ FUJI_ROM_SLOT = 14
 
 RAM_FS_START = $5000
 
-; RAM filesystem workspace and metadata  
-NEXT_AVAILABLE_SECTOR = RAM_FS_START            ; Next sector to allocate (1 byte at $5000)
-RAM_FS_WORKSPACE      = RAM_FS_START + $1       ; Workspace area ($5001-$5007, 7 bytes)
-
-RAM_FS_WORKSPACE_SIZE = $8
+; RAM filesystem layout:
+; $5000      - next_available_sector (1 byte, tracks next free sector for allocation)
+; $5001-5007 - Reserved for debug/future use (7 bytes)
+; $5008-51FF - Catalog (512 bytes = 2 sectors of 256 bytes)
+NEXT_AVAILABLE_SECTOR = RAM_FS_START + $0
+RAM_CATALOG_OFFSET = $8                         ; Catalog starts 8 bytes after RAM_FS_START
 
 ; Simple page-based RAM filesystem (starts at $5008)
-RAM_CATALOG_START = RAM_FS_START + $8           ; Catalog (512 bytes at $5008)
+RAM_CATALOG_START = RAM_FS_START + RAM_CATALOG_OFFSET
 RAM_PAGE_ALLOC    = RAM_FS_START + $208         ; Page allocation table (32 bytes)  
 RAM_PAGE_LENGTH   = RAM_FS_START + $228         ; Page length table (32 bytes)
 RAM_PAGES_START   = RAM_FS_START + $248         ; File pages start
@@ -513,11 +515,9 @@ fuji_write_catalog_data:
         iny
         bne     @copy_s1
 
-        ; Update any new files to use fake RAM sectors (10+)
-        ; This is where we assign fake sectors to new files
+        ; Mark RAM pages as allocated for files in catalog
+        ; MMFS handles sector calculation - this just tracks which pages are in use
         jsr     assign_ram_sectors_to_new_files
-
-        ; dbg_string_axy "Catalog synced: "
 
         clc
         rts
@@ -537,7 +537,7 @@ assign_ram_sectors_to_new_files:
         pla
 .endif
         ; Scan all files and mark their RAM pages as allocated
-        ldy     #RAM_FS_WORKSPACE_SIZE  ; Start at offset 8 (first file entry, after disc title)
+        ldy     #RAM_CATALOG_OFFSET     ; Start at offset 8 (first file entry, after disc title)
 
 assign_check_file:
 @check_file:
@@ -596,12 +596,22 @@ assign_done:
 @assign_done:
 .ifdef FN_DEBUG_CREATE_FILE
         jsr     print_string
-        .byte   "=== ASSIGN_RAM_SECTORS DONE, next_sector="
+        .byte   "=== ASSIGN_RAM_SECTORS DONE"
         nop
-        lda     NEXT_AVAILABLE_SECTOR
-        jsr     print_hex
         jsr     print_newline
 .endif
+        rts
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; get_next_available_sector - Get and increment next available sector
+; Output: A = next available sector number
+; Side effects: Increments NEXT_AVAILABLE_SECTOR at $5000
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+get_next_available_sector:
+        lda     NEXT_AVAILABLE_SECTOR   ; Get next available sector
+        inc     NEXT_AVAILABLE_SECTOR   ; Increment for next file
+        ; A contains the previous value, so we can use it as the sector number
         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -644,10 +654,9 @@ fuji_read_disc_title_data:
 
 fuji_init_ram_filesystem:
         jsr     remember_axy
-        
-        ; Initialize RAM filesystem metadata
-        lda     #5                      ; Start allocating sectors at 5
-        sta     NEXT_AVAILABLE_SECTOR   ; (after TEST=2, WORLD=3, HELLO=4)
+
+        lda     #$05
+        sta     NEXT_AVAILABLE_SECTOR                   ; Initialize next available sector to 0
         
         ; Copy actual catalog data (not full sectors)
         ; Sector 0: Copy actual data then clear rest

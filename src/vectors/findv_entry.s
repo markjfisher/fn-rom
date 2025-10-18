@@ -194,8 +194,10 @@ close_file_yintch:
         ldy     fuji_intch
 close_file_buftodisk:
 .ifdef FN_DEBUG_CLOSE_FILE
+        lda     #$CC
+        sta     $5006                   ; Debug: CLOSE buffer flush marker
         lda     fuji_ch_flg,y
-        sta     $5004                   ; Debug: flags at CLOSE before buffer flush
+        sta     $5007                   ; Debug: flags at CLOSE before buffer flush
 .endif
         jsr     channel_buffer_to_disk_yintch   ; CRITICAL FIX: Y=intch, not handle!
 close_file_exit:
@@ -234,9 +236,18 @@ findv_loop1:
         dec     aws_tmp15               ; aws_tmp15 = $FF
         dec     fuji_buf_1076
         dec     fuji_buf_1077
+.ifdef FUJINET_INTERFACE_DUMMY
+        ; DUMMY DISK FIX: Create zero-length files instead of pre-allocating 64 sectors
+        ; Our RAM disk (~9 free sectors) can't fit multiple 64-sector files
+        ; Files grow dynamically via bp_extendby100/bp_extendtogap as data is written
+        lda     #$00
+        sta     pws_tmp03               ; End address = &0000 (zero-length file)
+.else
+        ; REAL DISK: Pre-allocate 64 sectors ($4000 bytes) as MMFS does
         lda     #$40
         sta     pws_tmp03               ; End address = &4000
-        jsr     create_file_fsp         ; Creates 40 sec buffer
+.endif
+        jsr     create_file_fsp         ; Creates file with requested size
 findv_filefound:
         ; sty     fuji_cat_file_offset    ; Store catalog offset for later use
         plp                             ; in case another file created

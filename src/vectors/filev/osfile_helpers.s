@@ -29,6 +29,9 @@
         .import save_cat_to_disk
         .import y_add8
         .import y_sub8
+.ifdef FUJINET_INTERFACE_DUMMY
+        .import get_next_available_sector
+.endif
 .ifdef FN_DEBUG
         .import print_axy
         .import print_string
@@ -165,9 +168,26 @@ create_file_2:
         sta     pws_tmp02
         lda     #$02
         sta     pws_tmp03
+
+.ifndef FUJINET_INTERFACE_DUMMY
+        ; REAL DISK: Use standard MMFS gap-finding algorithm
         ldy     dfs_cat_num_x8
         cpy     #$F8
         bcc     getfirstblock_yoffset
+.else
+        ; DUMMY DISK: Use tracked sector allocation (bypasses gap-finding)
+        ; Call dummy implementation to get next available sector
+        jsr     get_next_available_sector ; Returns sector in A and pws_tmp03
+        sta     pws_tmp03
+
+        ; Proceed directly to file insertion
+        ldy     dfs_cat_num_x8
+        cpy     #$F8
+        bcs     err_cat_full            ; If catalog full
+        ; Set aws_tmp00 to catalog end (where we'll insert)
+        sty     aws_tmp00
+        jmp     cfile_insertfileloop
+.endif
 
 err_cat_full:
         jsr     report_error_cb
@@ -175,20 +195,44 @@ err_cat_full:
         .byte   "Cat full",0
 
 cfile_loop:
-        beq     err_disk_full
+        bne     @cfile_continue
+        jmp     err_disk_full
+@cfile_continue:
         jsr     y_sub8
+
+.ifdef FN_DEBUG_CREATE_FILE
+        pha
+        tya
+        sta     $5001                   ; Debug: Y offset in loop
+        pla
+.endif
 
         lda     dfs_cat_file_op,y
         jsr     a_rorx4and3
         sta     pws_tmp02
 
+.ifdef FN_DEBUG_CREATE_FILE
+        pha
+        lda     dfs_cat_file_sect,y
+        sta     $5002                   ; Debug: start sector being read
+        lda     dfs_cat_file_size,y
+        sta     $5003                   ; Debug: length lo
+        lda     dfs_cat_file_size+1,y
+        sta     $5004                   ; Debug: length mid
+        pla
+.endif
+
+debug_here:
         clc
         lda     #$FF
-        adc     dfs_cat_file_size,y
+        adc     dfs_cat_file_size,y    ; A = $FF + len_lo (sets carry for next)
+        lda     dfs_cat_file_sect,y    ; A = start_sector
+        adc     dfs_cat_file_size+1,y  ; A = start + len_mid + carry
+        sta     pws_tmp03              ; Result: start + ((len-1) rounded up)
 
-        lda     dfs_cat_file_sect,y
-        adc     dfs_cat_file_size+1,y
-        sta     pws_tmp03
+.ifdef FN_DEBUG_CREATE_FILE
+        sta     $5005                   ; Debug: calculated next sector
+.endif
 
         lda     dfs_cat_file_op,y
         and     #$03
@@ -213,9 +257,10 @@ getfirstblock_yoffset:
 
         tya
         bcc     cfile_loop
+@skip_gap_finding:
         sty     aws_tmp00
         ldy     dfs_cat_num_x8
-@cfile_insertfileloop:
+cfile_insertfileloop:
         cpy     aws_tmp00
         beq     cfile_atcatentry
         
@@ -227,7 +272,7 @@ getfirstblock_yoffset:
         sta     dfs_cat_s1_header+7+8,y
 
         dey
-        bcs     @cfile_insertfileloop
+        bcs     cfile_insertfileloop
 
 ; and insert the new row from the buffers
 cfile_atcatentry:
@@ -269,7 +314,6 @@ cfile_copyfnloop:
         pha
         jsr     prt_info_msg_yoffset
 
-debug_here:
         ; boost the catalog size by 8 bytes (one "row") before calling save_cat_to_disk
         ldy     dfs_cat_num_x8
         jsr     y_add8

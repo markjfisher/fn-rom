@@ -1,0 +1,15 @@
+address,suffix,flags
+findv_createfile,e,x
+create_file_fsp,e,x
+create_file_2,e,x
+cfile_loop,e,x
+getfirstblock_yoffset,e,x
+cfile_atcatentry,e,x
+cfile_copyfnloop,e,x
+bputv_entry,e,x
+close_file_yintch,e,x
+close_file_buftodisk,e,x
+channel_buffer_to_disk_yintch,e,x
+fuji_write_block_data,e,x
+assign_ram_sectors_to_new_files,e,x
+debug_here,e,x
