@@ -262,7 +262,7 @@ FSCV            := $021E
 DirectoryParam  := $CC
 CurrentDrv      := $CD
 
-; seems to be pretty random location... TODO: why here?
+; seems to be pretty random location... why here?
 CurrentCat      := $1082
 
 TubeNoTransferIf0 := $10AE

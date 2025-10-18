@@ -103,7 +103,7 @@ err_continue:
         sta     $0100,x
         bmi     print_return2           ; Bit 7 set, return
         bne     @errstr_loop
-        ; jsr     tube_release  ; TODO: add this back in
+        ; jsr     tube_release  ; FUTURE: add this back in
         jmp     $0100
 
 ; Print newline
@@ -160,7 +160,7 @@ print_string_ax:
         ldy     #0
 @loop:
         lda     (cws_tmp7),y
-        bmi     @done                   ; If bit 7 set (end of string) - TODO: do we ever use this?
+        bmi     @done                   ; If bit 7 set (end of string)
         beq     @done                   ; If 00 set (end of string)
         jsr     print_char
         iny

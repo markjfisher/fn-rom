@@ -14,6 +14,7 @@
         .export load_cur_drv_cat2
         .export param_optional_drive_no
         .export parameter_afsp_param_syntaxerrorifnull_getcatentry_fsptxtp
+        .export param_syntaxerrorifnull_getcatentry_fsptxtp
         .export prt_filename_yoffset
         .export prt_info_msg_yoffset
         .export prt_infoline_yoffset

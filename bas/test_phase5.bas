@@ -1,5 +1,4 @@
-   10 REM filename: 5RAND
-   15 REM Phase 5: Random Access Write Test
+   10 REM Phase 5: Random Access Write Test
    20 REM Tests:
    30 REM - Create 2 files with initial data
    40 REM - Close both
