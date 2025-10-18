@@ -12,7 +12,7 @@
         .import channel_set_dir_drive_yintch
         .import check_channel_yhndl_exyintch_tya_cmpptr
         .import LoadMemBlock
-        .import SaveMemBlock
+        .import save_mem_block
         .import print_newline
         .import print_string
         .import print_hex
@@ -141,7 +141,7 @@ channel_buffer_rw_yintch_c1read:
         sta     pws_tmp03               ; Start sec. b0-b7 (&C3) (MMFS line 5245)
         lda     fuji_ch_sect_hi,y       ; (MMFS line 5246)
         sta     pws_tmp02               ; "mixed byte" (&C2) (MMFS line 5247)
-        jsr     SaveMemBlock            ; (MMFS line 5248)
+        jsr     save_mem_block            ; (MMFS line 5248)
         ldy     fuji_intch              ; Y=intch (MMFS line 5249)
         lda     #$BF                    ; Clear bit 6 (MMFS line 5250)
         jsr     channel_flags_clear_bits ; (MMFS line 5251)

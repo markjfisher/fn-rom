@@ -10,12 +10,12 @@
         .import remember_axy
         .import osfileFF_loadfiletoaddr
         .import osfile0_savememblock
-        .import osfile1_savefile
-        .import osfile2_deletefile
-        .import osfile3_createfile
-        .import osfile4_writeloadaddr
-        .import osfile5_writeexecaddr
-        .import osfile6_writefileattr
+        .import osfile1_updatecat
+        .import osfile2_wrloadaddr
+        .import osfile3_wrexecaddr
+        .import osfile4_wrattribs
+        .import osfile5_rdcatinfo
+        .import osfile6_delfile
         .import copy_vars_b0ba
         .import copy_word_b0ba
 
@@ -101,25 +101,26 @@ filev_entry:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 .feature line_continuations +
-        ; TODO: Validate these against New Advanced User Guide section 16.1.1
-        ; 0: Load file to address (A=&FF)
-        ; 1: Save memory block (A=0)
-        ; 2: Save file (A=1)
-        ; 3: Delete file (A=2)
-        ; 4: Create file (A=3)
-        ; 5: Write load address (A=4)
-        ; 6: Write exec address (A=5)
-        ; 7: Write file attributes (A=6)
+        ; OSFILE dispatch table - matches MMFS mmfs100.asm lines 4527-4545
+        ; Table position -> OSFILE A value mapping:
+        ; Position 0: A=$FF (Load file to address)
+        ; Position 1: A=$00  (Save memory block)
+        ; Position 2: A=$01  (Update catalog entry - load/exec addresses)
+        ; Position 3: A=$02  (Write load address)
+        ; Position 4: A=$03  (Write exec address)
+        ; Position 5: A=$04  (Write file attributes/locked status)
+        ; Position 6: A=$05  (Read catalog information)
+        ; Position 7: A=$06  (Delete file)
 
 .define FINV_TABLE \
         osfileFF_loadfiletoaddr         - 1, \
         osfile0_savememblock            - 1, \
-        osfile1_savefile                - 1, \
-        osfile2_deletefile              - 1, \
-        osfile3_createfile              - 1, \
-        osfile4_writeloadaddr           - 1, \
-        osfile5_writeexecaddr           - 1, \
-        osfile6_writefileattr           - 1
+        osfile1_updatecat               - 1, \
+        osfile2_wrloadaddr              - 1, \
+        osfile3_wrexecaddr              - 1, \
+        osfile4_wrattribs               - 1, \
+        osfile5_rdcatinfo               - 1, \
+        osfile6_delfile                 - 1
 
 finv_table_lo: .lobytes FINV_TABLE
 finv_table_hi: .hibytes FINV_TABLE
