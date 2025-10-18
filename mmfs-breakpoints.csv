@@ -1,0 +1,8 @@
+address,suffix,flags
+findv_createfile,d,x
+CreateFile_FSP,d,x
+CreateFile_2,d,x
+cfile_loop,d,x
+Getfirstblock_Yoffset,d,x
+cfile_atcatentry,d,x
+cfile_copyfnloop,d,x

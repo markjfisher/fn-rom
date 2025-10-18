@@ -118,32 +118,6 @@ runfile_found:
         jmp     OSCLI                  ; Execute "E.:X.D.FILENAME"
 
 runfile_run:
-        dbg_string_axy "Loading file: "
-
-; .ifdef FN_DEBUG
-;         pha
-;         ; Debug: Check what's in the catalog entry before loading
-;         jsr     print_string
-;         .byte   "Catalog entry exec addr: "
-;         nop
-;         lda     dfs_cat_file_exec_addr+1,y      ; High byte of exec address from catalog
-;         jsr     print_hex
-;         lda     dfs_cat_file_exec_addr,y        ; Low byte of exec address from catalog
-;         jsr     print_hex
-;         jsr     print_newline
-
-;         ; Debug: Check what's in aws_tmp14/15 before loading
-;         jsr     print_string
-;         .byte   "aws_tmp14/15 before load: "
-;         nop
-;         lda     aws_tmp15
-;         jsr     print_hex
-;         lda     aws_tmp14
-;         jsr     print_hex
-;         jsr     print_newline
-;         pla
-; .endif
-
         ; Load the file normally
         jsr     LoadFile_Ycatoffset    ; Load file
 
@@ -153,23 +127,6 @@ runfile_run:
         sta     aws_tmp14              ; Store in workspace (&BE)
         lda     dfs_cat_file_exec_addr+1,y      ; Exec address high byte from catalog
         sta     aws_tmp15              ; Store in workspace (&BF)
-
-; .ifdef FN_DEBUG
-;         pha
-
-;         ; Debug: Check what's in the workspace after loading
-;         jsr     print_string
-;         .byte   "After LoadFile_Ycatoffset:"
-
-;         ; Dump the execution address area (aws_tmp14/15 should contain exec address)
-;         lda     aws_tmp14
-;         jsr     print_hex
-;         lda     aws_tmp15  
-;         jsr     print_hex
-;         jsr     print_newline
-
-;         pla
-; .endif
 
         ; Set up execution parameters
         clc
@@ -181,7 +138,7 @@ runfile_run:
         adc     #$00
         sta     fuji_text_ptr_hi       ; MA+&10DA
 
-        ; TUBE CODE TODO        
+        ; FUTURE: TUBE CODE        
         ; Check if execution address is &FFFFFFFF (host execution)
         ; TODO: Get execution address from loaded file workspace
         ; For now, assume host execution

@@ -15,6 +15,7 @@
         .export cfile_atcatentry
         .export cfile_loop
         .export getfirstblock_yoffset
+        .export delete_cat_entry_yfileoffset
 
         .import a_rorx4and3
         .import a_rorx6and3
