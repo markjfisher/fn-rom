@@ -21,6 +21,7 @@
         .export assign_ram_sectors_to_new_files
         .export fuji_init_ram_filesystem
         .export get_next_available_sector
+        .export free_ram_sector
 
         ; Export debug labels for tracing
         .export assign_check_file
@@ -47,14 +48,15 @@ RAM_FS_START = $5000
 ; $5000      - next_available_sector (1 byte, tracks next free sector for allocation)
 ; $5001-5007 - Reserved for debug/future use (7 bytes)
 ; $5008-51FF - Catalog (512 bytes = 2 sectors of 256 bytes)
+; $5208-5217 - RAM_PAGE_ALLOC bitmap (16 bytes, 1 bit per page, supports up to 16 pages)
+; $5218-XXXX - File data pages (PAGE_SIZE * MAX_PAGES bytes)
 NEXT_AVAILABLE_SECTOR = RAM_FS_START + $0
 RAM_CATALOG_OFFSET = $8                         ; Catalog starts 8 bytes after RAM_FS_START
 
 ; Simple page-based RAM filesystem (starts at $5008)
 RAM_CATALOG_START = RAM_FS_START + RAM_CATALOG_OFFSET
-RAM_PAGE_ALLOC    = RAM_FS_START + $208         ; Page allocation table (32 bytes)  
-RAM_PAGE_LENGTH   = RAM_FS_START + $228         ; Page length table (32 bytes)
-RAM_PAGES_START   = RAM_FS_START + $248         ; File pages start
+RAM_PAGE_ALLOC    = RAM_FS_START + $208         ; Page allocation bitmap (16 bytes, supports up to 16 pages)
+RAM_PAGES_START   = RAM_FS_START + $218         ; File pages start (moved up, saved 32 bytes)
 MAX_PAGES         = 12                          ; Maximum pages (12 * 256 + 512 = $E00 total)
 PAGE_SIZE         = 256                         ; Bytes per page
 FIRST_RAM_SECTOR  = 2                           ; Sectors 2+ are now RAM pages (TEST, WORLD, HELLO, then new files)
@@ -299,31 +301,26 @@ fuji_read_block_data:
 
         ; Check if page is within bounds
         cmp     #MAX_PAGES
-        bcs     @read_error             ; Page >= MAX_PAGES, error
-
+        bcc     @read_page_ok
+        lda     #0
+        rts
         ; Calculate page address: RAM_PAGES_START + (page * 256)
-        clc
+@read_page_ok:
         adc     #>RAM_PAGES_START       ; Add page number to high byte
         sta     aws_tmp13               ; High byte of page address
         lda     #<RAM_PAGES_START       ; Low byte
         sta     aws_tmp12
 
-.ifdef FN_DEBUG_READ_DATA
-        jsr     print_string
-        .byte   " addr=$"
-        nop
-        lda     aws_tmp13
-        jsr     print_hex
-        lda     aws_tmp12
-        jsr     print_hex
-        jsr     print_newline
-.endif
-
-        jmp     @copy_sector_data
-
-@read_error:
-        lda     #0                      ; Return error
-        rts
+; .ifdef FN_DEBUG_READ_DATA
+;         jsr     print_string
+;         .byte   " addr=$"
+;         nop
+;         lda     aws_tmp13
+;         jsr     print_hex
+;         lda     aws_tmp12
+;         jsr     print_hex
+;         jsr     print_newline
+; .endif
 
 @copy_sector_data:
         ; Copy data from sector to buffer
@@ -603,15 +600,87 @@ assign_done:
         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; get_next_available_sector - Get and increment next available sector
+; get_next_available_sector - Get next available sector, reusing freed sectors
+; Strategy:
+;   1. Scan RAM_PAGE_ALLOC for first free page (value=0)
+;   2. If found, mark it allocated and return sector = page + FIRST_RAM_SECTOR
+;   3. If no free pages, use NEXT_AVAILABLE_SECTOR and increment it
 ; Output: A = next available sector number
-; Side effects: Increments NEXT_AVAILABLE_SECTOR at $5000
+; Side effects: May increment NEXT_AVAILABLE_SECTOR, marks page as allocated
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 get_next_available_sector:
+        ; First, scan for any freed pages below NEXT_AVAILABLE_SECTOR
+        ldx     #0                      ; Start at page 0
+@scan_loop:
+        lda     NEXT_AVAILABLE_SECTOR   ; Get current high-water mark
+        sec
+        sbc     #FIRST_RAM_SECTOR       ; Convert to page number
+        cmp     #0                      ; Check if any pages allocated yet
+        beq     @no_free_pages          ; If 0, no pages to scan
+        stx     aws_tmp15               ; Save X temporarily
+        cmp     aws_tmp15               ; Compare max page with current page
+        beq     @no_free_pages          ; X == max, no more pages to check
+        bcc     @no_free_pages          ; X > max, no more pages to check
+        
+        ; Check if this page is free
+        lda     RAM_PAGE_ALLOC,x        ; Check allocation status
+        beq     @found_free_page        ; If 0, this page is free!
+        
+        ; Not free, try next page
+        inx
+        bne     @scan_loop              ; Continue scanning
+        
+@no_free_pages:
+        ; No freed pages found, allocate new page at high-water mark
         lda     NEXT_AVAILABLE_SECTOR   ; Get next available sector
-        inc     NEXT_AVAILABLE_SECTOR   ; Increment for next file
-        ; A contains the previous value, so we can use it as the sector number
+        pha                             ; Save sector number
+        
+        ; Mark page as allocated
+        sec
+        sbc     #FIRST_RAM_SECTOR       ; Convert to page number
+        tax
+        lda     #1
+        sta     RAM_PAGE_ALLOC,x        ; Mark as allocated
+        
+        ; Increment high-water mark for next time
+        inc     NEXT_AVAILABLE_SECTOR
+        
+        pla                             ; Restore sector number
+        rts
+        
+@found_free_page:
+        ; X contains the free page number, reuse it!
+        lda     #1
+        sta     RAM_PAGE_ALLOC,x        ; Mark page as allocated
+        
+        ; Convert page number to sector number
+        txa
+        clc
+        adc     #FIRST_RAM_SECTOR       ; sector = page + FIRST_RAM_SECTOR
+        rts
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; free_ram_sector - Mark a sector as free for reuse
+; Input: A = sector number to free
+; Side effects: Marks page as free in RAM_PAGE_ALLOC
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+free_ram_sector:
+        ; Check if this is a RAM sector (2+)
+        cmp     #FIRST_RAM_SECTOR
+        bcc     @not_ram_sector         ; Sectors 0-1 are catalog, can't free
+        
+        ; Convert sector to page number
+        sec
+        sbc     #FIRST_RAM_SECTOR       ; page = sector - FIRST_RAM_SECTOR
+        tax
+        
+        ; Mark page as free
+        lda     #0
+        sta     RAM_PAGE_ALLOC,x
+        
+@not_ram_sector:
         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -704,19 +773,11 @@ fuji_init_ram_filesystem:
 
         ; Clear page allocation table (all pages free initially)
         lda     #$00
-        ldy     #11                     ; 12 pages (0-11)
+        ldy     #15                     ; Clear all 16 bytes (supports up to 16 pages)
 @clear_alloc_loop:
         sta     RAM_PAGE_ALLOC,y
         dey
         bpl     @clear_alloc_loop
-
-        ; Clear page length table
-        lda     #$00
-        ldy     #11                     ; 12 pages (0-11)
-@clear_length_loop:
-        sta     RAM_PAGE_LENGTH,y
-        dey
-        bpl     @clear_length_loop
 
         ; Copy existing ROM files to RAM pages
         ; TEST file (sector 2) -> RAM page 0

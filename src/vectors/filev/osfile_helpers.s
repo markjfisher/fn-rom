@@ -32,6 +32,7 @@
         .import y_sub8
 .ifdef FUJINET_INTERFACE_DUMMY
         .import get_next_available_sector
+        .import free_ram_sector
 .endif
 .ifdef FN_DEBUG
         .import print_axy
@@ -327,6 +328,16 @@ cfile_copyfnloop:
 
 delete_cat_entry_yfileoffset:
         jsr     check_file_not_locked_or_open_y
+
+.ifdef FUJINET_INTERFACE_DUMMY
+        ; For dummy interface: Free the sector(s) used by this file
+        ; Get the file's start sector and free it
+        pha                             ; Save A
+        lda     dfs_cat_file_sect,y     ; Get start sector (with flags)
+        and     #$7F                    ; Mask off lock bit
+        jsr     free_ram_sector         ; Mark sector as free for reuse
+        pla                             ; Restore A
+.endif
 
 ; move everything up by 1 row from the y'th row
 @del_cat_loop:
