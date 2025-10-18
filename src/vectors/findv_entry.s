@@ -4,9 +4,10 @@
 
         .export channel_get_cat_entry_yintch
         .export channel_set_dir_drive_yintch
+        .export check_file_exists
+        .export check_file_not_locked
         .export check_file_not_locked_or_open_y
         .export check_file_not_open_y
-        .export check_file_exists
         .export close_all_files
         .export close_files_yhandle
         .export close_spool_exec_files
@@ -417,7 +418,6 @@ check_file_not_locked:
 check_file_not_locked_y:
         lda     dfs_cat_file_dir,y
         bpl     chklock_exit
-
 
 err_file_locked:
         jsr     report_error_cb
