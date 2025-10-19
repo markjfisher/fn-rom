@@ -31,6 +31,7 @@
         .export read_file_attribs_to_b0_yoffset
         .export read_fspba
         .export read_fspba_reset
+        .export read_fsp_text_pointer
         .export save_cat_to_disk
         .export set_curdir_drv_to_defaults
         .export set_curdrv_to_default

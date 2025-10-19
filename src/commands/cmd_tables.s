@@ -15,6 +15,7 @@
 
         .export parameter_table
 
+        .import cmd_fs_access
         .import cmd_fs_close
         .import cmd_fs_delete
         .import cmd_fs_disc
@@ -47,15 +48,16 @@
 cmd_table_fujifs:
         .byte   $FF                ; Last command number (-1)
 
-        .byte   "CLOSE",     $80+$00
-        .byte   "DELETE",    $80+$04    ; <fsp>
-        .byte   "DIR",       $80+$03    ; (<dir>)
+        .byte   "ACCESS",    $80+$32    ; <afsp> (L) - params 2 and 3
+        .byte   "CLOSE",     $80
+        .byte   "DELETE",    $80+$08    ; <fsp>
+        .byte   "DIR",       $80+$06    ; (<dir>)
         .byte   "DRIVE",     $80+$01    ; <drive>
-        .byte   "EX",        $80+$03    ; (<dir>)
+        .byte   "EX",        $80+$06    ; (<dir>)
 ; equivalent of .info_cmd_index
 cmd_table_info:
         .byte   "INFO",      $80+$02    ; <afsp>
-        .byte   "LIB",       $80+$03    ; (<dir>)
+        .byte   "LIB",       $80+$06    ; (<dir>)
         .byte   $00                     ; End of table
 
 ; These are prefixed with "F", e.g. "FBOOT" etc [FILE SYSTEM COMMANDS], help = "*HELP FUTILS"
@@ -64,7 +66,7 @@ cmd_table_futils:
         ; 02
         .byte   (cmd_table_futils_cmds - cmd_table_fujifs_cmds) / 2 - 1
 
-        .byte   "BOOT",      $80+$05    ; <dno>/<dsp>
+        .byte   "BOOT",      $80+$07    ; <dno>/<dsp>
         .byte   $00                     ; End of table
 
 ; COMMAND TABLE - Utils commands [NON-FS COMMANDS], help = "*HELP UTILS"
@@ -73,7 +75,7 @@ cmd_table_utils:
         ; 04
         .byte   (cmd_table_utils_cmds - cmd_table_fujifs_cmds) / 2 - 1
 
-        .byte   "ROMS",      $80+$06
+        .byte   "ROMS",      $80+$00    ; no parameter
         .byte   $00
 
 ; COMMAND TABLE - Help commands [HELP COMMANDS], help = "*HELP"
@@ -104,6 +106,7 @@ cmd_table_fs:
 
 ; OLD: cmdaddr1
 cmd_table_fujifs_cmds:
+        .word   cmd_fs_access-1
         .word   cmd_fs_close-1
         .word   cmd_fs_delete-1
         .word   cmd_fs_dir-1
@@ -142,9 +145,18 @@ cmd_table_END:
 parameter_table:
         .byte '<'|$80, "drive>"                 ; 1
         .byte '<'|$80, "afsp>"                  ; 2
-        .byte '<'|$80, "<dir>)"                 ; 3
-        .byte '<'|$80, "fsp>"                   ; 4
-        .byte 'P'|$80, "/U/N/K/R"               ; 5
-        .byte '('|$80, "<num>)"                 ; 6
+        .byte '('|$80, "L)"                     ; 3
+        .byte '('|$80, "<drive>)"               ; 4
+        .byte '('|$80, "<drive>)..."            ; 5
+        .byte '('|$80, "<dir>)"                 ; 6
+        .byte '<'|$80, "dos name>"              ; 7
+        .byte '<'|$80, "fsp>"                   ; 8
+        .byte '('|$80, "<dos name>)"            ; 9
+        .byte '<'|$80, "title>"                 ; A
+        .byte '('|$80, "<num>)"                 ; B
+        .byte '<'|$80, "source> <dest.>"        ; C
+        .byte '<'|$80, "old fsp> <new fsp>"     ; D
+        .byte '<'|$80, "filter>"                ; E
+        .byte '4'|$80, "0/80"                   ; F
 
         .byte $FF
