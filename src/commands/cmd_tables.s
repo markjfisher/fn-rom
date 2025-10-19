@@ -27,6 +27,8 @@
         .import cmd_fs_fuji
         .import cmd_fs_info
         .import cmd_fs_lib
+        .import cmd_fs_rename
+        .import cmd_fs_title
 
         .import cmd_help_fuji
         .import cmd_help_futils
@@ -60,6 +62,8 @@ cmd_table_fujifs:
 cmd_table_info:
         .byte   "INFO",      $80+$02    ; <afsp>
         .byte   "LIB",       $80+$06    ; (<dir>)
+        .byte   "RENAME",    $80+$0D    ; <old fsp> <new fsp>
+        .byte   "TITLE",     $80+$0A    ; <title>
         .byte   $00                     ; End of table
 
 ; These are prefixed with "F", e.g. "FBOOT" etc [FILE SYSTEM COMMANDS], help = "*HELP FUTILS"
@@ -117,6 +121,8 @@ cmd_table_fujifs_cmds:
         .word   cmd_fs_ex-1
         .word   cmd_fs_info-1
         .word   cmd_fs_lib-1
+        .word   cmd_fs_rename-1
+        .word   cmd_fs_title-1
         .word   not_cmd_fujifs-1
 
 ; OLD: cmdaddr4
