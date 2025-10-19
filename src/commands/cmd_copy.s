@@ -58,10 +58,10 @@ cmd_fs_copy:
 @copy_loop2:
         lda     dfs_cat_file_name,y     ; Source catalog $0E08,Y
         sta     pws_tmp05,x             ; Store filename $C5-$CC
-        sta     fuji_buf_1072,x         ; Put filename in buffer $1050,X
+        sta     fuji_buf_1050,x         ; Put filename in buffer $1050,X
         lda     dfs_cat_file_load_addr,y ; Source catalog $0F08,Y
         sta     aws_tmp11,x             ; Load address, exec ... $BB-$C2
-        sta     fuji_buf_1067,x         ; $1047,X
+        sta     fuji_buf_1047,x         ; $1047,X
         inx
         iny
         cpx     #$08
@@ -130,10 +130,10 @@ cd_swapvars:
         ldx     #$11                    ; Swap $BA-$CB & $1045-$1056
 
 @cd_swapvars_loop:
-        ldy     fuji_buf_1067-$22,x     ; $1045,X (since $1067-$22=$1045)
+        ldy     fuji_buf_1045,x     ; $1045,X
         lda     aws_tmp10,x             ; $BA,X
         sty     aws_tmp10,x             ; $BA,X
-        sta     fuji_buf_1067-$22,x     ; $1045,X
+        sta     fuji_buf_1045,x     ; $1045,X
         dex
         bpl     @cd_swapvars_loop
         rts
