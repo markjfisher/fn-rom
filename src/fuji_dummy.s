@@ -45,20 +45,23 @@ FUJI_ROM_SLOT = 14
 RAM_FS_START = $5000
 
 ; RAM filesystem layout - DUAL DRIVE SUPPORT:
-; $5000      - next_available_sector (1 byte, tracks next free sector for allocation)
-; $5001-5007 - Reserved for debug/future use (7 bytes)
-; $5008-507F - Drive 0 catalog compressed (7 entries × 16 bytes = 112 bytes)
+; $5000-500F - RAM disk state and workspace (16 bytes):
+;   $5000    - Drive 0 next available page (0-5, not sector number!)
+;   $5001    - Drive 1 next available page (0-5, not sector number!)
+;   $5002-500F - Reserved for debug/temp workspace (14 bytes)
+; $5010-5087 - Drive 0 catalog compressed (7 entries × 16 bytes = 112 bytes)
 ;              Entry 0: Disk title (8+8 bytes), Entries 1-6: Files (8+8 bytes each)
-; $5080-50F7 - Drive 1 catalog compressed (7 entries × 16 bytes = 112 bytes)
-; $50F8-50FF - Drive 0 page allocation (8 bytes, 1 per page, supports 6 files + 2 spare)
-; $5100-5107 - Drive 1 page allocation (8 bytes, 1 per page, supports 6 files + 2 spare)
-; $5108-570F - Drive 0 file pages (6 pages × 256 = $600 bytes)
-; $5710-5D17 - Drive 1 file pages (6 pages × 256 = $600 bytes)
-; Total: $D18 bytes (~3.3KB) - saved ~256 bytes!
+; $5088-50FF - Drive 1 catalog compressed (7 entries × 16 bytes = 112 bytes)
+; $5100-5107 - Drive 0 page allocation (8 bytes, 1 per page, supports 6 files + 2 spare)
+; $5108-510F - Drive 1 page allocation (8 bytes, 1 per page, supports 6 files + 2 spare)
+; $5110-5717 - Drive 0 file pages (6 pages × 256 = $600 bytes)
+; $5718-5D1F - Drive 1 file pages (6 pages × 256 = $600 bytes)
+; Total: $D20 bytes (~3.3KB)
 
-NEXT_AVAILABLE_SECTOR = RAM_FS_START + $0
-TEMP_STORAGE          = RAM_FS_START + $1
-RAM_CATALOG_OFFSET    = $8                      ; Catalogs start 8 bytes after RAM_FS_START
+DRIVE0_NEXT_PAGE      = RAM_FS_START + $0       ; Next available page for drive 0 (0-5)
+DRIVE1_NEXT_PAGE      = RAM_FS_START + $1       ; Next available page for drive 1 (0-5)
+TEMP_STORAGE          = RAM_FS_START + $2       ; Temp workspace (14 bytes available)
+RAM_CATALOG_OFFSET    = $10                     ; Catalogs start 16 bytes after RAM_FS_START
 
 ; Catalog compression: 7 entries (1 header + 6 files) × 16 bytes per entry
 CATALOG_ENTRIES       = 7                       ; Header + 6 files
@@ -66,14 +69,14 @@ CATALOG_ENTRY_SIZE    = 16                      ; 8 bytes sector 0 + 8 bytes sec
 CATALOG_COMPRESSED_SIZE = CATALOG_ENTRIES * CATALOG_ENTRY_SIZE  ; 112 bytes
 
 ; Drive 0 structures
-DRIVE0_CATALOG    = RAM_FS_START + $008         ; Drive 0 catalog (112 bytes compressed)
-DRIVE0_PAGE_ALLOC = RAM_FS_START + $0F8         ; Drive 0 page allocation (8 bytes)
-DRIVE0_PAGES      = RAM_FS_START + $108         ; Drive 0 file pages (6 × 256)
+DRIVE0_CATALOG    = RAM_FS_START + $010         ; Drive 0 catalog (112 bytes compressed)
+DRIVE0_PAGE_ALLOC = RAM_FS_START + $100         ; Drive 0 page allocation (8 bytes)
+DRIVE0_PAGES      = RAM_FS_START + $110         ; Drive 0 file pages (6 × 256)
 
 ; Drive 1 structures  
-DRIVE1_CATALOG    = RAM_FS_START + $080         ; Drive 1 catalog (112 bytes compressed)
-DRIVE1_PAGE_ALLOC = RAM_FS_START + $100         ; Drive 1 page allocation (8 bytes)
-DRIVE1_PAGES      = RAM_FS_START + $710         ; Drive 1 file pages (6 × 256)
+DRIVE1_CATALOG    = RAM_FS_START + $088         ; Drive 1 catalog (112 bytes compressed)
+DRIVE1_PAGE_ALLOC = RAM_FS_START + $108         ; Drive 1 page allocation (8 bytes)
+DRIVE1_PAGES      = RAM_FS_START + $718         ; Drive 1 file pages (6 × 256)
 
 ; Constants
 MAX_PAGES_PER_DRIVE = 6                         ; 6 pages per drive (6 files max)
@@ -379,9 +382,10 @@ fuji_read_block_data:
 .endif
 
         ; For dummy interface, read from RAM pages
-        ; All sectors 2+ are now stored in RAM
+        ; The sector in fuji_file_offset is drive-relative (2-7)
+        ; Convert to absolute page based on current drive
 
-        lda     fuji_file_offset         ; Get sector number
+        lda     fuji_file_offset         ; Get drive-relative sector number
         cmp     #FIRST_RAM_SECTOR       ; Is it a RAM sector (2+)?
         bcs     @read_ram_page          ; Yes, read from RAM page
 
@@ -390,9 +394,20 @@ fuji_read_block_data:
         rts
         
 @read_ram_page:
-        ; Convert sector to absolute page: page = sector - FIRST_RAM_SECTOR  
+        ; Convert drive-relative sector to drive-relative page
         sec
-        sbc     #FIRST_RAM_SECTOR       ; A = absolute page number (0-11)
+        sbc     #FIRST_RAM_SECTOR       ; A = drive-relative page (0-5)
+        
+        ; Now convert to absolute page based on current drive
+        ; Drive 0: absolute page = drive-relative page (0-5)
+        ; Drive 1: absolute page = drive-relative page + 6 (6-11)
+        ldx     CurrentDrv
+        beq     @read_drive0
+        ; Drive 1: add 6 to get absolute page
+        clc
+        adc     #MAX_PAGES_PER_DRIVE
+@read_drive0:
+        ; A now contains absolute page number (0-11)
 
 .ifdef FN_DEBUG_READ_DATA
         pha
@@ -506,7 +521,7 @@ fuji_write_block_data:
         pla
 .endif
 
-        lda     fuji_file_offset         ; Get sector number
+        lda     fuji_file_offset         ; Get drive-relative sector number
         cmp     #FIRST_RAM_SECTOR       ; Is it a RAM sector (2+)?
         bcs     @write_ram_page         ; Yes, write to RAM page
 
@@ -515,9 +530,20 @@ fuji_write_block_data:
         rts
 
 @write_ram_page:
-        ; Convert sector to absolute page: page = sector - FIRST_RAM_SECTOR
+        ; Convert drive-relative sector to drive-relative page
         sec
-        sbc     #FIRST_RAM_SECTOR       ; A = absolute page number (0-11)
+        sbc     #FIRST_RAM_SECTOR       ; A = drive-relative page (0-5)
+        
+        ; Now convert to absolute page based on current drive
+        ; Drive 0: absolute page = drive-relative page (0-5)
+        ; Drive 1: absolute page = drive-relative page + 6 (6-11)
+        ldx     CurrentDrv
+        beq     @write_drive0
+        ; Drive 1: add 6 to get absolute page
+        clc
+        adc     #MAX_PAGES_PER_DRIVE
+@write_drive0:
+        ; A now contains absolute page number (0-11)
 
         ; Check if page is within total bounds (12 pages total)
         cmp     #(MAX_PAGES_PER_DRIVE * NUM_DRIVES)
@@ -851,10 +877,12 @@ assign_done:
 ; get_next_available_sector - Get next available sector, reusing freed sectors
 ; Strategy:
 ;   1. Scan RAM_PAGE_ALLOC for first free page (value=0)
-;   2. If found, mark it allocated and return sector = page + FIRST_RAM_SECTOR
-;   3. If no free pages, use NEXT_AVAILABLE_SECTOR and increment it
-; Output: A = next available sector number
-; Side effects: May increment NEXT_AVAILABLE_SECTOR, marks page as allocated
+;   2. If found, mark it allocated and return sector (drive-relative, always 2+)
+;   3. If no free pages, allocate new page
+; Output: A = drive-relative sector number (2-7, same for all drives)
+; Side effects: Marks page as allocated
+; Note: Returns drive-relative sector for catalog. The actual RAM location
+;       is determined by the drive number internally when reading/writing.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 get_next_available_sector:
@@ -954,19 +982,12 @@ get_next_available_sector:
         jmp     @restore_and_exit       ; Skip sector conversion, just restore and exit
 
 @convert_and_exit:
-        ; Convert drive-relative page (in X) to absolute sector
-        lda     CurrentDrv              ; Read from OS variable
-        beq     @drive0_sector
-        ; Drive 1: sector = page + 8
+        ; Convert page (in X) to drive-relative sector
+        ; ALL drives return sectors 2-7 (drive-relative for catalog)
+        ; The actual RAM location is determined by CurrentDrv when reading/writing
         txa
         clc
-        adc     #(FIRST_RAM_SECTOR + MAX_PAGES_PER_DRIVE)
-        jmp     @restore_and_exit
-@drive0_sector:
-        ; Drive 0: sector = page + 2
-        txa
-        clc
-        adc     #FIRST_RAM_SECTOR
+        adc     #FIRST_RAM_SECTOR       ; sector = page + 2 (always 2-7)
         ; Fall through to @restore_and_exit
 
 @restore_and_exit:
@@ -1155,24 +1176,8 @@ fuji_init_ram_filesystem:
         sta     DRIVE0_PAGE_ALLOC+1
         sta     DRIVE0_PAGE_ALLOC+2
 
-        ; Initialize DRIVE 1 - empty for now (just disk title)
-        ; Copy disk title only
-        ldy     #0
-@init_drive1_title:
-        lda     dummy_catalog,y
-        sta     DRIVE1_CATALOG,y
-        iny
-        cpy     #8
-        bne     @init_drive1_title
-        ldy     #0
-@init_drive1_title_s1:
-        lda     end_of_sector0_data,y
-        sta     DRIVE1_CATALOG+8,y
-        iny
-        cpy     #8
-        bne     @init_drive1_title_s1
-
-        ; Change drive 1 title to "DRIVE1  "
+        ; Initialize DRIVE 1 - empty disk (just title, no files)
+        ; Set disk title in sector 0 data (bytes 0-7)
         lda     #'D'
         sta     DRIVE1_CATALOG+0
         lda     #'R'
@@ -1188,6 +1193,18 @@ fuji_init_ram_filesystem:
         lda     #' '
         sta     DRIVE1_CATALOG+6
         sta     DRIVE1_CATALOG+7
+        
+        ; Set sector 1 data (bytes 8-15): title continuation + cycle + count + boot
+        lda     #' '
+        sta     DRIVE1_CATALOG+8        ; Title byte 8
+        sta     DRIVE1_CATALOG+9        ; Title byte 9
+        sta     DRIVE1_CATALOG+10       ; Title byte 10
+        sta     DRIVE1_CATALOG+11       ; Title byte 11
+        lda     #$00
+        sta     DRIVE1_CATALOG+12       ; Cycle number
+        sta     DRIVE1_CATALOG+13       ; File count = 0 (empty disk!)
+        sta     DRIVE1_CATALOG+14       ; Boot option
+        sta     DRIVE1_CATALOG+15       ; Disk size
 
         rts
 
