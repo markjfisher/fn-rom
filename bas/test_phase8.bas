@@ -85,6 +85,56 @@ PRINT "Step 7: Final check with *INFO"
 *INFO TESTF1
 PRINT "Should show: $.TESTF1 L 003000 003100"
 
+REM Step 8: OSFILE A=4 - Lock file
+PRINT "Step 8: OSFILE(4) - Lock file"
+$fname="TESTF1"+CHR$(13)
+pBlock!0=fname
+pBlock?14=8:REM Set locked bit (bit 3)
+A%=FNcallOSFILE(4)
+IF A%=1 THEN PRINT "SUCCESS: File locked" ELSE PRINT "ERROR: A=";A%:END
+
+REM Verify step 8: File is locked
+PRINT "Verify: Check locked status"
+PROCreadCatalog
+IF pBlock?14<>8 THEN PRINT "ERROR: File not locked, attr=";pBlock?14:END
+PRINT "SUCCESS: File locked (attr=";pBlock?14;")"
+*INFO TESTF1
+PRINT "Should show 'L' flag"
+
+REM Step 9: Try to delete locked file (should fail)
+PRINT "Step 9: Try delete locked file"
+ON ERROR PRINT "SUCCESS: Cannot delete locked": GOTO 500
+*DELETE TESTF1
+PRINT "ERROR: Deleted locked file!":END
+500 REM success case
+
+REM Step 10: Unlock file
+PRINT "Step 10: OSFILE(4) - Unlock file"
+$fname="TESTF1"+CHR$(13)
+pBlock!0=fname
+pBlock?14=0:REM Clear locked bit
+A%=FNcallOSFILE(4)
+IF A%=1 THEN PRINT "SUCCESS: File unlocked" ELSE PRINT "ERROR: A=";A%:END
+
+REM Verify step 10: File is unlocked
+PRINT "Verify: Check unlocked status"
+PROCreadCatalog
+IF pBlock?14<>0 THEN PRINT "ERROR: File still locked, attr=";pBlock?14:END
+PRINT "SUCCESS: File unlocked (attr=";pBlock?14;")"
+*INFO TESTF1
+PRINT "Should NOT show 'L' flag"
+
+REM Step 11: Now delete should work
+PRINT "Step 11: Delete unlocked file"
+*DELETE TESTF1
+PRINT "SUCCESS: File deleted"
+H%=OPENIN("TESTF1")
+IF H%<>0 THEN PRINT "ERROR: File still exists":CLOSE#H%:END
+PRINT "Confirmed: File deleted"
+
+PRINT:PRINT "*** ALL OSFILE TESTS PASSED ***"
+*INFO *
+
 INPUT "Press any key to continue", dummy$
 
 END
