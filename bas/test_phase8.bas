@@ -17,10 +17,27 @@ pBlock!10=&3000: REM Start address
 pBlock!14=&3010: REM End address (16 bytes)
 ?&3000=65:?&3001=66:?&3002=67:?&3003=68
 
-PRINT "Calling OSFILE A=0 to create TESTF1..."
+PRINT "Step 1: OSFILE(0) - create TESTF1"
 A%=FNcallOSFILE(0)
-IF A%=1 THEN PRINT "SUCCESS: File created" ELSE PRINT "ERROR: A=";A%
+IF A%=1 THEN PRINT "SUCCESS: File created" ELSE PRINT "ERROR: A=";A%:END
 *INFO TESTF1
+
+PRINT "Step 2: OSFILE(5) - Read catalog"
+REM Clear param block first to verify it gets updated
+pBlock!2=0:pBlock!6=0:pBlock!10=0:pBlock!14=0
+$fname="TESTF1"+CHR$(13)
+pBlock!0=fname
+A%=FNcallOSFILE(5)
+IF A%=0 THEN PRINT "ERROR: File not found":END
+PRINT "A=";A%;" (1=found)"
+PRINT "Load=";~pBlock!2
+PRINT "Exec=";~pBlock!6
+PRINT "Length=";pBlock!10;" (&";~pBlock!10;")"
+IF pBlock!2<>&1900 THEN PRINT "ERROR: Load addr wrong, expected &1900":END
+IF pBlock!6<>&1900 THEN PRINT "ERROR: Exec addr wrong, expected &1900":END
+IF pBlock!10<>16 THEN PRINT "ERROR: Length wrong, expected 16":END
+PRINT "SUCCESS: Catalog info correct"
+
 INPUT "Press any key to continue", dummy$
 
 END
