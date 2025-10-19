@@ -1,0 +1,12 @@
+address,suffix,flags
+filev_entry,e,x
+osfile0_savememblock,e,x
+create_file_fsp,e,x
+create_file_2,e,x
+save_cat_to_disk,e,x
+fuji_write_catalog,e,x
+save_mem_block,e,x
+fuji_execute_block_rw,e,x
+fuji_write_block_data,e,x
+get_next_available_sector,e,x
+save_mem_block,e,x

@@ -1,0 +1,15 @@
+REM filename: basm
+DIM START 50
+OSWRCH=&FFEE
+FOR I%=0 TO 2 STEP2:P%=START
+  [OPT I%
+   LDA #ASC("?")
+   JSR OSWRCH
+   LDA #&01
+   LDX #&02
+   LDY #&03
+   RTS
+  ]
+NEXT I%
+A%=USR(START)
+PRINT ~A%

@@ -15,6 +15,7 @@
         .export osfile_update_loadaddr_xoffset
         .export osfile_update_execaddr_xoffset
         .export osfile_updatelock
+        .export mjf
 
         .import check_file_exists
         .import check_file_not_locked
@@ -40,7 +41,10 @@ osfile0_savememblock:
         jsr     create_file_fsp
         jsr     set_param_block_pointer_b0      ; Restore B0 after create_file_fsp
         jsr     read_file_attribs_to_b0_yoffset
-        ; fall into save_mem_block
+        jsr     save_mem_block
+mjf:
+        lda     #$01                     ; Return A=1 for success (matches MMFS line 2023)
+        rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; save_mem_block - Save block of memory
@@ -49,8 +53,7 @@ osfile0_savememblock:
 
 save_mem_block:
         lda     #$A5                     ; Write operation
-        jsr     fuji_execute_block_rw
-        rts
+        jmp     fuji_execute_block_rw    ; Tail call - returns directly to caller
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; osfile5_rdcatinfo - Read catalog information (A=5)

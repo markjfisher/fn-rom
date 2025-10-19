@@ -7,7 +7,7 @@
         .import parameter_fsp
         .import print_axy
         .import print_string
-        .import remember_axy
+        .import remember_xy_only
         .import osfileFF_loadfiletoaddr
         .import osfile0_savememblock
         .import osfile1_updatecat
@@ -64,7 +64,7 @@ filev_entry:
         dbg_string_axy "FILEV: "
         ; rts
 
-        jsr     remember_axy
+        jsr     remember_xy_only        ; Save X,Y only - A is the return value!
         pha
         jsr     parameter_fsp
 
