@@ -44,23 +44,44 @@ FUJI_ROM_SLOT = 14
 
 RAM_FS_START = $5000
 
-; RAM filesystem layout:
+; RAM filesystem layout - DUAL DRIVE SUPPORT:
 ; $5000      - next_available_sector (1 byte, tracks next free sector for allocation)
-; $5001-5007 - Reserved for debug/future use (7 bytes)
-; $5008-51FF - Catalog (512 bytes = 2 sectors of 256 bytes)
-; $5208-5217 - RAM_PAGE_ALLOC bitmap (16 bytes, 1 bit per page, supports up to 16 pages)
-; $5218-XXXX - File data pages (PAGE_SIZE * MAX_PAGES bytes)
-NEXT_AVAILABLE_SECTOR = RAM_FS_START + $0
-TEMP_STORAGE          = RAM_FS_START + $1
-RAM_CATALOG_OFFSET    = $8                         ; Catalog starts 8 bytes after RAM_FS_START
+; $5001      - CURRENT_DRIVE (0 or 1, selected via *DRIVE command)
+; $5002-5007 - Reserved for debug/future use (6 bytes)
+; $5008-507F - Drive 0 catalog compressed (7 entries × 16 bytes = 112 bytes)
+;              Entry 0: Disk title (8+8 bytes), Entries 1-6: Files (8+8 bytes each)
+; $5080-50F7 - Drive 1 catalog compressed (7 entries × 16 bytes = 112 bytes)
+; $50F8-50FF - Drive 0 page allocation (8 bytes, 1 per page, supports 6 files + 2 spare)
+; $5100-5107 - Drive 1 page allocation (8 bytes, 1 per page, supports 6 files + 2 spare)
+; $5108-570F - Drive 0 file pages (6 pages × 256 = $600 bytes)
+; $5710-5D17 - Drive 1 file pages (6 pages × 256 = $600 bytes)
+; Total: $D18 bytes (~3.3KB) - saved ~256 bytes!
 
-; Simple page-based RAM filesystem (starts at $5008)
-RAM_CATALOG_START = RAM_FS_START + RAM_CATALOG_OFFSET
-RAM_PAGE_ALLOC    = RAM_FS_START + $208         ; Page allocation bitmap (16 bytes, supports up to 16 pages)
-RAM_PAGES_START   = RAM_FS_START + $218         ; File pages start (moved up, saved 32 bytes)
-MAX_PAGES         = 12                          ; Maximum pages (12 * 256 + 512 = $E00 total)
-PAGE_SIZE         = 256                         ; Bytes per page
-FIRST_RAM_SECTOR  = 2                           ; Sectors 2+ are now RAM pages (TEST, WORLD, HELLO, then new files)
+NEXT_AVAILABLE_SECTOR = RAM_FS_START + $0
+CURRENT_DRIVE         = RAM_FS_START + $1       ; NEW: Current drive number (0 or 1)
+TEMP_STORAGE          = RAM_FS_START + $2
+RAM_CATALOG_OFFSET    = $8                      ; Catalogs start 8 bytes after RAM_FS_START
+
+; Catalog compression: 7 entries (1 header + 6 files) × 16 bytes per entry
+CATALOG_ENTRIES       = 7                       ; Header + 6 files
+CATALOG_ENTRY_SIZE    = 16                      ; 8 bytes sector 0 + 8 bytes sector 1
+CATALOG_COMPRESSED_SIZE = CATALOG_ENTRIES * CATALOG_ENTRY_SIZE  ; 112 bytes
+
+; Drive 0 structures
+DRIVE0_CATALOG    = RAM_FS_START + $008         ; Drive 0 catalog (112 bytes compressed)
+DRIVE0_PAGE_ALLOC = RAM_FS_START + $0F8         ; Drive 0 page allocation (8 bytes)
+DRIVE0_PAGES      = RAM_FS_START + $108         ; Drive 0 file pages (6 × 256)
+
+; Drive 1 structures  
+DRIVE1_CATALOG    = RAM_FS_START + $080         ; Drive 1 catalog (112 bytes compressed)
+DRIVE1_PAGE_ALLOC = RAM_FS_START + $100         ; Drive 1 page allocation (8 bytes)
+DRIVE1_PAGES      = RAM_FS_START + $710         ; Drive 1 file pages (6 × 256)
+
+; Constants
+MAX_PAGES_PER_DRIVE = 6                         ; 6 pages per drive (6 files max)
+PAGE_SIZE           = 256                       ; Bytes per page
+FIRST_RAM_SECTOR    = 2                         ; Sectors 2+ are RAM pages
+NUM_DRIVES          = 2                         ; Support 2 drives (0 and 1)
 
 ; Static test data - a simple BBC Micro disc image
 dummy_disc_title:
@@ -249,6 +270,89 @@ hello_app_start:
 dummy_sector4_data_end:
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; Helper functions to get drive-specific addresses
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+; get_current_catalog - Get catalog address for current drive
+; Output: aws_tmp12/13 = catalog address
+get_current_catalog:
+        lda     CURRENT_DRIVE
+        beq     @drive0
+        ; Drive 1
+        lda     #<DRIVE1_CATALOG
+        sta     aws_tmp12
+        lda     #>DRIVE1_CATALOG
+        sta     aws_tmp13
+        rts
+@drive0:
+        ; Drive 0
+        lda     #<DRIVE0_CATALOG
+        sta     aws_tmp12
+        lda     #>DRIVE0_CATALOG
+        sta     aws_tmp13
+        rts
+
+; get_current_page_alloc - Get page allocation address for current drive
+; Output: aws_tmp12/13 = page allocation address
+get_current_page_alloc:
+        lda     CURRENT_DRIVE
+        beq     @drive0
+        ; Drive 1
+        lda     #<DRIVE1_PAGE_ALLOC
+        sta     aws_tmp12
+        lda     #>DRIVE1_PAGE_ALLOC
+        sta     aws_tmp13
+        rts
+@drive0:
+        ; Drive 0
+        lda     #<DRIVE0_PAGE_ALLOC
+        sta     aws_tmp12
+        lda     #>DRIVE0_PAGE_ALLOC
+        sta     aws_tmp13
+        rts
+
+; get_current_pages_start - Get file pages start address for current drive
+; Output: A = high byte offset to add to page number
+get_current_pages_start:
+        lda     CURRENT_DRIVE
+        beq     @drive0
+        ; Drive 1
+        lda     #>DRIVE1_PAGES
+        rts
+@drive0:
+        ; Drive 0
+        lda     #>DRIVE0_PAGES
+        rts
+
+; convert_sector_to_drive_page - Convert sector to drive-relative page
+; Input: A = sector number
+; Output: A = page number (0-5 for current drive), Carry=1 if error
+convert_sector_to_drive_page:
+        cmp     #FIRST_RAM_SECTOR
+        bcc     @error                  ; Sector < 2, error
+        sec
+        sbc     #FIRST_RAM_SECTOR       ; Convert to absolute page (0-11)
+        
+        ; Determine which drive this page belongs to
+        cmp     #MAX_PAGES_PER_DRIVE
+        bcc     @drive0_page            ; Page 0-5 = drive 0
+        
+        ; Page 6-11 = drive 1
+        sec
+        sbc     #MAX_PAGES_PER_DRIVE    ; Convert to drive-relative page (0-5)
+        clc                             ; Success
+        rts
+        
+@drive0_page:
+        ; Already 0-5, just return
+        clc                             ; Success
+        rts
+        
+@error:
+        sec                             ; Error
+        rts
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; FUJI_READ_BLOCK_DATA - Read data block from dummy interface
 ; Input: data_ptr points to buffer, other parameters in workspace
 ; Output: Data read into buffer, Carry=0 if success, Carry=1 if error
@@ -285,29 +389,43 @@ fuji_read_block_data:
         rts
 
 @read_ram_page:
-        ; Convert sector to page: page = sector - FIRST_RAM_SECTOR  
+        ; Convert sector to absolute page: page = sector - FIRST_RAM_SECTOR  
         sec
-        sbc     #FIRST_RAM_SECTOR       ; A = page number (0, 1, 2...)
+        sbc     #FIRST_RAM_SECTOR       ; A = absolute page number (0-11)
 
 .ifdef FN_DEBUG_READ_DATA
         pha
         jsr     print_string
-        .byte   " page="
+        .byte   " abs_page="
         nop
         jsr     print_hex
         pla
 .endif
 
-        ; Check if page is within bounds
-        cmp     #MAX_PAGES
-        bcc     @read_page_ok
-        lda     #0
-        rts
-        ; Calculate page address: RAM_PAGES_START + (page * 256)
-@read_page_ok:
-        adc     #>RAM_PAGES_START       ; Add page number to high byte
-        sta     aws_tmp13               ; High byte of page address
-        lda     #<RAM_PAGES_START       ; Low byte
+        ; Determine drive and convert to drive-relative page
+        ; Pages 0-5 = drive 0, pages 6-11 = drive 1
+        cmp     #MAX_PAGES_PER_DRIVE
+        bcc     @drive0_read            ; Page 0-5 = drive 0
+        
+        ; Drive 1 (pages 6-11)
+        sec
+        sbc     #MAX_PAGES_PER_DRIVE    ; Convert to drive-relative page (0-5)
+        pha                             ; Save page number
+        lda     #>DRIVE1_PAGES          ; Get drive 1 pages base
+        jmp     @calc_page_addr
+        
+@drive0_read:
+        ; Drive 0 (pages 0-5)
+        pha                             ; Save page number
+        lda     #>DRIVE0_PAGES          ; Get drive 0 pages base
+        
+@calc_page_addr:
+        sta     aws_tmp13               ; Base high byte
+        pla                             ; Restore page number
+        clc
+        adc     aws_tmp13               ; Add page offset to base
+        sta     aws_tmp13               ; Final high byte
+        lda     #$00                    ; Low byte always 0 (page boundary)
         sta     aws_tmp12
 
 ; .ifdef FN_DEBUG_READ_DATA
@@ -396,19 +514,38 @@ fuji_write_block_data:
         rts
 
 @write_ram_page:
-        ; Convert sector to page: page = sector - FIRST_RAM_SECTOR
+        ; Convert sector to absolute page: page = sector - FIRST_RAM_SECTOR
         sec
-        sbc     #FIRST_RAM_SECTOR       ; A = page number (0, 1, 2...)
+        sbc     #FIRST_RAM_SECTOR       ; A = absolute page number (0-11)
 
-        ; Check if page is within bounds
-        cmp     #MAX_PAGES
-        bcs     @write_error            ; Page >= MAX_PAGES, error
+        ; Check if page is within total bounds (12 pages total)
+        cmp     #(MAX_PAGES_PER_DRIVE * NUM_DRIVES)
+        bcs     @write_error            ; Page >= 12, error
 
-        ; Calculate page address: RAM_PAGES_START + (page * 256)
+        ; Determine drive and convert to drive-relative page
+        ; Pages 0-5 = drive 0, pages 6-11 = drive 1
+        cmp     #MAX_PAGES_PER_DRIVE
+        bcc     @drive0_write           ; Page 0-5 = drive 0
+        
+        ; Drive 1 (pages 6-11)
+        sec
+        sbc     #MAX_PAGES_PER_DRIVE    ; Convert to drive-relative page (0-5)
+        pha                             ; Save page number
+        lda     #>DRIVE1_PAGES          ; Get drive 1 pages base
+        jmp     @calc_write_addr
+        
+@drive0_write:
+        ; Drive 0 (pages 0-5)
+        pha                             ; Save page number
+        lda     #>DRIVE0_PAGES          ; Get drive 0 pages base
+        
+@calc_write_addr:
+        sta     aws_tmp13               ; Base high byte
+        pla                             ; Restore page number
         clc
-        adc     #>RAM_PAGES_START       ; Add page number to high byte
-        sta     aws_tmp13               ; High byte of page address
-        lda     #<RAM_PAGES_START       ; Low byte
+        adc     aws_tmp13               ; Add page offset to base
+        sta     aws_tmp13               ; Final high byte
+        lda     #$00                    ; Low byte always 0 (page boundary)
         sta     aws_tmp12
 
         ; Copy data to page (simple 256 byte copy)
@@ -436,41 +573,84 @@ fuji_write_block_data:
 fuji_read_catalog_data:
         jsr     remember_axy
 
-; .ifdef FN_DEBUG
-;         jsr     print_string
-;         .byte   "fuji_read_catalog_data: called"
-;         nop
-;         jsr     print_newline
-; .endif
+        ; Get current drive's catalog address
+        jsr     get_current_catalog     ; Returns address in aws_tmp12/13
 
-        ; Copy RAM catalog data to buffer (512 bytes) - includes created files
+        ; Expand compressed catalog (112 bytes) to full DFS catalog (512 bytes)
+        ; Compressed format: 7 entries × 16 bytes (8 for sector 0, 8 for sector 1)
+        ; Expanded format: Sector 0 (256 bytes) + Sector 1 (256 bytes)
+        
+        ; Clear destination buffer first (512 bytes)
         ldy     #0
-@copy_loop:
-        lda     RAM_CATALOG_START,y     ; Read from RAM catalog, not ROM
+        lda     #0
+@clear_s0:
         sta     (data_ptr),y
         iny
-        bne     @copy_loop    ; Copy first 256 bytes
-
-        ; Increment high byte of data_ptr
+        bne     @clear_s0
+        
         inc     data_ptr+1
-
-        ; Copy second 256 bytes
         ldy     #0
-@copy_loop2:
-        lda     RAM_CATALOG_START+256,y ; Read from RAM catalog, not ROM
+@clear_s1:
         sta     (data_ptr),y
         iny
-        bne     @copy_loop2   ; Copy second 256 bytes
-
-        ; Restore data_ptr
+        bne     @clear_s1
         dec     data_ptr+1
 
-; .ifdef FN_DEBUG
-;         jsr     print_string
-;         .byte   "fuji_read_catalog_data: completed, returning 512 bytes"
-;         nop
-;         jsr     print_newline
-; .endif
+        ; Now copy compressed catalog data, expanding it
+        ; Use simple byte counter in memory
+        lda     #0
+        sta     TEMP_STORAGE            ; Byte counter (0-111)
+        
+@copy_byte_loop:
+        ; Read byte from compressed catalog
+        ldy     TEMP_STORAGE
+        lda     (aws_tmp12),y           ; Read byte from compressed
+        sta     TEMP_STORAGE + 1        ; Save byte
+        
+        ; Calculate entry number: entry = counter / 16
+        tya
+        lsr     a                       ; ÷ 2
+        lsr     a                       ; ÷ 4
+        lsr     a                       ; ÷ 8
+        lsr     a                       ; ÷ 16
+        ; A = entry number (0-6)
+        asl     a                       ; × 2
+        asl     a                       ; × 4
+        asl     a                       ; × 8
+        ; A = entry * 8
+        sta     TEMP_STORAGE + 2        ; Save entry*8
+        
+        ; Calculate byte within entry: counter & 15
+        lda     TEMP_STORAGE
+        and     #15                     ; byte within entry (0-15)
+        cmp     #8
+        bcs     @write_s1
+        
+        ; Write to sector 0: dest = entry*8 + byte_in_entry
+        clc
+        adc     TEMP_STORAGE + 2        ; Add entry*8
+        tay
+        lda     TEMP_STORAGE + 1        ; Get byte
+        sta     (data_ptr),y            ; Write to sector 0
+        jmp     @next_byte
+        
+@write_s1:
+        ; Write to sector 1: dest = entry*8 + (byte_in_entry-8)
+        sec
+        sbc     #8                      ; byte - 8
+        clc
+        adc     TEMP_STORAGE + 2        ; Add entry*8
+        tay
+        inc     data_ptr+1              ; Point to sector 1
+        lda     TEMP_STORAGE + 1        ; Get byte
+        sta     (data_ptr),y            ; Write to sector 1
+        dec     data_ptr+1              ; Back to sector 0
+        
+@next_byte:
+        inc     TEMP_STORAGE            ; Next byte
+        lda     TEMP_STORAGE
+        cmp     #CATALOG_COMPRESSED_SIZE  ; Done all 112 bytes?
+        bne     @copy_byte_loop
 
         clc
         rts
