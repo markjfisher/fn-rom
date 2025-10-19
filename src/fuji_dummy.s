@@ -152,17 +152,17 @@ dummy_sector2_data:
         lda     #FUJI_ROM_SLOT          ; FujiNet ROM slot
         sta     paged_ram_copy          ; Update RAM copy
         sta     ROMSEL                  ; Update hardware register
-
+        
         jsr     print_string
         .byte   "ERROR: Running at load address!", $0D
         nop
-
+        
         ; Restore original ROM
         pla
         sta     paged_ram_copy          ; Restore RAM copy
         sta     ROMSEL                  ; Restore hardware register
         rts
-
+        
         ; Real application starts here (execute address)
 test_app_start:
         ; Save current ROM and switch to FujiNet ROM (slot 5)
@@ -171,11 +171,11 @@ test_app_start:
         lda     #FUJI_ROM_SLOT          ; FujiNet ROM slot
         sta     paged_ram_copy          ; Update RAM copy
         sta     ROMSEL                  ; Update hardware register
-
+        
         jsr     print_string
         .byte   "TEST app running!", $0D
         nop
-
+        
         ; Restore original ROM
         pla
         sta     paged_ram_copy          ; Restore RAM copy
@@ -192,17 +192,17 @@ dummy_sector3_data:
         lda     #FUJI_ROM_SLOT          ; FujiNet ROM slot
         sta     paged_ram_copy          ; Update RAM copy
         sta     ROMSEL                  ; Update hardware register
-
+        
         jsr     print_string
         .byte   "ERROR: Running at load address!", $0D
         nop
-
+        
         ; Restore original ROM
         pla
         sta     paged_ram_copy          ; Restore RAM copy
         sta     ROMSEL                  ; Restore hardware register
         rts
-
+        
         ; Real application starts here (execute address)
 world_app_start:
         ; Save current ROM and switch to FujiNet ROM (slot 5)
@@ -211,14 +211,14 @@ world_app_start:
         lda     #FUJI_ROM_SLOT          ; FujiNet ROM slot
         sta     paged_ram_copy          ; Update RAM copy
         sta     ROMSEL                  ; Update hardware register
-
+        
         jsr     print_string
         .byte   "WORLD application loaded!", $0D
         nop
         jsr     print_string
         .byte   "This is a longer program", $0D
         nop
-
+        
         ; Restore original ROM
         pla
         sta     paged_ram_copy          ; Restore RAM copy
@@ -235,17 +235,17 @@ dummy_sector4_data:
         lda     #FUJI_ROM_SLOT          ; FujiNet ROM slot
         sta     paged_ram_copy          ; Update RAM copy
         sta     ROMSEL                  ; Update hardware register
-
+        
         jsr     print_string
         .byte   "ERROR: Running at load address!", $0D
         nop
-
+        
         ; Restore original ROM
         pla
         sta     paged_ram_copy          ; Restore RAM copy
         sta     ROMSEL                  ; Restore hardware register
         rts
-
+        
         ; Real application starts here (execute address)
 hello_app_start:
         ; Save current ROM and switch to FujiNet ROM (slot 5)
@@ -254,14 +254,14 @@ hello_app_start:
         lda     #FUJI_ROM_SLOT          ; FujiNet ROM slot
         sta     paged_ram_copy          ; Update RAM copy
         sta     ROMSEL                  ; Update hardware register
-
+        
         jsr     print_string
         .byte   "HELLO from FujiNet!", $0D
         nop
         jsr     print_string
         .byte   "File loaded OK", $0D
         nop
-
+        
         ; Restore original ROM
         pla
         sta     paged_ram_copy          ; Restore RAM copy
@@ -387,7 +387,7 @@ fuji_read_block_data:
         ; Sectors 0-1 (catalog) not handled here, return error
         lda     #0
         rts
-
+        
 @read_ram_page:
         ; Convert sector to absolute page: page = sector - FIRST_RAM_SECTOR  
         sec
@@ -437,7 +437,7 @@ fuji_read_block_data:
 ;         jsr     print_hex
 ;         jsr     print_newline
 ; .endif
-
+        
 @copy_sector_data:
         ; Copy data from sector to buffer
         ; Use block size from fuji_block_size
@@ -445,7 +445,7 @@ fuji_read_block_data:
         sta     aws_tmp14                ; Use temporary workspace variable
         lda     fuji_block_size+1
         sta     aws_tmp15                ; Use temporary workspace variable
-
+        
         ldy     #0
 @copy_loop:
         lda     (aws_tmp12),y            ; Use zero-page variable for indirect addressing
@@ -463,11 +463,11 @@ fuji_read_block_data:
         iny
         cpy     aws_tmp14                ; Compare with temporary variable
         bne     @copy_loop
-
+        
         ; Check if we need to copy more bytes (high byte)
         lda     aws_tmp15                ; Use temporary workspace variable
         beq     @copy_done
-
+        
         ; Copy remaining bytes (simplified - just copy 256 bytes max)
         ldy     #0
 @copy_loop2:
@@ -475,7 +475,7 @@ fuji_read_block_data:
         sta     (data_ptr),y
         iny
         bne     @copy_loop2
-
+        
 @copy_done:
         lda     #1                       ; Success
         rts
@@ -587,7 +587,7 @@ fuji_read_catalog_data:
         sta     (data_ptr),y
         iny
         bne     @clear_s0
-        
+
         inc     data_ptr+1
         ldy     #0
 @clear_s1:
@@ -772,18 +772,13 @@ assign_check_file:
 @continue_check:
 
         ; Calculate offset in compressed catalog
-        ; Entry number = Y / 8, then offset = entry*16 + 8 + 7 (sector byte is last in entry's sector 1 data)
+        ; Compressed offset = (catalog_offset / 8) * 16 = catalog_offset * 2
+        ; Add 15 to get to the sector byte (last byte of the 16-byte entry)
         tya
         pha                             ; Save Y
-        lsr     a                       ; ÷ 2
-        lsr     a                       ; ÷ 4
-        lsr     a                       ; ÷ 8 = entry number
-        asl     a                       ; × 2
-        asl     a                       ; × 4
-        asl     a                       ; × 8
-        asl     a                       ; × 16 = entry * 16
+        asl     a                       ; catalog_offset * 2
         clc
-        adc     #15                     ; +15 = last byte of entry (sector byte)
+        adc     #15                     ; +15 = sector byte (last byte of entry)
         tay
         
         lda     (aws_tmp12),y           ; Get sector number from compressed catalog
@@ -862,12 +857,16 @@ assign_done:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 get_next_available_sector:
-        ; CRITICAL: Save aws_tmp00-03 to avoid corrupting caller's data (load/exec addresses, etc.)
-        ; Save aws_tmp00-03 to TEMP_STORAGE+2 through +5
+        ; CRITICAL: Save aws_tmp02-03 AND aws_tmp12-13 to avoid corrupting caller's data
+        ; These registers may contain load/exec addresses or other important data
         lda     aws_tmp02
         sta     TEMP_STORAGE + 2
         lda     aws_tmp03
         sta     TEMP_STORAGE + 3
+        lda     aws_tmp12
+        sta     TEMP_STORAGE + 4
+        lda     aws_tmp13
+        sta     TEMP_STORAGE + 5
         
         ; Get current drive's page allocation table
         jsr     get_current_page_alloc  ; Returns address in aws_tmp12/13
@@ -879,7 +878,7 @@ get_next_available_sector:
         bcs     @no_free_pages          ; Yes, allocate new
         
         ; Check if this page is free
-        ; Calculate address: aws_tmp00/01 + X using aws_tmp02/03
+        ; Calculate address: aws_tmp12/13 + X using aws_tmp02/03
         txa
         clc
         adc     aws_tmp12
@@ -974,11 +973,15 @@ get_next_available_sector:
         ; Save A temporarily
         pha
         
-        ; Restore aws_tmp00-03
+        ; Restore aws_tmp02-03 and aws_tmp12-13
         lda     TEMP_STORAGE + 2
         sta     aws_tmp02
         lda     TEMP_STORAGE + 3
         sta     aws_tmp03
+        lda     TEMP_STORAGE + 4
+        sta     aws_tmp12
+        lda     TEMP_STORAGE + 5
+        sta     aws_tmp13
         
         ; Restore A (sector number) and return
         pla
@@ -1102,21 +1105,41 @@ fuji_init_ram_filesystem:
         cpy     #8
         bne     @init_drive0_title_s1
 
-        ; Copy file entries 1-3 (TEST, WORLD, HELLO) - 48 bytes total
+        ; Copy file entries 1-3 (HELLO, WORLD, TEST) individually
+        ; Each entry is 16 bytes: 8 for sector 0, 8 for sector 1
+        
+        ; Entry 1: HELLO (bytes 16-31)
         ldx     #0
-@init_drive0_files:
-        lda     dummy_catalog+8,x       ; Source: entry 1-3 sector 0 data
-        sta     DRIVE0_CATALOG+16,x     ; Dest: compressed entries 1-3
+@copy_hello_entry:
+        lda     dummy_catalog+8,x       ; Sector 0 data
+        sta     DRIVE0_CATALOG+16,x
+        lda     end_of_sector0_data+8,x ; Sector 1 data
+        sta     DRIVE0_CATALOG+24,x
         inx
-        cpx     #24                     ; 3 files × 8 bytes
-        bne     @init_drive0_files
+        cpx     #8
+        bne     @copy_hello_entry
+        
+        ; Entry 2: WORLD (bytes 32-47)
         ldx     #0
-@init_drive0_files_s1:
-        lda     end_of_sector0_data+8,x ; Source: entry 1-3 sector 1 data
-        sta     DRIVE0_CATALOG+24+16,x  ; Dest: compressed entries 1-3 (sector 1 data)
+@copy_world_entry:
+        lda     dummy_catalog+16,x      ; Sector 0 data
+        sta     DRIVE0_CATALOG+32,x
+        lda     end_of_sector0_data+16,x ; Sector 1 data
+        sta     DRIVE0_CATALOG+40,x
         inx
-        cpx     #24
-        bne     @init_drive0_files_s1
+        cpx     #8
+        bne     @copy_world_entry
+        
+        ; Entry 3: TEST (bytes 48-63)
+        ldx     #0
+@copy_test_entry:
+        lda     dummy_catalog+24,x      ; Sector 0 data
+        sta     DRIVE0_CATALOG+48,x
+        lda     end_of_sector0_data+24,x ; Sector 1 data
+        sta     DRIVE0_CATALOG+56,x
+        inx
+        cpx     #8
+        bne     @copy_test_entry
 
         ; Copy file data to drive 0 pages
         ; TEST → page 0 (sector 2)

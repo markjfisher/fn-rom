@@ -9,5 +9,3 @@ save_mem_block,e,x
 fuji_execute_block_rw,e,x
 fuji_write_block_data,e,x
 get_next_available_sector,e,x
-mjf1,e,x
-mjf2,e,x
