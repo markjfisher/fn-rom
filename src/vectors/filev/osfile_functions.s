@@ -15,14 +15,13 @@
         .export osfile_update_loadaddr_xoffset
         .export osfile_update_execaddr_xoffset
         .export osfile_updatelock
-        .export mjf
 
         .import check_file_exists
         .import check_file_not_locked
         .import check_file_not_open_y
         .import create_file_fsp
         .import delete_cat_entry_yfileoffset
-        .import fuji_execute_block_rw
+        .import fuji_write_mem_block
         .import read_file_attribs_to_b0_yoffset
         .import remember_axy
         .import save_cat_to_disk
@@ -42,7 +41,6 @@ osfile0_savememblock:
         jsr     set_param_block_pointer_b0      ; Restore B0 after create_file_fsp
         jsr     read_file_attribs_to_b0_yoffset
         jsr     save_mem_block
-mjf:
         lda     #$01                     ; Return A=1 for success (matches MMFS line 2023)
         rts
 
@@ -52,8 +50,8 @@ mjf:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 save_mem_block:
-        lda     #$A5                     ; Write operation
-        jmp     fuji_execute_block_rw    ; Tail call - returns directly to caller
+        jsr     fuji_write_mem_block     ; Write with transaction protection (fuji_fs.s)
+        rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; osfile5_rdcatinfo - Read catalog information (A=5)

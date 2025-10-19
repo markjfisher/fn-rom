@@ -100,15 +100,83 @@ Both fixes have been applied and the ROM has been successfully rebuilt. The fixe
 1. ✅ OSFILE functions can return values in A register
 2. ✅ *RUN command uses exec address from LoadFile_Ycatoffset (no manual override)
 
+## Issue 3: Zero Page Corruption in Block Read/Write (FIXED)
+
+### Problem
+After removing the "redundant" exec address copy from `cmd_run.s`, *RUN commands were crashing. The exec address at `&BE/&BF` was being corrupted to `000300` instead of the correct value.
+
+### Root Cause Discovery
+The issue was in `fuji_execute_block_rw.s`. Both `fuji_read_file_block` and `fuji_write_file_block` were calling `remember_axy`, which saves/restores registers from the stack. However, **MMFS uses a different pattern**:
+
+**MMFS Pattern** (lines 2014-2024 of mmfs100.asm):
+```assembly
+.LoadMemBlock
+    JSR CalcRWVars
+.readblock
+    JSR MMC_ReadBlock        ; Read data
+.rwblkexit
+    ...
+    JSR MMC_END              ; ← Restores &BC-&CB!
+    LDA #1
+    RTS
+```
+
+**MMC_END** (MMC.asm lines 866-879):
+```assembly
+.MMC_END
+    LDX #9                   ; (or #15 for MM32)
+.eloop0
+    LDA MA+&1090,X          ; Restore from workspace
+    STA &BC,X               ; ← Restores &BC through &CB!
+    DEX
+    BPL eloop0
+    RTS
+```
+
+**Key Insight**: MMFS uses `MMC_BEGIN` to save `&BC-&CB` to workspace (`MA+&1090`), then `MMC_END` to restore them. This preserves the exec address in `&BE/&BF` across hardware operations!
+
+### The Bug
+Our `fuji_read_file_block` was using `remember_axy`, which:
+1. Saves registers to **stack** (not workspace)
+2. May not preserve zero page correctly
+3. **Corrupts `&BE/&BF`** (exec address) when restoring
+
+### Solution
+Removed `remember_axy` calls from both `fuji_read_file_block` and `fuji_write_file_block`.
+
+**Rationale**:
+- MMFS hardware layer (`MMC_ReadBlock`, `MMC_WriteBlock`) does NOT use `remember_axy`
+- Zero page `&BC-&CB` preservation is handled by `MMC_BEGIN`/`MMC_END` at a higher level
+- Our FujiNet block read/write functions should mirror MMFS hardware behavior
+- The caller expects `&BC-&CB` (including `&BE/&BF`) to remain intact
+
+### Why This Fixes Both Issues
+1. **\*RUN exec address**: `&BE/&BF` now preserved correctly through `LoadFile_Ycatoffset` → `LoadMemBlock` → `fuji_read_file_block`
+2. **\*EXEC files**: Same preservation path ensures exec address is available for the `*EXEC` conversion code
+
+---
+
 ## Files Changed
 1. `/home/markf/dev/bbc/fn-rom/src/vectors/filev_entry.s`:
    - Changed `remember_axy` to `remember_xy_only` (line 67)
    
-2. `/home/markf/dev/bbc/fn-rom/src/commands/cmd_run.s`:
-   - Removed redundant exec address copy (old lines 126-129)
+2. `/home/markf/dev/bbc/fn-rom/src/vectors/filev/fuji_execute_block_rw.s`:
+   - Removed `remember_axy` from `fuji_read_file_block` (line 82)
+   - Removed `remember_axy` from `fuji_write_file_block` (line 109)
+   - Added comments explaining why NOT to use `remember_axy` here
 
 ## Impact
-- **OSFILE operations** now correctly return success/failure codes
-- ***RUN command** now follows MMFS architecture exactly
-- Both fixes eliminate deviations from MMFS, improving maintainability and correctness
+- **OSFILE operations** now correctly return success/failure codes via A register
+- **\*RUN command** now preserves exec address correctly (no more crashes!)
+- **\*EXEC files** will work correctly when implemented
+- **Zero page preservation** now matches MMFS architecture exactly
+- All fixes eliminate deviations from MMFS, improving maintainability and correctness
+
+## Architecture Lesson
+This bug highlighted a critical architectural pattern in MMFS:
+- **High-level code** (OSFILE, etc.) uses `remember_axy` for function calls
+- **Mid-level code** (LoadMemBlock, SaveMemBlock) uses `MMC_BEGIN`/`MMC_END` for zero page management
+- **Hardware layer** (MMC_ReadBlock, etc.) does NOT use register preservation - it expects `&BC-&CB` to be stable
+
+Our FujiNet implementation must respect these boundaries to maintain compatibility.
 

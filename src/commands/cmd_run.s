@@ -3,6 +3,8 @@
 
         .export fscv2_4_11_starRUN
 
+        .export mjf2
+
         .import LoadFile_Ycatoffset
         .import get_cat_firstentry81
         .import read_fspba_reset
@@ -102,20 +104,16 @@ runfile_found:
         sta     fuji_filename_buffer+5
 
         ; Execute the *EXEC command
-        ldx     #$00
-        ldy     #$10                            ; MP+&10
+        ldx     #<fuji_filename_buffer
+        ldy     #>fuji_filename_buffer          ; MP+HI(fuji_filename_buffer): FUTURE: need to adjust
         jmp     OSCLI                           ; Execute "E.:X.D.FILENAME"
 
 runfile_run:
         ; Load the file normally
         jsr     LoadFile_Ycatoffset    ; Load file
 
-        ; Store execution address from catalog entry for final jump
-        ; TODO: work out why this is needed, as it differs from MMFS where the values are already good
-        lda     dfs_cat_file_exec_addr,y        ; Exec address low byte from catalog
-        sta     aws_tmp14              ; Store in workspace (&BE)
-        lda     dfs_cat_file_exec_addr+1,y      ; Exec address high byte from catalog
-        sta     aws_tmp15              ; Store in workspace (&BF)
+mjf2:
+        nop
 
         ; Set up execution parameters
         clc

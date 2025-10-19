@@ -7,8 +7,10 @@
         .export LoadMemBlockEX
         .export LoadMemBlock
 
+        .export mjf1
+
         .import exec_addr_hi2
-        .import fuji_execute_block_rw
+        .import fuji_read_mem_block
         .import fuji_read_catalog
         .import get_cat_entry_fspba
         .import load_addr_hi2
@@ -63,19 +65,21 @@ LoadFile_Ycatoffset:
 
         ; use file's load address
 @load_at_load_addr:
-        lda     $0F0E,y                  ; mixed byte
-        sta     pws_tmp02                ; C2, used by load_addr_hi2
+        lda     dfs_cat_file_op,y               ; mixed byte
+        sta     pws_tmp02                       ; C2, used by load_addr_hi2
         jsr     load_addr_hi2
 
 @load_copyfileinfo_loop:
-        lda     $0F08,y
+        lda     dfs_cat_file_s1_start,y
 
-        sta     aws_tmp12,x              ; STA &BC,X (same as MMFS)
+        sta     aws_tmp12,x                     ; into &BC,X
         iny
         inx
         cpx     #$08
         bne     @load_copyfileinfo_loop
 
+mjf1:
+        nop
         jsr     exec_addr_hi2
 
         ldy     aws_tmp10                ; LDY &BA
@@ -96,7 +100,5 @@ LoadMemBlockEX:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 LoadMemBlock:
-        lda     #$85                     ; Read operation
-        jsr     fuji_execute_block_rw
+        jsr     fuji_read_mem_block      ; Read with transaction protection (fuji_fs.s)
         rts
-

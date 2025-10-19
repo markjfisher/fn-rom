@@ -11,6 +11,8 @@
         .export fuji_begin_transaction
         .export fuji_end_transaction
         .export fuji_check_device_status
+        .export fuji_read_mem_block
+        .export fuji_write_mem_block
 
         .import print_string
         .import err_disk
@@ -20,6 +22,7 @@
         .import fuji_read_catalog_data
         .import fuji_write_catalog_data
         .import fuji_read_disc_title_data
+        .import fuji_execute_block_rw
 
         .include "fujinet.inc"
 
@@ -207,6 +210,34 @@ fuji_check_device_status:
         ; This would send a status request and check response
         ; For now, assume device is always available
         clc
+        rts
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; fuji_read_mem_block - Read memory block with transaction protection
+; This is the proper interface for LoadMemBlock to call
+; Wraps fuji_execute_block_rw with transaction management
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+fuji_read_mem_block:
+        jsr     fuji_begin_transaction   ; Save &BC-&CB
+        lda     #$85                     ; Read operation
+        jsr     fuji_execute_block_rw
+        jsr     fuji_end_transaction     ; Restore &BC-&CB
+        lda     #1                       ; Success
+        rts
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; fuji_write_mem_block - Write memory block with transaction protection
+; This is the proper interface for save_mem_block to call
+; Wraps fuji_execute_block_rw with transaction management
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+fuji_write_mem_block:
+        jsr     fuji_begin_transaction   ; Save &BC-&CB
+        lda     #$A5                     ; Write operation
+        jsr     fuji_execute_block_rw
+        jsr     fuji_end_transaction     ; Restore &BC-&CB
+        lda     #1                       ; Success
         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
