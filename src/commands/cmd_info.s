@@ -3,6 +3,7 @@
 
         .export fscv10_starINFO
         .export cmd_fs_info
+        .export cmd_info_loop
 
         .import cmd_table_info
         .import fuji_read_catalog
@@ -49,9 +50,9 @@ cmd_fs_info:
         jsr     fuji_read_catalog
         jsr     parameter_afsp_param_syntaxerrorifnull_getcatentry_fsptxtp
 
-@cmd_info_loop:
+cmd_info_loop:
         jsr     prt_infoline_yoffset
         jsr     get_cat_nextentry
-        bcs     @cmd_info_loop
+        bcs     cmd_info_loop
         rts
 

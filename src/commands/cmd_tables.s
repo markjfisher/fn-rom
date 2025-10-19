@@ -19,6 +19,7 @@
         .import cmd_fs_delete
         .import cmd_fs_disc
         .import cmd_fs_drive
+        .import cmd_fs_ex
         .import cmd_fs_fboot
         .import cmd_fs_fuji
         .import cmd_fs_info
@@ -44,8 +45,9 @@ cmd_table_fujifs:
         .byte   $FF                ; Last command number (-1)
 
         .byte   "CLOSE",     $80+$00
-        .byte   "DELETE",    $80+$08    ; <afsp> - MMFS command &08
+        .byte   "DELETE",    $80+$04    ; <fsp>
         .byte   "DRIVE",     $80+$01    ; <drive>
+        .byte   "EX",        $80+$03    ; (<dir>)
 ; equivalent of .info_cmd_index
 cmd_table_info:
         .byte   "INFO",      $80+$02    ; <afsp>
@@ -57,7 +59,7 @@ cmd_table_futils:
         ; 02
         .byte   (cmd_table_futils_cmds - cmd_table_fujifs_cmds) / 2 - 1
 
-        .byte   "BOOT",      $80+$03    ; <dno>/<dsp>
+        .byte   "BOOT",      $80+$05    ; <dno>/<dsp>
         .byte   $00                     ; End of table
 
 ; COMMAND TABLE - Utils commands [NON-FS COMMANDS], help = "*HELP UTILS"
@@ -66,7 +68,7 @@ cmd_table_utils:
         ; 04
         .byte   (cmd_table_utils_cmds - cmd_table_fujifs_cmds) / 2 - 1
 
-        .byte   "ROMS",      $80
+        .byte   "ROMS",      $80+$06
         .byte   $00
 
 ; COMMAND TABLE - Help commands [HELP COMMANDS], help = "*HELP"
@@ -100,6 +102,7 @@ cmd_table_fujifs_cmds:
         .word   cmd_fs_close-1
         .word   cmd_fs_delete-1
         .word   cmd_fs_drive-1
+        .word   cmd_fs_ex-1
         .word   cmd_fs_info-1
         .word   not_cmd_fujifs-1
 
@@ -132,6 +135,9 @@ cmd_table_END:
 parameter_table:
         .byte '<'|$80, "drive>"                 ; 1
         .byte '<'|$80, "afsp>"                  ; 2
-        .byte '<'|$80, "dno>/<dsp>"             ; 3
+        .byte '<'|$80, "<dir>)"                 ; 3
+        .byte '<'|$80, "fsp>"                   ; 4
+        .byte 'P'|$80, "/U/N/K/R"               ; 5
+        .byte '('|$80, "<num>)"                 ; 6
 
         .byte $FF

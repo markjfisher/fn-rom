@@ -2,7 +2,10 @@
         .export check_channel_yhndl_exyintch_tya_cmpptr
         .export cmp_ptr_ext
         .export conv_yhndl_intch_exyintch
+        .export err_bad_drive
         .export fscv1_eof_yhndl
+        .export fscv7_hndlrange
+        .export get_cat_entry
         .export get_cat_entry_fspba
         .export get_cat_firstentry80
         .export get_cat_firstentry80_fname
@@ -12,22 +15,25 @@
         .export is_hndlin_use_yintch
         .export load_cur_drv_cat
         .export load_cur_drv_cat2
+        .export param_drive_no_bad_drive
+        .export param_drive_no_syntax
         .export param_optional_drive_no
-        .export parameter_afsp_param_syntaxerrorifnull_getcatentry_fsptxtp
+        .export param_syntaxerrorifnull
         .export param_syntaxerrorifnull_getcatentry_fsptxtp
+        .export parameter_afsp_param_syntaxerrorifnull_getcatentry_fsptxtp
         .export prt_filename_yoffset
         .export prt_info_msg_yoffset
         .export prt_infoline_yoffset
         .export prt_y_spaces
+        .export rdafsp_padall
+        .export read_dir_drv_parameters2
         .export read_file_attribs_to_b0_yoffset
         .export read_fspba
         .export read_fspba_reset
         .export save_cat_to_disk
         .export set_curdir_drv_to_defaults
+        .export set_curdrv_to_default
         .export set_current_drive_adrive
-        .export param_syntaxerrorifnull
-        .export param_drive_no_syntax
-        .export err_bad_drive
         .export tya_cmp_ptr_ext
         .export y_sub8
 
@@ -637,5 +643,54 @@ hndlinuse_notused_c1:
         sec
 hndlinuse_used_c0:
         pla
+        rts
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; fscv7_hndlrange - Return file handle range
+; Translated from MMFS fscv7_hndlrange (lines 4582-4586)
+; Exit: X = lowest handle issued (filehndl+1 = $11)
+;       Y = highest handle possible (filehndl+5 = $15)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+fscv7_hndlrange:
+        ldx     #filehndl + 1           ; Lowest handle issued = $11
+        ldy     #filehndl + 5           ; Highest handle possible = $15
+        rts
+
+read_dir_drv_parameters:
+        lda     fuji_default_dir        ; read drive/directory from
+        sta     DirectoryParam          ; command line
+        jsr     GSINIT_A
+        bne     read_dir_drv_parameters2        ; if not null string
+        lda     #$00
+        sta     CurrentDrv
+        rts
+
+; read_dir_drv_parameters2 - Read directory and drive parameters
+read_dir_drv_parameters2:
+        jsr     set_curdrv_to_default
+@rdd_loop:
+        jsr     GSREAD_A                ; Read next character
+        bcs     err_bad_directory       ; If end of string, error
+        cmp     #':'                    ; ":"?
+        bne     rdd_exit2               ; Not ":", store as directory
+        jsr     param_drive_no_bad_drive ; Get drive number
+        jsr     GSREAD_A                ; Read next character
+        bcs     rdd_exit1               ; If end of string, done
+        cmp     #'.'                    ; "."?
+        beq     @rdd_loop               ; Loop if "."
+
+err_bad_directory:
+        jsr     err_bad
+        .byte   $CE
+        .byte   "dir", 0
+
+rdd_exit2:
+        sta     DirectoryParam          ; Store directory character
+        jsr     GSREAD_A
+        bcc     err_bad_directory
+
+rdd_exit1:
+        lda     CurrentDrv
         rts
 
