@@ -7,8 +7,6 @@
         .export LoadMemBlockEX
         .export LoadMemBlock
 
-        .export mjf1
-
         .import exec_addr_hi2
         .import fuji_read_mem_block
         .import fuji_read_catalog
@@ -78,8 +76,6 @@ LoadFile_Ycatoffset:
         cpx     #$08
         bne     @load_copyfileinfo_loop
 
-mjf1:
-        nop
         jsr     exec_addr_hi2
 
         ldy     aws_tmp10                ; LDY &BA

@@ -312,7 +312,7 @@ print_axy:
         pha
         jsr     print_string
         .byte   "A="
-        nop     ; doubles up as end of string AND a nop!
+        nop
         jsr     print_hex
 
         jsr     print_string

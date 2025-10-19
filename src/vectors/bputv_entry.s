@@ -126,22 +126,8 @@ bp_entry:
         sec                             ; Load buffer (MMFS line 5345)
         jsr     channel_buffer_rw_yintch_c1read  ; (MMFS line 5346)
 @bp_savebyte:
-.ifdef FN_DEBUG_WRITE_DATA
-        pha
-        lda     #$BB
-        sta     $5006                   ; Debug marker - bp_savebyte reached
-        lda     fuji_ch_flg,y
-        sta     $5007                   ; Debug: flags BEFORE setting bit 40
-        pla
-.endif
         lda     #$40                    ; Bit 6 set = new data (MMFS line 5348)
         jsr     channel_flags_set_bits  ; (MMFS line 5349)
-.ifdef FN_DEBUG_WRITE_DATA
-        pha
-        lda     fuji_ch_flg,y
-        sta     $5006                   ; Debug: flags AFTER setting bit 40 (overwrites BB marker)
-        pla
-.endif
         jsr     load_then_inc_seq_ptr_yintch  ; load buffer ptr, increment PTR (MMFS line 5350)
         pla                             ; Get byte to write (MMFS line 5351)
         sta     (aws_tmp10,x)   ; Byte to buffer (MMFS line 5352)

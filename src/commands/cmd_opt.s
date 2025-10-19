@@ -67,7 +67,6 @@ set_boot_option_yoption:
         pha
         jsr     print_string
         .byte   "OPT: Boot opt, hdr: "
-        nop
         lda     dfs_cat_boot_option
         jsr     print_hex
         jsr     print_newline

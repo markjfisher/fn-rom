@@ -100,7 +100,6 @@ channel_buffer_to_disk_yintch:
         pha
         jsr     print_string
         .byte   "BufToDisk: flg=$"
-        nop
         lda     fuji_ch_flg,y
         jsr     print_hex
         jsr     print_newline

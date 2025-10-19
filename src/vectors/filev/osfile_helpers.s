@@ -202,27 +202,9 @@ cfile_loop:
 @cfile_continue:
         jsr     y_sub8
 
-.ifdef FN_DEBUG_CREATE_FILE
-        pha
-        tya
-        sta     $5001                   ; Debug: Y offset in loop
-        pla
-.endif
-
         lda     dfs_cat_file_op,y
         jsr     a_rorx4and3
         sta     pws_tmp02
-
-.ifdef FN_DEBUG_CREATE_FILE
-        pha
-        lda     dfs_cat_file_sect,y
-        sta     $5002                   ; Debug: start sector being read
-        lda     dfs_cat_file_size,y
-        sta     $5003                   ; Debug: length lo
-        lda     dfs_cat_file_size+1,y
-        sta     $5004                   ; Debug: length mid
-        pla
-.endif
 
 debug_here:
         clc
@@ -231,10 +213,6 @@ debug_here:
         lda     dfs_cat_file_sect,y    ; A = start_sector
         adc     dfs_cat_file_size+1,y  ; A = start + len_mid + carry
         sta     pws_tmp03              ; Result: start + ((len-1) rounded up)
-
-.ifdef FN_DEBUG_CREATE_FILE
-        sta     $5005                   ; Debug: calculated next sector
-.endif
 
         lda     dfs_cat_file_op,y
         and     #$03

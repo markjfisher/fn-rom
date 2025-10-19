@@ -51,7 +51,8 @@ RAM_FS_START = $5000
 ; $5208-5217 - RAM_PAGE_ALLOC bitmap (16 bytes, 1 bit per page, supports up to 16 pages)
 ; $5218-XXXX - File data pages (PAGE_SIZE * MAX_PAGES bytes)
 NEXT_AVAILABLE_SECTOR = RAM_FS_START + $0
-RAM_CATALOG_OFFSET = $8                         ; Catalog starts 8 bytes after RAM_FS_START
+TEMP_STORAGE          = RAM_FS_START + $1
+RAM_CATALOG_OFFSET    = $8                         ; Catalog starts 8 bytes after RAM_FS_START
 
 ; Simple page-based RAM filesystem (starts at $5008)
 RAM_CATALOG_START = RAM_FS_START + RAM_CATALOG_OFFSET
@@ -260,12 +261,10 @@ fuji_read_block_data:
          pha
          jsr     print_string
          .byte   "READ: sector="
-         nop
          lda     fuji_file_offset
          jsr     print_hex
          jsr     print_string
          .byte   " size="
-         nop
          lda     fuji_block_size+1
          jsr     print_hex
          lda     fuji_block_size
@@ -314,7 +313,6 @@ fuji_read_block_data:
 ; .ifdef FN_DEBUG_READ_DATA
 ;         jsr     print_string
 ;         .byte   " addr=$"
-;         nop
 ;         lda     aws_tmp13
 ;         jsr     print_hex
 ;         lda     aws_tmp12
@@ -377,12 +375,10 @@ fuji_write_block_data:
         pha
         jsr     print_string
         .byte   "WRITE: sector="
-        nop
         lda     fuji_file_offset
         jsr     print_hex
         jsr     print_string
         .byte   " buf=$"
-        nop
         lda     data_ptr+1
         jsr     print_hex
         lda     data_ptr
@@ -528,9 +524,8 @@ assign_ram_sectors_to_new_files:
 .ifdef FN_DEBUG_CREATE_FILE
         pha
         jsr     print_string
-        .byte   "=== MARKING RAM PAGES AS ALLOCATED ==="
+        .byte   "=== MARKING RAM PAGES AS ALLOCATED ===", $0D
         nop
-        jsr     print_newline
         pla
 .endif
         ; Scan all files and mark their RAM pages as allocated
@@ -556,7 +551,6 @@ assign_check_file:
         pha
         jsr     print_string
         .byte   "CHECK: offset="
-        nop
         lda     aws_tmp14
         jsr     print_hex
         jsr     print_string
@@ -618,8 +612,10 @@ get_next_available_sector:
         sbc     #FIRST_RAM_SECTOR       ; Convert to page number
         cmp     #0                      ; Check if any pages allocated yet
         beq     @no_free_pages          ; If 0, no pages to scan
-        stx     aws_tmp15               ; Save X temporarily
-        cmp     aws_tmp15               ; Compare max page with current page
+        ; Compare A (max page) with X (current page) without using zero page
+        ; We need to check: if X >= A, no more pages to scan
+        stx     TEMP_STORAGE            ; Use debug marker space temporarily
+        cmp     TEMP_STORAGE            ; Compare max page with current page
         beq     @no_free_pages          ; X == max, no more pages to check
         bcc     @no_free_pages          ; X > max, no more pages to check
         

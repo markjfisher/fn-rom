@@ -3,8 +3,6 @@
 
         .export fscv2_4_11_starRUN
 
-        .export mjf2
-
         .import LoadFile_Ycatoffset
         .import get_cat_firstentry81
         .import read_fspba_reset
@@ -111,9 +109,6 @@ runfile_found:
 runfile_run:
         ; Load the file normally
         jsr     LoadFile_Ycatoffset    ; Load file
-
-mjf2:
-        nop
 
         ; Set up execution parameters
         clc

@@ -194,12 +194,6 @@ close_file_yintch:
         jsr     save_cat_to_disk
         ldy     fuji_intch
 close_file_buftodisk:
-.ifdef FN_DEBUG_CLOSE_FILE
-        lda     #$CC
-        sta     $5006                   ; Debug: CLOSE buffer flush marker
-        lda     fuji_ch_flg,y
-        sta     $5007                   ; Debug: flags at CLOSE before buffer flush
-.endif
         jsr     channel_buffer_to_disk_yintch   ; CRITICAL FIX: Y=intch, not handle!
 close_file_exit:
         ldx     fuji_saved_x
@@ -286,58 +280,6 @@ err_file_open:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 setup_channel_info_block_yintch:
-; .ifdef FN_DEBUG
-;         ; Preserve all registers during debug
-;         php
-;         pha
-;         txa
-;         pha
-;         tya
-;         pha
-
-;         jsr     print_string
-;         .byte   "Channel setup: fuji_cat_file_offset=$"
-;         nop
-;         lda     fuji_cat_file_offset
-;         jsr     print_hex
-;         jsr     print_string
-;         .byte   " X=$"
-;         nop
-;         txa
-;         jsr     print_hex
-;         jsr     print_string
-;         .byte   " Y=$"
-;         nop
-;         tya
-;         jsr     print_hex
-;         jsr     print_newline
-
-;         ; Dump catalog data where we expect HELLO file info
-;         jsr     print_string
-;         .byte   "Catalog s0 at $0E10: "
-;         nop
-;         lda     #$10            ; $0E10 = $0E08 + 8 (HELLO offset)
-;         ldx     #$0E
-;         ldy     #$08
-;         jsr     dump_memory_block
-
-;         jsr     print_string
-;         .byte   "Catalog s1 at $0F10: "
-;         nop
-;         lda     #$10            ; $0F10 = $0F08 + 8 (HELLO offset)  
-;         ldx     #$0F
-;         ldy     #$08
-;         jsr     dump_memory_block
-
-;         ; Restore all registers
-;         pla
-;         tay
-;         pla
-;         tax
-;         pla
-;         plp
-; .endif
-
         lda     #$08
         sta     fuji_channel_block_size
 chnlblock_loop1:
