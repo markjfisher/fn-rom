@@ -26,6 +26,7 @@
         .export prt_infoline_yoffset
         .export prt_y_spaces
         .export rdafsp_padall
+        .export read_dir_drv_parameters
         .export read_dir_drv_parameters2
         .export read_file_attribs_to_b0_yoffset
         .export read_fspba

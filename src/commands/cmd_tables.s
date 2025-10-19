@@ -18,11 +18,14 @@
         .import cmd_fs_close
         .import cmd_fs_delete
         .import cmd_fs_disc
+        .import cmd_fs_dir
         .import cmd_fs_drive
         .import cmd_fs_ex
         .import cmd_fs_fboot
         .import cmd_fs_fuji
         .import cmd_fs_info
+        .import cmd_fs_lib
+
         .import cmd_help_fuji
         .import cmd_help_futils
         .import cmd_help_utils
@@ -46,11 +49,13 @@ cmd_table_fujifs:
 
         .byte   "CLOSE",     $80+$00
         .byte   "DELETE",    $80+$04    ; <fsp>
+        .byte   "DIR",       $80+$03    ; (<dir>)
         .byte   "DRIVE",     $80+$01    ; <drive>
         .byte   "EX",        $80+$03    ; (<dir>)
 ; equivalent of .info_cmd_index
 cmd_table_info:
         .byte   "INFO",      $80+$02    ; <afsp>
+        .byte   "LIB",       $80+$03    ; (<dir>)
         .byte   $00                     ; End of table
 
 ; These are prefixed with "F", e.g. "FBOOT" etc [FILE SYSTEM COMMANDS], help = "*HELP FUTILS"
@@ -101,9 +106,11 @@ cmd_table_fs:
 cmd_table_fujifs_cmds:
         .word   cmd_fs_close-1
         .word   cmd_fs_delete-1
+        .word   cmd_fs_dir-1
         .word   cmd_fs_drive-1
         .word   cmd_fs_ex-1
         .word   cmd_fs_info-1
+        .word   cmd_fs_lib-1
         .word   not_cmd_fujifs-1
 
 ; OLD: cmdaddr4
