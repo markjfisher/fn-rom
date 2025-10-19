@@ -11,7 +11,7 @@
         .import channel_flags_set_bits
         .import channel_set_dir_drive_yintch
         .import check_channel_yhndl_exyintch_tya_cmpptr
-        .import LoadMemBlock
+        .import load_mem_block
         .import save_mem_block
         .import print_newline
         .import print_string
@@ -149,8 +149,8 @@ chnbuf_read:
         ; dbg_string_axy "chnbuf_read called"
         jsr     calc_buffer_sector_for_ptr ; Calculate which sector to load
         ; dbg_string_axy "calc_buffer_sector done"
-        jsr     LoadMemBlock               ; Load buffer (high-level interface)
-        ; dbg_string_axy "LoadMemBlock done"
+        jsr     load_mem_block               ; Load buffer (high-level interface)
+        ; dbg_string_axy "load_mem_block done"
 
 chnbuf_exit:
         dec     fuji_error_flag         ; MMFS line 5257

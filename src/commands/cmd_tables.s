@@ -17,6 +17,7 @@
 
         .import cmd_fs_access
         .import cmd_fs_close
+        .import cmd_fs_copy
         .import cmd_fs_delete
         .import cmd_fs_disc
         .import cmd_fs_dir
@@ -50,6 +51,7 @@ cmd_table_fujifs:
 
         .byte   "ACCESS",    $80+$32    ; <afsp> (L) - params 2 and 3
         .byte   "CLOSE",     $80
+        .byte   "COPY",      $80+$2C    ; <source> <dest.> <afsp> - params C and 2
         .byte   "DELETE",    $80+$08    ; <fsp>
         .byte   "DIR",       $80+$06    ; (<dir>)
         .byte   "DRIVE",     $80+$01    ; <drive>
@@ -108,6 +110,7 @@ cmd_table_fs:
 cmd_table_fujifs_cmds:
         .word   cmd_fs_access-1
         .word   cmd_fs_close-1
+        .word   cmd_fs_copy-1
         .word   cmd_fs_delete-1
         .word   cmd_fs_dir-1
         .word   cmd_fs_drive-1

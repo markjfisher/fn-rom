@@ -38,7 +38,7 @@ cmd_fs_access:
         bne     cmdac_getparam          ; If not null, get parameter
 
 cmdac_flag:
-        stx     cws_tmp5                ; Store lock flag in &AA equivalent
+        stx     cws_tmp3                ; Store lock flag in &AA equivalent
         jsr     get_cat_entry           ; Get first matching catalog entry
 
 cmdac_filefound:
@@ -47,7 +47,7 @@ cmdac_filefound:
         ; Set/Reset locked flag
         lda     dfs_cat_file_dir,y      ; Get directory byte (MA+&0E0F,Y)
         and     #$7F                    ; Clear locked bit
-        ora     cws_tmp5                ; Apply new lock flag
+        ora     cws_tmp3                ; Apply new lock flag
         sta     dfs_cat_file_dir,y      ; Store back
         
         jsr     prt_info_msg_yoffset    ; Print file info

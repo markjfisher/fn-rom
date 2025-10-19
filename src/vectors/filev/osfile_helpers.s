@@ -16,6 +16,8 @@
         .export cfile_loop
         .export getfirstblock_yoffset
         .export delete_cat_entry_yfileoffset
+        .export set_load_addr_to_host
+        .export load_and_execute_addr_hi2
 
         .import a_rorx4and3
         .import a_rorx6and3
@@ -150,8 +152,8 @@ create_file_fsp:
         rts
 
 create_file_3:
-        sta     CurrentDrv
-        lda     DirectoryParam
+        sta     current_drv
+        lda     directory_param
         pha
         jsr     load_cur_drv_cat2
         jsr     get_cat_firstentry80_fname
@@ -159,7 +161,7 @@ create_file_3:
         jsr     delete_cat_entry_yfileoffset
 cd_writedest_cat_nodel:
         pla
-        sta     DirectoryParam
+        sta     directory_param
         jsr     load_and_execute_addr_hi2
         lda     pws_tmp02
         jsr     a_rorx4and3

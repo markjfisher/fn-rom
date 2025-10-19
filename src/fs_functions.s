@@ -136,7 +136,7 @@ getcatsetupb7:
 
         jsr     match_filename
         bcc     @get_cat_loop2          ; not a match, try next file
-        lda     DirectoryParam
+        lda     directory_param
         ldy     #$07
         jsr     match_chr
         bne     @get_cat_loop2          ; If directory doesn't match
@@ -335,8 +335,8 @@ err_syntax:
 
 ; check_cur_drv_cat - Check if current drive catalog is loaded (MMFS line 7255-7259)
 check_cur_drv_cat:
-        lda     CurrentCat              ; Get current catalog drive
-        cmp     CurrentDrv              ; Compare with current drive
+        lda     current_cat              ; Get current catalog drive
+        cmp     current_drv              ; Compare with current drive
         bne     load_cur_drv_cat           ; If different, load catalog
         rts
 
@@ -345,14 +345,14 @@ check_cur_drv_cat:
 ; set_curdir_drv_to_defaults - Set current directory and drive to defaults (MMFS line 2657-2667)
 set_curdir_drv_to_defaults:
         lda     fuji_default_dir             ; Set working directory
-        sta     DirectoryParam
+        sta     directory_param
 
 set_curdrv_to_default:
         lda     fuji_default_drive           ; Set working drive
 set_current_drive_adrive:
         and     #$03
 set_current_drive_adrive_noand:
-        sta     CurrentDrv
+        sta     current_drv
         rts
 
 ; (<drive>)
@@ -392,8 +392,8 @@ load_cur_drv_cat:
 
         ; Mark catalog as loaded for current drive (equivalent to MMFS line 7322-7323)
 write_current_drv_to_cat:
-        lda     CurrentDrv
-        sta     CurrentCat
+        lda     current_drv
+        sta     current_cat
         rts
 
 save_cat_to_disk:
@@ -418,9 +418,9 @@ read_fspba_reset:
 
 read_fspba:
         lda     aws_tmp10               ; **Also creates copy at &C5 (MMFS line 458)
-        sta     TextPointer
+        sta     text_pointer
         lda     aws_tmp11
-        sta     TextPointer+1
+        sta     text_pointer+1
         ldy     #$00
         jsr     GSINIT_A
 
@@ -433,7 +433,7 @@ rdafsp_entry:
         cmp     #'.'                    ; C="."?
         bne     rdafsp_notdot           ; If not dot, continue
 rdafsp_setdrv:
-        stx     DirectoryParam          ; Save directory (X)
+        stx     directory_param          ; Save directory (X)
         beq     rdafsp_entry            ; Always (restart)
 rdafsp_notdot:
         cmp     #':'                    ; C=":"? (Drive number follows)
@@ -661,11 +661,11 @@ fscv7_hndlrange:
 
 read_dir_drv_parameters:
         lda     fuji_default_dir        ; read drive/directory from
-        sta     DirectoryParam          ; command line
+        sta     directory_param          ; command line
         jsr     GSINIT_A
         bne     read_dir_drv_parameters2        ; if not null string
         lda     #$00
-        sta     CurrentDrv
+        sta     current_drv
         rts
 
 ; read_dir_drv_parameters2 - Read directory and drive parameters
@@ -688,11 +688,11 @@ err_bad_directory:
         .byte   "dir", 0
 
 rdd_exit2:
-        sta     DirectoryParam          ; Store directory character
+        sta     directory_param          ; Store directory character
         jsr     GSREAD_A
         bcc     err_bad_directory
 
 rdd_exit1:
-        lda     CurrentDrv
+        lda     current_drv
         rts
 

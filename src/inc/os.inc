@@ -24,7 +24,7 @@ OS_INC = 1
         .import  ROMSEL
 
         .import  CHECK_CRC7
-        .import  CurrentCat
+        .import  current_cat
         .import  dfs_cat_num_x8
         .import  FSCV
         .import  MMC_CIDCRC
@@ -180,9 +180,9 @@ OS_INC = 1
         .importzp  pws_tmp14
         .importzp  pws_tmp15
 
-        .importzp  CurrentDrv
-        .importzp  DirectoryParam
+        .importzp  current_drv
+        .importzp  directory_param
         .importzp  paged_ram_copy
-        .importzp  TextPointer
+        .importzp  text_pointer
 
 .endif

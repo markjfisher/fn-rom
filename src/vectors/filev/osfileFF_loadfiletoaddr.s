@@ -4,8 +4,8 @@
 
         .export osfileFF_loadfiletoaddr
         .export LoadFile_Ycatoffset
-        .export LoadMemBlockEX
-        .export LoadMemBlock
+        .export load_mem_block_ex
+        .export load_mem_block
 
         .import exec_addr_hi2
         .import fuji_read_mem_block
@@ -80,21 +80,21 @@ LoadFile_Ycatoffset:
 
         ldy     aws_tmp10                ; LDY &BA
         jsr     prt_info_msg_yoffset     ; pt. print file info
-        ; Fall into LoadMemBlockEX
+        ; Fall into load_mem_block_ex
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; LoadMemBlockEX - Load memory block
+; load_mem_block_ex - Load memory block
 ; Since _MM32_ is true and _SWRAM_ is false, lines 1997-2005 are skipped
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-LoadMemBlockEX:
-        ; Fall into LoadMemBlock
+load_mem_block_ex:
+        ; Fall into load_mem_block
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; LoadMemBlock - Load memory block
+; load_mem_block - Load memory block
 ; FujiNet equivalent - use network read operation
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-LoadMemBlock:
+load_mem_block:
         jsr     fuji_read_mem_block      ; Read with transaction protection (fuji_fs.s)
         rts

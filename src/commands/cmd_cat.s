@@ -76,7 +76,7 @@ end_title:
         jsr     print_decimal
         jsr     print_string
         .byte   ")", $0D, "Drive "
-        lda     CurrentDrv
+        lda     current_drv
         jsr     print_decimal
 
         ldy     #13
@@ -139,7 +139,7 @@ cat_sortloop1:
         jsr     cat_getnextunmarkedfileY
         bcc     cat_printfilename
         lda     #$FF
-        sta     CurrentCat
+        sta     current_cat
         jmp     print_newline
 cat_getnextunmarkedfile_loop:
         jsr     y_add8

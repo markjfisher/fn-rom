@@ -74,10 +74,10 @@ init_fuji:
         bne     @extendedvec_loop
 
         ; X=0, Y=$30
-        sty     CurrentCat            ; curdrvcat<>0
-        sty     CurrentCat+1          ; this has a "?"" in MMFS src... who knows why?
-        stx     CurrentDrv            ; curdrv=0
-        stx     MMC_STATE             ; Uninitialised
+        sty     current_cat            ; curdrvcat<>0
+        sty     current_cat+1          ; this has a "?"" in MMFS src... who knows why?
+        stx     current_drv           ; curdrv=0
+        ; stx     MMC_STATE             ; Uninitialised
 
         ldx     #$0F                  ; vectors claimed!
         lda     #$8F

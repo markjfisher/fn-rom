@@ -67,8 +67,8 @@ GSINIT_A:
         jmp     GSINIT
 
 set_text_pointer_yx:
-        stx     TextPointer
-        sty     TextPointer+1
+        stx     text_pointer
+        sty     text_pointer+1
         ldy     #$00
         rts
 

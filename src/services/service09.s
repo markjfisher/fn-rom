@@ -50,7 +50,7 @@ service09_help:
 
         ; Check if this is just *HELP (no arguments)
         ; Y contains offset to first non-space char
-        lda     (TextPointer),y         ; Get character at (TextPointer)+Y
+        lda     (text_pointer),y         ; Get character at (text_pointer)+Y
         ldx     #cmdtab_offset_help
         cmp     #$0D                    ; CHR$(13) = carriage return
         bne     check_command           ; If not CR, check for command
@@ -83,7 +83,7 @@ check_command:
 
         ldx     #cmdtab_offset_futils    ; Try FUTILS commands
         jsr     GSINIT_A
-        lda     (TextPointer),y
+        lda     (text_pointer),y
         iny
         ora     #$20
         cmp     #'F'
@@ -141,7 +141,7 @@ unrec_command_text_pointer:
         bmi     @endofcmd_oncmdline      ; If bit 7 set, end of command
 
 @unrec_loop2in:
-        eor     (TextPointer),y         ; Compare with command line
+        eor     (text_pointer),y         ; Compare with command line
         and     #$5F                    ; Ignore case
         beq     @unrec_loop2            ; If match, continue
         dex                             ; No match, skip to next command
@@ -151,14 +151,14 @@ unrec_command_text_pointer:
         lda     cmd_table_fujifs, x
         bpl     @unrec_loop3             ; Continue until bit 7 set
 
-        lda     (TextPointer),y         ; Check if command line ends with "."
+        lda     (text_pointer),y         ; Check if command line ends with "."
         cmp     #$2E                    ; Full stop
         bne     @unrec_loop1            ; If not, try next command
         iny                             ; Skip the "."
         bcs     @gocmdcode
 
 @endofcmd_oncmdline:
-        lda     (TextPointer),y         ; Check if next char is alphabetic
+        lda     (text_pointer),y         ; Check if next char is alphabetic
         jsr     is_alpha_char
         bcc     @unrec_loop1             ; If not alpha, try next command
 

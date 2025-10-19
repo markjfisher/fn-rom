@@ -103,7 +103,7 @@ chk_dsk_change_exit:
 channel_set_dir_drive_yintch:
         lda     fuji_ch_dir,y
         and     #$7F
-        sta     DirectoryParam
+        sta     directory_param
         lda     fuji_ch_flg,y
         jmp     set_current_drive_adrive
 
@@ -336,7 +336,7 @@ chnlblock_setext:
         jsr     a_rorx4and3
         sta     fuji_ch_ext_hi,y
 chnlblock_cont:
-        lda     CurrentDrv              ; Set drive
+        lda     current_drv              ; Set drive
         ora     fuji_ch_flg,y
         sta     fuji_ch_flg,y
         tya                             ; convert intch to handle
@@ -413,7 +413,7 @@ fop_main_loop:
         bit     fuji_open_channels      ; MA+&10C0
         beq     fop_channelnotopen      ; If channel not open
         lda     fuji_ch_flg,y           ; MA+&1117,Y
-        eor     CurrentDrv
+        eor     current_drv
         and     #$03
         bne     fop_nothisfile          ; If not current drv?
 fop_cmpfn_loop:

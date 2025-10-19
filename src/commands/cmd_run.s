@@ -30,9 +30,9 @@ fscv2_4_11_starRUN:
         ; Set up text pointer and workspace
         lda     #$FF
         sta     aws_tmp14              ; &BE -> aws_tmp14 (use file's load address)
-        lda     TextPointer
+        lda     text_pointer
         sta     aws_tmp10              ; &BA -> aws_tmp10  
-        lda     TextPointer+1
+        lda     text_pointer+1
         sta     aws_tmp11              ; &BB -> aws_tmp11
 
         ; ldy     #$00
@@ -44,10 +44,10 @@ fscv2_4_11_starRUN:
 
         ; File not found in default location, try library
         ldy     fuji_text_ptr_hi       ; MA+&10DA
-        lda     fuji_lib_dir           ; LIB_DIR -> DirectoryParam
-        sta     DirectoryParam
-        lda     fuji_lib_drive         ; LIB_DRIVE -> CurrentDrv
-        sta     CurrentDrv
+        lda     fuji_lib_dir           ; LIB_DIR -> directory_param
+        sta     directory_param
+        lda     fuji_lib_drive         ; LIB_DRIVE -> current_drv
+        sta     current_drv
         jsr     read_fspba
         jsr     get_cat_firstentry81   ; Use correct function
         bcs     runfile_found          ; If file found
@@ -91,14 +91,14 @@ runfile_found:
         sta     fuji_filename_buffer
         lda     #':'
         sta     fuji_filename_buffer+2
-        lda     CurrentDrv
+        lda     current_drv
         ora     #$30
         sta     fuji_filename_buffer+3          ; Drive number X
         lda     #'.'
         sta     fuji_filename_buffer+1
         sta     fuji_filename_buffer+4
         sta     fuji_filename_buffer+6
-        lda     DirectoryParam                  ; Directory D
+        lda     directory_param                  ; Directory D
         sta     fuji_filename_buffer+5
 
         ; Execute the *EXEC command
@@ -114,9 +114,9 @@ runfile_run:
         clc
         lda     fuji_text_ptr_offset   ; MA+&10D9 += text ptr (parameters)
         tay
-        adc     TextPointer
+        adc     text_pointer
         sta     fuji_text_ptr_offset
-        lda     TextPointer+1
+        lda     text_pointer+1
         adc     #$00
         sta     fuji_text_ptr_hi       ; MA+&10DA
 

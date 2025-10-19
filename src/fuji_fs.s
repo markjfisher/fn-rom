@@ -214,7 +214,7 @@ fuji_check_device_status:
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; fuji_read_mem_block - Read memory block with transaction protection
-; This is the proper interface for LoadMemBlock to call
+; This is the proper interface for load_mem_block to call
 ; Wraps fuji_execute_block_rw with transaction management
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 

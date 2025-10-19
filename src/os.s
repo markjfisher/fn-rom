@@ -19,7 +19,7 @@
         .export  ROMSEL
 
         .export  CHECK_CRC7
-        .export  CurrentCat
+        .export  current_cat
         .export  dfs_cat_num_x8
         .export  FSCV
         .export  MMC_CIDCRC
@@ -175,10 +175,10 @@
         .exportzp  pws_tmp14
         .exportzp  pws_tmp15
 
-        .exportzp  CurrentDrv
-        .exportzp  DirectoryParam
+        .exportzp  current_drv
+        .exportzp  directory_param
         .exportzp  paged_ram_copy
-        .exportzp  TextPointer
+        .exportzp  text_pointer
 
 
 ; OS vectors
@@ -252,20 +252,21 @@ pws_tmp13       := $CD
 pws_tmp14       := $CE
 pws_tmp15       := $CF
 
-TextPointer     := $F2
+text_pointer    := $F2
 paged_ram_copy  := $F4
 paged_rom_priv_ws := $0DF0
 
 FSCV            := $021E
 
 ; aliases from PWS vars
-DirectoryParam  := $CC
-CurrentDrv      := $CD
+directory_param := $CC
+current_drv     := $CD
 
 ; seems to be pretty random location... why here?
-CurrentCat      := $1082
+current_cat      := $1082
 
 TubeNoTransferIf0 := $10AE
+; UNUSED
 MMC_STATE       := $10AF
 OWCtlBlock      := $10B0
 

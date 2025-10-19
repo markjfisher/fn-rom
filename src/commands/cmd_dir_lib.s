@@ -17,6 +17,6 @@ cmd_fs_lib:
 set_dir_lib:
         jsr     read_dir_drv_parameters
         sta     fuji_default_drive, x
-        lda     DirectoryParam
+        lda     directory_param
         sta     fuji_default_dir, x
         rts

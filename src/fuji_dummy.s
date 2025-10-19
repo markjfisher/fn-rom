@@ -276,9 +276,9 @@ dummy_sector4_data_end:
 
 ; get_current_catalog - Get catalog address for current drive
 ; Output: aws_tmp12/13 = catalog address
-; Uses CurrentDrv ($CD) to determine which drive's catalog to access
+; Uses current_drv ($CD) to determine which drive's catalog to access
 get_current_catalog:
-        lda     CurrentDrv              ; Read from OS variable
+        lda     current_drv              ; Read from OS variable
         beq     @drive0
         ; Drive 1
         lda     #<DRIVE1_CATALOG
@@ -296,9 +296,9 @@ get_current_catalog:
 
 ; get_current_page_alloc - Get page allocation address for current drive
 ; Output: aws_tmp12/13 = page allocation address
-; Uses CurrentDrv ($CD) to determine which drive's page allocation to access
+; Uses current_drv ($CD) to determine which drive's page allocation to access
 get_current_page_alloc:
-        lda     CurrentDrv              ; Read from OS variable
+        lda     current_drv              ; Read from OS variable
         beq     @drive0
         ; Drive 1
         lda     #<DRIVE1_PAGE_ALLOC
@@ -316,9 +316,9 @@ get_current_page_alloc:
 
 ; get_current_pages_start - Get file pages start address for current drive
 ; Output: A = high byte offset to add to page number
-; Uses CurrentDrv ($CD) to determine which drive's pages to access
+; Uses current_drv ($CD) to determine which drive's pages to access
 get_current_pages_start:
-        lda     CurrentDrv              ; Read from OS variable
+        lda     current_drv              ; Read from OS variable
         beq     @drive0
         ; Drive 1
         lda     #>DRIVE1_PAGES
@@ -401,7 +401,7 @@ fuji_read_block_data:
         ; Now convert to absolute page based on current drive
         ; Drive 0: absolute page = drive-relative page (0-5)
         ; Drive 1: absolute page = drive-relative page + 6 (6-11)
-        ldx     CurrentDrv
+        ldx     current_drv
         beq     @read_drive0
         ; Drive 1: add 6 to get absolute page
         clc
@@ -537,7 +537,7 @@ fuji_write_block_data:
         ; Now convert to absolute page based on current drive
         ; Drive 0: absolute page = drive-relative page (0-5)
         ; Drive 1: absolute page = drive-relative page + 6 (6-11)
-        ldx     CurrentDrv
+        ldx     current_drv
         beq     @write_drive0
         ; Drive 1: add 6 to get absolute page
         clc
@@ -984,7 +984,7 @@ get_next_available_sector:
 @convert_and_exit:
         ; Convert page (in X) to drive-relative sector
         ; ALL drives return sectors 2-7 (drive-relative for catalog)
-        ; The actual RAM location is determined by CurrentDrv when reading/writing
+        ; The actual RAM location is determined by current_drv when reading/writing
         txa
         clc
         adc     #FIRST_RAM_SECTOR       ; sector = page + 2 (always 2-7)
@@ -1086,7 +1086,7 @@ fuji_read_disc_title_data:
 fuji_init_ram_filesystem:
         jsr     remember_axy
 
-        ; Note: We read CurrentDrv ($CD) directly, no need to initialize it here
+        ; Note: We read current_drv ($CD) directly, no need to initialize it here
         ; The OS will have already set it via *DRIVE or defaults
         
         ; Clear both drive's compressed catalogs
