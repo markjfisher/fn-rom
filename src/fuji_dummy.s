@@ -49,14 +49,14 @@ RAM_FS_START = $5000
 ;   $5000    - Drive 0 next available page (0-5, not sector number!)
 ;   $5001    - Drive 1 next available page (0-5, not sector number!)
 ;   $5002-500F - Reserved for debug/temp workspace (14 bytes)
-; $5010-5087 - Drive 0 catalog compressed (7 entries × 16 bytes = 112 bytes)
+; $5010-507F - Drive 0 catalog compressed (7 entries × 16 bytes = 112 bytes = $70)
 ;              Entry 0: Disk title (8+8 bytes), Entries 1-6: Files (8+8 bytes each)
-; $5088-50FF - Drive 1 catalog compressed (7 entries × 16 bytes = 112 bytes)
-; $5100-5107 - Drive 0 page allocation (8 bytes, 1 per page, supports 6 files + 2 spare)
-; $5108-510F - Drive 1 page allocation (8 bytes, 1 per page, supports 6 files + 2 spare)
-; $5110-5717 - Drive 0 file pages (6 pages × 256 = $600 bytes)
-; $5718-5D1F - Drive 1 file pages (6 pages × 256 = $600 bytes)
-; Total: $D20 bytes (~3.3KB)
+; $5080-50EF - Drive 1 catalog compressed (7 entries × 16 bytes = 112 bytes = $70)
+; $50F0-50F7 - Drive 0 page allocation (8 bytes, 1 per page, supports 6 files + 2 spare)
+; $50F8-50FF - Drive 1 page allocation (8 bytes, 1 per page, supports 6 files + 2 spare)
+; $5100-56FF - Drive 0 file pages (6 pages × 256 = $600 bytes)
+; $5700-5CFF - Drive 1 file pages (6 pages × 256 = $600 bytes)
+; Total: $D00 bytes (~3.3KB)
 
 DRIVE0_NEXT_PAGE      = RAM_FS_START + $0       ; Next available page for drive 0 (0-5)
 DRIVE1_NEXT_PAGE      = RAM_FS_START + $1       ; Next available page for drive 1 (0-5)
@@ -70,13 +70,13 @@ CATALOG_COMPRESSED_SIZE = CATALOG_ENTRIES * CATALOG_ENTRY_SIZE  ; 112 bytes
 
 ; Drive 0 structures
 DRIVE0_CATALOG    = RAM_FS_START + $010         ; Drive 0 catalog (112 bytes compressed)
-DRIVE0_PAGE_ALLOC = RAM_FS_START + $100         ; Drive 0 page allocation (8 bytes)
-DRIVE0_PAGES      = RAM_FS_START + $110         ; Drive 0 file pages (6 × 256)
+DRIVE0_PAGE_ALLOC = RAM_FS_START + $0F0         ; Drive 0 page allocation (8 bytes)
+DRIVE0_PAGES      = RAM_FS_START + $100         ; Drive 0 file pages (6 × 256)
 
 ; Drive 1 structures  
-DRIVE1_CATALOG    = RAM_FS_START + $088         ; Drive 1 catalog (112 bytes compressed)
-DRIVE1_PAGE_ALLOC = RAM_FS_START + $108         ; Drive 1 page allocation (8 bytes)
-DRIVE1_PAGES      = RAM_FS_START + $718         ; Drive 1 file pages (6 × 256)
+DRIVE1_CATALOG    = RAM_FS_START + $080         ; Drive 1 catalog (112 bytes compressed)
+DRIVE1_PAGE_ALLOC = RAM_FS_START + $0F8         ; Drive 1 page allocation (8 bytes)
+DRIVE1_PAGES      = RAM_FS_START + $700         ; Drive 1 file pages (6 × 256)
 
 ; Constants
 MAX_PAGES_PER_DRIVE = 6                         ; 6 pages per drive (6 files max)
