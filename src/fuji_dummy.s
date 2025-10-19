@@ -669,27 +669,76 @@ fuji_write_catalog_data:
 .endif
         jsr     remember_axy
 
-        ; Simple catalog sync - just copy system catalog to RAM
-        ; No complex translation needed with page-based approach
+        ; Get current drive's catalog address
+        jsr     get_current_catalog     ; Returns address in aws_tmp12/13
 
-        ; Copy catalog sector 0
-        ldy     #0
-@copy_s0:
-        lda     dfs_cat_s0_header,y
-        sta     RAM_CATALOG_START,y
-        iny
-        bne     @copy_s0
+        ; Compress full 512-byte DFS catalog to 112-byte compressed format
+        ; Full format: Sector 0 (256 bytes) + Sector 1 (256 bytes)
+        ; Compressed format: 7 entries × 16 bytes (8 from sector 0, 8 from sector 1)
 
-        ; Copy catalog sector 1  
-        ldy     #0
-@copy_s1:
-        lda     dfs_cat_s1_header,y
-        sta     RAM_CATALOG_START+256,y
-        iny
-        bne     @copy_s1
+        lda     #0
+        sta     TEMP_STORAGE            ; Entry counter (0-6)
+        
+@compress_entries:
+        ; Calculate source offset in sector 0: entry * 8
+        lda     TEMP_STORAGE
+        asl     a                       ; × 2
+        asl     a                       ; × 4
+        asl     a                       ; × 8
+        tay                             ; Y = source offset in sector 0
+        
+        ; Calculate destination offset in compressed: entry * 16
+        lda     TEMP_STORAGE
+        asl     a                       ; × 2
+        asl     a                       ; × 4
+        asl     a                       ; × 8
+        asl     a                       ; × 16
+        sta     TEMP_STORAGE + 1        ; Save dest offset
+        
+        ; Copy 8 bytes from sector 0
+        ldx     #0
+@copy_from_s0:
+        lda     (data_ptr),y            ; Read from system catalog sector 0
+        sty     TEMP_STORAGE + 2        ; Save Y
+        ldy     TEMP_STORAGE + 1        ; Y = dest offset
+        sta     (aws_tmp12),y           ; Write to compressed catalog
+        inc     TEMP_STORAGE + 1        ; Next dest byte
+        ldy     TEMP_STORAGE + 2        ; Restore Y
+        iny                             ; Next source byte
+        inx
+        cpx     #8
+        bne     @copy_from_s0
+        
+        ; Now copy 8 bytes from sector 1
+        ; Calculate source offset in sector 1: entry * 8
+        lda     TEMP_STORAGE
+        asl     a                       ; × 2
+        asl     a                       ; × 4
+        asl     a                       ; × 8
+        tay                             ; Y = source offset in sector 1
+        
+        inc     data_ptr+1              ; Point to sector 1
+        ldx     #0
+@copy_from_s1:
+        lda     (data_ptr),y            ; Read from system catalog sector 1
+        sty     TEMP_STORAGE + 2        ; Save Y
+        ldy     TEMP_STORAGE + 1        ; Y = dest offset
+        sta     (aws_tmp12),y           ; Write to compressed catalog
+        inc     TEMP_STORAGE + 1        ; Next dest byte
+        ldy     TEMP_STORAGE + 2        ; Restore Y
+        iny                             ; Next source byte
+        inx
+        cpx     #8
+        bne     @copy_from_s1
+        dec     data_ptr+1              ; Back to sector 0
+        
+        ; Next entry
+        inc     TEMP_STORAGE
+        lda     TEMP_STORAGE
+        cmp     #CATALOG_ENTRIES        ; Done all 7 entries?
+        bne     @compress_entries
 
         ; Mark RAM pages as allocated for files in catalog
-        ; MMFS handles sector calculation - this just tracks which pages are in use
         jsr     assign_ram_sectors_to_new_files
 
         clc
@@ -708,6 +757,10 @@ assign_ram_sectors_to_new_files:
         nop
         pla
 .endif
+        ; Get current drive's catalog and page allocation addresses
+        jsr     get_current_catalog     ; Returns catalog addr in aws_tmp12/13
+        ; Note: We'll scan the compressed catalog in RAM
+
         ; Scan all files and mark their RAM pages as allocated
         ldy     #RAM_CATALOG_OFFSET     ; Start at offset 8 (first file entry, after disc title)
 
@@ -718,45 +771,70 @@ assign_check_file:
         jmp     assign_done             ; Yes, done
 @continue_check:
 
-        ; Check if this file needs sector assignment (sector = 0 means needs allocation)
+        ; Calculate offset in compressed catalog
+        ; Entry number = Y / 8, then offset = entry*16 + 8 + 7 (sector byte is last in entry's sector 1 data)
         tya
-        sta     aws_tmp14               ; Save file offset
+        pha                             ; Save Y
+        lsr     a                       ; ÷ 2
+        lsr     a                       ; ÷ 4
+        lsr     a                       ; ÷ 8 = entry number
+        asl     a                       ; × 2
+        asl     a                       ; × 4
+        asl     a                       ; × 8
+        asl     a                       ; × 16 = entry * 16
         clc
-        adc     #7                      ; Sector offset in catalog
-        tax
-
-        lda     RAM_CATALOG_START+256,x ; Get sector number
+        adc     #15                     ; +15 = last byte of entry (sector byte)
+        tay
+        
+        lda     (aws_tmp12),y           ; Get sector number from compressed catalog
+        pla                             ; Restore original Y
+        tay
+        sta     aws_tmp14               ; Save sector number
         
 .ifdef FN_DEBUG_CREATE_FILE
         pha
         jsr     print_string
         .byte   "CHECK: offset="
-        lda     aws_tmp14
+        tya
         jsr     print_hex
         jsr     print_string
         .byte   " sector="
         nop
-        pla
-        pha
+        lda     aws_tmp14
         jsr     print_hex
         jsr     print_newline
         pla
 .endif
 
+        lda     aws_tmp14               ; Get sector number
         ; Is this a RAM sector that needs page allocation?
         cmp     #FIRST_RAM_SECTOR       ; Is it a RAM sector (2+)?
         bcc     assign_next_file        ; No, skip (catalog sectors 0-1)
         
-        ; Mark page as allocated for this sector
+        ; Convert absolute sector to page (0-11)
         sec
-        sbc     #FIRST_RAM_SECTOR       ; Convert sector to page number (page = sector - 2)
+        sbc     #FIRST_RAM_SECTOR       ; page = sector - 2
+        
+        ; Determine which drive this page belongs to
+        cmp     #MAX_PAGES_PER_DRIVE    ; Page 0-5 or 6-11?
+        bcc     @mark_drive0            ; 0-5 = drive 0
+        
+        ; Drive 1 (pages 6-11)
+        sec
+        sbc     #MAX_PAGES_PER_DRIVE    ; Convert to drive-relative (0-5)
         tax
         lda     #1
-        sta     RAM_PAGE_ALLOC,x        ; Mark page as used
+        sta     DRIVE1_PAGE_ALLOC,x     ; Mark drive 1 page as used
+        jmp     assign_next_file
+        
+@mark_drive0:
+        ; Drive 0 (pages 0-5)
+        tax
+        lda     #1
+        sta     DRIVE0_PAGE_ALLOC,x     ; Mark drive 0 page as used
 
 assign_next_file:
 @next_file:
-        ldy     aws_tmp14               ; Restore file offset
         tya
         clc
         adc     #8                      ; Move to next file
@@ -784,56 +862,126 @@ assign_done:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 get_next_available_sector:
-        ; First, scan for any freed pages below NEXT_AVAILABLE_SECTOR
+        ; CRITICAL: Save aws_tmp00-03 to avoid corrupting caller's data (load/exec addresses, etc.)
+        ; Save aws_tmp00-03 to TEMP_STORAGE+2 through +5
+        lda     aws_tmp02
+        sta     TEMP_STORAGE + 2
+        lda     aws_tmp03
+        sta     TEMP_STORAGE + 3
+        
+        ; Get current drive's page allocation table
+        jsr     get_current_page_alloc  ; Returns address in aws_tmp12/13
+        
+        ; Scan for freed pages in current drive (0-5)
         ldx     #0                      ; Start at page 0
 @scan_loop:
-        lda     NEXT_AVAILABLE_SECTOR   ; Get current high-water mark
-        sec
-        sbc     #FIRST_RAM_SECTOR       ; Convert to page number
-        cmp     #0                      ; Check if any pages allocated yet
-        beq     @no_free_pages          ; If 0, no pages to scan
-        ; Compare A (max page) with X (current page) without using zero page
-        ; We need to check: if X >= A, no more pages to scan
-        stx     TEMP_STORAGE            ; Use debug marker space temporarily
-        cmp     TEMP_STORAGE            ; Compare max page with current page
-        beq     @no_free_pages          ; X == max, no more pages to check
-        bcc     @no_free_pages          ; X > max, no more pages to check
+        cpx     #MAX_PAGES_PER_DRIVE    ; Scanned all 6 pages?
+        bcs     @no_free_pages          ; Yes, allocate new
         
         ; Check if this page is free
-        lda     RAM_PAGE_ALLOC,x        ; Check allocation status
+        ; Calculate address: aws_tmp00/01 + X using aws_tmp02/03
+        txa
+        clc
+        adc     aws_tmp12
+        sta     aws_tmp02
+        lda     aws_tmp13
+        adc     #0
+        sta     aws_tmp03
+        ldy     #0
+        lda     (aws_tmp02),y           ; Read allocation byte
+        cmp     #0
         beq     @found_free_page        ; If 0, this page is free!
         
         ; Not free, try next page
         inx
-        bne     @scan_loop              ; Continue scanning
+        jmp     @scan_loop
         
 @no_free_pages:
-        ; No freed pages found, allocate new page at high-water mark
-        lda     NEXT_AVAILABLE_SECTOR   ; Get next available sector
-        pha                             ; Save sector number
+        ; No freed pages found, allocate new page
+        ; Find first unallocated page by scanning
+        ldx     #0
+@find_new_page:
+        cpx     #MAX_PAGES_PER_DRIVE
+        bcc     @check_page             ; In range, check it
+        jmp     @disk_full              ; All pages used!
+@check_page:
         
-        ; Mark page as allocated
-        sec
-        sbc     #FIRST_RAM_SECTOR       ; Convert to page number
-        tax
-        lda     #1
-        sta     RAM_PAGE_ALLOC,x        ; Mark as allocated
-        
-        ; Increment high-water mark for next time
-        inc     NEXT_AVAILABLE_SECTOR
-        
-        pla                             ; Restore sector number
-        rts
-        
-@found_free_page:
-        ; X contains the free page number, reuse it!
-        lda     #1
-        sta     RAM_PAGE_ALLOC,x        ; Mark page as allocated
-        
-        ; Convert page number to sector number
+        ; Check this page
         txa
         clc
-        adc     #FIRST_RAM_SECTOR       ; sector = page + FIRST_RAM_SECTOR
+        adc     aws_tmp12
+        sta     aws_tmp02
+        lda     aws_tmp13
+        adc     #0
+        sta     aws_tmp03
+        ldy     #0
+        lda     (aws_tmp02),y
+        cmp     #0
+        beq     @alloc_new_page         ; Found free page
+        inx
+        jmp     @find_new_page
+        
+@alloc_new_page:
+        ; Mark page X as allocated
+        txa
+        clc
+        adc     aws_tmp12
+        sta     aws_tmp02
+        lda     aws_tmp13
+        adc     #0
+        sta     aws_tmp03
+        ldy     #0
+        lda     #1
+        sta     (aws_tmp02),y           ; Mark as allocated
+        jmp     @convert_and_exit       ; Common exit point
+        
+@found_free_page:
+        ; X contains the free page number, mark as allocated
+        txa
+        clc
+        adc     aws_tmp12
+        sta     aws_tmp02
+        lda     aws_tmp13
+        adc     #0
+        sta     aws_tmp03
+        ldy     #0
+        lda     #1
+        sta     (aws_tmp02),y
+        jmp     @convert_and_exit       ; Common exit point
+        
+@disk_full:
+        lda     #0                      ; Return 0 for disk full
+        jmp     @restore_and_exit       ; Skip sector conversion, just restore and exit
+
+@convert_and_exit:
+        ; Convert drive-relative page (in X) to absolute sector
+        lda     CURRENT_DRIVE
+        beq     @drive0_sector
+        ; Drive 1: sector = page + 8
+        txa
+        clc
+        adc     #(FIRST_RAM_SECTOR + MAX_PAGES_PER_DRIVE)
+        jmp     @restore_and_exit
+@drive0_sector:
+        ; Drive 0: sector = page + 2
+        txa
+        clc
+        adc     #FIRST_RAM_SECTOR
+        ; Fall through to @restore_and_exit
+
+@restore_and_exit:
+        ; A contains the sector number (or 0 for disk full)
+        ; Save A temporarily
+        pha
+        
+        ; Restore aws_tmp00-03
+        lda     TEMP_STORAGE + 2
+        sta     aws_tmp02
+        lda     TEMP_STORAGE + 3
+        sta     aws_tmp03
+        
+        ; Restore A (sector number) and return
+        pla
         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -847,14 +995,27 @@ free_ram_sector:
         cmp     #FIRST_RAM_SECTOR
         bcc     @not_ram_sector         ; Sectors 0-1 are catalog, can't free
         
-        ; Convert sector to page number
+        ; Convert sector to absolute page number (0-11)
         sec
-        sbc     #FIRST_RAM_SECTOR       ; page = sector - FIRST_RAM_SECTOR
-        tax
+        sbc     #FIRST_RAM_SECTOR       ; page = sector - 2
         
-        ; Mark page as free
+        ; Determine which drive: pages 0-5=drive0, 6-11=drive1
+        cmp     #MAX_PAGES_PER_DRIVE
+        bcc     @free_drive0
+        
+        ; Drive 1 (pages 6-11)
+        sec
+        sbc     #MAX_PAGES_PER_DRIVE    ; Convert to drive-relative (0-5)
+        tax
         lda     #0
-        sta     RAM_PAGE_ALLOC,x
+        sta     DRIVE1_PAGE_ALLOC,x
+        rts
+        
+@free_drive0:
+        ; Drive 0 (pages 0-5)
+        tax
+        lda     #0
+        sta     DRIVE0_PAGE_ALLOC,x
         
 @not_ram_sector:
         rts
@@ -900,119 +1061,153 @@ fuji_read_disc_title_data:
 fuji_init_ram_filesystem:
         jsr     remember_axy
 
-        lda     #$05
-        sta     NEXT_AVAILABLE_SECTOR                   ; Initialize next available sector to 0
+        ; Initialize CURRENT_DRIVE to 0
+        lda     #0
+        sta     CURRENT_DRIVE
         
-        ; Copy actual catalog data (not full sectors)
-        ; Sector 0: Copy actual data then clear rest
+        ; Clear both drive's compressed catalogs
+        ldx     #0
+        lda     #0
+@clear_catalogs:
+        sta     DRIVE0_CATALOG,x
+        sta     DRIVE1_CATALOG,x
+        inx
+        cpx     #(CATALOG_COMPRESSED_SIZE * 2)  ; Clear 224 bytes total
+        bne     @clear_catalogs
+
+        ; Clear page allocation tables for both drives
+        lda     #0
+        ldx     #0
+@clear_alloc:
+        sta     DRIVE0_PAGE_ALLOC,x
+        sta     DRIVE1_PAGE_ALLOC,x
+        inx
+        cpx     #8                      ; 8 bytes per drive
+        bne     @clear_alloc
+
+        ; Initialize DRIVE 0 with TEST, WORLD, HELLO files
+        ; Create compressed catalog entry 0 (disk title)
         ldy     #0
-@copy_sector0_loop:
-        cpy     #<(end_of_sector0_data - dummy_catalog)  ; Compare with calculated size
-        bcs     @clear_sector0_rest
+@init_drive0_title:
         lda     dummy_catalog,y
-        sta     RAM_CATALOG_START,y
+        sta     DRIVE0_CATALOG,y        ; Copy first 8 bytes (sector 0)
         iny
-        jmp     @copy_sector0_loop
-
-@clear_sector0_rest:
-        ; Clear rest of sector 0 (bytes 32-255) 
-        lda     #0
-@clear_sector0_loop:
-        cpy     #0                      ; Y wraps to 0 after 255
-        beq     @copy_sector1
-        sta     RAM_CATALOG_START,y
-        iny
-        jmp     @clear_sector0_loop
-
-@copy_sector1:
-        ; Sector 1: Copy actual data then clear rest
+        cpy     #8
+        bne     @init_drive0_title
         ldy     #0
-@copy_sector1_loop:
-        cpy     #<(end_of_sector1_data - end_of_sector0_data)  ; Compare with calculated size
-        bcs     @clear_sector1_rest  
+@init_drive0_title_s1:
         lda     end_of_sector0_data,y
-        sta     RAM_CATALOG_START+256,y
+        sta     DRIVE0_CATALOG+8,y      ; Copy next 8 bytes (sector 1)
         iny
-        jmp     @copy_sector1_loop
+        cpy     #8
+        bne     @init_drive0_title_s1
 
-@clear_sector1_rest:
-        ; Clear rest of sector 1 (bytes 32-255)
-        lda     #0
-@clear_sector1_loop:
-        cpy     #0                      ; Y wraps to 0 after 255
-        beq     @catalog_copy_done
-        sta     RAM_CATALOG_START+256,y
-        iny
-        jmp     @clear_sector1_loop
+        ; Copy file entries 1-3 (TEST, WORLD, HELLO) - 48 bytes total
+        ldx     #0
+@init_drive0_files:
+        lda     dummy_catalog+8,x       ; Source: entry 1-3 sector 0 data
+        sta     DRIVE0_CATALOG+16,x     ; Dest: compressed entries 1-3
+        inx
+        cpx     #24                     ; 3 files × 8 bytes
+        bne     @init_drive0_files
+        ldx     #0
+@init_drive0_files_s1:
+        lda     end_of_sector0_data+8,x ; Source: entry 1-3 sector 1 data
+        sta     DRIVE0_CATALOG+24+16,x  ; Dest: compressed entries 1-3 (sector 1 data)
+        inx
+        cpx     #24
+        bne     @init_drive0_files_s1
 
-@catalog_copy_done:
+        ; Copy file data to drive 0 pages
+        ; TEST → page 0 (sector 2)
+        jsr     @copy_test_to_drive0
+        ; WORLD → page 1 (sector 3)
+        jsr     @copy_world_to_drive0
+        ; HELLO → page 2 (sector 4)
+        jsr     @copy_hello_to_drive0
 
-        ; Clear page allocation table (all pages free initially)
-        lda     #$00
-        ldy     #15                     ; Clear all 16 bytes (supports up to 16 pages)
-@clear_alloc_loop:
-        sta     RAM_PAGE_ALLOC,y
-        dey
-        bpl     @clear_alloc_loop
-
-        ; Copy existing ROM files to RAM pages
-        ; TEST file (sector 2) -> RAM page 0
-        jsr     @copy_test_to_ram
-
-        ; WORLD file (sector 3) -> RAM page 1  
-        jsr     @copy_world_to_ram
-
-        ; HELLO file (sector 4) -> RAM page 2
-        jsr     @copy_hello_to_ram
-
-        ; Mark first 3 pages as allocated for existing files
+        ; Mark drive 0 pages as allocated
         lda     #1
-        sta     RAM_PAGE_ALLOC+0        ; TEST file
-        sta     RAM_PAGE_ALLOC+1        ; WORLD file
-        sta     RAM_PAGE_ALLOC+2        ; HELLO file
+        sta     DRIVE0_PAGE_ALLOC+0
+        sta     DRIVE0_PAGE_ALLOC+1
+        sta     DRIVE0_PAGE_ALLOC+2
+
+        ; Initialize DRIVE 1 - empty for now (just disk title)
+        ; Copy disk title only
+        ldy     #0
+@init_drive1_title:
+        lda     dummy_catalog,y
+        sta     DRIVE1_CATALOG,y
+        iny
+        cpy     #8
+        bne     @init_drive1_title
+        ldy     #0
+@init_drive1_title_s1:
+        lda     end_of_sector0_data,y
+        sta     DRIVE1_CATALOG+8,y
+        iny
+        cpy     #8
+        bne     @init_drive1_title_s1
+
+        ; Change drive 1 title to "DRIVE1  "
+        lda     #'D'
+        sta     DRIVE1_CATALOG+0
+        lda     #'R'
+        sta     DRIVE1_CATALOG+1
+        lda     #'I'
+        sta     DRIVE1_CATALOG+2
+        lda     #'V'
+        sta     DRIVE1_CATALOG+3
+        lda     #'E'
+        sta     DRIVE1_CATALOG+4
+        lda     #'1'
+        sta     DRIVE1_CATALOG+5
+        lda     #' '
+        sta     DRIVE1_CATALOG+6
+        sta     DRIVE1_CATALOG+7
 
         rts
 
-; Helper functions to copy ROM file data to RAM pages
-@copy_test_to_ram:
-        ; Copy TEST file from ROM to RAM page 0 (actual size only)
+; Helper functions to copy ROM file data to drive 0 RAM pages
+@copy_test_to_drive0:
+        ; Copy TEST file from ROM to drive 0, page 0
         ldy     #0
-        ldx     #<(dummy_sector2_data_end - dummy_sector2_data)  ; File size
+        ldx     #<(dummy_sector2_data_end - dummy_sector2_data)
 @copy_test_loop:
-        cpx     #0                      ; Check if done
+        cpx     #0
         beq     @copy_test_done
         lda     dummy_sector2_data,y
-        sta     RAM_PAGES_START,y       ; Page 0 = RAM_PAGES_START + 0*256
+        sta     DRIVE0_PAGES,y          ; Drive 0, page 0
         iny
         dex
         jmp     @copy_test_loop
 @copy_test_done:
         rts
 
-@copy_world_to_ram:
-        ; Copy WORLD file from ROM to RAM page 1 (actual size only)
+@copy_world_to_drive0:
+        ; Copy WORLD file from ROM to drive 0, page 1
         ldy     #0
-        ldx     #<(dummy_sector3_data_end - dummy_sector3_data)  ; File size
+        ldx     #<(dummy_sector3_data_end - dummy_sector3_data)
 @copy_world_loop:
-        cpx     #0                      ; Check if done
+        cpx     #0
         beq     @copy_world_done
         lda     dummy_sector3_data,y
-        sta     RAM_PAGES_START+256,y   ; Page 1 = RAM_PAGES_START + 1*256
+        sta     DRIVE0_PAGES+256,y      ; Drive 0, page 1
         iny
         dex
         jmp     @copy_world_loop
 @copy_world_done:
         rts
 
-@copy_hello_to_ram:
-        ; Copy HELLO file from ROM to RAM page 2 (actual size only)
+@copy_hello_to_drive0:
+        ; Copy HELLO file from ROM to drive 0, page 2
         ldy     #0
-        ldx     #<(dummy_sector4_data_end - dummy_sector4_data)  ; File size
+        ldx     #<(dummy_sector4_data_end - dummy_sector4_data)
 @copy_hello_loop:
-        cpx     #0                      ; Check if done
+        cpx     #0
         beq     @copy_hello_done
         lda     dummy_sector4_data,y
-        sta     RAM_PAGES_START+512,y   ; Page 2 = RAM_PAGES_START + 2*256
+        sta     DRIVE0_PAGES+512,y      ; Drive 0, page 2
         iny
         dex
         jmp     @copy_hello_loop
