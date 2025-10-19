@@ -1,7 +1,6 @@
 ; Command implementations for FujiNet ROM
 ; These are the actual command functions called by the command tables
 
-        .export cmd_fs_drive
         .export cmd_fs_fboot
         .export cmd_fs_fuji
         .export cmd_utils_roms
@@ -17,17 +16,6 @@
         .include "fujinet.inc"
 
         .segment "CODE"
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; CMD_FS_DRIVE - Handle *DRIVE command
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-cmd_fs_drive:
-        dbg_string_axy "CMD_FS_DRIVE: "
-
-        ; TODO: Implement DRIVE command
-
-        rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; CMD_FS_FBOOT - Handle *FBOOT command

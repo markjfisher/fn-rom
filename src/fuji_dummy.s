@@ -46,8 +46,7 @@ RAM_FS_START = $5000
 
 ; RAM filesystem layout - DUAL DRIVE SUPPORT:
 ; $5000      - next_available_sector (1 byte, tracks next free sector for allocation)
-; $5001      - CURRENT_DRIVE (0 or 1, selected via *DRIVE command)
-; $5002-5007 - Reserved for debug/future use (6 bytes)
+; $5001-5007 - Reserved for debug/future use (7 bytes)
 ; $5008-507F - Drive 0 catalog compressed (7 entries × 16 bytes = 112 bytes)
 ;              Entry 0: Disk title (8+8 bytes), Entries 1-6: Files (8+8 bytes each)
 ; $5080-50F7 - Drive 1 catalog compressed (7 entries × 16 bytes = 112 bytes)
@@ -58,8 +57,7 @@ RAM_FS_START = $5000
 ; Total: $D18 bytes (~3.3KB) - saved ~256 bytes!
 
 NEXT_AVAILABLE_SECTOR = RAM_FS_START + $0
-CURRENT_DRIVE         = RAM_FS_START + $1       ; NEW: Current drive number (0 or 1)
-TEMP_STORAGE          = RAM_FS_START + $2
+TEMP_STORAGE          = RAM_FS_START + $1
 RAM_CATALOG_OFFSET    = $8                      ; Catalogs start 8 bytes after RAM_FS_START
 
 ; Catalog compression: 7 entries (1 header + 6 files) × 16 bytes per entry
@@ -275,8 +273,9 @@ dummy_sector4_data_end:
 
 ; get_current_catalog - Get catalog address for current drive
 ; Output: aws_tmp12/13 = catalog address
+; Uses CurrentDrv ($CD) to determine which drive's catalog to access
 get_current_catalog:
-        lda     CURRENT_DRIVE
+        lda     CurrentDrv              ; Read from OS variable
         beq     @drive0
         ; Drive 1
         lda     #<DRIVE1_CATALOG
@@ -294,8 +293,9 @@ get_current_catalog:
 
 ; get_current_page_alloc - Get page allocation address for current drive
 ; Output: aws_tmp12/13 = page allocation address
+; Uses CurrentDrv ($CD) to determine which drive's page allocation to access
 get_current_page_alloc:
-        lda     CURRENT_DRIVE
+        lda     CurrentDrv              ; Read from OS variable
         beq     @drive0
         ; Drive 1
         lda     #<DRIVE1_PAGE_ALLOC
@@ -313,8 +313,9 @@ get_current_page_alloc:
 
 ; get_current_pages_start - Get file pages start address for current drive
 ; Output: A = high byte offset to add to page number
+; Uses CurrentDrv ($CD) to determine which drive's pages to access
 get_current_pages_start:
-        lda     CURRENT_DRIVE
+        lda     CurrentDrv              ; Read from OS variable
         beq     @drive0
         ; Drive 1
         lda     #>DRIVE1_PAGES
@@ -954,7 +955,7 @@ get_next_available_sector:
 
 @convert_and_exit:
         ; Convert drive-relative page (in X) to absolute sector
-        lda     CURRENT_DRIVE
+        lda     CurrentDrv              ; Read from OS variable
         beq     @drive0_sector
         ; Drive 1: sector = page + 8
         txa
@@ -1064,9 +1065,8 @@ fuji_read_disc_title_data:
 fuji_init_ram_filesystem:
         jsr     remember_axy
 
-        ; Initialize CURRENT_DRIVE to 0
-        lda     #0
-        sta     CURRENT_DRIVE
+        ; Note: We read CurrentDrv ($CD) directly, no need to initialize it here
+        ; The OS will have already set it via *DRIVE or defaults
         
         ; Clear both drive's compressed catalogs
         ldx     #0

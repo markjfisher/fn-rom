@@ -25,6 +25,9 @@
         .export save_cat_to_disk
         .export set_curdir_drv_to_defaults
         .export set_current_drive_adrive
+        .export param_syntaxerrorifnull
+        .export param_drive_no_syntax
+        .export err_bad_drive
         .export tya_cmp_ptr_ext
         .export y_sub8
 
