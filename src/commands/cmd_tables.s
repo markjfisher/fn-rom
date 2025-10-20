@@ -24,11 +24,15 @@
         .import cmd_fs_drive
         .import cmd_fs_ex
         .import cmd_fs_fboot
+        .import cmd_fs_form
+        .import cmd_fs_free
         .import cmd_fs_fuji
         .import cmd_fs_info
         .import cmd_fs_lib
+        .import cmd_fs_map
         .import cmd_fs_rename
         .import cmd_fs_title
+        .import cmd_fs_verify
 
         .import cmd_help_fuji
         .import cmd_help_futils
@@ -58,12 +62,16 @@ cmd_table_fujifs:
         .byte   "DIR",       $80+$06    ; (<dir>)
         .byte   "DRIVE",     $80+$01    ; <drive>
         .byte   "EX",        $80+$06    ; (<dir>)
+        .byte   "FORM",      $80+$5F    ; (<drive>)... 40/80 - params 5 and F
+        .byte   "FREE",      $80+$04    ; (<drive>)
 ; equivalent of .info_cmd_index
 cmd_table_info:
         .byte   "INFO",      $80+$02    ; <afsp>
+        .byte   "MAP",       $80+$04    ; (<drive>)
         .byte   "LIB",       $80+$06    ; (<dir>)
         .byte   "RENAME",    $80+$0D    ; <old fsp> <new fsp>
         .byte   "TITLE",     $80+$0A    ; <title>
+        .byte   "VERIFY",    $80+$05    ; (<drive>)...
         .byte   $00                     ; End of table
 
 ; These are prefixed with "F", e.g. "FBOOT" etc [FILE SYSTEM COMMANDS], help = "*HELP FUTILS"
@@ -119,10 +127,14 @@ cmd_table_fujifs_cmds:
         .word   cmd_fs_dir-1
         .word   cmd_fs_drive-1
         .word   cmd_fs_ex-1
+        .word   cmd_fs_form-1
+        .word   cmd_fs_free-1
         .word   cmd_fs_info-1
         .word   cmd_fs_lib-1
+        .word   cmd_fs_map-1
         .word   cmd_fs_rename-1
         .word   cmd_fs_title-1
+        .word   cmd_fs_verify-1
         .word   not_cmd_fujifs-1
 
 ; OLD: cmdaddr4

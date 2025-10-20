@@ -13,6 +13,7 @@
         .export  print_string
         .export  print_string_ax
         .export  print_decimal
+        .export  print_bcd
         .export  report_error
         .export  report_error_cb
 
@@ -26,6 +27,7 @@
         .import  clear_exec_spool_file_handle
         .import  osbyte_X0YFF
         .import  remember_axy
+        .import  remember_xy_only
 
         .include "fujinet.inc"
 
@@ -236,6 +238,40 @@ print_hex:
         jsr     print_nibble    ; print the low nibble
         pla                     ; ensure we restore A
         rts
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; print_bcd - Print a number in BCD format (with spool support)
+; Converted from binary to BCD, then printed as hex
+; Entry: A = binary number (0-99)
+; Exit: A preserved, X and Y preserved
+; Translated from MMFS PrintBCDSPL (lines 392-393)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+print_bcd:
+        jsr     binary_to_bcd
+        jmp     print_hex
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; binary_to_bcd - Convert binary to BCD
+; Entry: A = binary number
+; Exit: A = BCD representation
+; Translated from MMFS BinaryToBCD (lines 1084-1098)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+binary_to_bcd:
+        jsr     remember_xy_only
+        tay
+        beq     @exit                   ; If nothing to do!
+        clc
+        sed                             ; Set decimal mode
+        lda     #$00
+@loop:
+        adc     #$01
+        dey
+        bne     @loop
+        cld                             ; Clear decimal mode
+@exit:
+        rts                             ; A=BCD
 
 print_nibble:
         jsr     nib_to_asc
