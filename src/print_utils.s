@@ -154,6 +154,10 @@ err_continue:
         ; jsr     tube_release  ; FUTURE: add this back in
         jmp     $0100
 
+print_nibble_print_string:
+        jsr     print_nibble
+        ; ... fall into print_string
+
 ; Print a string terminated by bit 7 set (MMFS style)
 ; String address is on stack, uses ZP $AE $AF $B3
 ; Exit: AXY preserved, C=0

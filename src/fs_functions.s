@@ -3,6 +3,7 @@
         .export cmp_ptr_ext
         .export conv_yhndl_intch_exyintch
         .export err_bad_drive
+        .export err_syntax
         .export fscv1_eof_yhndl
         .export fscv7_hndlrange
         .export get_cat_entry
