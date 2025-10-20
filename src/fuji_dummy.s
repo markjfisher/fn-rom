@@ -115,8 +115,8 @@ end_of_sector0:
         .byte "    "     ; Last 4 bytes of disk title (padded with spaces)
         .byte $F0        ; Cycle number (byte 260)
         .byte $18        ; (Number of catalog entries)*8 = 3*8 = 24 = $18
-        .byte $00        ; Boot option (byte 262)
-        .byte $00        ; Disk size low byte (byte 263)
+        .byte $00        ; Boot option (byte 262) - also contains high 2 bits of disk size
+        .byte $08        ; Disk size low byte (byte 263) - 8 sectors total (2 catalog + 6 data)
 
         ; File entry 1 (bytes 264-271): HELLO - File details
         .byte $00, $19   ; Load address (bytes 264-265) = $1900
@@ -140,133 +140,112 @@ end_of_sector0:
         .byte $02        ; Start sector = sector 2
 end_of_sector1_data:
 
+; Drive 1 catalog data - Empty disk with just a title
+drive1_catalog:
+        ; SECTOR 0 (bytes 0-7)
+        .byte "DRIVE1  "               ; Disk title first 8 bytes
+
+; Drive 1 sector 1 header
+drive1_sector1_data:
+        ; SECTOR 1 (bytes 0-7)
+        .byte "    "                    ; Last 4 bytes of disk title (padded with spaces)
+        .byte $00                       ; Cycle number
+        .byte $00                       ; (Number of catalog entries)*8 = 0 (empty disk)
+        .byte $00                       ; Boot option - also contains high 2 bits of disk size
+        .byte $08                       ; Disk size low byte - 8 sectors total (2 catalog + 6 data)
+end_of_drive1_data:
+
 
 ; Dummy file data - 3 sectors of 256 bytes each
 ; These contain actual executable BBC Micro code that can be loaded and run
 
 ; Sector 2: TEST file
 dummy_sector2_data:
-        ; ERROR: This should not print if run address is used correctly
-        ; Save current ROM and switch to FujiNet ROM (slot 5)
-        lda     paged_ram_copy          ; Save current ROMSEL
-        pha
-        lda     #FUJI_ROM_SLOT          ; FujiNet ROM slot
-        sta     paged_ram_copy          ; Update RAM copy
-        sta     ROMSEL                  ; Update hardware register
-        
-        jsr     print_string
-        .byte   "ERROR: Running at load address!", $0D
-        nop
-        
-        ; Restore original ROM
-        pla
-        sta     paged_ram_copy          ; Restore RAM copy
-        sta     ROMSEL                  ; Restore hardware register
+        ; if user runs at load address, it does nothing
         rts
         
         ; Real application starts here (execute address)
 test_app_start:
-        ; Save current ROM and switch to FujiNet ROM (slot 5)
-        lda     paged_ram_copy          ; Save current ROMSEL
-        pha
-        lda     #FUJI_ROM_SLOT          ; FujiNet ROM slot
-        sta     paged_ram_copy          ; Update RAM copy
-        sta     ROMSEL                  ; Update hardware register
-        
-        jsr     print_string
-        .byte   "TEST app running!", $0D
-        nop
-        
-        ; Restore original ROM
-        pla
-        sta     paged_ram_copy          ; Restore RAM copy
-        sta     ROMSEL                  ; Restore hardware register
+        ldx     #<test_msg
+        ldy     #>test_msg
+        jsr     test_print_string
+        rts
+test_msg:
+        .byte   "TEST app!", $0D, $0A, $00
+
+; Helper function to print null-terminated string using OS routines
+; Entry: X/Y = address of string (low/high)
+test_print_string:
+        stx     $70                     ; Store string address in zero page
+        sty     $71
+        ldy     #0
+test_print_loop:
+        lda     ($70),y
+        beq     test_print_done
+        jsr     OSWRCH                  ; Use OS routine
+        iny
+        bne     test_print_loop
+test_print_done:
         rts
 dummy_sector2_data_end:
 
 ; Sector 3: WORLD file
 dummy_sector3_data:
-        ; ERROR: This should not print if run address is used correctly
-        ; Save current ROM and switch to FujiNet ROM (slot 5)
-        lda     paged_ram_copy          ; Save current ROMSEL
-        pha
-        lda     #FUJI_ROM_SLOT          ; FujiNet ROM slot
-        sta     paged_ram_copy          ; Update RAM copy
-        sta     ROMSEL                  ; Update hardware register
-        
-        jsr     print_string
-        .byte   "ERROR: Running at load address!", $0D
-        nop
-        
-        ; Restore original ROM
-        pla
-        sta     paged_ram_copy          ; Restore RAM copy
-        sta     ROMSEL                  ; Restore hardware register
+        ; if user runs at load address, it does nothing
         rts
         
         ; Real application starts here (execute address)
 world_app_start:
-        ; Save current ROM and switch to FujiNet ROM (slot 5)
-        lda     paged_ram_copy          ; Save current ROMSEL
-        pha
-        lda     #FUJI_ROM_SLOT          ; FujiNet ROM slot
-        sta     paged_ram_copy          ; Update RAM copy
-        sta     ROMSEL                  ; Update hardware register
-        
-        jsr     print_string
-        .byte   "WORLD application loaded!", $0D
-        nop
-        jsr     print_string
-        .byte   "This is a longer program", $0D
-        nop
-        
-        ; Restore original ROM
-        pla
-        sta     paged_ram_copy          ; Restore RAM copy
-        sta     ROMSEL                  ; Restore hardware register
+        ldx     #<world_msg1
+        ldy     #>world_msg1
+        jsr     world_print_string
+        rts
+world_msg1:
+        .byte   "WORLD app!", $0D, $0A, $00
+
+; Helper function to print null-terminated string using OS routines
+; Entry: X/Y = address of string (low/high)
+world_print_string:
+        stx     $70                     ; Store string address in zero page
+        sty     $71
+        ldy     #0
+world_print_loop:
+        lda     ($70),y
+        beq     world_print_done
+        jsr     OSWRCH                  ; Use OS routine
+        iny
+        bne     world_print_loop
+world_print_done:
         rts
 dummy_sector3_data_end:
 
 ; Sector 4: HELLO file
 dummy_sector4_data:
-        ; ERROR: This should not print if run address is used correctly
-        ; Save current ROM and switch to FujiNet ROM (slot 5)
-        lda     paged_ram_copy          ; Save current ROMSEL
-        pha
-        lda     #FUJI_ROM_SLOT          ; FujiNet ROM slot
-        sta     paged_ram_copy          ; Update RAM copy
-        sta     ROMSEL                  ; Update hardware register
-        
-        jsr     print_string
-        .byte   "ERROR: Running at load address!", $0D
-        nop
-        
-        ; Restore original ROM
-        pla
-        sta     paged_ram_copy          ; Restore RAM copy
-        sta     ROMSEL                  ; Restore hardware register
+        ; if user runs at load address, it does nothing
         rts
         
         ; Real application starts here (execute address)
 hello_app_start:
-        ; Save current ROM and switch to FujiNet ROM (slot 5)
-        lda     paged_ram_copy          ; Save current ROMSEL
-        pha
-        lda     #FUJI_ROM_SLOT          ; FujiNet ROM slot
-        sta     paged_ram_copy          ; Update RAM copy
-        sta     ROMSEL                  ; Update hardware register
-        
-        jsr     print_string
-        .byte   "HELLO from FujiNet!", $0D
-        nop
-        jsr     print_string
-        .byte   "File loaded OK", $0D
-        nop
-        
-        ; Restore original ROM
-        pla
-        sta     paged_ram_copy          ; Restore RAM copy
-        sta     ROMSEL                  ; Restore hardware register
+        ldx     #<hello_msg1
+        ldy     #>hello_msg1
+        jsr     hello_print_string
+        rts
+hello_msg1:
+        .byte   "HELLO from FujiNet!", $0D, $0A, $00
+
+; Helper function to print null-terminated string using OS routines
+; Entry: X/Y = address of string (low/high)
+hello_print_string:
+        stx     $70                     ; Store string address in zero page
+        sty     $71
+        ldy     #0
+hello_print_loop:
+        lda     ($70),y
+        beq     hello_print_done
+        jsr     OSWRCH                  ; Use OS routine
+        iny
+        bne     hello_print_loop
+hello_print_done:
         rts
 dummy_sector4_data_end:
 
@@ -1177,34 +1156,21 @@ fuji_init_ram_filesystem:
         sta     DRIVE0_PAGE_ALLOC+2
 
         ; Initialize DRIVE 1 - empty disk (just title, no files)
-        ; Set disk title in sector 0 data (bytes 0-7)
-        lda     #'D'
-        sta     DRIVE1_CATALOG+0
-        lda     #'R'
-        sta     DRIVE1_CATALOG+1
-        lda     #'I'
-        sta     DRIVE1_CATALOG+2
-        lda     #'V'
-        sta     DRIVE1_CATALOG+3
-        lda     #'E'
-        sta     DRIVE1_CATALOG+4
-        lda     #'1'
-        sta     DRIVE1_CATALOG+5
-        lda     #' '
-        sta     DRIVE1_CATALOG+6
-        sta     DRIVE1_CATALOG+7
-        
-        ; Set sector 1 data (bytes 8-15): title continuation + cycle + count + boot
-        lda     #' '
-        sta     DRIVE1_CATALOG+8        ; Title byte 8
-        sta     DRIVE1_CATALOG+9        ; Title byte 9
-        sta     DRIVE1_CATALOG+10       ; Title byte 10
-        sta     DRIVE1_CATALOG+11       ; Title byte 11
-        lda     #$00
-        sta     DRIVE1_CATALOG+12       ; Cycle number
-        sta     DRIVE1_CATALOG+13       ; File count = 0 (empty disk!)
-        sta     DRIVE1_CATALOG+14       ; Boot option
-        sta     DRIVE1_CATALOG+15       ; Disk size
+        ; Copy drive 1 catalog from static data
+        ldy     #0
+@init_drive1_title:
+        lda     drive1_catalog,y
+        sta     DRIVE1_CATALOG,y        ; Copy sector 0 data (8 bytes)
+        iny
+        cpy     #8
+        bne     @init_drive1_title
+        ldy     #0
+@init_drive1_title_s1:
+        lda     drive1_sector1_data,y
+        sta     DRIVE1_CATALOG+8,y      ; Copy sector 1 data (8 bytes)
+        iny
+        cpy     #8
+        bne     @init_drive1_title_s1
 
         rts
 

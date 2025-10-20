@@ -1,19 +1,23 @@
 ; Print utilities for FujiNet ROM
         .export  err_bad
         .export  err_disk
+        .export  print_2_spaces_spl
+        .export  print_bcd
+        .export  print_bcd_spl
         .export  print_char
+        .export  print_decimal
         .export  print_fullstop
         .export  print_hex
+        .export  print_hex_spl
         .export  print_newline
-        .export  print_nibble
         .export  print_nib_fullstop
+        .export  print_nibble
+        .export  print_nibble_spl
         .export  print_space
         .export  print_space_spl
-        .export  print_2_spaces_spl
         .export  print_string
         .export  print_string_ax
-        .export  print_decimal
-        .export  print_bcd
+        .export  print_string_spl
         .export  report_error
         .export  report_error_cb
 
@@ -32,6 +36,51 @@
         .include "fujinet.inc"
 
         .segment "CODE"
+
+; Print newline
+print_newline:
+        pha
+        lda     #$0D
+        jsr     print_char
+        pla
+        rts
+
+; Print a string terminated by bit 7 set, or 00 using A/X as address
+; A = low byte of string address
+; X = high byte of string address
+; Exit: AXY preserved
+print_string_ax:
+        sta     cws_tmp7
+        stx     cws_tmp8
+        pha                             ; Save A/X/Y
+        txa
+        pha
+        tya
+        pha
+        ldy     #0
+@loop:
+        lda     (cws_tmp7),y
+        bmi     @done                   ; If bit 7 set (end of string)
+        beq     @done                   ; If 00 set (end of string)
+        jsr     print_char
+        iny
+        bne     @loop
+@done:
+        pla                             ; Restore A/X/Y
+        tay
+        pla
+        tax
+        pla
+        rts
+
+; Increment word at $AE/cws_tmp07 and load byte
+inc_cws0708_and_load:
+        inc     cws_tmp7
+        bne     @exit
+        inc     cws_tmp8
+@exit:
+        lda     (cws_tmp7),y
+        rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; RESET LEDS
@@ -60,7 +109,6 @@ err_bad:
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; REPORT ERROR CB
-;
 ; Check if writing channel buffer
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -106,17 +154,6 @@ err_continue:
         ; jsr     tube_release  ; FUTURE: add this back in
         jmp     $0100
 
-; Print newline
-print_newline:
-        pha
-        lda     #$0D
-        jsr     print_char
-        pla
-        rts
-
-; print_nibble_print_string:
-;         jsr     print_nibble
-
 ; Print a string terminated by bit 7 set (MMFS style)
 ; String address is on stack, uses ZP $AE $AF $B3
 ; Exit: AXY preserved, C=0
@@ -145,55 +182,26 @@ print_return2:
         clc
         jmp     (cws_tmp7)              ; Return to caller
 
-; Print a string terminated by bit 7 set, or 00 using A/X as address
-; A = low byte of string address
-; X = high byte of string address
-; Exit: AXY preserved
-print_string_ax:
+
+print_string_spl:
+        sta     aws_tmp03
+
+        pla
         sta     cws_tmp7
-        stx     cws_tmp8
-        pha                             ; Save A/X/Y
-        txa
+        pla
+        sta     cws_tmp8
+
+        lda     aws_tmp03
         pha
         tya
         pha
-        ldy     #0
-@loop:
-        lda     (cws_tmp7),y
-        bmi     @done                   ; If bit 7 set (end of string)
-        beq     @done                   ; If 00 set (end of string)
-        jsr     print_char
-        iny
-        bne     @loop
-@done:
-        pla                             ; Restore A/X/Y
-        tay
-        pla
-        tax
-        pla
-        rts
 
-; Increment word at $AE/cws_tmp07 and load byte
-inc_cws0708_and_load:
-        inc     cws_tmp7
-        bne     @exit
-        inc     cws_tmp8
-@exit:
-        lda     (cws_tmp7),y
-        rts
-
-print_2_spaces_spl:
-        ; Print two spaces (MMFS Print2SpacesSPL style)
-        jsr     print_space_spl
-print_space_spl:
-        ; Print single space using OSWRCH (MMFS PrintSpaceSPL style)
-        pha                             ; Save A
-        lda     #' '                    ; Space character
-        jsr     OSWRCH                  ; Direct output, no spool manipulation
-        pla                             ; Restore A
-        clc                             ; C=0
-        rts
-
+        ldy     #$00
+@pstr_loop:
+        jsr     inc_cws0708_and_load
+        bmi     print_return1
+        jsr     OSASCI
+        jmp     @pstr_loop
 
 print_space:
         lda     #' '
@@ -229,16 +237,6 @@ print_char:
         lda     #3
         jmp     OSBYTE
 
-print_hex:
-        pha
-        jsr     a_rorx4         ; rotate in the high nibble
-        jsr     print_nibble    ; print the high nibble
-        pla                     ; restore so we can print the low nibble
-        pha                     ; push again so we can restore
-        jsr     print_nibble    ; print the low nibble
-        pla                     ; ensure we restore A
-        rts
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; print_bcd - Print a number in BCD format (with spool support)
 ; Converted from binary to BCD, then printed as hex
@@ -249,33 +247,46 @@ print_hex:
 
 print_bcd:
         jsr     binary_to_bcd
-        jmp     print_hex
+        ; fall into print_hex
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; binary_to_bcd - Convert binary to BCD
-; Entry: A = binary number
-; Exit: A = BCD representation
-; Translated from MMFS BinaryToBCD (lines 1084-1098)
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-binary_to_bcd:
-        jsr     remember_xy_only
-        tay
-        beq     @exit                   ; If nothing to do!
-        clc
-        sed                             ; Set decimal mode
-        lda     #$00
-@loop:
-        adc     #$01
-        dey
-        bne     @loop
-        cld                             ; Clear decimal mode
-@exit:
-        rts                             ; A=BCD
+print_hex:
+        pha
+        jsr     a_rorx4         ; rotate in the high nibble
+        jsr     print_nibble    ; print the high nibble
+        pla                     ; restore so we can print the low nibble
+        ; fall into print_nibble...
 
 print_nibble:
         jsr     nib_to_asc
         bne     print_char      ; always happens, as nib_to_asc 
+
+print_bcd_spl:
+        jsr     binary_to_bcd
+        ; fall into print_hex_spl
+
+print_hex_spl:
+        pha
+        jsr     a_rorx4
+        jsr     print_nibble_spl
+        pla
+        ; fall into print_nibble_spl
+
+print_nibble_spl:
+        jsr     nib_to_asc
+        jmp     OSWRCH
+
+
+print_2_spaces_spl:
+        ; Print two spaces (MMFS Print2SpacesSPL style)
+        jsr     print_space_spl
+print_space_spl:
+        ; Print single space using OSWRCH (MMFS PrintSpaceSPL style)
+        pha                             ; Save A
+        lda     #' '                    ; Space character
+        jsr     OSWRCH                  ; Direct output, no spool manipulation
+        pla                             ; Restore A
+        clc                             ; C=0
+        rts
 
 nib_to_asc:
         and     #$0F
@@ -465,3 +476,26 @@ dump_memory_block:
         pla                             ; Restore A
         rts
 .endif
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; binary_to_bcd - Convert binary to BCD
+; Entry: A = binary number
+; Exit: A = BCD representation
+; Translated from MMFS BinaryToBCD (lines 1084-1098)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+binary_to_bcd:
+        jsr     remember_xy_only
+        tay
+        beq     @exit                   ; If nothing to do!
+        clc
+        sed                             ; Set decimal mode
+        lda     #$00
+@loop:
+        adc     #$01
+        dey
+        bne     @loop
+        cld                             ; Clear decimal mode
+@exit:
+        rts                             ; A=BCD
+
