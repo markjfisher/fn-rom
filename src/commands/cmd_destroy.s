@@ -4,17 +4,17 @@
 
         .export cmd_fs_destroy
 
-        .import is_enabled_or_go
-        .import parameter_afsp_param_syntaxerrorifnull_getcatentry_fsptxtp
-        .import prt_filename_yoffset
-        .import print_newline
+        .import check_for_disk_change
+        .import delete_cat_entry_adjust_ptr
+        .import get_cat_firstentry80
         .import get_cat_nextentry
         .import go_yn
-        .import check_for_disk_change
-        .import get_cat_firstentry80
-        .import delete_cat_entry_adjust_ptr
+        .import is_enabled_or_go
+        .import parameter_afsp_param_syntaxerrorifnull_getcatentry_fsptxtp
+        .import print_newline
+        .import print_string
+        .import prt_filename_yoffset
         .import save_cat_to_disk
-        .import print_string_spl
 
         .include "fujinet.inc"
 
@@ -60,8 +60,8 @@ cmd_fs_destroy:
         jsr     save_cat_to_disk        ; Save catalog
         ; Fall through to print "Deleted" message
 
-msgDELETED:
-        jsr     print_string_spl
+msg_deleted:
+        jsr     print_string
         .byte   "Deleted", $0D
         nop
 cmd_exit:

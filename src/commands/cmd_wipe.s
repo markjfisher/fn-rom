@@ -36,9 +36,9 @@ cmd_fs_wipe:
         jsr     check_for_disk_change
         stx     aws_tmp06               ; Restore catalog pointer
         jsr     delete_cat_entry_adjust_ptr ; Delete and adjust pointer
-        sty     aws_tmp11               ; Save Y
-        jsr     save_cat_to_disk           ; Save catalog
-        lda     aws_tmp11               ; Restore Y
+        sty     cws_tmp4                ; Save Y
+        jsr     save_cat_to_disk        ; Save catalog
+        lda     cws_tmp4                ; Restore Y
         sta     aws_tmp06               ; Update catalog pointer
 @wipenext:
         jsr     get_cat_nextentry       ; Get next matching entry

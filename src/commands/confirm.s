@@ -5,9 +5,10 @@
         .export go_yn
         .export confirm_yn_colon
 
-        .import get_cat_firstentry80
-        .import print_string_spl
         .import osbyte_0f_flush_inbuf2
+        .import print_char
+        .import print_newline
+        .import print_string
         .import report_error
 
         .include "fujinet.inc"
@@ -23,9 +24,7 @@
 
 is_enabled_or_go:
         bit     fuji_cmd_enabled
-        bpl     @not_enabled
-        rts                             ; Already enabled, return
-@not_enabled:
+        bpl     @confirmed
         jsr     go_yn
         beq     @confirmed
         ; User said no, pop return address and return to caller's caller
@@ -40,9 +39,9 @@ is_enabled_or_go:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 confirm_yn_colon:
-        jsr     print_string_spl
+        jsr     print_string
         .byte   " : "
-        ; Fall through to confirm_yn
+        bcc     confirm_yn
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; go_yn - Print "Go (Y/N) ?" and get Y/N response
@@ -50,7 +49,7 @@ confirm_yn_colon:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 go_yn:
-        jsr     print_string_spl
+        jsr     print_string
         .byte   "Go (Y/N) ? "
         nop
 
@@ -67,12 +66,13 @@ confirm_yn:
         jsr     OSRDCH                  ; Get character
         bcs     err_escape              ; If ESCAPE
         and     #$5F                    ; Convert to uppercase
-        cmp     #$59                    ; "Y"?
+        cmp     #'Y'                    ; "Y"?
         php                             ; Save flags
-        beq     @print_char
-        lda     #$4E                    ; "N"
-@print_char:
-        jsr     OSWRCH                  ; Echo character
+        beq     @conf_yn
+        lda     #'N'                    ; "N"
+@conf_yn:
+        jsr     print_char              ; Echo character
+        jsr     print_newline
         plp                             ; Restore flags (Z set if Y)
         rts
 
@@ -82,7 +82,8 @@ confirm_yn:
 
 err_escape:
 report_escape:
+        lda     #$7e
+        jsr     OSBYTE
         jsr     report_error
-        .byte   $7E                     ; Escape error
+        .byte   $11                     ; Escape error
         .byte   "Escape", 0
-
