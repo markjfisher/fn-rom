@@ -1,23 +1,24 @@
 ; OSFILE helper functions
 ; Common utility functions used by OSFILE operations
 
-        .export set_param_block_pointer_b0
-        .export load_addr_hi2
-        .export exec_addr_hi2
-        .export create_file_fsp
+        .export cfile_atcatentry
+        .export cfile_copyfnloop
+        .export cfile_loop
         .export copy_vars_b0ba
         .export copy_word_b0ba
-        .export read_fspba_find_cat_entry
-        .export debug_here
         .export create_file_2
         .export create_file_3
-        .export cfile_copyfnloop
-        .export cfile_atcatentry
-        .export cfile_loop
-        .export getfirstblock_yoffset
+        .export create_file_fsp
+        .export debug_here
+        .export delete_cat_entry_adjust_ptr
         .export delete_cat_entry_yfileoffset
-        .export set_load_addr_to_host
+        .export exec_addr_hi2
+        .export getfirstblock_yoffset
+        .export load_addr_hi2
         .export load_and_execute_addr_hi2
+        .export read_fspba_find_cat_entry
+        .export set_load_addr_to_host
+        .export set_param_block_pointer_b0
 
         .import a_rorx4and3
         .import a_rorx6and3
@@ -335,6 +336,13 @@ delete_cat_entry_yfileoffset:
         sbc     #$08
         sta     dfs_cat_num_x8
 
+        rts
+
+delete_cat_entry_adjust_ptr:
+        jsr     delete_cat_entry_yfileoffset
+        ldy     aws_tmp06
+        jsr     y_sub8
+        sty     aws_tmp06
         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

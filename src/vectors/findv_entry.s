@@ -8,6 +8,7 @@
         .export check_file_not_locked
         .export check_file_not_locked_or_open_y
         .export check_file_not_open_y
+        .export check_for_disk_change
         .export close_all_files
         .export close_files_yhandle
         .export close_spool_exec_files

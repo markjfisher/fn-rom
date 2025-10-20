@@ -19,9 +19,11 @@
         .import cmd_fs_close
         .import cmd_fs_copy
         .import cmd_fs_delete
+        .import cmd_fs_destroy
         .import cmd_fs_disc
         .import cmd_fs_dir
         .import cmd_fs_drive
+        .import cmd_fs_enable
         .import cmd_fs_ex
         .import cmd_fs_fboot
         .import cmd_fs_form
@@ -33,6 +35,7 @@
         .import cmd_fs_rename
         .import cmd_fs_title
         .import cmd_fs_verify
+        .import cmd_fs_wipe
 
         .import cmd_help_fuji
         .import cmd_help_futils
@@ -59,8 +62,10 @@ cmd_table_fujifs:
         .byte   "CLOSE",     $80
         .byte   "COPY",      $80+$2C    ; <source> <dest.> <afsp> - params C and 2
         .byte   "DELETE",    $80+$08    ; <fsp>
+        .byte   "DESTROY",   $80+$02    ; <afsp>
         .byte   "DIR",       $80+$06    ; (<dir>)
         .byte   "DRIVE",     $80+$01    ; <drive>
+        .byte   "ENABLE",    $80
         .byte   "EX",        $80+$06    ; (<dir>)
         .byte   "FORM",      $80+$5F    ; (<drive>)... 40/80 - params 5 and F
         .byte   "FREE",      $80+$04    ; (<drive>)
@@ -72,6 +77,7 @@ cmd_table_info:
         .byte   "RENAME",    $80+$0D    ; <old fsp> <new fsp>
         .byte   "TITLE",     $80+$0A    ; <title>
         .byte   "VERIFY",    $80+$05    ; (<drive>)...
+        .byte   "WIPE",      $80+$02    ; <afsp>
         .byte   $00                     ; End of table
 
 ; These are prefixed with "F", e.g. "FBOOT" etc [FILE SYSTEM COMMANDS], help = "*HELP FUTILS"
@@ -124,8 +130,10 @@ cmd_table_fujifs_cmds:
         .word   cmd_fs_close-1
         .word   cmd_fs_copy-1
         .word   cmd_fs_delete-1
+        .word   cmd_fs_destroy-1
         .word   cmd_fs_dir-1
         .word   cmd_fs_drive-1
+        .word   cmd_fs_enable-1
         .word   cmd_fs_ex-1
         .word   cmd_fs_form-1
         .word   cmd_fs_free-1
@@ -135,6 +143,7 @@ cmd_table_fujifs_cmds:
         .word   cmd_fs_rename-1
         .word   cmd_fs_title-1
         .word   cmd_fs_verify-1
+        .word   cmd_fs_wipe-1
         .word   not_cmd_fujifs-1
 
 ; OLD: cmdaddr4

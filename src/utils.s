@@ -1,14 +1,15 @@
-        .export  a_rorx3
-        .export  a_rorx4
-        .export  a_rorx5
         .export  a_rolx4
         .export  a_rolx5
-        .export  a_rorx6and3
-        .export  a_rorx4and3
         .export  a_rorx2and3
+        .export  a_rorx3
+        .export  a_rorx4
+        .export  a_rorx4and3
+        .export  a_rorx5
+        .export  a_rorx6and3
         .export  calculate_crc7
         .export  GSINIT_A
         .export  is_alpha_char
+        .export  osbyte_0f_flush_inbuf2
         .export  osbyte_X0YFF
         .export  osbyte_YFF
         .export  set_text_pointer_yx
@@ -17,9 +18,19 @@
         .export  y_add7
         .export  y_add8
 
+        .import  remember_axy
+
         .include "fujinet.inc"
 
         .segment "CODE"
+
+osbyte_0f_flush_inbuf2:
+        jsr     remember_axy
+        lda     #$0f
+        ldx     #$01
+        ldy     #$00
+        jmp     OSBYTE
+
 
 osbyte_X0YFF:
         ldx     #0
