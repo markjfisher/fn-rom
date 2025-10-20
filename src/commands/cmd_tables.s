@@ -67,8 +67,8 @@ cmd_table_fujifs:
 ; equivalent of .info_cmd_index
 cmd_table_info:
         .byte   "INFO",      $80+$02    ; <afsp>
-        .byte   "MAP",       $80+$04    ; (<drive>)
         .byte   "LIB",       $80+$06    ; (<dir>)
+        .byte   "MAP",       $80+$04    ; (<drive>)
         .byte   "RENAME",    $80+$0D    ; <old fsp> <new fsp>
         .byte   "TITLE",     $80+$0A    ; <title>
         .byte   "VERIFY",    $80+$05    ; (<drive>)...
