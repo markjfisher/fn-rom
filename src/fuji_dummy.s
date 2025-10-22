@@ -166,9 +166,9 @@ dummy_sector2_data:
         
         ; Real application starts here (execute address)
 test_app_start:
-        ldx     #<test_msg
-        ldy     #>test_msg
-        jsr     test_print_string
+        ldx     #<(test_msg - dummy_sector2_data)
+        ldy     #$1D
+        jsr     test_print_string - dummy_sector2_data + $1D00
         rts
 test_msg:
         .byte   "TEST app!", $0D, $0A, $00
@@ -196,9 +196,9 @@ dummy_sector3_data:
         
         ; Real application starts here (execute address)
 world_app_start:
-        ldx     #<world_msg1
-        ldy     #>world_msg1
-        jsr     world_print_string
+        ldx     #<(world_msg1 - dummy_sector3_data)
+        ldy     #$1B
+        jsr     world_print_string - dummy_sector3_data + $1B00
         rts
 world_msg1:
         .byte   "WORLD app!", $0D, $0A, $00
@@ -226,9 +226,9 @@ dummy_sector4_data:
         
         ; Real application starts here (execute address)
 hello_app_start:
-        ldx     #<hello_msg1
-        ldy     #>hello_msg1
-        jsr     hello_print_string
+        ldx     #<(hello_msg1 - dummy_sector4_data)
+        ldy     #$19
+        jsr     hello_print_string - dummy_sector4_data + $1900
         rts
 hello_msg1:
         .byte   "HELLO from FujiNet!", $0D, $0A, $00
@@ -668,11 +668,6 @@ fuji_read_catalog_data:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 fuji_write_catalog_data:
-.ifdef FN_DEBUG_CREATE_FILE
-        ; Mark catalog sync start
-        lda     #$BB
-        sta     $6FF3               ; Debug marker - RAM sync start
-.endif
         jsr     remember_axy
 
         ; Get current drive's catalog address
@@ -756,13 +751,6 @@ fuji_write_catalog_data:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 assign_ram_sectors_to_new_files:
-.ifdef FN_DEBUG_CREATE_FILE
-        pha
-        jsr     print_string
-        .byte   "=== MARKING RAM PAGES AS ALLOCATED ===", $0D
-        nop
-        pla
-.endif
         ; Get current drive's catalog and page allocation addresses
         jsr     get_current_catalog     ; Returns catalog addr in aws_tmp12/13
         ; Note: We'll scan the compressed catalog in RAM
@@ -791,23 +779,7 @@ assign_check_file:
         pla                             ; Restore original Y
         tay
         sta     aws_tmp14               ; Save sector number
-        
-.ifdef FN_DEBUG_CREATE_FILE
-        pha
-        jsr     print_string
-        .byte   "CHECK: offset="
-        tya
-        jsr     print_hex
-        jsr     print_string
-        .byte   " sector="
-        nop
-        lda     aws_tmp14
-        jsr     print_hex
-        jsr     print_newline
-        pla
-.endif
 
-        lda     aws_tmp14               ; Get sector number
         ; Is this a RAM sector that needs page allocation?
         cmp     #FIRST_RAM_SECTOR       ; Is it a RAM sector (2+)?
         bcc     assign_next_file        ; No, skip (catalog sectors 0-1)
