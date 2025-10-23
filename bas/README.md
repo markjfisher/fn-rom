@@ -1,73 +1,152 @@
-# FINDV/BGETV Test Programs
+# FujiNet BBC BASIC Test Programs
 
-This folder contains test programs to verify the FINDV and BGETV functionality of the FujiNet ROM.
+These programs test serial communication with FujiNet devices via the b2 emulator.
 
-## Test Programs
+## Programs
 
-### 1. `basic_test.bas` (BASIC_T)
-- **Purpose**: Simple test that just tries to open the HELLO file
-- **What it does**: 
-  - Calls OSFIND to open HELLO file for reading
-  - Reports the result (handle number or error)
-  - Closes the file if opened successfully
-- **Expected result**: Should return a file handle (non-zero) if our FINDV_ENTRY is working
+### FUJITST.bas
+Simple test that:
+- Configures the ACIA and SERPROC for 19200 baud
+- Sends a test packet: `70 00 00 00 00 70`
+- Waits for and displays the response
 
-### 2. `simple_test.bas` (SIMPLE_)
-- **Purpose**: More comprehensive test of file operations
-- **What it does**:
-  - Opens HELLO file for reading
-  - Reads up to 20 bytes using OSBGET
-  - Reports each byte read
-  - Closes the file
-  - Repeats the process with WORLD file
-- **Expected result**: Should read bytes from our dummy files and detect EOF
-
-### 3. `test_findv_bgetv.bas` (TEST_FI)
-- **Purpose**: Most comprehensive test with proper error handling
-- **What it does**:
-  - Tests file opening with proper error checking
-  - Reads bytes until EOF is detected
-  - Tests multiple files (HELLO and WORLD)
-  - Provides detailed output for debugging
-- **Expected result**: Full test of our filing system implementation
-
-## How to Use
-
-1. **Load the test disk**: Use `test_disk.ssd` in your BBC Micro emulator
-2. **Run a test**: 
+**Usage:**
+1. Load: `*LOAD FUJITST`
+2. Run: `RUN`
+3. In another terminal, inject a test response:
+   ```bash
+   echo -ne '\x41\x43Hello\x1c' > /tmp/inject-tty
    ```
-   *LOAD BASIC_T
-   *RUN
+
+### FUJIECHO.bas
+Interactive program that:
+- Prompts for commands
+- Sends each command as a FujiNet packet (device 0x70)
+- Displays responses in hex and ASCII
+- Loops until you type "QUIT"
+
+**Usage:**
+1. Load: `*LOAD FUJIECHO`
+2. Run: `RUN`
+3. Enter commands at the prompt
+
+## Serial Hardware Addresses
+
+| Address | Register | Purpose |
+|---------|----------|---------|
+| `&FE08` | ACIA Control/Status | Configure ACIA, check TX/RX status |
+| `&FE09` | ACIA Data | Send/receive bytes |
+| `&FE10` | SERPROC Control | Set baud rate, RS423 mode, motor |
+
+## ACIA Status Register (&FE08)
+
+Reading `?&FE08` returns status:
+- Bit 0: RX data available (1 = byte ready to read)
+- Bit 1: TX ready (1 = can send byte)
+- Bit 2: DCD (Data Carrier Detect)
+- Bit 3: CTS (Clear To Send)
+- Bit 4: Framing error
+- Bit 5: RX overrun
+- Bit 6: Parity error
+- Bit 7: IRQ flag
+
+## ACIA Control Register (&FE08)
+
+Writing to `?&FE08` configures ACIA:
+- `&03` = Master reset
+- `&15` = 8N1, RTS low, TX interrupt disabled, RX interrupt enabled
+
+## SERPROC Control Register (&FE10)
+
+Format: `%MRRRRTTT`
+- Bits 0-2 (TTT): TX baud rate
+- Bits 3-5 (RRR): RX baud rate
+- Bit 6 (M): Motor (cassette)
+- Bit 7 (R): RS423 mode
+
+Baud rate codes:
+- `000` = 19200 (FujiNet default)
+- `001` = 1200
+- `010` = 4800
+- `011` = 150
+- `100` = 9600
+- `101` = 300
+- `110` = 2400
+- `111` = 75
+
+For FujiNet (19200/19200): `?&FE10 = &00`
+
+## FujiNet Packet Format
+
+```
+┌────────┬──────────────────┬──────────┐
+│ Device │   Data (5 bytes) │ Checksum │
+├────────┼──────────────────┼──────────┤
+│  0x70  │  00 00 00 00 00  │   0x70   │
+└────────┴──────────────────┴──────────┘
+```
+
+Checksum = Sum of all bytes (device + data) AND 0xFF
+
+## Testing with b2 Emulator
+
+1. **Configure b2:**
+   - Settings → Configs
+   - Enable "FujiNet"
+   - Device Path: `/tmp/fn-tty`
+   - Auto-connect: ☑
+   - Debug: ☑
+
+2. **Start bridge:**
+   ```bash
+   cd fn-rom/serial-bridge
+   ./create-link.sh
    ```
-3. **Check the output**: Look for success/error messages and byte values
 
-## Expected Behavior
+3. **Load BASIC program in b2:**
+   ```
+   SHIFT+F12 (insert disc)
+   *CAT
+   *LOAD FUJITST
+   RUN
+   ```
 
-### If FINDV_ENTRY is working:
-- Files should open successfully and return a handle (non-zero number)
-- Files should close without errors
+4. **Inject test response:**
+   ```bash
+   # Send: ACK (41) + COMPLETE (43) + "Hello" + checksum
+   echo -ne '\x41\x43\x48\x65\x6c\x6c\x6f\x1c' > /tmp/inject-tty
+   ```
 
-### If BGETV_ENTRY is working:
-- Bytes should be read from the dummy files
-- EOF should be detected when reaching the end of file
-- Byte values should match our dummy data
+## Building an SSD
 
-### If EOF checking is working:
-- EOF should be detected at the correct position
-- No infinite loops when reading past end of file
+Use the b2 emulator or BeebEm to create an SSD:
+1. Create blank SSD
+2. `*SAVE FUJITST` with tokenized BASIC
+3. `*SAVE FUJIECHO` with tokenized BASIC
 
-## Debugging
+Or use `beebasm` or similar tools to build an SSD from these text files.
 
-If tests fail:
-1. Check that the FujiNet ROM is loaded in the emulator
-2. Verify that dummy files (HELLO, WORLD) exist in the catalog
-3. Look for debug output from our ROM (if FN_DEBUG is enabled)
-4. Check that the filing system is properly initialized
+## Troubleshooting
 
-## Dummy Data
+**No response:**
+- Check debug output in b2 Messages window
+- Verify `/tmp/fn-tty` exists and is connected
+- Check SERPROC and ACIA are configured correctly
 
-The tests expect these files to exist:
-- **HELLO**: Contains "Hello from FujiNet!" 
-- **WORLD**: Contains "World test data"
+**Garbled data:**
+- Verify baud rate is 19200 (`?&FE10 = &00`)
+- Check ACIA configuration (`?&FE08 = &15`)
 
-These are provided by our `fuji_dummy.s` implementation.
+**Timeout:**
+- Increase timeout value in BASIC program
+- Check that bridge/device is actually sending data
+
+## Known Issues
+
+- **0x00 bytes:** Currently cannot reliably receive null bytes due to API limitation. Most FujiNet commands work fine, but binary data with nulls may have gaps.
+
+## See Also
+
+- `fn-rom/docs/B2_TESTING_GUIDE.md` - Complete testing guide
+- `fn-rom/docs/B2_FUJINET_INTEGRATION_COMPLETE.md` - Implementation details
+- `fn-rom/docs/SERIAL_ARCHITECTURE.md` - FujiNet serial protocol
