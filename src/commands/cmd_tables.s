@@ -37,6 +37,7 @@
         .import cmd_fs_verify
         .import cmd_fs_wipe
 
+        .import cmd_fs_freset
         .import cmd_help_fuji
         .import cmd_help_futils
         .import cmd_help_utils
@@ -87,6 +88,7 @@ cmd_table_futils:
         .byte   (cmd_table_futils_cmds - cmd_table_fujifs_cmds) / 2 - 1
 
         .byte   "BOOT",      $80+$07    ; <dno>/<dsp>
+        .byte   "RESET",     $80+$00    ; no parameter
         .byte   $00                     ; End of table
 
 ; COMMAND TABLE - Utils commands [NON-FS COMMANDS], help = "*HELP UTILS"
@@ -149,6 +151,7 @@ cmd_table_fujifs_cmds:
 ; OLD: cmdaddr4
 cmd_table_futils_cmds:
         .word   cmd_fs_fboot-1
+        .word   cmd_fs_freset-1
         .word   not_cmd_futils-1
 
 ; OLD: cmdaddr2
