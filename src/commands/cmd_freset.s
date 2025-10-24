@@ -4,6 +4,9 @@
 ; Reset frame: 70 FF 00 00 00 00 [checksum]
 
         .export cmd_fs_freset
+        .export init_serial
+        .export calc_checksum
+        .export send_byte
 
         .include "fujinet.inc"
 

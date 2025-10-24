@@ -5,6 +5,8 @@
         .export unrec_command_text_pointer
         .export cmd_help_futils
         .export cmd_help_utils
+        .export not_cmd_fs
+        .export not_cmd_fujifs
 
         .import GSINIT_A
         .import GSREAD_A
@@ -78,10 +80,23 @@ service04_unrec_command:
 check_command:
         jmp     unrec_command_text_pointer
 
-        ldx     #cmdtab_offset_utils     ; Try UTILS commands
-        bne     check_command
+not_cmd_fs:
 
-        ldx     #cmdtab_offset_futils    ; Try FUTILS commands
+        dbg_string_axy "NOT_CMD_FS: "
+
+        ldx     #cmdtab_offset_utils    ; Try UTILS commands
+        bne     check_command           ; Always branch
+
+@cmd_not_help_loop:
+        jsr     GSREAD_A
+        bcc     @cmd_not_help_loop
+        jmp     morehelp
+
+not_cmd_fujifs:
+
+        dbg_string_axy "NOT_CMD_FUJIFS: "
+
+        ldx     #cmdtab_offset_futils
         jsr     GSINIT_A
         lda     (text_pointer),y
         iny
@@ -91,10 +106,6 @@ check_command:
         dey
         jmp     not_cmd_futils
 
-@cmd_not_help_loop:
-        jsr     GSREAD_A
-        bcc     @cmd_not_help_loop
-        jmp     morehelp
 
 fscv3_unreccommand:
         jsr     set_text_pointer_yx

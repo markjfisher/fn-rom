@@ -48,6 +48,8 @@
         .import not_cmd_help
         .import not_cmd_utils
 
+; These all come after the HEADER in the ROM.
+; and ensures all the strings are in the same page as each other.
         .segment "RODATA"
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

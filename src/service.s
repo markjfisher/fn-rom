@@ -71,8 +71,6 @@ service12_init_filesystem:
         jsr     remember_axy
         jmp     cmd_fs_fuji
 
-.rodata
-
 service_table:
         .word   service_null - 1                        ; 0
         .word   service01_claim_absworkspace - 1        ; 1

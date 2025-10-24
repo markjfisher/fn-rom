@@ -16,6 +16,7 @@ CC := cl65
 LDFLAGS := -C cfg/fujinet-rom.cfg
 
 #ASFLAGS := --asm-define FN_DEBUG=1 --asm-define FN_DEBUG_CREATE_FILE=1 --asm-define FN_DEBUG_WRITE_DATA=1 --asm-define FN_DEBUG_CLOSE_FILE=1 --asm-define FN_DEBUG_OPEN_FILE=1 --asm-define FN_DEBUG_READ_DATA=1
+ASFLAGS := --asm-define FN_DEBUG=1
 
 # Define the appropriate interface based on BUILD_INTERFACE
 ifeq ($(BUILD_INTERFACE),SERIAL)

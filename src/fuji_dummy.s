@@ -816,12 +816,6 @@ assign_next_file:
 
 assign_done:
 @assign_done:
-.ifdef FN_DEBUG_CREATE_FILE
-        jsr     print_string
-        .byte   "=== ASSIGN_RAM_SECTORS DONE"
-        nop
-        jsr     print_newline
-.endif
         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

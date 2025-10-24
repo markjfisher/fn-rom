@@ -2,6 +2,7 @@
 ; Based on MMFS fscv2_4_11_starRUN (line 2114)
 
         .export fscv2_4_11_starRUN
+        .export not_cmd_futils
 
         .import LoadFile_Ycatoffset
         .import get_cat_firstentry81
@@ -26,6 +27,9 @@ fscv2_4_11_starRUN:
 
         ; Set up text pointer (MMFS line 2115)
         jsr     set_text_pointer_yx
+
+not_cmd_futils:
+        dbg_string_axy "*RUN/NOT_CMD_FUTILS: "
 
         ; Set up text pointer and workspace
         lda     #$FF

@@ -4,9 +4,6 @@
         .export cmd_fs_fboot
         .export cmd_fs_fuji
         .export cmd_utils_roms
-        .export not_cmd_fs
-        .export not_cmd_fujifs
-        .export not_cmd_futils
         .export not_cmd_utils
 
         .import init_fuji
@@ -45,29 +42,10 @@ cmd_fs_fuji:
 
 cmd_utils_roms:
         dbg_string_axy "CMD_UTILS_ROMS: "
-
         ; TODO: Implement ROMS command
-
-
         rts
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; NOT_CMD functions - Handle unrecognized commands
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-not_cmd_fs:
-        dbg_string_axy "NOT_CMD_FS: "
-        rts
-
-not_cmd_fujifs:
-        dbg_string_axy "NOT_CMD_FUJIFS: "
-        rts
-
-not_cmd_futils:
-        dbg_string_axy "NOT_CMD_FUTILS: "
-        rts
-
 
 not_cmd_utils:
+        ; this is just RTS
         dbg_string_axy "NOT_CMD_UTILS: "
         rts
