@@ -10,6 +10,7 @@
         .export cmd_table_utils_cmds
         .export cmd_table_help_cmds
         .export cmd_table_fs_cmds
+        .export cmd_table_END
 
         .export cmd_table_info
 
@@ -56,6 +57,11 @@
 ; COMMAND STRINGS
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+; NOTE: The tables have to be in the same order
+; as the old cmdtable* defines as there is logic to
+; determine if we're after a certain table to start
+; printing 'F' at the beginning of the command.
+
 ; COMMAND TABLE - FujiNet file system commands [FILE SYSTEM COMMANDS], help = "*HELP FUJI"
 ; old cmdtable1
 cmd_table_fujifs:
@@ -83,16 +89,6 @@ cmd_table_info:
         .byte   "WIPE",      $80+$02    ; <afsp>
         .byte   $00                     ; End of table
 
-; These are prefixed with "F", e.g. "FBOOT" etc [FILE SYSTEM COMMANDS], help = "*HELP FUTILS"
-; old cmdtable4
-cmd_table_futils:
-        ; 02
-        .byte   (cmd_table_futils_cmds - cmd_table_fujifs_cmds) / 2 - 1
-
-        .byte   "BOOT",      $80+$07    ; <dno>/<dsp>
-        .byte   "RESET",     $80+$00    ; no parameter
-        .byte   $00                     ; End of table
-
 ; COMMAND TABLE - Utils commands [NON-FS COMMANDS], help = "*HELP UTILS"
 ; old cmdtable2
 cmd_table_utils:
@@ -101,6 +97,18 @@ cmd_table_utils:
 
         .byte   "ROMS",      $80+$00    ; no parameter
         .byte   $00
+
+
+; COMMAND TABLE - File System INIT commands, NO HELP COMMAND
+; old cmdtable22
+cmd_table_fs:
+        ; 0A  
+        .byte   (cmd_table_fs_cmds - cmd_table_fujifs_cmds) / 2 - 1
+
+        .byte   "DISC", $80
+        .byte   "DISK", $80
+        .byte   "FUJI", $80
+        .byte   $00                     ; End of table
 
 ; COMMAND TABLE - Help commands [HELP COMMANDS], help = "*HELP"
 ; old cmdtable3
@@ -113,16 +121,16 @@ cmd_table_help:
         .byte   "UTILS",     $80
         .byte   $00                     ; End of table
 
-; COMMAND TABLE - File System INIT commands, NO HELP COMMAND
-; old cmdtable22
-cmd_table_fs:
-        ; 0A  
-        .byte   (cmd_table_fs_cmds - cmd_table_fujifs_cmds) / 2 - 1
+; These are prefixed with "F", e.g. "FBOOT" etc [FILE SYSTEM COMMANDS], help = "*HELP FUTILS"
+; old cmdtable4
+cmd_table_futils:
+        ; 02
+        .byte   (cmd_table_futils_cmds - cmd_table_fujifs_cmds) / 2 - 1
 
-        .byte   "DISC", $80
-        .byte   "DISK", $80
-        .byte   "FUJI", $80
+        .byte   "BOOT",      $80+$07    ; <dno>/<dsp>
+        .byte   "RESET",     $80+$00    ; no parameter
         .byte   $00                     ; End of table
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; COMMAND FUNCTIONS
@@ -150,16 +158,17 @@ cmd_table_fujifs_cmds:
         .word   cmd_fs_wipe-1
         .word   not_cmd_fujifs-1
 
-; OLD: cmdaddr4
-cmd_table_futils_cmds:
-        .word   cmd_fs_fboot-1
-        .word   cmd_fs_freset-1
-        .word   not_cmd_futils-1
-
 ; OLD: cmdaddr2
 cmd_table_utils_cmds:
         .word   cmd_utils_roms-1
         .word   not_cmd_utils-1
+
+; OLD: cmdaddr22
+cmd_table_fs_cmds:
+        .word   cmd_fs_disc-1
+        .word   cmd_fs_disc-1           ; DISK same as DISC
+        .word   cmd_fs_fuji-1
+        .word   not_cmd_fs-1
 
 ; OLD: cmdaddr3
 cmd_table_help_cmds:
@@ -168,12 +177,11 @@ cmd_table_help_cmds:
         .word   cmd_help_utils-1
         .word   not_cmd_help-1
 
-; OLD: cmdaddr22
-cmd_table_fs_cmds:
-        .word   cmd_fs_disc-1
-        .word   cmd_fs_disc-1           ; DISK same as DISC
-        .word   cmd_fs_fuji-1
-        .word   not_cmd_fs-1
+; OLD: cmdaddr4
+cmd_table_futils_cmds:
+        .word   cmd_fs_fboot-1
+        .word   cmd_fs_freset-1
+        .word   not_cmd_futils-1
 
 cmd_table_END:
 

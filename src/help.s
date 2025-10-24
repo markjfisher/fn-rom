@@ -104,7 +104,7 @@ prtcmd_at_bc_add_1:
         ldx     aws_tmp15
 
         ; if it's futils (X >= cmdtab_offset_futils), print "F" first
-        cpx     #<cmdtab_offset_futils
+        cpx     #cmdtab_offset_futils
         bcc     @cmdloop        ; Branch if X < futils offset
         lda     #'F'
         jsr     prtcmd_prtchr

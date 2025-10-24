@@ -144,7 +144,8 @@ y_add7:
         iny
         iny
         rts
-
+; Checks if the char is between $41 and $5A (A-Z)
+; Exit: C=0 if alpha, 1 if not
 is_alpha_char:
         pha
         and     #$5F

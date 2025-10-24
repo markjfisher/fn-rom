@@ -9,24 +9,28 @@
         .import calculate_crc7
         .import channel_flags_clear_bits
         .import extendedvectors_table
+        .import load_cur_drv_cat
         .import osbyte_X0YFF
         .import print_string
         .import return_with_a0
         .import tube_check_if_present
         .import vectors_table
+
 .ifdef FUJINET_INTERFACE_DUMMY
         .import fuji_init_ram_filesystem
 .endif
 
         .include "fujinet.inc"
 
-        .segment "CODE"
+        .segment "RODATA"
 
-; Boot options strings
+; Boot options strings, force them into first page of ROM so they are together
 boot_options:
         .byte   "L.!BOOT", $0D
         .byte   "!BOOT", $0D
         .byte   "E.!BOOT", $0D
+
+        .segment "CODE"
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; INIT_FUJI - Initialize FujiNet file system
@@ -204,14 +208,16 @@ setdefaults:
         jsr     fuji_init_ram_filesystem
 .endif
 
+; TODO: REVIEW THIS CODE
+
         ; INITIALISE VID VARIABLES
         jsr     vid_reset
 
 initdfs_noreset:
-        jsr     tube_check_if_present ; Tube present?
+        jsr     tube_check_if_present   ; Tube present?
 
-        lda     #$FD                  ; Read hard/soft break
-        jsr     osbyte_X0YFF          ; X=0=soft,1=power up,2=hard
+        lda     #$FD                    ; Read hard/soft break
+        jsr     osbyte_X0YFF            ; X=0=soft,1=power up,2=hard
         cpx     #$00
         beq     skip_autoload
         jsr     mmc_begin2
@@ -219,30 +225,30 @@ initdfs_noreset:
 
 skip_autoload:
         pla
-        bne     initdfs_exit          ; branch if not boot file
+        bne     initdfs_exit            ; branch if not boot file
 
         jsr     load_cur_drv_cat
-        lda     $0F06                 ; Get boot option
+        lda     dfs_cat_boot_option     ; Get boot option
         jsr     a_rorx4
-        bne     not_OPT0              ; branch if not opt.0
+        bne     not_opt0                ; branch if not opt.0
 
 initdfs_exit:
         rts
 
 ; Assumes cmd strings all in same page!
-not_OPT0:
-        ldy     #>(boot_options)       ; boot file?
-        ldx     #<(boot_options)       ; ->L.!BOOT
+not_opt0:
+        ldy     #>(boot_options)        ; boot file?
+        ldx     #<(boot_options)        ; ->L.!BOOT
         cmp     #$02
-        bcc     jmp_OSCLI             ; branch if opt 1
-        beq     oscli_OPT2            ; branch if opt 2
+        bcc     @jmp_oscli               ; branch if opt 1
+        beq     @oscli_opt2              ; branch if opt 2
         ldy     #>(boot_options+8)
-        ldx     #<(boot_options+8)     ; ->E.!BOOT
-        bne     jmp_OSCLI             ; always
-oscli_OPT2:
+        ldx     #<(boot_options+8)      ; ->E.!BOOT
+        bne     @jmp_oscli               ; always
+@oscli_opt2:
         ldy     #>(boot_options+10)
-        ldx     #<(boot_options+10)    ; ->!BOOT
-jmp_OSCLI:
+        ldx     #<(boot_options+10)     ; ->!BOOT
+@jmp_oscli:
         jmp     OSCLI
 
 go_fscv:
@@ -288,9 +294,5 @@ mmc_begin2:
 
 fuji_cmd_autoload:
         ; TODO: Implement autoload
-        rts
-
-load_cur_drv_cat:
-        ; TODO: Implement load current drive catalog
         rts
 

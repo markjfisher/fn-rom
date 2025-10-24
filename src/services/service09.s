@@ -100,8 +100,8 @@ not_cmd_fujifs:
         jsr     GSINIT_A
         lda     (text_pointer),y
         iny
-        ora     #$20
-        cmp     #'F'
+        ora     #$20                    ; convert to lowercase
+        cmp     #'f'                    ; lowercase 'f'!!!
         beq     unrec_command_text_pointer
         dey
         jmp     not_cmd_futils
@@ -122,7 +122,6 @@ fscv3_unreccommand:
 unrec_command_text_pointer:
         dbg_string_axy "unrec_tp: "
 
-
         lda     cmd_table_fujifs, x
         sta     aws_tmp14
         tya                             ; Save Y (command line position)
@@ -139,7 +138,7 @@ unrec_command_text_pointer:
         ; start looking at the string commands
         inx
         lda     cmd_table_fujifs, x
-        beq     @gocmdcode               ; If end of table
+        beq     @gocmdcode              ; If end of table
 
         dex
         dey
@@ -149,10 +148,10 @@ unrec_command_text_pointer:
         inx
         iny                             ; Move to next character
         lda     cmd_table_fujifs, x
-        bmi     @endofcmd_oncmdline      ; If bit 7 set, end of command
+        bmi     @endofcmd_oncmdline     ; If bit 7 set, end of command
 
 @unrec_loop2in:
-        eor     (text_pointer),y         ; Compare with command line
+        eor     (text_pointer),y        ; Compare with command line, A=00 if they match
         and     #$5F                    ; Ignore case
         beq     @unrec_loop2            ; If match, continue
         dex                             ; No match, skip to next command
@@ -160,7 +159,7 @@ unrec_command_text_pointer:
 @unrec_loop3:
         inx                             ; Skip to end of current command
         lda     cmd_table_fujifs, x
-        bpl     @unrec_loop3             ; Continue until bit 7 set
+        bpl     @unrec_loop3            ; Continue until bit 7 set = HELP args byte
 
         lda     (text_pointer),y         ; Check if command line ends with "."
         cmp     #$2E                    ; Full stop
@@ -171,7 +170,8 @@ unrec_command_text_pointer:
 @endofcmd_oncmdline:
         lda     (text_pointer),y         ; Check if next char is alphabetic
         jsr     is_alpha_char
-        bcc     @unrec_loop1             ; If not alpha, try next command
+        bcc     @unrec_loop1             ; If is is alpha, try next command as it didn't match
+        ; end of command match checks against $0D for the CR from command, so falls through...
 
 @gocmdcode:
         pla                             ; Clean up stack
@@ -189,7 +189,10 @@ unrec_command_text_pointer:
         pha                             ; Push low byte
         rts                             ; Jump to function
 
+; MMFS uses this for VERIFY and FORM, as it knocks off $8000 for those to indicate they need
+; to start the transaction.
 @dommcinit:
+        ; we effectively do the same as no transaction
         ;jsr     MMC_BEGIN2 ; TODO do we need this?
         ora     #$80
         bne     @gocmdcode2
