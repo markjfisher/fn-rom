@@ -2,33 +2,35 @@
 ; Sends a reset command frame to the FujiNet device via serial
 ; Frame format: [device_byte, cmd1, cmd2, cmd3, cmd4, cmd5, checksum]
 ; Reset frame: 70 FF 00 00 00 00 [checksum]
+; Response: 'A' (ACK), 'C' (Complete)
 
         .export cmd_fs_freset
-        .export calc_checksum
+        .export freset_send_complete
+        .export freset_read_ack
+        .export freset_read_complete
+        .export freset_exit
+        .export freset_timeout
+        .export freset_invalid_ack
+        .export freset_invalid_complete
+        .export freset_finish
 
         .include "fujinet.inc"
 
         .segment "CODE"
 
+; Import serial utilities
+        .import setup_serial_19200
+        .import restore_output_to_screen
+        .import read_serial_data
+        .import calc_checksum
+
 ; OSBYTE constants
-OSBYTE_SERIAL_RX_RATE   = $07   ; Set serial receive baud rate
-OSBYTE_SERIAL_TX_RATE   = $08   ; Set serial transmit baud rate
-OSBYTE_OUTPUT_STREAM    = $03   ; Set output stream
-OSBYTE_INPUT_STREAM     = $02   ; Set input stream
-OSBYTE_FLUSH_BUFFER     = $15   ; Flush buffer
+OSBYTE_USER_FLAG        = $01   ; Set user flag
 
-; Baud rates
-BAUD_19200              = $08   ; 19200 baud
-
-; Stream values
-OUTPUT_SERIAL           = $03   ; Output to serial only
-OUTPUT_SCREEN           = $00   ; Output to screen only
-INPUT_SERIAL            = $01   ; Input from serial only
-INPUT_KEYBOARD          = $00   ; Input from keyboard only
-
-; Buffer IDs
-BUFFER_KEYBOARD         = $00   ; Keyboard buffer
-BUFFER_SERIAL_INPUT     = $01   ; Serial input buffer
+; Error codes
+ERR_TIMEOUT             = $01   ; Timeout waiting for response
+ERR_INVALID_ACK         = $02   ; Did not receive 'A' (ACK)
+ERR_INVALID_COMPLETE    = $03   ; Did not receive 'C' (Complete)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; cmd_fs_freset - Handle *FRESET command
@@ -51,34 +53,14 @@ cmd_fs_freset:
         sta     cws_tmp5
         sta     cws_tmp6
 
-        ; Calculate checksum (includes ALL 6 bytes: device + 5 command bytes)
+        ; Calculate checksum (offset 0, 6 bytes)
+        ldx     #0              ; Start at cws_tmp1 (offset 0)
+        ldy     #6              ; 6 bytes total
         jsr     calc_checksum
         sta     cws_tmp7        ; Store checksum
 
-        ; Configure serial port via OS calls
-        ; Set RX baud to 19200
-        ldx     #BAUD_19200
-        ldy     #0
-        lda     #OSBYTE_SERIAL_RX_RATE
-        jsr     OSBYTE
-
-        ; Set TX baud to 19200
-        ldx     #BAUD_19200
-        ldy     #0
-        lda     #OSBYTE_SERIAL_TX_RATE
-        jsr     OSBYTE
-
-        ; Switch output to serial only
-        ldx     #OUTPUT_SERIAL
-        ldy     #0
-        lda     #OSBYTE_OUTPUT_STREAM
-        jsr     OSBYTE
-
-        ; Flush serial input buffer
-        ldx     #BUFFER_SERIAL_INPUT
-        ldy     #0
-        lda     #OSBYTE_FLUSH_BUFFER
-        jsr     OSBYTE
+        ; Configure serial port
+        jsr     setup_serial_19200
 
         ; Send packet bytes using OSWRCH (goes through OS to SERPROC)
         lda     cws_tmp1        ; Send byte 1 (device 0x70)
@@ -96,48 +78,68 @@ cmd_fs_freset:
         lda     cws_tmp7        ; Send byte 7 (checksum)
         jsr     OSWRCH
 
-        ; Restore output to screen
-        ldx     #OUTPUT_SCREEN
+freset_send_complete:
+        ; Read response - expect 'A' (ACK) and 'C' (Complete)
+        ; Use read_serial_data to read 2 bytes into pws_tmp09-10
+        
+        ; Set up buffer pointer to pws_tmp09
+        lda     #<pws_tmp09
+        sta     pws_tmp00       ; Buffer pointer low
+        lda     #>pws_tmp09
+        sta     pws_tmp01       ; Buffer pointer high
+        
+        ; Call read_serial_data with length=2 (X=2, Y=0)
+        ldx     #2              ; Read 2 bytes
         ldy     #0
-        lda     #OSBYTE_OUTPUT_STREAM
+        lda     #0              ; Mode (unused for now)
+        jsr     read_serial_data
+freset_read_ack:
+        ; Check if we got 2 bytes (returned in X/Y)
+        cpx     #2
+        bne     freset_timeout  ; Didn't get 2 bytes = timeout
+        
+        ; Check for 'A' (ACK)
+        lda     pws_tmp09       ; First byte
+        cmp     #'A'
+        bne     freset_invalid_ack
+        
+freset_read_complete:
+        ; Check for 'C' (Complete)
+        lda     pws_tmp10       ; Second byte
+        cmp     #'C'
+        bne     freset_invalid_complete
+        
+        ; Success! Set exit code to 0
+        lda     #0
+        beq     freset_exit
+
+freset_timeout:
+        lda     #ERR_TIMEOUT
+        bne     freset_exit
+
+freset_invalid_ack:
+        lda     #ERR_INVALID_ACK
+        bne     freset_exit
+
+freset_invalid_complete:
+        lda     #ERR_INVALID_COMPLETE
+        ; Fall through to freset_exit
+
+freset_exit:
+        ; Save exit code on stack (A will be trashed by restore_output_to_screen)
+        pha
+        
+        ; Restore output to screen
+        jsr     restore_output_to_screen
+        
+        ; Restore exit code and move to X for OSBYTE
+        pla
+        tax
+        
+        ; Set user flag with result (0 = success, non-zero = error)
+        ldy     #$FF
+        lda     #OSBYTE_USER_FLAG
         jsr     OSBYTE
 
+freset_finish:
         rts
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; calc_checksum - Calculate FujiNet checksum for packet
-; Algorithm: chk = ((chk + buf[i]) >> 8) + ((chk + buf[i]) & 0xff)
-; Input: cws_tmp1-6 contain device byte and 5 command bytes (ALL 6 bytes)
-; Output: A = checksum
-; Modifies: A, X, aws_tmp00 (low byte), aws_tmp01 (high byte)
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-calc_checksum:
-        lda     #0
-        sta     aws_tmp00       ; chk = 0 (only need 8-bit since we collapse after each add)
-        ldx     #0              ; Start at byte 0 (include device byte)
-
-@sum_loop:
-        ; Compute: chk = ((chk + buf[i]) >> 8) + ((chk + buf[i]) & 0xff)
-        ; First compute chk + buf[i] into 16-bit result (aws_tmp01:aws_tmp00)
-        clc
-        lda     aws_tmp00       ; Get current chk
-        adc     cws_tmp1,x      ; Add buffer byte
-        sta     aws_tmp00       ; Store low byte of sum
-        lda     #0
-        adc     #0              ; Capture carry in A
-        sta     aws_tmp01       ; Store high byte of sum
-        
-        ; Now collapse to 8 bits: chk = high_byte + low_byte
-        clc
-        lda     aws_tmp00       ; Get low byte
-        adc     aws_tmp01       ; Add high byte
-        sta     aws_tmp00       ; Store result (may be > 255, but we only keep low 8 bits)
-        
-        inx
-        cpx     #6              ; Processed all 6 bytes? (cws_tmp1 to cws_tmp6)
-        bne     @sum_loop       ; No, continue
-        
-        lda     aws_tmp00       ; Return result in A
-        rts
-

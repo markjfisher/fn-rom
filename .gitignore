@@ -4,3 +4,5 @@ test/
 
 *.ssd
 *.dsd
+
+trace_*.txt
