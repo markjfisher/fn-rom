@@ -32,6 +32,8 @@ uint8_t read_rs423_char(void);     // Returns character, or 0xFF if none
 //  cmd_copy.s and cmd_free_map.s, which won't be executing at the same time)
 void write_byte_to_buffer(void);  // In assembly
 
+#define WAIT_MAX 1000
+
 void read_serial_data(void) {
     // Initialize bytes_received = 0
     pws_tmp04_05 = 0;
@@ -39,14 +41,14 @@ void read_serial_data(void) {
     // Initialize loop counter aws_tmp06_07 = 0
     aws_tmp06_07 = 0;
     
-    // Main loop: while (aws_tmp06_07 < pws_tmp02_03)
+    // Main loop: while (loop_count < length)
     while (aws_tmp06_07 < pws_tmp02_03) {
         aws_tmp10 = 0;      // ch = 0
         aws_tmp11 = 0;      // got_char = 0
         aws_tmp08_09 = 0;   // wait_count = 0
         
-        // Inner wait loop: while (wait_count < 10000)
-        while (aws_tmp08_09 < 10000) {
+        // Inner wait loop: while (wait_count < WAIT_MAX)
+        while (aws_tmp08_09 < WAIT_MAX) {
             // Check if RS423 buffer has data
             if (check_rs423_buffer() != 0) {
                 // Data available - read it
@@ -60,7 +62,7 @@ void read_serial_data(void) {
         }
         
         // Check timeout or no char
-        if (aws_tmp08_09 >= 10000 || aws_tmp11 == 0) {
+        if (aws_tmp08_09 >= WAIT_MAX || aws_tmp11 == 0) {
             // Timeout - fill remaining with zeros
             aws_tmp10 = 0;  // Store zero
             while (aws_tmp06_07 < pws_tmp02_03) {

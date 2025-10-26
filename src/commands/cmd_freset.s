@@ -14,6 +14,9 @@
         .export freset_invalid_complete
         .export freset_finish
 
+        .export micro_pause_end
+        .export micro_pause_start
+
         .include "fujinet.inc"
 
         .segment "CODE"
@@ -39,6 +42,9 @@ ERR_INVALID_COMPLETE    = $03   ; Did not receive 'C' (Complete)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 cmd_fs_freset:
+        ; Configure serial port
+        jsr     setup_serial_19200
+
         ; Build packet in workspace
         ; Device byte (0x70)
         lda     #$70
@@ -59,8 +65,6 @@ cmd_fs_freset:
         jsr     calc_checksum
         sta     cws_tmp7        ; Store checksum
 
-        ; Configure serial port
-        jsr     setup_serial_19200
 
         ; Send packet bytes using OSWRCH (goes through OS to SERPROC)
         lda     cws_tmp1        ; Send byte 1 (device 0x70)
@@ -79,6 +83,22 @@ cmd_fs_freset:
         jsr     OSWRCH
 
 freset_send_complete:
+
+micro_pause_start:
+
+        ; Add delay to let OS process incoming bytes
+        ldx     #10             ; (1/50)s x 10 syncs = 0.2 seconds
+@delay:
+        txa
+        pha
+        lda     #$13             ; OSBYTE 19 - Wait for vertical sync
+        jsr     OSBYTE
+        pla
+        tax
+        dex
+        bne     @delay
+micro_pause_end:
+
         ; Read response - expect 'A' (ACK) and 'C' (Complete)
         ; Use read_serial_data to read 2 bytes into pws_tmp09-10
         
