@@ -5,7 +5,7 @@
         .export read_serial_byte
         .export read_serial_byte_success
         .export read_serial_byte_timeout
-        .export read_serial_data
+        ; .export read_serial_data
         .export restore_output_to_screen
         .export setup_serial_19200
 
@@ -52,11 +52,11 @@ setup_serial_19200:
         lda     #OSBYTE_SERIAL_TX_RATE
         jsr     OSBYTE
 
-        ; NOTE: We do NOT set OSBYTE 2 (INPUT_STREAM) to serial!
-        ; If we do, the OS event handler will consume bytes from the RS423
-        ; buffer and redirect them to the keyboard input stream. This causes
-        ; bytes to disappear before we can read them with OSBYTE 145.
-        ; We only need OUTPUT redirected to serial.
+        ; Switch input to serial (required for RS423 buffer to work properly)
+        ldx     #INPUT_SERIAL
+        ldy     #0
+        lda     #OSBYTE_INPUT_STREAM
+        jsr     OSBYTE
 
         ; Switch output to serial only
         ldx     #OUTPUT_SERIAL
@@ -78,12 +78,16 @@ setup_serial_19200:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 restore_output_to_screen:
-        ; NOTE: We don't need to restore INPUT_STREAM since we never changed it
-        
         ; Restore output to screen
         ldx     #OUTPUT_SCREEN
         ldy     #0
         lda     #OSBYTE_OUTPUT_STREAM
+        jsr     OSBYTE
+        
+        ; Restore input to keyboard
+        ldx     #INPUT_KEYBOARD
+        ldy     #0
+        lda     #OSBYTE_INPUT_STREAM
         jsr     OSBYTE
         rts
 
@@ -156,149 +160,149 @@ read_serial_byte_timeout:
 ; Uses: aws_tmp04 temporarily for OSBYTE results
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-read_serial_data:
-        ; Save length (X=low, Y=high)
-        stx     pws_tmp02       ; Length low byte
-        sty     pws_tmp03       ; Length high byte
+; read_serial_data:
+;         ; Save length (X=low, Y=high)
+;         stx     pws_tmp02       ; Length low byte
+;         sty     pws_tmp03       ; Length high byte
         
-        ; Initialize bytes_received = 0
-        lda     #0
-        sta     pws_tmp04       ; bytes_received low
-        sta     pws_tmp05       ; bytes_received high
-        sta     pws_tmp08       ; buffer_index (Y register value)
+;         ; Initialize bytes_received = 0
+;         lda     #0
+;         sta     pws_tmp04       ; bytes_received low
+;         sta     pws_tmp05       ; bytes_received high
+;         sta     pws_tmp08       ; buffer_index (Y register value)
 
-read_data_byte_loop:
-        ; Check if we've read all requested bytes (16-bit comparison)
-        ; Compare bytes_received with length
-        lda     pws_tmp04       ; bytes_received low
-        cmp     pws_tmp02       ; length low
-        lda     pws_tmp05       ; bytes_received high
-        sbc     pws_tmp03       ; length high (with borrow)
-        bcs     read_data_complete ; If bytes_received >= length, done
+; read_data_byte_loop:
+;         ; Check if we've read all requested bytes (16-bit comparison)
+;         ; Compare bytes_received with length
+;         lda     pws_tmp04       ; bytes_received low
+;         cmp     pws_tmp02       ; length low
+;         lda     pws_tmp05       ; bytes_received high
+;         sbc     pws_tmp03       ; length high (with borrow)
+;         bcs     read_data_complete ; If bytes_received >= length, done
         
-        ; Initialize wait_count for this byte (max_wait = 10000 = $2710)
-        lda     #$10
-        sta     pws_tmp06       ; Low byte of wait_count
-        lda     #$27
-        sta     pws_tmp07       ; High byte of wait_count
+;         ; Initialize wait_count for this byte (max_wait = 10000 = $2710)
+;         lda     #$10
+;         sta     pws_tmp06       ; Low byte of wait_count
+;         lda     #$27
+;         sta     pws_tmp07       ; High byte of wait_count
 
-read_data_wait_loop:
-        ; Check if RS423 buffer has data (OSBYTE 128, X=254)
-        lda     #$80            ; OSBYTE 128
-        ldx     #$FE            ; 254 = RS423 input buffer
-        ldy     #$FF            ; Y must be 0xFF
-        jsr     OSBYTE
+; read_data_wait_loop:
+;         ; Check if RS423 buffer has data (OSBYTE 128, X=254)
+;         lda     #$80            ; OSBYTE 128
+;         ldx     #$FE            ; 254 = RS423 input buffer
+;         ldy     #$FF            ; Y must be 0xFF
+;         jsr     OSBYTE
         
-        ; X now contains number of characters in buffer
-        cpx     #0
-        bne     read_data_available
+;         ; X now contains number of characters in buffer
+;         cpx     #0
+;         bne     read_data_available
         
-        ; No data yet - increment wait_count and check timeout
-        inc     pws_tmp06
-        bne     @no_carry
-        inc     pws_tmp07
-@no_carry:
-        ; Check if wait_count >= max_wait (10000 = $2710)
-        lda     pws_tmp07       ; High byte
-        cmp     #$27
-        bcc     read_data_wait_loop ; Still < $27xx, keep waiting
-        bne     read_data_timeout ; > $27xx, timeout
-        lda     pws_tmp06       ; High bytes equal, check low byte
-        cmp     #$10
-        bcc     read_data_wait_loop ; Still < $2710, keep waiting
-        bcs     read_data_timeout ; >= $2710, timeout
+;         ; No data yet - increment wait_count and check timeout
+;         inc     pws_tmp06
+;         bne     @no_carry
+;         inc     pws_tmp07
+; @no_carry:
+;         ; Check if wait_count >= max_wait (10000 = $2710)
+;         lda     pws_tmp07       ; High byte
+;         cmp     #$27
+;         bcc     read_data_wait_loop ; Still < $27xx, keep waiting
+;         bne     read_data_timeout ; > $27xx, timeout
+;         lda     pws_tmp06       ; High bytes equal, check low byte
+;         cmp     #$10
+;         bcc     read_data_wait_loop ; Still < $2710, keep waiting
+;         bcs     read_data_timeout ; >= $2710, timeout
 
-read_data_available:
-        ; Read character from RS423 buffer (OSBYTE 145, X=1)
-        lda     #$91            ; OSBYTE 145
-        ldx     #$01            ; 1 = RS423 buffer
-        ldy     #$00            ; Y = 0
-        jsr     OSBYTE
+; read_data_available:
+;         ; Read character from RS423 buffer (OSBYTE 145, X=1)
+;         lda     #$91            ; OSBYTE 145
+;         ldx     #$01            ; 1 = RS423 buffer
+;         ldy     #$00            ; Y = 0
+;         jsr     OSBYTE
         
-        ; Character is in Y after OSBYTE 145
-        ; Store byte in buffer using (ptr),Y addressing
-        ldy     pws_tmp08       ; Get buffer index
-        tya                     ; Save index to A temporarily
-        pha
-        txa                     ; Get character from X (OSBYTE 145 returns in Y, but we need to check this)
-        ; Actually, character is in Y after OSBYTE 145
-        pla                     ; Restore buffer index to A
-        tay                     ; Put buffer index back in Y
-        txa                     ; Character was in X? Let me check...
-        ; ERROR: OSBYTE 145 returns character in Y, not X. Let me fix this.
+;         ; Character is in Y after OSBYTE 145
+;         ; Store byte in buffer using (ptr),Y addressing
+;         ldy     pws_tmp08       ; Get buffer index
+;         tya                     ; Save index to A temporarily
+;         pha
+;         txa                     ; Get character from X (OSBYTE 145 returns in Y, but we need to check this)
+;         ; Actually, character is in Y after OSBYTE 145
+;         pla                     ; Restore buffer index to A
+;         tay                     ; Put buffer index back in Y
+;         txa                     ; Character was in X? Let me check...
+;         ; ERROR: OSBYTE 145 returns character in Y, not X. Let me fix this.
         
-        ; Actually, let me rewrite this more clearly:
-        ; OSBYTE 145 (REMOVE_CHAR) returns:
-        ;   Carry clear if success, character in Y
-        ;   Carry set if no character
-        bcs     read_data_timeout ; No character (shouldn't happen)
+;         ; Actually, let me rewrite this more clearly:
+;         ; OSBYTE 145 (REMOVE_CHAR) returns:
+;         ;   Carry clear if success, character in Y
+;         ;   Carry set if no character
+;         bcs     read_data_timeout ; No character (shouldn't happen)
         
-        tya                     ; Move character from Y to A
-        ldy     pws_tmp08       ; Get buffer index into Y
-        sta     (pws_tmp00),y   ; Store byte
+;         tya                     ; Move character from Y to A
+;         ldy     pws_tmp08       ; Get buffer index into Y
+;         sta     (pws_tmp00),y   ; Store byte
         
-        ; Increment buffer index, handling page crossing
-        inc     pws_tmp08
-        bne     @no_page_cross
-        ; Buffer index wrapped to 0, increment high byte of pointer
-        inc     pws_tmp01
-@no_page_cross:
+;         ; Increment buffer index, handling page crossing
+;         inc     pws_tmp08
+;         bne     @no_page_cross
+;         ; Buffer index wrapped to 0, increment high byte of pointer
+;         inc     pws_tmp01
+; @no_page_cross:
         
-        ; Increment bytes_received (16-bit)
-        inc     pws_tmp04
-        bne     @no_carry_bytes
-        inc     pws_tmp05
-@no_carry_bytes:
+;         ; Increment bytes_received (16-bit)
+;         inc     pws_tmp04
+;         bne     @no_carry_bytes
+;         inc     pws_tmp05
+; @no_carry_bytes:
         
-        ; Continue to next byte
-        jmp     read_data_byte_loop
+;         ; Continue to next byte
+;         jmp     read_data_byte_loop
 
-read_data_timeout:
-        ; Timeout occurred - fill remaining bytes with 0 and return
-        ; Check if already done (16-bit comparison)
-        lda     pws_tmp04       ; bytes_received low
-        cmp     pws_tmp02       ; length low
-        lda     pws_tmp05       ; bytes_received high
-        sbc     pws_tmp03       ; length high
-        bcs     read_data_complete ; Already done
+; read_data_timeout:
+;         ; Timeout occurred - fill remaining bytes with 0 and return
+;         ; Check if already done (16-bit comparison)
+;         lda     pws_tmp04       ; bytes_received low
+;         cmp     pws_tmp02       ; length low
+;         lda     pws_tmp05       ; bytes_received high
+;         sbc     pws_tmp03       ; length high
+;         bcs     read_data_complete ; Already done
         
-        ; Fill remaining with zeros
-        lda     #0
-@fill_loop:
-        ldy     pws_tmp08       ; Get buffer index
-        sta     (pws_tmp00),y   ; Store zero
+;         ; Fill remaining with zeros
+;         lda     #0
+; @fill_loop:
+;         ldy     pws_tmp08       ; Get buffer index
+;         sta     (pws_tmp00),y   ; Store zero
         
-        ; Increment buffer index, handling page crossing
-        inc     pws_tmp08
-        bne     @no_page_cross
-        inc     pws_tmp01       ; Crossed page boundary
-@no_page_cross:
+;         ; Increment buffer index, handling page crossing
+;         inc     pws_tmp08
+;         bne     @no_page_cross
+;         inc     pws_tmp01       ; Crossed page boundary
+; @no_page_cross:
         
-        ; Increment bytes_received (16-bit)
-        inc     pws_tmp04
-        bne     @no_carry_bytes
-        inc     pws_tmp05
-@no_carry_bytes:
+;         ; Increment bytes_received (16-bit)
+;         inc     pws_tmp04
+;         bne     @no_carry_bytes
+;         inc     pws_tmp05
+; @no_carry_bytes:
         
-        ; Check if done (16-bit comparison)
-        lda     pws_tmp04       ; bytes_received low
-        cmp     pws_tmp02       ; length low
-        lda     pws_tmp05       ; bytes_received high
-        sbc     pws_tmp03       ; length high
-        bcc     @fill_loop      ; Continue if bytes_received < length
+;         ; Check if done (16-bit comparison)
+;         lda     pws_tmp04       ; bytes_received low
+;         cmp     pws_tmp02       ; length low
+;         lda     pws_tmp05       ; bytes_received high
+;         sbc     pws_tmp03       ; length high
+;         bcc     @fill_loop      ; Continue if bytes_received < length
         
-        ; Return with carry clear (timeout)
-        ldx     pws_tmp04       ; Return bytes_received low in X
-        ldy     pws_tmp05       ; Return bytes_received high in Y
-        clc
-        rts
+;         ; Return with carry clear (timeout)
+;         ldx     pws_tmp04       ; Return bytes_received low in X
+;         ldy     pws_tmp05       ; Return bytes_received high in Y
+;         clc
+;         rts
 
-read_data_complete:
-        ; All bytes read successfully
-        ldx     pws_tmp04       ; Return bytes_received low in X
-        ldy     pws_tmp05       ; Return bytes_received high in Y
-        sec                     ; Set carry for success
-        rts
+; read_data_complete:
+;         ; All bytes read successfully
+;         ldx     pws_tmp04       ; Return bytes_received low in X
+;         ldy     pws_tmp05       ; Return bytes_received high in Y
+;         sec                     ; Set carry for success
+;         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; calc_checksum - Calculate FujiNet checksum for packet

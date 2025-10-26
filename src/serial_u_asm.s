@@ -5,6 +5,7 @@
 
         .export _check_rs423_buffer
         .export _read_rs423_char
+        .export _write_byte_to_buffer
 
         .include "fujinet.inc"
 
@@ -54,5 +55,32 @@ _read_rs423_char:
 @no_char:
         ; No character available - return 0xFF
         lda     #$FF
+        rts
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; _write_byte_to_buffer - Write byte to buffer with 16-bit offset
+; C prototype: void write_byte_to_buffer(void);
+; Input (in ZP):
+;   pws_tmp00/01 = buffer base pointer (16-bit)
+;   aws_tmp06/07 = offset (16-bit)
+;   aws_tmp10 = byte to write
+; Uses pws_tmp06/07 as temporary for calculated address
+; Modifies: A, Y
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+_write_byte_to_buffer:
+        ; Calculate address: pws_tmp06/07 = pws_tmp00/01 + aws_tmp06/07
+        clc
+        lda     pws_tmp00
+        adc     aws_tmp06
+        sta     pws_tmp06
+        lda     pws_tmp01
+        adc     aws_tmp07
+        sta     pws_tmp07
+        
+        ; Write byte to (pws_tmp06/07)
+        ldy     #0
+        lda     aws_tmp10
+        sta     (pws_tmp06),y
         rts
 

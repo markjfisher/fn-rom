@@ -15,6 +15,8 @@ DISK_TASKS =
 CC := cl65
 LDFLAGS := -C cfg/fujinet-rom.cfg
 
+CFLAGS += -Osir
+
 #ASFLAGS := --asm-define FN_DEBUG=1 --asm-define FN_DEBUG_CREATE_FILE=1 --asm-define FN_DEBUG_WRITE_DATA=1 --asm-define FN_DEBUG_CLOSE_FILE=1 --asm-define FN_DEBUG_OPEN_FILE=1 --asm-define FN_DEBUG_READ_DATA=1
 #ASFLAGS := --asm-define FN_DEBUG=1
 
@@ -82,13 +84,13 @@ SRC_INC_DIRS := \
 
 vpath %.c $(SRC_INC_DIRS)
 
-$(OBJDIR)/$(CURRENT_TARGET)/%.o: %.c $(VERSION_FILE) | $(OBJDIR)
+$(OBJDIR)/$(CURRENT_TARGET)/%.o: %.c | $(OBJDIR)
 	@mkdir -p $(dir $@)
 	$(CC) -t $(CURRENT_TARGET) -c $(CFLAGS) --create-dep $(@:.o=.d) --listing $(@:.o=.lst) -Ln $@.lbl -o $@ $<
 
 vpath %.s $(SRC_INC_DIRS)
 
-$(OBJDIR)/$(CURRENT_TARGET)/%.o: %.s $(VERSION_FILE) | $(OBJDIR)
+$(OBJDIR)/$(CURRENT_TARGET)/%.o: %.s | $(OBJDIR)
 	@mkdir -p $(dir $@)
 	$(CC) -t $(CURRENT_TARGET) -c $(ASFLAGS) --create-dep $(@:.o=.d) --listing $(@:.o=.lst) -Ln $@.lbl -o $@ $<
 

@@ -23,19 +23,29 @@ uint8_t read_rs423_char(void);     // Returns character, or 0xFF if none
 //   aws_tmp10 = ch (character read)
 //   aws_tmp11 = got_char flag
 //
+// Helper to write byte to buffer using pointer arithmetic
+// We CANNOT use local variables or array notation - must use only ZP vars
+// Implemented in serial_u_asm.s
+//
+// Uses pws_tmp06/07 as temporary storage for calculated address
+// (pws_tmp06/07 is safe to use as it's only used by other commands like
+//  cmd_copy.s and cmd_free_map.s, which won't be executing at the same time)
+void write_byte_to_buffer(void);  // In assembly
+
 void read_serial_data(void) {
-    uint8_t *buffer = (uint8_t*)pws_tmp00_01;
-    
     // Initialize bytes_received = 0
     pws_tmp04_05 = 0;
     
-    // Loop for each byte (i = 0; i < length; i++)
-    for (aws_tmp06_07 = 0; aws_tmp06_07 < pws_tmp02_03; aws_tmp06_07++) {
+    // Initialize loop counter aws_tmp06_07 = 0
+    aws_tmp06_07 = 0;
+    
+    // Main loop: while (aws_tmp06_07 < pws_tmp02_03)
+    while (aws_tmp06_07 < pws_tmp02_03) {
         aws_tmp10 = 0;      // ch = 0
         aws_tmp11 = 0;      // got_char = 0
         aws_tmp08_09 = 0;   // wait_count = 0
         
-        // Wait for data to be available (while wait_count < 10000)
+        // Inner wait loop: while (wait_count < 10000)
         while (aws_tmp08_09 < 10000) {
             // Check if RS423 buffer has data
             if (check_rs423_buffer() != 0) {
@@ -52,15 +62,17 @@ void read_serial_data(void) {
         // Check timeout or no char
         if (aws_tmp08_09 >= 10000 || aws_tmp11 == 0) {
             // Timeout - fill remaining with zeros
+            aws_tmp10 = 0;  // Store zero
             while (aws_tmp06_07 < pws_tmp02_03) {
-                buffer[aws_tmp06_07] = 0;
+                write_byte_to_buffer();  // Writes aws_tmp10 to (pws_tmp00_01)[aws_tmp06_07]
                 aws_tmp06_07++;
             }
             break;
         }
         
-        // Store the character
-        buffer[aws_tmp06_07] = aws_tmp10;
+        // Store the character (aws_tmp10 already contains it)
+        write_byte_to_buffer();  // Writes aws_tmp10 to (pws_tmp00_01)[aws_tmp06_07]
+        aws_tmp06_07++;
         pws_tmp04_05++;  // bytes_received++
     }
     

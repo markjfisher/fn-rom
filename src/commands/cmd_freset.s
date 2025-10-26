@@ -21,7 +21,7 @@
 ; Import serial utilities
         .import setup_serial_19200
         .import restore_output_to_screen
-        .import read_serial_data
+        .import _read_serial_data
         .import calc_checksum
 
 ; OSBYTE constants
@@ -88,15 +88,20 @@ freset_send_complete:
         lda     #>pws_tmp09
         sta     pws_tmp01       ; Buffer pointer high
         
-        ; Call read_serial_data with length=2 (X=2, Y=0)
-        ldx     #2              ; Read 2 bytes
-        ldy     #0
-        lda     #0              ; Mode (unused for now)
-        jsr     read_serial_data
+        ; Call read_serial_data - must set pws_tmp02/03 (length) before calling
+        ; C function takes NO parameters - all inputs via ZP variables
+        lda     #2              ; Read 2 bytes
+        sta     pws_tmp02       ; Length low
+        lda     #0
+        sta     pws_tmp03       ; Length high
+        jsr     _read_serial_data
 freset_read_ack:
-        ; Check if we got 2 bytes (returned in X/Y)
-        cpx     #2
+        ; Check if we got 2 bytes (returned in pws_tmp04/05)
+        lda     pws_tmp04       ; bytes_received low
+        cmp     #2
         bne     freset_timeout  ; Didn't get 2 bytes = timeout
+        lda     pws_tmp05       ; bytes_received high
+        bne     freset_timeout  ; High byte should be 0
         
         ; Check for 'A' (ACK)
         lda     pws_tmp09       ; First byte
