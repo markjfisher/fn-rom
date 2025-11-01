@@ -136,6 +136,7 @@
         .export  dfs_cat_file_size
         .export  dfs_cat_file_op
         .export  dfs_cat_file_sect
+        .export  fuji_drive_disk_map
 
         .exportzp  aws_tmp00
         .exportzp  aws_tmp01
@@ -408,7 +409,12 @@ fuji_card_sort          = fuji_workspace + $10DE  ; Card sort flag
 
 ; FujiNet state variables (using unused workspace locations)
 fuji_state              = fuji_workspace + $10F0  ; Device state
-fuji_current_disk       = fuji_workspace + $10F1  ; Current mounted disk
+fuji_current_disk       = fuji_workspace + $10F1  ; Current mounted disk (deprecated - use drive map)
+
+; FujiNet drive-to-disk mapping (like MMFS DRIVE_INDEX)
+; Each byte contains the disk image number mounted in that drive (0-255)
+; 0xFF = no disk mounted
+fuji_drive_disk_map     = fuji_workspace + $10E0  ; 4 bytes: drives 0-3
 
 ; FujiNet file operation workspace variables
 fuji_operation_type     = fuji_workspace + $10F2  ; Operation type ($85=read, $A5=write)

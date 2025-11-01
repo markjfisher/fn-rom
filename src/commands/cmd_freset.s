@@ -12,7 +12,6 @@
         .export freset_timeout
         .export freset_invalid_ack
         .export freset_invalid_complete
-        .export freset_finish
 
         .export micro_pause_end
         .export micro_pause_start
@@ -22,13 +21,11 @@
         .segment "CODE"
 
 ; Import serial utilities
-        .import setup_serial_19200
-        .import restore_output_to_screen
         .import _read_serial_data
         .import calc_checksum
-
-; OSBYTE constants
-OSBYTE_USER_FLAG        = $01   ; Set user flag
+        .import restore_output_to_screen
+        .import set_user_flag_x
+        .import setup_serial_19200
 
 ; Error codes
 ERR_TIMEOUT             = $01   ; Timeout waiting for response
@@ -101,13 +98,13 @@ micro_pause_end:
 
         ; Read response - expect 'A' (ACK) and 'C' (Complete)
         ; Use read_serial_data to read 2 bytes into pws_tmp09-10
-        
+
         ; Set up buffer pointer to pws_tmp09
         lda     #<pws_tmp09
         sta     pws_tmp00       ; Buffer pointer low
         lda     #>pws_tmp09
         sta     pws_tmp01       ; Buffer pointer high
-        
+
         ; Call read_serial_data - must set pws_tmp02/03 (length) before calling
         ; C function takes NO parameters - all inputs via ZP variables
         lda     #2              ; Read 2 bytes
@@ -122,18 +119,18 @@ freset_read_ack:
         bne     freset_timeout  ; Didn't get 2 bytes = timeout
         lda     pws_tmp05       ; bytes_received high
         bne     freset_timeout  ; High byte should be 0
-        
+
         ; Check for 'A' (ACK)
         lda     pws_tmp09       ; First byte
         cmp     #'A'
         bne     freset_invalid_ack
-        
+
 freset_read_complete:
         ; Check for 'C' (Complete)
         lda     pws_tmp10       ; Second byte
         cmp     #'C'
         bne     freset_invalid_complete
-        
+
         ; Success! Set exit code to 0
         lda     #0
         beq     freset_exit
@@ -153,18 +150,12 @@ freset_invalid_complete:
 freset_exit:
         ; Save exit code on stack (A will be trashed by restore_output_to_screen)
         pha
-        
+
         ; Restore output to screen
         jsr     restore_output_to_screen
-        
+
         ; Restore exit code and move to X for OSBYTE
         pla
         tax
-        
-        ; Set user flag with result (0 = success, non-zero = error)
-        ldy     #$FF
-        lda     #OSBYTE_USER_FLAG
-        jsr     OSBYTE
 
-freset_finish:
-        rts
+        jmp     set_user_flag_x

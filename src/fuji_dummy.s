@@ -11,6 +11,10 @@
         .export fuji_read_catalog_data
         .export fuji_write_catalog_data
         .export fuji_read_disc_title_data
+        .export fuji_mount_disk_data
+        .export fuji_get_disk_list_data
+        .export fuji_check_disk_exists
+        .export fuji_get_disk_name_data
 
         .export dummy_catalog
 
@@ -28,10 +32,12 @@
         .export assign_next_file 
         .export assign_done
 
+        .import err_bad
         .import print_string
         .import print_hex
         .import print_newline
         .import remember_axy
+
 .ifdef FN_DEBUG
         .import print_axy
 .endif
@@ -257,55 +263,91 @@ dummy_sector4_data_end:
 ; Output: aws_tmp12/13 = catalog address
 ; Uses current_drv ($CD) to determine which drive's catalog to access
 get_current_catalog:
-        lda     current_drv              ; Read from OS variable
-        beq     @drive0
-        ; Drive 1
+        ; Check which disk is mounted in current_drv
+        ldx     current_drv
+        lda     fuji_drive_disk_map,x
+        cmp     #$FF                     ; Is anything mounted?
+        beq     @unmounted_error
+        
+        ; A = disk number (0 or 1 for dummy)
+        beq     @disk0
+        ; Disk 1
         lda     #<DRIVE1_CATALOG
         sta     aws_tmp12
         lda     #>DRIVE1_CATALOG
         sta     aws_tmp13
         rts
-@drive0:
-        ; Drive 0
+@disk0:
+        ; Disk 0
         lda     #<DRIVE0_CATALOG
         sta     aws_tmp12
         lda     #>DRIVE0_CATALOG
         sta     aws_tmp13
         rts
+        
+@unmounted_error:
+        ; No disk mounted in this drive
+        jsr     err_bad
+        .byte   $D6                      ; "Drive empty" error
+        .byte   "Drive empty", 0
 
 ; get_current_page_alloc - Get page allocation address for current drive
 ; Output: aws_tmp12/13 = page allocation address
 ; Uses current_drv ($CD) to determine which drive's page allocation to access
 get_current_page_alloc:
-        lda     current_drv              ; Read from OS variable
-        beq     @drive0
-        ; Drive 1
+        ; Check which disk is mounted in current_drv
+        ldx     current_drv
+        lda     fuji_drive_disk_map,x
+        cmp     #$FF                     ; Is anything mounted?
+        beq     @unmounted_error
+        
+        ; A = disk number (0 or 1 for dummy)
+        beq     @disk0
+        ; Disk 1
         lda     #<DRIVE1_PAGE_ALLOC
         sta     aws_tmp12
         lda     #>DRIVE1_PAGE_ALLOC
         sta     aws_tmp13
         rts
-@drive0:
+@disk0:
         ; Drive 0
         lda     #<DRIVE0_PAGE_ALLOC
         sta     aws_tmp12
         lda     #>DRIVE0_PAGE_ALLOC
         sta     aws_tmp13
         rts
+        
+@unmounted_error:
+        ; No disk mounted in this drive
+        jsr     err_bad
+        .byte   $D6                      ; "Drive empty" error
+        .byte   "Drive empty", 0
 
 ; get_current_pages_start - Get file pages start address for current drive
 ; Output: A = high byte offset to add to page number
 ; Uses current_drv ($CD) to determine which drive's pages to access
 get_current_pages_start:
-        lda     current_drv              ; Read from OS variable
-        beq     @drive0
-        ; Drive 1
+        ; Check which disk is mounted in current_drv
+        ldx     current_drv
+        lda     fuji_drive_disk_map,x
+        cmp     #$FF                     ; Is anything mounted?
+        beq     @unmounted_error
+        
+        ; A = disk number (0 or 1 for dummy)
+        beq     @disk0
+        ; Disk 1
         lda     #>DRIVE1_PAGES
         rts
-@drive0:
+@disk0:
         ; Drive 0
         lda     #>DRIVE0_PAGES
         rts
+        
+@unmounted_error:
+        ; No disk mounted in this drive
+        jsr     err_bad
+        .byte   $D6                      ; "Drive empty" error
+        .byte   "Drive empty", 0
 
 ; convert_sector_to_drive_page - Convert sector to drive-relative page
 ; Input: A = sector number
@@ -1184,6 +1226,129 @@ fuji_init_ram_filesystem:
         dex
         jmp     @copy_hello_loop
 @copy_hello_done:
+        rts
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; fuji_mount_disk_data - Mount disk image into drive (hardware implementation)
+; For dummy interface: This is a no-op since we have pre-defined disk images
+; in RAM. The drive→disk mapping is handled by fuji_mount.s
+;
+; For serial/userport: This would send MOUNT command to FujiNet device
+;
+; Entry: current_drv = drive number (0-3)
+;        aws_tmp08/09 = disk image number to mount
+; Exit:  Nothing (mapping already recorded by caller)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+fuji_mount_disk_data:
+        ; Dummy interface: No-op
+        ; The pre-defined disk images (drive 0 and drive 1) are always "mounted"
+        ; Real implementation would:
+        ; 1. Send MOUNT command to FujiNet device
+        ; 2. Receive ACK
+        ; 3. Device would load disk image into its internal buffer
+        rts
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; Disk listing and matching support for dummy interface
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+; Disk names table - dummy interface has 2 pre-defined disks
+dummy_disk_names:
+disk0_name:
+        .byte "TESTDISC", 0             ; Disk 0 name (null-terminated)
+disk1_name:
+        .byte "NEWDISC", 0              ; Disk 1 name (null-terminated)
+
+NUM_DUMMY_DISKS = 2
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; fuji_get_disk_list_data - Get list of available disks (dummy)
+; For dummy interface, this is a no-op - list is static
+; For serial interface, would query FujiNet device
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+fuji_get_disk_list_data:
+        ; No-op for dummy - we have a static list
+        rts
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; fuji_check_disk_exists - Check if disk number exists (dummy)
+; Entry: aws_tmp08/09 = disk number
+; Exit: Carry clear if exists, set if not
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+fuji_check_disk_exists:
+        ; Check if disk number < NUM_DUMMY_DISKS
+        lda     aws_tmp09
+        bne     @not_found              ; High byte non-zero = not found
+        
+        lda     aws_tmp08
+        cmp     #NUM_DUMMY_DISKS
+        bcs     @not_found              ; >= NUM_DUMMY_DISKS = not found
+        
+        clc                             ; Found!
+        rts
+        
+@not_found:
+        sec                             ; Not found
+        rts
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; fuji_get_disk_name_data - Get name for disk number (dummy)
+; Entry: aws_tmp08/09 = disk number
+; Exit: Disk name in fuji_filename_buffer (space-padded, up to 16 chars)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+fuji_get_disk_name_data:
+        jsr     remember_axy
+        
+        ; Clear filename buffer
+        ldy     #15
+        lda     #' '
+@clear_loop:
+        sta     fuji_filename_buffer,y
+        dey
+        bpl     @clear_loop
+        
+        ; Get source pointer based on disk number
+        lda     aws_tmp08
+        beq     @disk0
+        cmp     #1
+        beq     @disk1
+        rts                             ; Invalid disk, return empty
+        
+@disk0:
+        ldx     #<disk0_name
+        ldy     #>disk0_name
+        jmp     @copy_name
+        
+@disk1:
+        ldx     #<disk1_name
+        ldy     #>disk1_name
+        ; Fall through to @copy_name
+        
+@copy_name:
+        ; X/Y = pointer to null-terminated name
+        stx     aws_tmp02
+        sty     aws_tmp03
+        
+        ; Copy name to buffer
+        ldy     #0
+@copy_loop:
+        lda     (aws_tmp02),y
+        beq     @done                   ; Null terminator
+        sta     fuji_filename_buffer,y
+        iny
+        cpy     #16                     ; Max 16 characters
+        bne     @copy_loop
+        
+@done:
+        ; Set gd_ptr to point to the buffer for d_match to use
+        lda     #<fuji_filename_buffer
+        sta     aws_tmp12               ; gd_ptr low byte
+        lda     #>fuji_filename_buffer
+        sta     aws_tmp13               ; gd_ptr high byte
         rts
 
 .endif  ; FUJINET_INTERFACE_DUMMY

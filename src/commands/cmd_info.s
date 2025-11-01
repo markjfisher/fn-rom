@@ -8,7 +8,7 @@
         .import cmd_table_info
         .import fuji_read_catalog
         .import get_cat_nextentry
-        .import parameter_afsp_param_syntaxerrorifnull_getcatentry_fsptxtp
+        .import parameter_afsp_param_syntax_error_if_null_getcatentry_fsptxtp
         .import print_axy
         .import print_string
         .import prt_infoline_yoffset
@@ -28,7 +28,7 @@ fscv10_starINFO:
 
         jsr     set_text_pointer_yx
         lda     #<(cmd_table_info - cmd_table_fujifs - 1) ; aws_tmp15 (BF) needs to point to the INFO command
-        sta     aws_tmp15               ; equivalent of .Param_SyntaxErrorIfNull
+        sta     aws_tmp15               ; equivalent of .param_syntax_error_if_null
 
         ; Fall through to cmd_fs_info (old .CMD_INFO)
 
@@ -48,7 +48,7 @@ cmd_fs_info:
 .endif  
         ; Load catalog first
         jsr     fuji_read_catalog
-        jsr     parameter_afsp_param_syntaxerrorifnull_getcatentry_fsptxtp
+        jsr     parameter_afsp_param_syntax_error_if_null_getcatentry_fsptxtp
 
 cmd_info_loop:
         jsr     prt_infoline_yoffset

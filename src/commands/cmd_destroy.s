@@ -10,7 +10,7 @@
         .import get_cat_nextentry
         .import go_yn
         .import is_enabled_or_go
-        .import parameter_afsp_param_syntaxerrorifnull_getcatentry_fsptxtp
+        .import parameter_afsp_param_syntax_error_if_null_getcatentry_fsptxtp
         .import print_newline
         .import print_string
         .import prt_filename_yoffset
@@ -30,7 +30,7 @@
 
 cmd_fs_destroy:
         jsr     is_enabled_or_go        ; Check if enabled or get confirmation
-        jsr     parameter_afsp_param_syntaxerrorifnull_getcatentry_fsptxtp
+        jsr     parameter_afsp_param_syntax_error_if_null_getcatentry_fsptxtp
 
         ; First pass: list all matching files
 @destroyloop1:

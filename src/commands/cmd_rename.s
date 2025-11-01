@@ -5,7 +5,7 @@
         .export cmd_fs_rename
 
         .import parameter_fsp
-        .import param_syntaxerrorifnull
+        .import param_syntax_error_if_null
         .import read_fsp_text_pointer
         .import get_cat_entry
         .import check_file_not_locked_or_open_y
@@ -30,7 +30,7 @@
 
 cmd_fs_rename:
         jsr     parameter_fsp
-        jsr     param_syntaxerrorifnull
+        jsr     param_syntax_error_if_null
         jsr     read_fsp_text_pointer   ; Read old filename
         tya
         pha                             ; Save Y
@@ -39,7 +39,7 @@ cmd_fs_rename:
         sty     pws_tmp04               ; Save old file offset
         pla
         tay                             ; Restore Y
-        jsr     param_syntaxerrorifnull ; Check for new name parameter
+        jsr     param_syntax_error_if_null ; Check for new name parameter
         lda     current_drv
         pha                             ; Save current drive
         jsr     read_fsp_text_pointer   ; Read new filename

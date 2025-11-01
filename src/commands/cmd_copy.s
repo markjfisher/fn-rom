@@ -8,7 +8,7 @@
         .export cd_swapvars
 
         .import parameter_afsp
-        .import param_syntaxerrorifnull
+        .import param_syntax_error_if_null
         .import read_fsp_text_pointer
         .import get_cat_entry
         .import prt_info_msg_yoffset
@@ -38,7 +38,7 @@
 cmd_fs_copy:
         jsr     parameter_afsp          ; Set up wildcard characters
         jsr     get_copy_data_drives    ; Get source/dest drives
-        jsr     param_syntaxerrorifnull ; Error if no parameter
+        jsr     param_syntax_error_if_null ; Error if no parameter
         jsr     read_fsp_text_pointer   ; Read filename to buffer
 
         ; Source

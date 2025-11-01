@@ -4,7 +4,7 @@
         .export cmd_fs_delete
 
         .import parameter_fsp
-        .import param_syntaxerrorifnull_getcatentry_fsptxtp
+        .import param_syntax_error_if_null_getcatentry_fsptxtp
         .import prt_info_msg_yoffset
         .import delete_cat_entry_yfileoffset
         .import save_cat_to_disk
@@ -22,7 +22,7 @@ cmd_fs_delete:
         jsr     parameter_fsp
         
         ; Find file in catalog (throws error if not found or null)
-        jsr     param_syntaxerrorifnull_getcatentry_fsptxtp
+        jsr     param_syntax_error_if_null_getcatentry_fsptxtp
         
         ; Print "filename" message
         jsr     prt_info_msg_yoffset

@@ -38,6 +38,7 @@
         .import cmd_fs_verify
         .import cmd_fs_wipe
 
+        .import cmd_fs_fin
         .import cmd_fs_freset
         .import cmd_help_fuji
         .import cmd_help_futils
@@ -92,7 +93,6 @@ cmd_table_info:
 ; COMMAND TABLE - Utils commands [NON-FS COMMANDS], help = "*HELP UTILS"
 ; old cmdtable2
 cmd_table_utils:
-        ; 04
         .byte   (cmd_table_utils_cmds - cmd_table_fujifs_cmds) / 2 - 1
 
         .byte   "ROMS",      $80+$00    ; no parameter
@@ -102,7 +102,6 @@ cmd_table_utils:
 ; COMMAND TABLE - File System INIT commands, NO HELP COMMAND
 ; old cmdtable22
 cmd_table_fs:
-        ; 0A  
         .byte   (cmd_table_fs_cmds - cmd_table_fujifs_cmds) / 2 - 1
 
         .byte   "DISC", $80
@@ -113,7 +112,6 @@ cmd_table_fs:
 ; COMMAND TABLE - Help commands [HELP COMMANDS], help = "*HELP"
 ; old cmdtable3
 cmd_table_help:
-        ; 06
         .byte   (cmd_table_help_cmds - cmd_table_fujifs_cmds) / 2 - 1
 
         .byte   "FUJI",      $80
@@ -124,10 +122,10 @@ cmd_table_help:
 ; These are prefixed with "F", e.g. "FBOOT" etc [FILE SYSTEM COMMANDS], help = "*HELP FUTILS"
 ; old cmdtable4
 cmd_table_futils:
-        ; 02
         .byte   (cmd_table_futils_cmds - cmd_table_fujifs_cmds) / 2 - 1
 
         .byte   "BOOT",      $80+$07    ; <dno>/<dsp>
+        .byte   "IN",        $80+$74    ; (<drive>) <dos name>
         .byte   "RESET",     $80+$00    ; no parameter
         .byte   $00                     ; End of table
 
@@ -180,6 +178,7 @@ cmd_table_help_cmds:
 ; OLD: cmdaddr4
 cmd_table_futils_cmds:
         .word   cmd_fs_fboot-1
+        .word   cmd_fs_fin-1
         .word   cmd_fs_freset-1
         .word   not_cmd_futils-1
 

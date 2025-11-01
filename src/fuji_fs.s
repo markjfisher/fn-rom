@@ -35,9 +35,16 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 fuji_init:
-        lda     #$00
-        sta     fuji_state
-        sta     fuji_current_disk
+        ldx     #$00
+        stx     fuji_state
+        stx     fuji_current_disk
+        
+        ; Initialize drive-to-disk mapping (all unmounted)
+        dex                             ; $FF = no disk mounted
+        stx     fuji_drive_disk_map+0   ; Drive 0
+        stx     fuji_drive_disk_map+1   ; Drive 1
+        stx     fuji_drive_disk_map+2   ; Drive 2
+        stx     fuji_drive_disk_map+3   ; Drive 3
 
         ; TODO - check if device is responding
         jsr     fuji_check_device_status

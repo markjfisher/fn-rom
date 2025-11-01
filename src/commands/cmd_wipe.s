@@ -4,7 +4,7 @@
 
         .export cmd_fs_wipe
 
-        .import parameter_afsp_param_syntaxerrorifnull_getcatentry_fsptxtp
+        .import parameter_afsp_param_syntax_error_if_null_getcatentry_fsptxtp
         .import prt_filename_yoffset
         .import confirm_yn_colon
         .import get_cat_nextentry
@@ -24,7 +24,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 cmd_fs_wipe:
-        jsr     parameter_afsp_param_syntaxerrorifnull_getcatentry_fsptxtp
+        jsr     parameter_afsp_param_syntax_error_if_null_getcatentry_fsptxtp
 
 @wipeloop:
         lda     dfs_cat_file_dir,y      ; Check if file is locked

@@ -207,6 +207,13 @@ setdefaults:
 .ifdef FUJINET_INTERFACE_DUMMY
         jsr     fuji_init_ram_filesystem
 .endif
+        
+        ; Initialize drive-to-disk mapping (all unmounted)
+        lda     #$FF                    ; $FF = no disk mounted
+        sta     fuji_drive_disk_map+0   ; Drive 0
+        sta     fuji_drive_disk_map+1   ; Drive 1
+        sta     fuji_drive_disk_map+2   ; Drive 2
+        sta     fuji_drive_disk_map+3   ; Drive 3
 
 ; TODO: REVIEW THIS CODE
 

@@ -14,14 +14,17 @@
         .export get_cat_nextentry
         .export GSREAD_A
         .export is_hndlin_use_yintch
+        .export jmp_syntax
         .export load_cur_drv_cat
         .export load_cur_drv_cat2
+        .export load_drive
+        .export param_drive_and_disk
         .export param_drive_no_bad_drive
         .export param_drive_no_syntax
         .export param_optional_drive_no
-        .export param_syntaxerrorifnull
-        .export param_syntaxerrorifnull_getcatentry_fsptxtp
-        .export parameter_afsp_param_syntaxerrorifnull_getcatentry_fsptxtp
+        .export param_syntax_error_if_null
+        .export param_syntax_error_if_null_getcatentry_fsptxtp
+        .export parameter_afsp_param_syntax_error_if_null_getcatentry_fsptxtp
         .export prt_filename_yoffset
         .export prt_info_msg_yoffset
         .export prt_infoline_yoffset
@@ -39,14 +42,22 @@
         .export set_current_drive_adrive
         .export tya_cmp_ptr_ext
         .export y_sub8
+        .export load_drive
+        .export load_drive_x
 
         .import GSINIT_A
         .import a_rolx5
         .import a_rorx5
         .import fuji_write_catalog
         .import clear_exec_spool_file_handle
+        .import d_match
+        .import d_match_init
         .import err_bad
+        .import err_disk
+        .import fuji_mount_disk
         .import fuji_read_catalog
+        .import get_disk_first_all_x
+        .import get_disk_next
         .import is_alpha_char
         .import parameter_afsp
         .import print_2_spaces_spl
@@ -68,13 +79,13 @@
         .include "fujinet.inc"
 
 
-; parameter_afsp_Param_SyntaxErrorIfNull_getcatentry_fspTxtP
+; parameter_afsp_param_syntax_error_if_null_getcatentry_fspTxtP
 ; Direct translation of MMFS line 620-630
-parameter_afsp_param_syntaxerrorifnull_getcatentry_fsptxtp:
+parameter_afsp_param_syntax_error_if_null_getcatentry_fsptxtp:
         jsr     parameter_afsp
 
-param_syntaxerrorifnull_getcatentry_fsptxtp:
-        jsr     param_syntaxerrorifnull
+param_syntax_error_if_null_getcatentry_fsptxtp:
+        jsr     param_syntax_error_if_null
 
 getcatentry_fspTxtP:
         jsr     read_fsp_text_pointer
@@ -307,8 +318,8 @@ readfileattribs_copy1byte:
         iny
         rts
 
-; param_syntaxerrorifnull - Check for syntax error if no parameters (MMFS line 5553-5556)
-param_syntaxerrorifnull:
+; param_syntax_error_if_null - Check for syntax error if no parameters (MMFS line 5553-5556)
+param_syntax_error_if_null:
         jsr     GSINIT_A                ; Initialize parameter parsing
         beq     err_syntax             ; If no parameters, syntax error
         rts
@@ -364,7 +375,7 @@ param_optional_drive_no:
 ; <drive>
 ; Exit: A=DrvNo, C=0, XY preserved
 param_drive_no_syntax:
-        jsr     param_syntaxerrorifnull
+        jsr     param_syntax_error_if_null
 
 param_drive_no_bad_drive:
         jsr     GSREAD_A
@@ -695,5 +706,167 @@ rdd_exit2:
 
 rdd_exit1:
         lda     current_drv
+        rts
+
+jmp_bad_drive:
+        jmp     err_bad_drive
+
+jmp_syntax:
+        jmp     err_syntax
+
+err_disk_not_found:
+        jsr     err_disk
+        .byte   $D6
+        .byte   "not found", 0
+
+; read parameters: drive optional
+;   (<drive>) <dos name>
+
+param_drive_and_disk:
+        jsr     param_syntax_error_if_null
+        cmp     #$22                    ; double quotes
+        bne     @param_nq1
+        dey
+
+@param_nq1:
+        sty     aws_tmp04
+        jsr     GSREAD_A
+        cmp     #':'
+        bne     @param_dad
+        jsr     param_drive_no_bad_drive
+        bcc     param_disk
+
+@param_dad:
+        ldy     aws_tmp04
+        jsr     set_curdrv_to_default
+
+        ; read first number
+        jsr     param_read_num
+        bcs     gd_dfind
+        jsr     GSINIT_A
+        beq     gd_no_drv
+        cmp     #$22                    ; double quotes
+        bne     @param_nq2
+        dey
+
+@param_nq2:
+        lda     aws_tmp00 + 1           ; rn+1
+        bne     jmp_bad_drive
+        lda     aws_tmp00               ; rn
+        cmp     #$04                    ; TODO: do we want to support 8 drives? Can we? Is there a memory limitation?
+        bcs     jmp_bad_drive
+        sta     current_drv
+
+
+; read (2nd) number?
+; if it's not a valid number:
+;   assume it's a disk name <dos name>
+;  exit: word $B8 (aws_tmp08/09) = disk number
+; May need some work, does the disk number make sense here?
+param_disk:
+        jsr     param_read_num
+        bcs     gd_dfind
+        jsr     GSINIT_A
+        bne     jmp_syntax
+
+gd_no_drv:
+        lda     aws_tmp00 + 1           ; rn+1
+        sta     aws_tmp09
+        lda     aws_tmp00               ; rn
+        sta     aws_tmp08
+
+gd_dfound:
+        rts
+
+gd_dfind:
+        jsr     d_match_init
+        ldx     #$00
+        jsr     get_disk_first_all_x
+        lda     fuji_filename_buffer + $0D      ; dmLen
+        beq     jmp_syntax
+        lda     fuji_filename_buffer + $0E      ; dmAmbig
+        bne     jmp_syntax
+
+@gd_dloop:
+        lda     aws_tmp08 + 1                   ; gddiskno+1
+        bmi     err_disk_not_found
+        jsr     d_match
+        bcc     gd_dfound
+        jsr     get_disk_next
+        jmp     @gd_dloop
+
+; slightly modified version of DFS code.
+; convert decimal to binary
+; on exit: c=1 if error, else X = number
+param_read_num:
+        jsr     GSINIT_A
+        sec
+        beq     @l4
+        php
+        lda     #$00
+        sta     aws_tmp09
+        beq     @l2
+
+@l1:
+        sec
+        sbc     #$30
+        bcc     @l3             ; < '0'
+
+        cmp     #$0A
+        bcs     @l3             ; > '9'
+
+        sta     aws_tmp08
+        lda     aws_tmp09
+        asl     a
+        sta     aws_tmp09
+        asl     a
+        asl     a
+        adc     aws_tmp09
+        adc     aws_tmp08
+        sta     aws_tmp09
+
+@l2:
+        jsr     GSREAD
+        bcc     @l1
+
+        ldx     aws_tmp09
+        plp
+        clc
+        rts
+
+@l3:
+        plp
+@l4:
+        rts
+
+; load_drive - Mount disk image into drive (FujiNet *FIN / MMFS *DIN equivalent)
+; MMFS LoadDrive (line 7630) mounts a disk image into a virtual drive
+; FujiNet architecture:
+; 1. fuji_mount_disk: Records drive→disk mapping, calls hardware implementation
+; 2. fuji_read_catalog: Reads catalog from mounted disk
+;
+; Entry: current_drv = drive number (0-3)
+;        aws_tmp08/09 = disk image number to mount
+; Exit: Disk image mounted and catalog loaded
+;       A,X,Y may be modified
+load_drive:
+        ldx     current_drv
+        ; Fall through to load_drive_x
+
+; load_drive_x - Mount disk image into drive X
+; Entry: X = drive number (0-3)
+;        aws_tmp08/09 = disk image number to mount
+; Exit: Disk image mounted and catalog loaded
+;       A,X,Y may be modified
+load_drive_x:
+        txa
+        sta     current_drv             ; Set as current drive
+        
+        ; Mount the disk image into the drive
+        ; This records the drive→disk mapping and notifies hardware
+        jsr     fuji_mount_disk
+        
+        ; Load catalog from the newly mounted disk
+        jsr     load_cur_drv_cat        ; Load catalog (marks current_cat)
         rts
 

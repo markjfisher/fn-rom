@@ -109,6 +109,7 @@ OS_INC = 1
         .import  dfs_cat_file_size
         .import  dfs_cat_file_op
         .import  dfs_cat_file_sect
+        .import  fuji_drive_disk_map
 
         .import  fuji_buf_1045
         .import  fuji_buf_1047

@@ -5,7 +5,7 @@
         .export cmd_fs_title
         .export set_disk_title_chr_xpos
 
-        .import param_syntaxerrorifnull
+        .import param_syntax_error_if_null
         .import set_curdrv_to_default
         .import load_cur_drv_cat2
         .import save_cat_to_disk
@@ -22,7 +22,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 cmd_fs_title:
-        jsr     param_syntaxerrorifnull
+        jsr     param_syntax_error_if_null
         
         ; Set directory and drive to defaults
         lda     fuji_default_dir

@@ -11,7 +11,7 @@
         .import err_bad
         .import get_cat_entry
         .import get_cat_nextentry
-        .import param_syntaxerrorifnull
+        .import param_syntax_error_if_null
         .import parameter_afsp
         .import prt_info_msg_yoffset
         .import read_fsp_text_pointer
@@ -31,7 +31,7 @@
 
 cmd_fs_access:
         jsr     parameter_afsp          ; Set up wildcard parameters
-        jsr     param_syntaxerrorifnull ; Error if no filespec provided
+        jsr     param_syntax_error_if_null ; Error if no filespec provided
         jsr     read_fsp_text_pointer   ; Read filespec from text pointer
         ldx     #$00                    ; X = locked mask (default: unlock)
         jsr     GSINIT_A                ; Check if string continues
