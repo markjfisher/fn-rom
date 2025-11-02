@@ -251,8 +251,8 @@ pws_tmp08       := $C8
 pws_tmp09       := $C9
 pws_tmp10       := $CA
 pws_tmp11       := $CB
-pws_tmp12       := $CC
-pws_tmp13       := $CD
+pws_tmp12       := $CC   ; ALSO directory_param
+pws_tmp13       := $CD   ; ALSO current_drv
 pws_tmp14       := $CE
 pws_tmp15       := $CF
 

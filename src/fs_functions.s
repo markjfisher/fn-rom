@@ -17,8 +17,6 @@
         .export jmp_syntax
         .export load_cur_drv_cat
         .export load_cur_drv_cat2
-        .export load_drive
-        .export param_drive_and_disk
         .export param_drive_no_bad_drive
         .export param_drive_no_syntax
         .export param_optional_drive_no
@@ -42,8 +40,9 @@
         .export set_current_drive_adrive
         .export tya_cmp_ptr_ext
         .export y_sub8
-        .export load_drive
-        .export load_drive_x
+        .export param_count_a
+        .export param_drive_or_default
+        .export find_and_mount_disk
 
         .import GSINIT_A
         .import a_rolx5
@@ -75,6 +74,7 @@
         .import remember_axy
         .import report_error
         .import y_add7
+        .import GSREAD
 
         .include "fujinet.inc"
 
@@ -384,7 +384,7 @@ param_drive_no_bad_drive:
         beq     param_drive_no_bad_drive
         sec
         sbc     #'0'
-        cmp     #4
+        cmp     #$04              ; TODO: how many drives do we want to support - how does this map from FujiNet drives, to BBC drives?
         ; exit with C=0
         bcc     set_current_drive_adrive_noand
 
@@ -478,13 +478,18 @@ rdafsp_notcolon:
         bne     @rdafsp_rdfnloop
         beq     err_bad_name            ; Too many characters
 
+; ######################################################################################
+; GSREAD_A
+; ######################################################################################
+; get a char and check if it's in ascii range.
+; GSREAD will return in A the char read from the string, if it's "escaped" char, then A is ascii value minus $40
 GSREAD_A:
         jsr     GSREAD
         php
         and     #$7F
         cmp     #$0D        ; Return?
         beq     @exit
-        cmp     #$20        ; Control character? (I.e. <&20)
+        cmp     #$20        ; Control character? (I.e. < $20)
         bcc     err_bad_name
         cmp     #$7F        ; Backspace?
         beq     err_bad_name
@@ -719,154 +724,257 @@ err_disk_not_found:
         .byte   $D6
         .byte   "not found", 0
 
-; read parameters: drive optional
-;   (<drive>) <dos name>
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; MM32-style parameter parsing for *FIN command
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-param_drive_and_disk:
-        jsr     param_syntax_error_if_null
-        cmp     #$22                    ; double quotes
-        bne     @param_nq1
-        dey
-
-@param_nq1:
-        sty     aws_tmp04
-        jsr     GSREAD_A
-        cmp     #':'
-        bne     @param_dad
-        jsr     param_drive_no_bad_drive
-        bcc     param_disk
-
-@param_dad:
-        ldy     aws_tmp04
-        jsr     set_curdrv_to_default
-
-        ; read first number
-        jsr     param_read_num
-        bcs     gd_dfind
-        jsr     GSINIT_A
-        beq     gd_no_drv
-        cmp     #$22                    ; double quotes
-        bne     @param_nq2
-        dey
-
-@param_nq2:
-        lda     aws_tmp00 + 1           ; rn+1
-        bne     jmp_bad_drive
-        lda     aws_tmp00               ; rn
-        cmp     #$04                    ; TODO: do we want to support 8 drives? Can we? Is there a memory limitation?
-        bcs     jmp_bad_drive
-        sta     current_drv
-
-
-; read (2nd) number?
-; if it's not a valid number:
-;   assume it's a disk name <dos name>
-;  exit: word $B8 (aws_tmp08/09) = disk number
-; May need some work, does the disk number make sense here?
-param_disk:
-        jsr     param_read_num
-        bcs     gd_dfind
-        jsr     GSINIT_A
-        bne     jmp_syntax
-
-gd_no_drv:
-        lda     aws_tmp00 + 1           ; rn+1
-        sta     aws_tmp09
-        lda     aws_tmp00               ; rn
-        sta     aws_tmp08
-
-gd_dfound:
-        rts
-
-gd_dfind:
-        jsr     d_match_init
-        ldx     #$00
-        jsr     get_disk_first_all_x
-        lda     fuji_filename_buffer + $0D      ; dmLen
-        beq     jmp_syntax
-        lda     fuji_filename_buffer + $0E      ; dmAmbig
-        bne     jmp_syntax
-
-@gd_dloop:
-        lda     aws_tmp08 + 1                   ; gddiskno+1
-        bmi     err_disk_not_found
-        jsr     d_match
-        bcc     gd_dfound
-        jsr     get_disk_next
-        jmp     @gd_dloop
-
-; slightly modified version of DFS code.
-; convert decimal to binary
-; on exit: c=1 if error, else X = number
-param_read_num:
-        jsr     GSINIT_A
-        sec
-        beq     @l4
-        php
+; default to 0-1 range, allowing 0 or 1
+param_count:
         lda     #$00
-        sta     aws_tmp09
-        beq     @l2
+
+; param_count_a - Count the number of parameters entered by user
+; Entry: if b7 = 0, permissable range is 0-1, else it's 1-2
+;        if b0 = 0, lower limit is allowed
+; Exit: C = result, i.e.
+; 0    range: (0-1) and count = 0   OR  range: (1-2) and count = 1 (i.e. 'lower value')
+; 1    range: (0-1) and count = 1   OR  range: (1-2) and count = 2 (i.e. 'upper value')
+;       Y preserved.
+;       Jumps to err_syntax if wrong count for given params
+param_count_a:
+        pha                             ; Save flags
+        tya                             ; this will be used as index to char by GSREAD, so save it
+        pha                             ; Save Y
+
+        ldx     #$00                    ; Count = 0
+
+@loop1:
+        jsr     GSINIT_A                ; up to first space only
+        beq     @l1                     ; If no more params
+
+        inx                             ; increment count during loop
+
+@loop2:
+        jsr     GSREAD_A
+        bcc     @loop2                  ; Until end of string
+        bcs     @loop1                  ; always: Check for next param
 
 @l1:
-        sec
-        sbc     #$30
-        bcc     @l3             ; < '0'
+        pla                             ; Restore Y
+        tay
 
-        cmp     #$0A
-        bcs     @l3             ; > '9'
+        pla                             ; Get flags
+        bpl     @l2                     ; If flag7=0: range 0 to 1
 
-        sta     aws_tmp08
-        lda     aws_tmp09
-        asl     a
-        sta     aws_tmp09
-        asl     a
-        asl     a
-        adc     aws_tmp09
-        adc     aws_tmp08
-        sta     aws_tmp09
+        ; range 1 to 2
+        dex
+        bmi     jmp_syntax              ; If count=0, error as we should have 1 or 2 params
 
 @l2:
-        jsr     GSREAD
-        bcc     @l1
+        cpx     #$01                    ; x is normalised down to 0-1 for either case because of the dex.
+        ; If it matches, C=1 because compare uses carry flag as mini subtraction.
+        beq     @l3                     ; matched the upper limit
+        bcs     jmp_syntax              ; it was too high, we had too many args
 
-        ldx     aws_tmp09
-        plp
-        clc
-        rts
+        ; lower range hit, see if the end condition allows this
+        ror     a                       ; Check b0 of flag. 1 means not allowed, which drops into C
+        bcs     jmp_syntax
+
+        ; fallthrough with C=0, which is our lower range value hit
 
 @l3:
-        plp
-@l4:
+        ; if we came from X=1 check above, then C=1 and is upper limit return value
         rts
 
-; load_drive - Mount disk image into drive (FujiNet *FIN / MMFS *DIN equivalent)
-; MMFS LoadDrive (line 7630) mounts a disk image into a virtual drive
-; FujiNet architecture:
-; 1. fuji_mount_disk: Records drive→disk mapping, calls hardware implementation
-; 2. fuji_read_catalog: Reads catalog from mounted disk
-;
-; Entry: current_drv = drive number (0-3)
-;        aws_tmp08/09 = disk image number to mount
-; Exit: Disk image mounted and catalog loaded
-;       A,X,Y may be modified
-load_drive:
+; param_drive_or_default - Read drive parameter or use default
+; Entry: C = 0 if default to be used. From param_count_a, this means we are on the lower bound, thus there's probably a missing parameter, so need to fill it with default
+; Exit: A = physical drive number
+param_drive_or_default:
+        bcc     @use_default
+
+        jsr     GSINIT_A
+        jsr     param_drive_no_bad_drive
+        jsr     GSREAD_A                ; sets C=1 if at end of string
+        lda     current_drv
+        bcs     @l2
+
+        ; Not end of string, which was just a drive number like "0"
+        jmp     err_bad_drive
+
+@use_default:
+        lda     fuji_default_drive
+
+@l2:
+        and     #$03                    ; TODO: in MM32.asm this is "AND #&01" with comment "only interest in 'physical drive'"
+        sta     current_drv
+        rts
+
+; find_and_mount_disk - Find disk by name and mount it
+; Direct translation of MM32 mm32_chain_open (MM32.asm line 1435-1578)
+; Entry: A = flags
+;            b0: 0=looking for file, 1=dir
+;            b1: 0=normal, 1='autoload'
+;        if C = 0, skip reading the filename
+;        current_drv set to target drive
+; Exit: C = 1 if file not found, C = 0 if found and mounted
+find_and_mount_disk:
+        sec                             ; MM32 line 1436: SEC
+
+; this will be used by FBOOT and others
+find_and_mount_disk2:
+        ; z = mm32_zptr% (&B0)
+        ; str = mm32_str%+16 ($1010)
+        ; is_dir% = &B8
+        
+        pha                             ; MM32 line 1444: PHA - Store the flags for later
+        bcc     @l0                     ; MM32 line 1445: BCC l0
+
+        ; MM32 line 1447-1450: Read filename parameter
+        clc                             ; MM32 line 1447: CLC - We are not cataloguing
+        jsr     mm32_param_filename     ; MM32 line 1448: JSR mm32_param_filename
+        bcs     @notfound               ; MM32 line 1449: BCS notfound - If error when reading parameter
+        beq     @zerolen                ; MM32 line 1450: BEQ zerolen - If string zero length
+
+@l0:    ; MM32 line 1452-1454: Set up directory scanning flags
+        lda     current_drv             ; MM32 line 1452: LDA CurrentDrv
+        cmp     #2                      ; MM32 line 1453: CMP #2 - If C=1, only scan for directories
+        ror     fuji_mm32_flags         ; MM32 line 1454: ROR mm32_flags%
+
+        lda     #0                      ; MM32 line 1456: LDA #0
+        sta     fuji_mm32_scan_mode     ; MM32 line 1457: STA &AA - Scan_Dir 'normal' mode
+        jsr     mm32_scan_dir           ; MM32 line 1458: JSR mm32_Scan_Dir (PLACEHOLDER)
+        bcc     @found                  ; MM32 line 1459: BCC found
+        
+        ; MM32 line 1460-1463: Try with .SSD extension
+        pla                             ; MM32 line 1460: PLA - Recover flags
+        pha                             ; MM32 line 1461: PHA - Stash them for l8r
+        and     #$01                    ; MM32 line 1462: AND #$01 - File or directory
+        bne     @notfound               ; MM32 line 1463: BNE notfound - If directory don't try appending suffixes
+        
+        jsr     mm32_add_ssd_ext        ; MM32 line 1464: JSR mm32_add_ssd_ext
+        jsr     mm32_scan_dir           ; MM32 line 1465: JSR mm32_Scan_Dir (PLACEHOLDER)
+        bcc     @found                  ; MM32 line 1466: BCC found
+
+        ; MM32 line 1469-1483: Try with .DSD extension
+        jsr     mm32_change_ext_dsd     ; MM32 line 1469-1480: Change .SSD to .DSD
+        jsr     mm32_scan_dir           ; MM32 line 1482: JSR mm32_Scan_Dir (PLACEHOLDER)
+        bcc     @found                  ; MM32 line 1483: BCC found
+
+@notfound:
+        ; MM32 line 1485-1492: Not found
+        pla                             ; MM32 line 1486: PLA - Recover flags
+        and     #$02                    ; MM32 line 1487: AND #$02 - See if we are in autoload mode
+        beq     @notautoload            ; MM32 line 1488: BEQ notautoload
+        sec                             ; MM32 line 1489: SEC
+        rts                             ; MM32 line 1490: RTS - On cold start, simply return
+@notautoload:
+        jmp     err_disk_not_found      ; MM32 line 1492: JMP err_FILENOTFOUND
+
+@found:
+        ; MM32 line 1494-1516: Check if file or directory
+        pla                             ; MM32 line 1495: PLA - Recover flags
+        pha                             ; MM32 line 1496: PHA - Stash them for l8r
+        and     #$01                    ; MM32 line 1497: AND #$01 - File or directory?
+        beq     @file                   ; MM32 line 1498: BEQ file
+        pla                             ; MM32 line 1499: PLA - Fix up stack
+        lda     fuji_mm32_is_dir        ; MM32 line 1500: LDA is_dir%
+        bne     @okay                   ; MM32 line 1501: BNE okay
+        rts                             ; MM32 line 1502: RTS
+@file:
+        pla                             ; MM32 line 1504: PLA - Recover flags
+        ldx     fuji_mm32_is_dir        ; MM32 line 1505: LDX is_dir%
+        beq     @okay                   ; MM32 line 1506: BEQ okay
+        and     #$02                    ; MM32 line 1507: AND #$02 - Autoload mode?
+        beq     @notautoload2           ; MM32 line 1508: BEQ notautoload2
+        sec                             ; MM32 line 1509: SEC
+        rts                             ; MM32 line 1510: RTS
+@notautoload2:
+        jsr     report_error            ; MM32 line 1512: JSR ReportError
+        .byte   $D6                     ; MM32 line 1513: EQUB &D6
+        .byte   "Is directory", 0       ; MM32 line 1514: EQUB "Is directory",0
+
+@zerolen:
+        ; MM32 line 1518-1524: No parameter given by user
+        pla                             ; MM32 line 1520: PLA - Fix up stack before exit
+        lda     fuji_mm32_flags         ; MM32 line 1521: LDA mm32_flags%
+        and     #$80                    ; MM32 line 1522: AND #&80 - If directory marker found in parameter, set read only flag
+        tay                             ; MM32 line 1523: TAY - else drive will be empty
+        jmp     mm32_clear_cluster_index ; MM32 line 1524: JMP mm32_clear_cluster_index (PLACEHOLDER)
+
+@okay:
+        ; MM32 line 1526-1577: File/Directory Found
+        jsr     mm32_upd_dsktbl         ; MM32 line 1528: JSR mm32_upd_dsktbl (PLACEHOLDER)
+        
+        ; MM32 line 1529-1538: Copy cluster number from directory
+        ; For FujiNet: We store disk number in fuji_drive_disk_map instead of cluster in CHAIN_INDEX
+        ; The disk number is returned by mm32_scan_dir in fuji_mm32_cluster
+        
+        ; MM32 line 1540-1565: Check disk not already loaded in other drive
+        ; For FujiNet: We skip this check for now (simpler model)
+        
+        ; MM32 line 1567-1576: Copy cluster number to CHAIN_INDEX
+        ; For FujiNet: Record the drive→disk mapping
+        ldx     current_drv             ; MM32 line 1569: LDX CurrentDrv
+        lda     fuji_mm32_cluster       ; MM32 line 1570: LDA mm32_cluster% (disk number for us)
+        sta     fuji_drive_disk_map,x   ; MM32 line 1571: STA CHAIN_INDEX,X
+        
+        ; Load the catalog for the mounted disk
+        jsr     load_cur_drv_cat        ; Load catalog from FujiNet
+        
+        clc                             ; C=0 = success
+        rts                             ; MM32 line 1577: RTS
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; PLACEHOLDER FUNCTIONS - To be implemented with FujiNet device calls
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+; mm32_param_filename - Read filename parameter (MM32.asm line 1106-1220)
+; Entry: C=1 if cataloguing (i.e. parameter is a filter)
+; Exit: C=1 if error (e.g. string too long), else Z=1 if zero length string
+; Result: Filename stored in fuji_mm32_str+16 with mm32_hash markers
+mm32_param_filename:
+        ; TODO: Implement MM32-style filename parsing
+        ; For now, use existing read_fsp_text_pointer as placeholder
+        jsr     read_fsp_text_pointer
+        lda     fuji_filename_buffer    ; Check if empty
+        clc                             ; C=0 = OK
+        rts
+
+; mm32_scan_dir - Scan directory for matching file (MM32.asm line 551-704)
+; Entry: fuji_mm32_flags set, fuji_mm32_scan_mode set
+; Exit: C=0 if file/dir found, C=1 if not found
+;       If found: fuji_mm32_cluster contains disk number
+;                 fuji_mm32_is_dir indicates if it's a directory
+mm32_scan_dir:
+        ; TODO: Implement FujiNet disk scanning
+        ; This should call into FujiNet device to search for disk by name
+        ; For now, return C=1 (not found)
+        sec
+        rts
+
+; mm32_add_ssd_ext - Add .SSD extension to filename (MM32.asm line 1369-1388)
+mm32_add_ssd_ext:
+        ; TODO: Implement extension adding
+        ; Add ".SSD" to filename in fuji_mm32_str+16
+        rts
+
+; mm32_change_ext_dsd - Change .SSD to .DSD extension (MM32.asm line 1469-1480)
+mm32_change_ext_dsd:
+        ; TODO: Implement extension changing
+        ; Change ".SSD" to ".DSD" in fuji_mm32_str+16
+        rts
+
+; mm32_upd_dsktbl - Update disk table (MM32.asm line 1391-1410)
+mm32_upd_dsktbl:
+        ; TODO: Implement disk table update
+        ; For FujiNet, this might just record the disk name
+        rts
+
+; mm32_clear_cluster_index - Clear cluster index (MM32.asm line 1614-1631)
+; Entry: current_drv=index, Y=attributes
+mm32_clear_cluster_index:
+        ; TODO: Implement cluster index clearing
+        ; For FujiNet: Clear drive→disk mapping
         ldx     current_drv
-        ; Fall through to load_drive_x
-
-; load_drive_x - Mount disk image into drive X
-; Entry: X = drive number (0-3)
-;        aws_tmp08/09 = disk image number to mount
-; Exit: Disk image mounted and catalog loaded
-;       A,X,Y may be modified
-load_drive_x:
-        txa
-        sta     current_drv             ; Set as current drive
-        
-        ; Mount the disk image into the drive
-        ; This records the drive→disk mapping and notifies hardware
-        jsr     fuji_mount_disk
-        
-        ; Load catalog from the newly mounted disk
-        jsr     load_cur_drv_cat        ; Load catalog (marks current_cat)
+        lda     #$FF                    ; $FF = no disk mounted
+        sta     fuji_drive_disk_map,x
         rts
-
