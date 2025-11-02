@@ -809,7 +809,9 @@ param_drive_or_default:
         rts
 
 ; find_and_mount_disk - Find disk by name and mount it
-; Direct translation of MM32 mm32_chain_open (MM32.asm line 1435-1578)
+; Based on MM32 mm32_chain_open (MM32.asm line 1435-1578)
+; Separates filename parsing (reusable) from disk operations (FujiNet-specific)
+;
 ; Entry: A = flags
 ;            b0: 0=looking for file, 1=dir
 ;            b1: 0=normal, 1='autoload'
@@ -819,44 +821,36 @@ param_drive_or_default:
 find_and_mount_disk:
         sec                             ; MM32 line 1436: SEC
 
-; this will be used by FBOOT and others
+; Entry point for FBOOT and others that pre-load filename
 find_and_mount_disk2:
-        ; z = mm32_zptr% (&B0)
-        ; str = mm32_str%+16 ($1010)
-        ; is_dir% = &B8
-        
         pha                             ; MM32 line 1444: PHA - Store the flags for later
-        bcc     @l0                     ; MM32 line 1445: BCC l0
+        bcc     @l0                     ; MM32 line 1445: BCC l0 - Skip filename read
 
         ; MM32 line 1447-1450: Read filename parameter
         clc                             ; MM32 line 1447: CLC - We are not cataloguing
-        jsr     mm32_param_filename     ; MM32 line 1448: JSR mm32_param_filename
+        jsr     parse_disk_filename     ; MM32 line 1448: JSR mm32_param_filename
         bcs     @notfound               ; MM32 line 1449: BCS notfound - If error when reading parameter
         beq     @zerolen                ; MM32 line 1450: BEQ zerolen - If string zero length
 
-@l0:    ; MM32 line 1452-1454: Set up directory scanning flags
-        lda     current_drv             ; MM32 line 1452: LDA CurrentDrv
-        cmp     #2                      ; MM32 line 1453: CMP #2 - If C=1, only scan for directories
-        ror     fuji_mm32_flags         ; MM32 line 1454: ROR mm32_flags%
-
-        lda     #0                      ; MM32 line 1456: LDA #0
-        sta     fuji_mm32_scan_mode     ; MM32 line 1457: STA &AA - Scan_Dir 'normal' mode
-        jsr     mm32_scan_dir           ; MM32 line 1458: JSR mm32_Scan_Dir (PLACEHOLDER)
-        bcc     @found                  ; MM32 line 1459: BCC found
+@l0:    ; MM32 line 1452-1458: Scan for disk
+        ; MM32 sets up mm32_flags% and calls mm32_Scan_Dir
+        ; For FujiNet: Call device to search for disk by name
+        jsr     search_fujinet_disks    ; Search FujiNet for matching disk
+        bcc     @found                  ; C=0 = found
         
-        ; MM32 line 1460-1463: Try with .SSD extension
+        ; MM32 line 1460-1466: Try with .SSD extension
         pla                             ; MM32 line 1460: PLA - Recover flags
         pha                             ; MM32 line 1461: PHA - Stash them for l8r
         and     #$01                    ; MM32 line 1462: AND #$01 - File or directory
         bne     @notfound               ; MM32 line 1463: BNE notfound - If directory don't try appending suffixes
         
-        jsr     mm32_add_ssd_ext        ; MM32 line 1464: JSR mm32_add_ssd_ext
-        jsr     mm32_scan_dir           ; MM32 line 1465: JSR mm32_Scan_Dir (PLACEHOLDER)
+        jsr     add_ssd_extension       ; MM32 line 1464: JSR mm32_add_ssd_ext
+        jsr     search_fujinet_disks    ; MM32 line 1465: JSR mm32_Scan_Dir
         bcc     @found                  ; MM32 line 1466: BCC found
 
         ; MM32 line 1469-1483: Try with .DSD extension
-        jsr     mm32_change_ext_dsd     ; MM32 line 1469-1480: Change .SSD to .DSD
-        jsr     mm32_scan_dir           ; MM32 line 1482: JSR mm32_Scan_Dir (PLACEHOLDER)
+        jsr     change_ssd_to_dsd       ; MM32 line 1469-1480: Change .SSD to .DSD
+        jsr     search_fujinet_disks    ; MM32 line 1482: JSR mm32_Scan_Dir
         bcc     @found                  ; MM32 line 1483: BCC found
 
 @notfound:
@@ -870,18 +864,18 @@ find_and_mount_disk2:
         jmp     err_disk_not_found      ; MM32 line 1492: JMP err_FILENOTFOUND
 
 @found:
-        ; MM32 line 1494-1516: Check if file or directory
+        ; MM32 line 1494-1516: Validate file vs directory match
         pla                             ; MM32 line 1495: PLA - Recover flags
         pha                             ; MM32 line 1496: PHA - Stash them for l8r
         and     #$01                    ; MM32 line 1497: AND #$01 - File or directory?
         beq     @file                   ; MM32 line 1498: BEQ file
         pla                             ; MM32 line 1499: PLA - Fix up stack
-        lda     fuji_mm32_is_dir        ; MM32 line 1500: LDA is_dir%
+        lda     pws_tmp08               ; MM32 line 1500: LDA is_dir% - is_dir flag from search
         bne     @okay                   ; MM32 line 1501: BNE okay
         rts                             ; MM32 line 1502: RTS
 @file:
         pla                             ; MM32 line 1504: PLA - Recover flags
-        ldx     fuji_mm32_is_dir        ; MM32 line 1505: LDX is_dir%
+        ldx     pws_tmp08               ; MM32 line 1505: LDX is_dir%
         beq     @okay                   ; MM32 line 1506: BEQ okay
         and     #$02                    ; MM32 line 1507: AND #$02 - Autoload mode?
         beq     @notautoload2           ; MM32 line 1508: BEQ notautoload2
@@ -893,29 +887,18 @@ find_and_mount_disk2:
         .byte   "Is directory", 0       ; MM32 line 1514: EQUB "Is directory",0
 
 @zerolen:
-        ; MM32 line 1518-1524: No parameter given by user
+        ; MM32 line 1518-1524: No parameter given by user - unmount drive
         pla                             ; MM32 line 1520: PLA - Fix up stack before exit
-        lda     fuji_mm32_flags         ; MM32 line 1521: LDA mm32_flags%
-        and     #$80                    ; MM32 line 1522: AND #&80 - If directory marker found in parameter, set read only flag
-        tay                             ; MM32 line 1523: TAY - else drive will be empty
-        jmp     mm32_clear_cluster_index ; MM32 line 1524: JMP mm32_clear_cluster_index (PLACEHOLDER)
+        jsr     fuji_unmount_disk       ; Clear drive mapping (MM32 clears CHAIN_INDEX)
+        rts
 
 @okay:
-        ; MM32 line 1526-1577: File/Directory Found
-        jsr     mm32_upd_dsktbl         ; MM32 line 1528: JSR mm32_upd_dsktbl (PLACEHOLDER)
+        ; MM32 line 1526-1577: File/Directory Found - mount it
+        ; Disk number is in aws_tmp08/09 (returned by search_fujinet_disks)
         
-        ; MM32 line 1529-1538: Copy cluster number from directory
-        ; For FujiNet: We store disk number in fuji_drive_disk_map instead of cluster in CHAIN_INDEX
-        ; The disk number is returned by mm32_scan_dir in fuji_mm32_cluster
-        
-        ; MM32 line 1540-1565: Check disk not already loaded in other drive
-        ; For FujiNet: We skip this check for now (simpler model)
-        
-        ; MM32 line 1567-1576: Copy cluster number to CHAIN_INDEX
-        ; For FujiNet: Record the drive→disk mapping
-        ldx     current_drv             ; MM32 line 1569: LDX CurrentDrv
-        lda     fuji_mm32_cluster       ; MM32 line 1570: LDA mm32_cluster% (disk number for us)
-        sta     fuji_drive_disk_map,x   ; MM32 line 1571: STA CHAIN_INDEX,X
+        ; MM32 line 1567-1576: Store cluster in CHAIN_INDEX
+        ; For FujiNet: Record drive→disk mapping
+        jsr     fuji_mount_disk         ; Record mapping in fuji_drive_disk_map
         
         ; Load the catalog for the mounted disk
         jsr     load_cur_drv_cat        ; Load catalog from FujiNet
@@ -924,57 +907,62 @@ find_and_mount_disk2:
         rts                             ; MM32 line 1577: RTS
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; PLACEHOLDER FUNCTIONS - To be implemented with FujiNet device calls
+; Filename Parsing Functions (Pure string manipulation - no I/O)
+; Based on MM32.asm lines 1106-1220, 1369-1388, 1469-1480
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-; mm32_param_filename - Read filename parameter (MM32.asm line 1106-1220)
-; Entry: C=1 if cataloguing (i.e. parameter is a filter)
-; Exit: C=1 if error (e.g. string too long), else Z=1 if zero length string
-; Result: Filename stored in fuji_mm32_str+16 with mm32_hash markers
-mm32_param_filename:
-        ; TODO: Implement MM32-style filename parsing
-        ; For now, use existing read_fsp_text_pointer as placeholder
+; parse_disk_filename - Parse disk filename from command line
+; Based on MM32 mm32_param_filename (MM32.asm line 1106-1220)
+; Entry: C=1 if cataloguing (allows wildcards)
+; Exit: C=1 if error (string too long), Z=1 if zero length string
+;       Filename stored in fuji_filename_buffer+16 with hash markers
+parse_disk_filename:
+        ; TODO: Implement MM32-style filename parsing with:
+        ; - Hash markers at start/end
+        ; - Wildcard support (* and #) if cataloguing
+        ; - Directory marker (/) handling
+        ; - Uppercase conversion
+        ; - Extension dot handling
+        ; - Max 16 character limit
+        ; For now, use simpler parsing
         jsr     read_fsp_text_pointer
         lda     fuji_filename_buffer    ; Check if empty
         clc                             ; C=0 = OK
         rts
 
-; mm32_scan_dir - Scan directory for matching file (MM32.asm line 551-704)
-; Entry: fuji_mm32_flags set, fuji_mm32_scan_mode set
-; Exit: C=0 if file/dir found, C=1 if not found
-;       If found: fuji_mm32_cluster contains disk number
-;                 fuji_mm32_is_dir indicates if it's a directory
-mm32_scan_dir:
-        ; TODO: Implement FujiNet disk scanning
-        ; This should call into FujiNet device to search for disk by name
+; add_ssd_extension - Add .SSD extension to filename
+; Based on MM32 mm32_add_ssd_ext (MM32.asm line 1369-1388)
+; Modifies filename in fuji_filename_buffer+16
+add_ssd_extension:
+        ; TODO: Find the dot in filename and append "SSD" + hash marker
+        ; For now, placeholder
+        rts
+
+; change_ssd_to_dsd - Change .SSD extension to .DSD
+; Based on MM32 mm32_change_ext_dsd (MM32.asm line 1469-1480)
+; Modifies filename in fuji_filename_buffer+16
+change_ssd_to_dsd:
+        ; TODO: Find "SSD" after dot and change first 'S' to 'D'
+        ; For now, placeholder
+        rts
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; FujiNet Disk Operations (Device I/O - to be implemented)
+; These replace MM32's FAT32 directory scanning
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+; search_fujinet_disks - Search FujiNet device for disk matching filename
+; Replaces MM32 mm32_Scan_Dir (MM32.asm line 551-704)
+; Entry: Filename pattern in fuji_filename_buffer
+; Exit: C=0 if found, C=1 if not found
+;       If found: aws_tmp08/09 = disk number
+;                 pws_tmp08 = is_dir flag (0=file, non-zero=dir)
+search_fujinet_disks:
+        ; TODO: Implement FujiNet device call to:
+        ; 1. Get list of available disk images from FujiNet
+        ; 2. Match each disk name against pattern in fuji_filename_buffer
+        ; 3. Return disk number in aws_tmp08/09 if found
+        ; 4. Set pws_tmp08 to indicate if it's a directory
         ; For now, return C=1 (not found)
         sec
-        rts
-
-; mm32_add_ssd_ext - Add .SSD extension to filename (MM32.asm line 1369-1388)
-mm32_add_ssd_ext:
-        ; TODO: Implement extension adding
-        ; Add ".SSD" to filename in fuji_mm32_str+16
-        rts
-
-; mm32_change_ext_dsd - Change .SSD to .DSD extension (MM32.asm line 1469-1480)
-mm32_change_ext_dsd:
-        ; TODO: Implement extension changing
-        ; Change ".SSD" to ".DSD" in fuji_mm32_str+16
-        rts
-
-; mm32_upd_dsktbl - Update disk table (MM32.asm line 1391-1410)
-mm32_upd_dsktbl:
-        ; TODO: Implement disk table update
-        ; For FujiNet, this might just record the disk name
-        rts
-
-; mm32_clear_cluster_index - Clear cluster index (MM32.asm line 1614-1631)
-; Entry: current_drv=index, Y=attributes
-mm32_clear_cluster_index:
-        ; TODO: Implement cluster index clearing
-        ; For FujiNet: Clear drive→disk mapping
-        ldx     current_drv
-        lda     #$FF                    ; $FF = no disk mounted
-        sta     fuji_drive_disk_map,x
         rts
