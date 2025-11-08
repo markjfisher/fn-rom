@@ -17,8 +17,10 @@
         .export jmp_syntax
         .export load_cur_drv_cat
         .export load_cur_drv_cat2
+        .export num_params
         .export param_drive_no_bad_drive
         .export param_drive_no_syntax
+        .export param_get_num
         .export param_optional_drive_no
         .export param_syntax_error_if_null
         .export param_syntax_error_if_null_getcatentry_fsptxtp
@@ -324,7 +326,6 @@ param_syntax_error_if_null:
         beq     err_syntax             ; If no parameters, syntax error
         rts
 
-
 param_syntax_error_if_not_null:
         jsr     GSINIT_A
         bne     err_syntax
@@ -340,9 +341,6 @@ err_syntax:
         lda     #$00                     ; Add null terminator
         jsr     prtcmd_prtchr            ; Print null character
         jmp     $0100                    ; Cause BREAK!
-
-
-
 
 
 ; check_cur_drv_cat - Check if current drive catalog is loaded (MMFS line 7255-7259)
@@ -366,6 +364,25 @@ set_current_drive_adrive:
 set_current_drive_adrive_noand:
         sta     current_drv
         rts
+
+; read a generic number, non optional, error if it's not between 0-9
+; returns result in A
+param_get_num:
+        jsr     GSINIT_A
+        beq     err_bad_num
+        jsr     GSREAD_A
+        sbc     #'0'
+        bmi     err_bad_num                     ; < 0
+        cmp     #$0A
+        bcs     err_bad_num                     ; > 9
+        ; good result in A
+        rts
+
+err_bad_num:
+        jsr     err_bad
+        .byte   $CB                             ; i'm guessing this byte is for the memory param to show? Not sure how to do this for a generic "number" error
+        .byte   "number", 0
+
 
 ; (<drive>)
 param_optional_drive_no:
@@ -785,6 +802,29 @@ param_count_a:
         ; if we came from X=1 check above, then C=1 and is upper limit return value
         rts
 
+; just read the number of parameters on command line, return in A
+; preserve Y
+num_params:
+        tya                             ; save Y
+        pha
+
+        ldx     #$00
+@loop1:
+        jsr     GSINIT_A
+        beq     @exit_count             ; finished reading string, got a null
+
+        inx
+@loop2:
+        jsr     GSREAD_A
+        bcc     @loop2
+        bcs     @loop1
+
+@exit_count:
+        pla                             ; restore Y
+        tay
+        txa                             ; set result in A
+        rts
+
 ; param_drive_or_default - Read drive parameter or use default
 ; Entry: C = 0 if default to be used. From param_count_a, this means we are on the lower bound, thus there's probably a missing parameter, so need to fill it with default
 ; Exit: A = physical drive number
@@ -808,6 +848,9 @@ param_drive_or_default:
         sta     current_drv
         rts
 
+; THIS ALL NEEDS REVIEWING - UNTESTED AND MOST OF IT NOT NEEDED - PASS TO FUJINET TO FIND THE FILE AND TRY WITH EXTENSIONS
+; TO REDUCE THE CLIENT SIDE CODE
+
 ; find_and_mount_disk - Find disk by name and mount it
 ; Based on MM32 mm32_chain_open (MM32.asm line 1435-1578)
 ; Separates filename parsing (reusable) from disk operations (FujiNet-specific)
@@ -819,92 +862,94 @@ param_drive_or_default:
 ;        current_drv set to target drive
 ; Exit: C = 1 if file not found, C = 0 if found and mounted
 find_and_mount_disk:
-        sec                             ; MM32 line 1436: SEC
+        sec
 
-; Entry point for FBOOT and others that pre-load filename
+; Entry point for FBOOT and others that pre-load filename, carry will be off coming in this way
 find_and_mount_disk2:
-        pha                             ; MM32 line 1444: PHA - Store the flags for later
-        bcc     @l0                     ; MM32 line 1445: BCC l0 - Skip filename read
-
-        ; MM32 line 1447-1450: Read filename parameter
-        clc                             ; MM32 line 1447: CLC - We are not cataloguing
-        jsr     parse_disk_filename     ; MM32 line 1448: JSR mm32_param_filename
-        bcs     @notfound               ; MM32 line 1449: BCS notfound - If error when reading parameter
-        beq     @zerolen                ; MM32 line 1450: BEQ zerolen - If string zero length
-
-@l0:    ; MM32 line 1452-1458: Scan for disk
-        ; MM32 sets up mm32_flags% and calls mm32_Scan_Dir
-        ; For FujiNet: Call device to search for disk by name
-        jsr     search_fujinet_disks    ; Search FujiNet for matching disk
-        bcc     @found                  ; C=0 = found
-        
-        ; MM32 line 1460-1466: Try with .SSD extension
-        pla                             ; MM32 line 1460: PLA - Recover flags
-        pha                             ; MM32 line 1461: PHA - Stash them for l8r
-        and     #$01                    ; MM32 line 1462: AND #$01 - File or directory
-        bne     @notfound               ; MM32 line 1463: BNE notfound - If directory don't try appending suffixes
-        
-        jsr     add_ssd_extension       ; MM32 line 1464: JSR mm32_add_ssd_ext
-        jsr     search_fujinet_disks    ; MM32 line 1465: JSR mm32_Scan_Dir
-        bcc     @found                  ; MM32 line 1466: BCC found
-
-        ; MM32 line 1469-1483: Try with .DSD extension
-        jsr     change_ssd_to_dsd       ; MM32 line 1469-1480: Change .SSD to .DSD
-        jsr     search_fujinet_disks    ; MM32 line 1482: JSR mm32_Scan_Dir
-        bcc     @found                  ; MM32 line 1483: BCC found
-
-@notfound:
-        ; MM32 line 1485-1492: Not found
-        pla                             ; MM32 line 1486: PLA - Recover flags
-        and     #$02                    ; MM32 line 1487: AND #$02 - See if we are in autoload mode
-        beq     @notautoload            ; MM32 line 1488: BEQ notautoload
-        sec                             ; MM32 line 1489: SEC
-        rts                             ; MM32 line 1490: RTS - On cold start, simply return
-@notautoload:
-        jmp     err_disk_not_found      ; MM32 line 1492: JMP err_FILENOTFOUND
-
-@found:
-        ; MM32 line 1494-1516: Validate file vs directory match
-        pla                             ; MM32 line 1495: PLA - Recover flags
-        pha                             ; MM32 line 1496: PHA - Stash them for l8r
-        and     #$01                    ; MM32 line 1497: AND #$01 - File or directory?
-        beq     @file                   ; MM32 line 1498: BEQ file
-        pla                             ; MM32 line 1499: PLA - Fix up stack
-        lda     pws_tmp08               ; MM32 line 1500: LDA is_dir% - is_dir flag from search
-        bne     @okay                   ; MM32 line 1501: BNE okay
-        rts                             ; MM32 line 1502: RTS
-@file:
-        pla                             ; MM32 line 1504: PLA - Recover flags
-        ldx     pws_tmp08               ; MM32 line 1505: LDX is_dir%
-        beq     @okay                   ; MM32 line 1506: BEQ okay
-        and     #$02                    ; MM32 line 1507: AND #$02 - Autoload mode?
-        beq     @notautoload2           ; MM32 line 1508: BEQ notautoload2
-        sec                             ; MM32 line 1509: SEC
-        rts                             ; MM32 line 1510: RTS
-@notautoload2:
-        jsr     report_error            ; MM32 line 1512: JSR ReportError
-        .byte   $D6                     ; MM32 line 1513: EQUB &D6
-        .byte   "Is directory", 0       ; MM32 line 1514: EQUB "Is directory",0
-
-@zerolen:
-        ; MM32 line 1518-1524: No parameter given by user - unmount drive
-        pla                             ; MM32 line 1520: PLA - Fix up stack before exit
-        jsr     fuji_unmount_disk       ; Clear drive mapping (MM32 clears CHAIN_INDEX)
         rts
+;         pha                             ; Store the flags for later
+;         bcc     @l0                     ; Skip filename search if C=0
 
-@okay:
-        ; MM32 line 1526-1577: File/Directory Found - mount it
-        ; Disk number is in aws_tmp08/09 (returned by search_fujinet_disks)
+;         clc                             ; We are not cataloguing
+;         jsr     parse_disk_filename     ; MM32 line 1448: JSR mm32_param_filename
+;         bcs     @notfound               ; MM32 line 1449: BCS notfound - If error when reading parameter
+;         beq     @zerolen                ; MM32 line 1450: BEQ zerolen - If string zero length
+
+; @l0:    ; Scan for disk
+;         ; For FujiNet: Call device to search for disk by name
+;         jsr     search_fujinet_disks    ; Search FujiNet for matching disk
+;         bcc     @found                  ; C=0 = found
         
-        ; MM32 line 1567-1576: Store cluster in CHAIN_INDEX
-        ; For FujiNet: Record drive→disk mapping
-        jsr     fuji_mount_disk         ; Record mapping in fuji_drive_disk_map
+;         ; MM32 line 1460-1466: Try with .SSD extension
+;         pla                             ; MM32 line 1460: PLA - Recover flags
+;         pha                             ; MM32 line 1461: PHA - Stash them for l8r
+;         and     #$01                    ; MM32 line 1462: AND #$01 - File or directory
+;         bne     @notfound               ; MM32 line 1463: BNE notfound - If directory don't try appending suffixes
+
+
+; ; TODO: THIS ISN'T NEEDED - LET FN DO SEARCHING FOR FILE EXTENSIONS
+
+;         jsr     add_ssd_extension       ; MM32 line 1464: JSR mm32_add_ssd_ext
+;         jsr     search_fujinet_disks    ; MM32 line 1465: JSR mm32_Scan_Dir
+;         bcc     @found                  ; MM32 line 1466: BCC found
+
+;         ; MM32 line 1469-1483: Try with .DSD extension
+;         jsr     change_ssd_to_dsd       ; MM32 line 1469-1480: Change .SSD to .DSD
+;         jsr     search_fujinet_disks    ; MM32 line 1482: JSR mm32_Scan_Dir
+;         bcc     @found                  ; MM32 line 1483: BCC found
+
+; @notfound:
+;         ; MM32 line 1485-1492: Not found
+;         pla                             ; MM32 line 1486: PLA - Recover flags
+;         and     #$02                    ; MM32 line 1487: AND #$02 - See if we are in autoload mode
+;         beq     @notautoload            ; MM32 line 1488: BEQ notautoload
+;         sec                             ; MM32 line 1489: SEC
+;         rts                             ; MM32 line 1490: RTS - On cold start, simply return
+; @notautoload:
+;         jmp     err_disk_not_found      ; MM32 line 1492: JMP err_FILENOTFOUND
+
+; @found:
+;         ; MM32 line 1494-1516: Validate file vs directory match
+;         pla                             ; MM32 line 1495: PLA - Recover flags
+;         pha                             ; MM32 line 1496: PHA - Stash them for l8r
+;         and     #$01                    ; MM32 line 1497: AND #$01 - File or directory?
+;         beq     @file                   ; MM32 line 1498: BEQ file
+;         pla                             ; MM32 line 1499: PLA - Fix up stack
+;         lda     pws_tmp08               ; MM32 line 1500: LDA is_dir% - is_dir flag from search
+;         bne     @okay                   ; MM32 line 1501: BNE okay
+;         rts                             ; MM32 line 1502: RTS
+; @file:
+;         pla                             ; MM32 line 1504: PLA - Recover flags
+;         ldx     pws_tmp08               ; MM32 line 1505: LDX is_dir%
+;         beq     @okay                   ; MM32 line 1506: BEQ okay
+;         and     #$02                    ; MM32 line 1507: AND #$02 - Autoload mode?
+;         beq     @notautoload2           ; MM32 line 1508: BEQ notautoload2
+;         sec                             ; MM32 line 1509: SEC
+;         rts                             ; MM32 line 1510: RTS
+; @notautoload2:
+;         jsr     report_error            ; MM32 line 1512: JSR ReportError
+;         .byte   $D6                     ; MM32 line 1513: EQUB &D6
+;         .byte   "Is directory", 0       ; MM32 line 1514: EQUB "Is directory",0
+
+; @zerolen:
+;         ; MM32 line 1518-1524: No parameter given by user - unmount drive
+;         pla                             ; MM32 line 1520: PLA - Fix up stack before exit
+;         jsr     fuji_unmount_disk       ; Clear drive mapping (MM32 clears CHAIN_INDEX)
+;         rts
+
+; @okay:
+;         ; MM32 line 1526-1577: File/Directory Found - mount it
+;         ; Disk number is in aws_tmp08/09 (returned by search_fujinet_disks)
         
-        ; Load the catalog for the mounted disk
-        jsr     load_cur_drv_cat        ; Load catalog from FujiNet
+;         ; MM32 line 1567-1576: Store cluster in CHAIN_INDEX
+;         ; For FujiNet: Record drive→disk mapping
+;         jsr     fuji_mount_disk         ; Record mapping in fuji_drive_disk_map
         
-        clc                             ; C=0 = success
-        rts                             ; MM32 line 1577: RTS
+;         ; Load the catalog for the mounted disk
+;         jsr     load_cur_drv_cat        ; Load catalog from FujiNet
+        
+;         clc                             ; C=0 = success
+;         rts                             ; MM32 line 1577: RTS
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Filename Parsing Functions (Pure string manipulation - no I/O)

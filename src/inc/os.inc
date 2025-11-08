@@ -185,6 +185,7 @@ OS_INC = 1
         .importzp  pws_tmp15
 
         .importzp  current_drv
+        .importzp  current_host
         .importzp  directory_param
         .importzp  paged_ram_copy
         .importzp  text_pointer

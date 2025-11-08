@@ -180,6 +180,7 @@
         .exportzp  pws_tmp15
 
         .exportzp  current_drv
+        .exportzp  current_host
         .exportzp  directory_param
         .exportzp  paged_ram_copy
         .exportzp  text_pointer
@@ -250,7 +251,7 @@ pws_tmp07       := $C7
 pws_tmp08       := $C8
 pws_tmp09       := $C9
 pws_tmp10       := $CA
-pws_tmp11       := $CB
+pws_tmp11       := $CB   ; ALSO current_host
 pws_tmp12       := $CC   ; ALSO directory_param
 pws_tmp13       := $CD   ; ALSO current_drv
 pws_tmp14       := $CE
@@ -263,6 +264,7 @@ paged_rom_priv_ws := $0DF0
 FSCV            := $021E
 
 ; aliases from PWS vars
+current_host    := $CB
 directory_param := $CC
 current_drv     := $CD
 

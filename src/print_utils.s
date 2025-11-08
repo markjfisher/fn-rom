@@ -114,13 +114,13 @@ err_bad:
 
 report_error_cb:
         ; TODO: Check if writing channel buffer
-        lda     $10DD                   ; Error while writing
+        lda     fuji_error_flag         ; Error while writing
         bne     @brk100_notbuf          ; channel buffer?
         jsr     clear_exec_spool_file_handle
 @brk100_notbuf:
         lda     #$FF
         sta     current_cat
-        sta     $10DD                   ; Not writing buffer
+        sta     fuji_error_flag        ; Not writing buffer
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; REPORT ERROR

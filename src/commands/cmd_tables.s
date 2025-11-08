@@ -27,6 +27,7 @@
         .import cmd_fs_enable
         .import cmd_fs_ex
         .import cmd_fs_fboot
+        .import cmd_fs_fhost
         .import cmd_fs_form
         .import cmd_fs_free
         .import cmd_fs_fuji
@@ -125,6 +126,7 @@ cmd_table_futils:
         .byte   (cmd_table_futils_cmds - cmd_table_fujifs_cmds) / 2 - 1
 
         .byte   "BOOT",      $80+$07    ; <dno>/<dsp>
+        .byte   "HOST",      $80+$74    ; (num) <path>
         .byte   "IN",        $80+$74    ; (<drive>) <dos name>
         .byte   "RESET",     $80+$00    ; no parameter
         .byte   $00                     ; End of table
@@ -178,12 +180,14 @@ cmd_table_help_cmds:
 ; OLD: cmdaddr4
 cmd_table_futils_cmds:
         .word   cmd_fs_fboot-1
+        .word   cmd_fs_fhost-1
         .word   cmd_fs_fin-1
         .word   cmd_fs_freset-1
         .word   not_cmd_futils-1
 
 cmd_table_END:
 
+; THIS NEEDS EXTENDING, WE HAVE TOO MANY PARAMS WITH FUJINET URLS, SLOTS, etc
 parameter_table:
         .byte '<'|$80, "drive>"                 ; 1
         .byte '<'|$80, "afsp>"                  ; 2
