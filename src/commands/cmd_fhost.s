@@ -1,10 +1,14 @@
         .export cmd_fs_fhost
+        .export fhost_list
+        .export fhost_set_current_host
+        .export fhost_set_host_url
 
         .import err_bad
         .import err_syntax
         .import num_params
         .import param_count_a
         .import param_get_num
+        .import param_get_string
 
         .include "fujinet.inc"
 
@@ -52,6 +56,20 @@ fhost_list:
         rts
 
 fhost_set_host_url:
+        ; get the host number
         jsr     fhost_set_current_host
-        ; now read the host url parameter
+        ; read the host url parameter into fuji_filename_buffer
+        ; C=0 if name was too long
+        jsr     param_get_string
+        bcc     err_bad_host_string
+
+        ; we have current_host and fuji_filename_buffer set so tell FujiNet
+        ; jsr     
+
+        rts
+
+err_bad_host_string:
+        jsr     err_bad
+        .byte   $CB                     ; again, not sure here
+        .byte   "url", 0
 

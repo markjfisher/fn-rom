@@ -2,7 +2,7 @@
 #
 
 PROGRAM = fujinet
-CURRENT_TARGET = bbc
+CURRENT_TARGET = none
 
 # Interface selection - can be overridden on command line
 # Options: SERIAL (default), USERPORT, 1MHZ, DUMMY

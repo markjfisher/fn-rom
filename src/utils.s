@@ -10,19 +10,43 @@
         .export  GSINIT_A
         .export  is_alpha_char
         .export  osbyte_0f_flush_inbuf2
+        .export  osbyte_13_delay_a
         .export  osbyte_X0YFF
         .export  osbyte_YFF
+        .export  micro_pause_end
+        .export  micro_pause_start
         .export  set_text_pointer_yx
         .export  tube_check_if_present
         .export  ucasea2
         .export  y_add7
         .export  y_add8
 
+        .export  _vblank
+
         .import  remember_axy
 
         .include "fujinet.inc"
 
         .segment "CODE"
+
+
+; set x to be the number of 1/50ths of a second to delay (via vertical sync)
+_vblank:
+osbyte_13_delay_a:
+        tax
+micro_pause_start:
+@delay:
+        txa
+        pha
+        lda     #$13             ; OSBYTE 19 - Wait for vertical sync
+        jsr     OSBYTE
+        pla
+        tax
+        dex
+        bne     @delay
+micro_pause_end:
+        rts
+
 
 osbyte_0f_flush_inbuf2:
         jsr     remember_axy

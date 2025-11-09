@@ -21,6 +21,7 @@
         .export param_drive_no_bad_drive
         .export param_drive_no_syntax
         .export param_get_num
+        .export param_get_string
         .export param_optional_drive_no
         .export param_syntax_error_if_null
         .export param_syntax_error_if_null_getcatentry_fsptxtp
@@ -365,13 +366,49 @@ set_current_drive_adrive_noand:
         sta     current_drv
         rts
 
-; read a generic number, non optional, error if it's not between 0-9
+
+
+; read a generic string, non optional, error if empty
+; and save into fuji_filename_buffer
+; EXIT A = length (max 63+1 for nul)
+;      fuji_filename_buffer contains 0 terminated string up to 63 bytes
+;      C = 0 for truncated string (i.e. hit max first)
+;      C = 1 for completed reading string
+param_get_string:
+        jsr     GSINIT_A
+        beq     err_bad_string
+
+        ldx     #$00
+@str_loop:
+        jsr     GSREAD_A
+        bcs     @exit_str
+        sta     fuji_filename_buffer, x
+        inx
+        cpx     #$3F            ; allow up to 64 bytes (with terminating 00)
+        bcc     @str_loop
+        clc                     ; mark that we have truncated
+
+@exit_str:
+        lda     #$00
+        sta     fuji_filename_buffer, x
+        txa                     ; return the length in A
+        ; C=0 for truncated string (max hit), C=1 for string read to end
+        rts
+
+err_bad_string:
+        jsr     err_bad
+        .byte   $CB                             ; i'm guessing this byte is for the memory param to show? Not sure how to do this for a generic "number" error
+        .byte   "string", 0
+
+; read a generic number, continuing from current read position (Y)
+; non optional, error if it's not between 0-9
 ; returns result in A
 param_get_num:
         jsr     GSINIT_A
         beq     err_bad_num
         jsr     GSREAD_A
-        sbc     #'0'
+;        sec
+        sbc     #'0'-1                          ; NOTE: C is 0, so we need to decrease by 1 to get correct subtraction (saves a SEC)
         bmi     err_bad_num                     ; < 0
         cmp     #$0A
         bcs     err_bad_num                     ; > 9
