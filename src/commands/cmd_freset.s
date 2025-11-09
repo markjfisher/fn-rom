@@ -42,32 +42,24 @@ ERR_INVALID_COMPLETE    = $04   ; Did not receive 'C' (Complete)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 cmd_fs_freset:
-        ; Configure serial port
         jsr     setup_serial_19200
 
-        ; make sending freset extremely simple. No need to calculate checksum, or read response
-        lda     #$70            ; device
-        jsr     OSWRCH
-        ; Command bytes (FF 00 00 00 00) == RESET
-        lda     #$FF
-        jsr     OSWRCH
-
-        ; A, X, Y preserved, so we can keep calling OSWRCH with A=0
-        lda     #$00
-        ldx     #$04
+        ; send 7 bytes command data to the FujiNet.
+        ldx     #$06
 @l1:
-        jsr     OSWRCH 
-        dex
-        bne     @l1
-        
-        lda     #$70            ; checksum
+        lda     cmd_reset_data, x
         jsr     OSWRCH
+        dex
+        bpl     @l1
 
         jsr     restore_output_to_screen
         ldx     #$00
         jmp     set_user_flag_x
 
-
+; data is sent as: DEVICE, CMD, AUX1..4, CHKSUM
+; table is backwards to save a CPX in the loop
+cmd_reset_data:
+        .byte $70, $00, $00, $00, $00, $FF, $70
 
         ; THE FOLLOWING IS A LOT OF ROM CODE TO JUST CHECK RESPONSE
         ; WHICH WE DON'T REALLY CARE ABOUT.
