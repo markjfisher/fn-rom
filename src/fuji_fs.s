@@ -199,7 +199,10 @@ fuji_begin_transaction:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 fuji_end_transaction:
-        ; Restore workspace variables
+        ; Restore workspace variables from 1090-109F into BC-CB
+        ; we don't reach into 10A0
+        ; TODO: Verify why we don't do all the fields. could we save more state?
+        ; Is this very MMFS specific?
         ldx     #$0F
 @restore_loop:
         lda     $1090,x
@@ -227,7 +230,7 @@ fuji_check_device_status:
 
 fuji_read_mem_block:
         jsr     fuji_begin_transaction   ; Save &BC-&CB
-        lda     #$85                     ; Read operation
+        lda     #$85                     ; Read operation - TODO: This is very MMFS based for the value
         jsr     fuji_execute_block_rw
         jsr     fuji_end_transaction     ; Restore &BC-&CB
         lda     #1                       ; Success
@@ -241,7 +244,7 @@ fuji_read_mem_block:
 
 fuji_write_mem_block:
         jsr     fuji_begin_transaction   ; Save &BC-&CB
-        lda     #$A5                     ; Write operation
+        lda     #$A5                     ; Write operation - TODO: This is very MMFS based for the value
         jsr     fuji_execute_block_rw
         jsr     fuji_end_transaction     ; Restore &BC-&CB
         lda     #1                       ; Success

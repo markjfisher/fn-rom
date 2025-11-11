@@ -23,16 +23,10 @@ OS_INC = 1
         .import  OSWRCH
         .import  ROMSEL
 
-        .import  CHECK_CRC7
         .import  current_cat
         .import  dfs_cat_num_x8
         .import  FSCV
-        .import  MMC_CIDCRC
-        .import  MMC_STATE
-        .import  OWCtlBlock
         .import  paged_rom_priv_ws
-        .import  VID
-        .import  VID2
 
         .import  fuji_filename_buffer
         .import  fuji_open_channels

@@ -5,34 +5,24 @@
 ; Response: 'A' (ACK), 'C' (Complete)
 
         .export cmd_fs_freset
-        ; .export freset_send_complete
-
-        ; .export freset_read_ack
-        ; .export freset_read_complete
-        ; .export freset_exit
-        ; .export freset_timeout
-        ; .export freset_invalid_ack
-        ; .export freset_invalid_complete
-
-        ; .import _drain_data
-        ; .import osbyte_13_delay_a
 
         .include "fujinet.inc"
 
         .segment "CODE"
 
 ; Import serial utilities
-        .import _read_serial_data
-        .import calc_checksum
-        .import restore_output_to_screen
+        ; .import _read_serial_data
+        ; .import calc_checksum
+        ; .import restore_output_to_screen
+        .import fuji_reset
         .import set_user_flag_x
-        .import setup_serial_19200
+        ; .import setup_serial_19200
 
 ; Error codes
-ERR_BAD_COUNT           = $01   ; Didn't get correct read count
-ERR_TIMEOUT             = $02   ; Timeout waiting for response
-ERR_INVALID_ACK         = $03   ; Did not receive 'A' (ACK)
-ERR_INVALID_COMPLETE    = $04   ; Did not receive 'C' (Complete)
+; ERR_BAD_COUNT           = $01   ; Didn't get correct read count
+; ERR_TIMEOUT             = $02   ; Timeout waiting for response
+; ERR_INVALID_ACK         = $03   ; Did not receive 'A' (ACK)
+; ERR_INVALID_COMPLETE    = $04   ; Did not receive 'C' (Complete)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; cmd_fs_freset - Handle *FRESET command
@@ -42,28 +32,15 @@ ERR_INVALID_COMPLETE    = $04   ; Did not receive 'C' (Complete)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 cmd_fs_freset:
-        jsr     setup_serial_19200
+        jsr     fuji_reset
 
-        ; send 7 bytes command data to the FujiNet.
-        ldx     #$06
-@l1:
-        lda     cmd_reset_data, x
-        jsr     OSWRCH
-        dex
-        bpl     @l1
-
-        jsr     restore_output_to_screen
+        ; set operation successfully (0 in user flag)
         ldx     #$00
         jmp     set_user_flag_x
 
-; data is sent as: DEVICE, CMD, AUX1..4, CHKSUM
-; table is backwards to save a CPX in the loop
-cmd_reset_data:
-        .byte $70, $00, $00, $00, $00, $FF, $70
 
         ; THE FOLLOWING IS A LOT OF ROM CODE TO JUST CHECK RESPONSE
         ; WHICH WE DON'T REALLY CARE ABOUT.
-        ; WE COULD JUST FLUSH THE RESPONSE AND BE DONE.
 
 ; freset_send_complete:
 ;         lda     #10

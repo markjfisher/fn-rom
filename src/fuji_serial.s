@@ -1,19 +1,29 @@
 ; FujiNet serial interface implementation
 ; Low-level communication with FujiNet device via serial port
-; This implements the data layer functions called by fuji_fs.s
+; This implements the data layer functions called by fuji_fs.s and fuji_cmds.s
 ; Only compiled when FUJI_INTERFACE_SERIAL is defined
 
 ; Only compile this file if SERIAL interface is selected
 .ifdef FUJINET_INTERFACE_SERIAL
 
+        .export fuji_mount_disk_data
         .export fuji_read_block_data
-        .export fuji_write_block_data
         .export fuji_read_catalog_data
-        .export fuji_write_catalog_data
         .export fuji_read_disc_title_data
+        .export fuji_write_catalog_data
+        .export fuji_write_block_data
 
-        .import remember_axy
+        ; FUJI functions
+        .export fuji_execute_reset
+        .export fuji_execute_set_host_url_n
+
         .import err_disk
+        .import remember_axy
+        .import restore_output_to_screen
+        .import setup_serial_19200
+
+        .import _calc_checksum
+        .import _write_serial_data
 
         .include "fujinet.inc"
 
@@ -113,5 +123,104 @@ fuji_read_disc_title_data:
         ; For now, just return success
         clc
         rts
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; fuji_mount_disk_data - Mount disk image into drive (hardware implementation)
+;
+; For serial/userport: This would send MOUNT command to FujiNet device
+;
+; Entry: current_drv = drive number (0-3)
+;        aws_tmp08/09 = disk image number to mount
+; Exit:  Nothing (mapping already recorded by caller)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+fuji_mount_disk_data:
+        rts
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; fuji_execute_set_host_url_n - Set the Nth host URL
+; values are pre-validated in cmd_fs_freset, 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+fuji_execute_set_host_url_n:
+        jsr     remember_axy
+
+        ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        ;; setup the data we are going to send before sending it
+        ;; move the url to fuji_filename_buffer+1
+        ldx     #$1F
+@l1:
+        lda     fuji_filename_buffer,x
+        sta     fuji_filename_buffer+1,x
+        dex
+        bpl     @l1
+
+        ; copy the host number to the start
+        lda     current_host
+        sta     fuji_filename_buffer
+
+        ; now perform checksum on it
+        lda     #<fuji_filename_buffer          ; buffer
+        sta     aws_tmp00
+        lda     #>fuji_filename_buffer
+        sta     aws_tmp01
+        lda     #33                             ; length
+        sta     aws_tmp02
+        lda     #$00
+        sta     aws_tmp03
+        jsr     _calc_checksum
+        sta     fuji_filename_buffer + 33       ; write checksum to 34th byte
+
+        ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        ; now send data to fujinet
+        ; SEND 2 BLOCKS OF DATA:
+        ; 1. The Command block
+        ;   CF: 70 9F 00 00 00 00 <chksum:10>
+        lda     #<cmd_set_host_url_n_data
+        ldx     #>cmd_set_host_url_n_data
+        jsr     fuji_send_cf
+
+        ; absorb the ACK/CONFIRM?
+
+        ; 2. The command data:
+        ;   host     (1 byte)     from current_host
+        ;   url      (32 bytes)   from fuji_filename_buffer
+        ;   checksum (1 byte)
+
+        lda     #<fuji_filename_buffer
+        sta     aws_tmp00
+        lda     #>fuji_filename_buffer
+        sta     aws_tmp01
+        lda     #34
+        sta     aws_tmp02
+        lda     #$00
+        sta     aws_tmp03
+        jmp     _write_serial_data
+
+
+fuji_execute_reset:
+        jsr     remember_axy
+
+        lda     #<cmd_reset_data
+        ldx     #>cmd_reset_data
+        ; fall through to fuji_send_cf
+
+; INPUT: A/X set to table we are reading backwards from
+fuji_send_cf:
+        sta     aws_tmp00
+        stx     aws_tmp01
+        lda     #$07
+        sta     aws_tmp02
+        lda     #$00
+        sta     aws_tmp03
+        jmp     _write_serial_data
+
+; data is sent as: DEVICE, CMD, AUX1..4, CHKSUM
+cmd_reset_data:
+        .byte $70, $FF, $00, $00, $00, $00, $70
+
+cmd_set_host_url_n_data:
+        .byte $70, $9F, $00, $00, $00, $00, $10
+
 
 .endif  ; FUJINET_INTERFACE_SERIAL

@@ -6,15 +6,19 @@
 ; Only compile this file if DUMMY interface is selected
 .ifdef FUJINET_INTERFACE_DUMMY
 
-        .export fuji_read_block_data
-        .export fuji_write_block_data
-        .export fuji_read_catalog_data
-        .export fuji_write_catalog_data
-        .export fuji_read_disc_title_data
-        .export fuji_mount_disk_data
-        .export fuji_get_disk_list_data
         .export fuji_check_disk_exists
+        .export fuji_get_disk_list_data
         .export fuji_get_disk_name_data
+        .export fuji_mount_disk_data
+        .export fuji_read_block_data
+        .export fuji_read_catalog_data
+        .export fuji_read_disc_title_data
+        .export fuji_write_block_data
+        .export fuji_write_catalog_data
+
+        ; FUJI functions
+        .export fuji_execute_reset
+        .export fuji_execute_set_host_url_n
 
         .export dummy_catalog
 
@@ -1350,5 +1354,14 @@ fuji_get_disk_name_data:
         lda     #>fuji_filename_buffer
         sta     aws_tmp13               ; gd_ptr high byte
         rts
+
+
+; FUJI functions
+fuji_execute_set_host_url_n:
+        rts
+
+fuji_execute_reset:
+        rts
+
 
 .endif  ; FUJINET_INTERFACE_DUMMY

@@ -6,7 +6,6 @@
         .export boot_options
 
         .import a_rorx4
-        .import calculate_crc7
         .import channel_flags_clear_bits
         .import extendedvectors_table
         .import load_cur_drv_cat
@@ -82,7 +81,6 @@ init_fuji:
         sty     current_cat+1           ; this has a "?"" in MMFS src... who knows why?
         stx     current_drv             ; curdrv=0
         stx     current_host            ; set host to 0
-        ; stx     MMC_STATE             ; Uninitialised
 
         ldx     #$0F                  ; vectors claimed!
         lda     #$8F
@@ -149,23 +147,25 @@ init_fuji:
 @copyfromPWS2:
         dey
         bne     @copyfromPWStoSWS_loop
+        beq     setdefaults
 
-        ; Check VID CRC and if wrong reset filing system
-        jsr     calculate_crc7
-        cmp     CHECK_CRC7
-        bne     setdefaults
+        ; TODO: does this have a place in FN?
 
-        lda     #$A0                  ; Refresh channel block info
-@setchans_loop:
-        tay
-        pha
-        lda     #$3F
-        jsr     channel_flags_clear_bits  ; Clear bits 7 & 6, C=0
-        pla
-        sta     $111D,y               ; Buffer sector hi?
-        sbc     #$1F                  ; A=A-$1F-(1-C)=A-$20
-        bne     @setchans_loop
-        beq     initdfs_noreset       ; always
+        ; jsr     calculate_crc7
+        ; cmp     CHECK_CRC7
+        ; bne     setdefaults
+
+;         lda     #$A0                  ; Refresh channel block info
+; @setchans_loop:
+;         tay
+;         pha
+;         lda     #$3F
+;         jsr     channel_flags_clear_bits  ; Clear bits 7 & 6, C=0
+;         pla
+;         sta     $111D,y               ; Buffer sector hi?
+;         sbc     #$1F                  ; A=A-$1F-(1-C)=A-$20
+;         bne     @setchans_loop
+;         beq     initdfs_noreset       ; always
 
 ; Initialise SWS (Static Workspace)
 initdfs_reset:
@@ -218,9 +218,6 @@ setdefaults:
 
 ; TODO: REVIEW THIS CODE
 
-        ; INITIALISE VID VARIABLES
-        jsr     vid_reset
-
 initdfs_noreset:
         jsr     tube_check_if_present   ; Tube present?
 
@@ -228,7 +225,6 @@ initdfs_noreset:
         jsr     osbyte_X0YFF            ; X=0=soft,1=power up,2=hard
         cpx     #$00
         beq     skip_autoload
-        jsr     mmc_begin2
         jsr     fuji_cmd_autoload
 
 skip_autoload:
@@ -285,20 +281,20 @@ claim_static_workspace:
         sta     (aws_tmp00),y                   ; Set pws is "empty"
         rts
 
-vid_reset:
-        ldy     #<(CHECK_CRC7 - VID - 1)
-        lda     #$00
-@loop:
-        sta     VID,y
-        dey
-        bpl     @loop
-        lda     #$01
-        sta     CHECK_CRC7
-        rts
+; vid_reset:
+;         ldy     #<(CHECK_CRC7 - VID - 1)
+;         lda     #$00
+; @loop:
+;         sta     VID,y
+;         dey
+;         bpl     @loop
+;         lda     #$01
+;         sta     CHECK_CRC7
+;         rts
 
-mmc_begin2:
-        ; TODO: Implement MMC begin
-        rts
+; mmc_begin2:
+;         ; TODO: Implement MMC begin
+;         rts
 
 fuji_cmd_autoload:
         ; TODO: Implement autoload

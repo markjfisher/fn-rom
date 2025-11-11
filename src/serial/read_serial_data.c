@@ -42,12 +42,13 @@ void write_byte_to_buffer(void) {
     bytes_ptr[i_counter] = ch_byte;
 }
 
+// TODO: if this is never used, remove it
 void drain_data(void) {
     i_counter = 0;
 
     while (i_counter < bytes_len) {
         wait_count = 0;
-        while (wait_count < WAIT_MAX) {
+        while (wait_count < 100) {
             if (check_rs423_buffer() != 0) {
                 read_rs423_char();
                 break;

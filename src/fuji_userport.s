@@ -7,10 +7,14 @@
 .ifdef FUJINET_INTERFACE_USERPORT
 
         .export fuji_read_block_data
-        .export fuji_write_block_data
         .export fuji_read_catalog_data
-        .export fuji_write_catalog_data
         .export fuji_read_disc_title_data
+        .export fuji_write_block_data
+        .export fuji_write_catalog_data
+
+        ; FUJI functions
+        .export fuji_execute_reset
+        .export fuji_execute_set_host_url_n
 
         .import remember_axy
         .import err_disk
@@ -112,6 +116,13 @@ fuji_read_disc_title_data:
 
         ; For now, just return success
         clc
+        rts
+
+
+fuji_execute_set_host_url_n:
+        rts
+
+fuji_execute_reset:
         rts
 
 .endif  ; FUJINET_INTERFACE_USERPORT

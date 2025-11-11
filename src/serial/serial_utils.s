@@ -22,6 +22,7 @@ OSBYTE_FLUSH_BUFFER     = $15   ; Flush buffer
 OSBYTE_IN_KEY           = $81   ; Read key with timeout
 
 ; Baud rates
+; TODO: make this configurable for user
 BAUD_19200              = $08   ; 19200 baud
 
 ; Stream values

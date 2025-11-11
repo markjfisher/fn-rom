@@ -6,7 +6,7 @@ CURRENT_TARGET = none
 
 # Interface selection - can be overridden on command line
 # Options: SERIAL (default), USERPORT, 1MHZ, DUMMY
-BUILD_INTERFACE ?= DUMMY
+BUILD_INTERFACE ?= SERIAL
 
 # Ensure WSL2 Ubuntu and other linuxes use bash by default instead of /bin/sh, which does not always like the shell commands.
 SHELL := /usr/bin/env bash

@@ -378,13 +378,14 @@ param_get_string:
         jsr     GSINIT_A
         beq     err_bad_string
 
+param_get_string_no_init:
         ldx     #$00
 @str_loop:
         jsr     GSREAD_A
         bcs     @exit_str
         sta     fuji_filename_buffer, x
         inx
-        cpx     #$3F            ; allow up to 64 bytes (with terminating 00)
+        cpx     #$3F            ; allow up to 64 bytes (with terminating 00, i.e. 63+1)
         bcc     @str_loop
         clc                     ; mark that we have truncated
 

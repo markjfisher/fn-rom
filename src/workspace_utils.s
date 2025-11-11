@@ -40,7 +40,7 @@ save_static_to_private_workspace:
 @stat_y_gtreq_c0:
         sta     (aws_tmp00),y
         iny
-        cpy     #<(CHECK_CRC7+1)
+        cpy     #<(fuji_state+1)
         bne     @stat_loop1
 
         ; Restore previous values

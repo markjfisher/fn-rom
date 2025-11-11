@@ -6,7 +6,7 @@
         .export  a_rorx4and3
         .export  a_rorx5
         .export  a_rorx6and3
-        .export  calculate_crc7
+        .export  inc_word_aws_tmp00_dec_word_aws_tmp02
         .export  GSINIT_A
         .export  is_alpha_char
         .export  osbyte_0f_flush_inbuf2
@@ -20,7 +20,6 @@
         .export  ucasea2
         .export  y_add7
         .export  y_add8
-
         .export  _vblank
 
         .import  remember_axy
@@ -112,27 +111,27 @@ set_text_pointer_yx:
 ; Exit: A=CRC7, X=0, Y=FF
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-calculate_crc7:
-        ldy     #<(CHECK_CRC7 - VID - 1)
-        lda     #$00
-@loop1:
-        eor     VID,y
-        asl     a
-        ldx     #$07
-@loop2:
-        bcc     @c7b7z1
-        eor     #$12
-@c7b7z1:
-        asl     a
-        dex
-        bne     @loop2
-        bcc     @c7b7z2
-        eor     #$12
-@c7b7z2:
-        dey
-        bpl     @loop1
-        ora     #$01
-        rts
+; calculate_crc7:
+;         ldy     #<(CHECK_CRC7 - VID - 1)
+;         lda     #$00
+; @loop1:
+;         eor     VID,y
+;         asl     a
+;         ldx     #$07
+; @loop2:
+;         bcc     @c7b7z1
+;         eor     #$12
+; @c7b7z1:
+;         asl     a
+;         dex
+;         bne     @loop2
+;         bcc     @c7b7z2
+;         eor     #$12
+; @c7b7z2:
+;         dey
+;         bpl     @loop1
+;         ora     #$01
+;         rts
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Tube check if present
 ; Exit: A=0 if tube present, $FF if not
@@ -191,4 +190,23 @@ ucasea2:
 @ucasea:
         and     #$7F                    ; Ignore bit 7
         plp
+        rts
+
+; Increments aws_tmp00/01 (buffer location) and
+; decrements aws_tmp02/03 (used for count).
+; Returns with C=0 if not reached 0, C=1 when zero reached
+inc_word_aws_tmp00_dec_word_aws_tmp02:
+        ; increment
+        inc     aws_tmp00
+        bne     :+
+        inc     aws_tmp01
+
+        ; decrement
+:       lda     aws_tmp02
+        bne     :+
+        dec     aws_tmp03
+:       dec     aws_tmp02
+        ; check if we hit 0 so we can use BEQ
+        lda     aws_tmp02
+        ora     aws_tmp03
         rts

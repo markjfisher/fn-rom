@@ -18,16 +18,10 @@
         .export  OSWRCH
         .export  ROMSEL
 
-        .export  CHECK_CRC7
         .export  current_cat
         .export  dfs_cat_num_x8
         .export  FSCV
-        .export  MMC_CIDCRC
-        .export  MMC_STATE
-        .export  OWCtlBlock
         .export  paged_rom_priv_ws
-        .export  VID
-        .export  VID2
 
         .export  fuji_filename_buffer
         .export  fuji_open_channels
@@ -272,14 +266,6 @@ current_drv     := $CD
 current_cat      := $1082
 
 TubeNoTransferIf0 := $10AE
-; UNUSED
-MMC_STATE       := $10AF
-OWCtlBlock      := $10B0
-
-VID             := $10E0
-VID2            := VID
-MMC_CIDCRC      := VID2+$0E
-CHECK_CRC7      := VID2+$10
 
 ; 0E00 is a copy of the disk catalog, see fuji_read_catalog in fuji_fs.s
 ; e.g. 0F05 = Num*8, 0F0C,X = size of nth file where X = 8 + n*8
