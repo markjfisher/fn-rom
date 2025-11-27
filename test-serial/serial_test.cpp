@@ -73,9 +73,9 @@ bool configurePort(int fd, int baud) {
     cfsetospeed(&tty, speed);
     cfsetispeed(&tty, speed);
 
-    // Non-blocking reads with a short timeout at the driver level
+    // Non-blocking reads with timeout handled via select()
     tty.c_cc[VMIN]  = 0;
-    tty.c_cc[VTIME] = 0; // timeout handled by select()
+    tty.c_cc[VTIME] = 0;
 
     if (tcsetattr(fd, TCSANOW, &tty) != 0) {
         std::cerr << "tcsetattr error: " << std::strerror(errno) << "\n";
@@ -102,7 +102,7 @@ int openPort(const std::string &path, int baud) {
     return fd;
 }
 
-// Rolling-carry checksum over first 6 bytes
+// Rolling-carry checksum over first len bytes
 uint8_t computeChecksum(const uint8_t *data, size_t len) {
     uint16_t sum = 0;
     for (size_t i = 0; i < len; ++i) {
@@ -112,6 +112,85 @@ uint8_t computeChecksum(const uint8_t *data, size_t len) {
         }
     }
     return static_cast<uint8_t>(sum & 0xFF);
+}
+
+// Hex + ASCII dump helper
+void dumpBuffer(const std::vector<uint8_t> &buffer) {
+    if (buffer.empty()) {
+        std::cout << "(no data)\n";
+        return;
+    }
+
+    std::cout << "Hex dump (" << buffer.size() << " bytes):\n";
+    for (size_t i = 0; i < buffer.size(); ++i) {
+        std::cout << std::hex << std::uppercase << std::setw(2)
+                  << std::setfill('0') << (int)buffer[i] << " ";
+        if ((i + 1) % 16 == 0) std::cout << "\n";
+    }
+    std::cout << std::dec << "\n";
+
+    std::cout << "ASCII: ";
+    for (uint8_t b : buffer) {
+        if (b >= 32 && b <= 126) {
+            std::cout << static_cast<char>(b);
+        } else {
+            std::cout << '.';
+        }
+    }
+    std::cout << "\n";
+}
+
+// Read data until the line is idle for idleTimeoutMs or maxBytes reached
+std::vector<uint8_t> readUntilIdle(int fd, int idleTimeoutMs, size_t maxBytes) {
+    std::vector<uint8_t> result;
+    if (fd < 0) {
+        std::cerr << "Port not open.\n";
+        return result;
+    }
+
+    while (result.size() < maxBytes) {
+        fd_set readfds;
+        FD_ZERO(&readfds);
+        FD_SET(fd, &readfds);
+
+        struct timeval tv;
+        tv.tv_sec = idleTimeoutMs / 1000;
+        tv.tv_usec = (idleTimeoutMs % 1000) * 1000;
+
+        int ret = select(fd + 1, &readfds, nullptr, nullptr, &tv);
+        if (ret < 0) {
+            std::cerr << "select error: " << std::strerror(errno) << "\n";
+            break;
+        } else if (ret == 0) {
+            // idle timeout, no more data
+            break;
+        }
+
+        uint8_t buf[256];
+        ssize_t n = ::read(fd, buf, sizeof(buf));
+        if (n < 0) {
+            std::cerr << "read error: " << std::strerror(errno) << "\n";
+            break;
+        }
+        if (n == 0) {
+            // no data, treat as idle as well
+            break;
+        }
+
+        // Append to result
+        size_t toCopy = static_cast<size_t>(n);
+        if (result.size() + toCopy > maxBytes) {
+            toCopy = maxBytes - result.size();
+        }
+        result.insert(result.end(), buf, buf + toCopy);
+
+        if (result.size() >= maxBytes) {
+            break;
+        }
+        // Loop again; idleTimeoutMs is measured per "gap" of no data
+    }
+
+    return result;
 }
 
 // Send a 7-byte packet: 6 data bytes + checksum
@@ -146,50 +225,6 @@ bool sendPacket(int fd, const uint8_t bytes6[6]) {
     return true;
 }
 
-// Hex-dump bytes read from the port (non-blocking, with timeout)
-void readAndDump(int fd, int timeoutMs, size_t maxBytes) {
-    if (fd < 0) {
-        std::cerr << "Port not open.\n";
-        return;
-    }
-
-    fd_set readfds;
-    FD_ZERO(&readfds);
-    FD_SET(fd, &readfds);
-
-    struct timeval tv;
-    tv.tv_sec = timeoutMs / 1000;
-    tv.tv_usec = (timeoutMs % 1000) * 1000;
-
-    int ret = select(fd + 1, &readfds, nullptr, nullptr, &tv);
-    if (ret < 0) {
-        std::cerr << "select error: " << std::strerror(errno) << "\n";
-        return;
-    } else if (ret == 0) {
-        std::cout << "No data within timeout (" << timeoutMs << " ms).\n";
-        return;
-    }
-
-    std::vector<uint8_t> buffer(maxBytes);
-    ssize_t n = ::read(fd, buffer.data(), buffer.size());
-    if (n < 0) {
-        std::cerr << "read error: " << std::strerror(errno) << "\n";
-        return;
-    }
-    if (n == 0) {
-        std::cout << "No data available.\n";
-        return;
-    }
-
-    std::cout << "Read " << n << " bytes:\n";
-    for (ssize_t i = 0; i < n; ++i) {
-        std::cout << std::hex << std::uppercase << std::setw(2)
-                  << std::setfill('0') << (int)buffer[i] << " ";
-        if ((i + 1) % 16 == 0) std::cout << "\n";
-    }
-    std::cout << std::dec << "\n";
-}
-
 // Parse 6 hex bytes from a line, e.g. "70 FF 01 02 03 04"
 bool parseSixHexBytes(const std::string &line, uint8_t out[6]) {
     std::istringstream iss(line);
@@ -209,10 +244,11 @@ bool parseSixHexBytes(const std::string &line, uint8_t out[6]) {
 void printMenu() {
     std::cout << "\n=== Serial Test Menu ===\n";
     std::cout << "1) Send RESET command (70 FF 00 00 00 00 + checksum)\n";
-    std::cout << "2) Send custom 6-byte payload (checksum auto-calculated)\n";
-    std::cout << "3) Read and dump incoming bytes\n";
-    std::cout << "4) Change device/baud and reopen\n";
-    std::cout << "5) Quit\n";
+    std::cout << "2) Send HOST command  (70 F4 00 00 00 00 + checksum)\n";
+    std::cout << "3) Send custom 6-byte payload (checksum auto-calculated)\n";
+    std::cout << "4) Read and dump incoming bytes (until idle timeout)\n";
+    std::cout << "5) Change device/baud and reopen\n";
+    std::cout << "6) Quit\n";
     std::cout << "Select: ";
 }
 
@@ -241,6 +277,8 @@ int main() {
         return 1;
     }
 
+    const int defaultIdleTimeoutMs = 500; // 0.5s as requested
+
     bool running = true;
     while (running) {
         printMenu();
@@ -255,10 +293,44 @@ int main() {
             case 1: {
                 // RESET: device ID 0x70, command 0xFF, 4 x 0x00
                 uint8_t bytes6[6] = {0x70, 0xFF, 0x00, 0x00, 0x00, 0x00};
-                sendPacket(fd, bytes6);
+                if (sendPacket(fd, bytes6)) {
+                    std::cout << "Waiting for RESET response (idle timeout "
+                              << defaultIdleTimeoutMs << " ms)...\n";
+                    auto resp = readUntilIdle(fd, defaultIdleTimeoutMs, 1024);
+                    dumpBuffer(resp);
+
+                    if (resp.size() == 2 && resp[0] == 'A' && resp[1] == 'C') {
+                        std::cout << "RESET response OK: 'A' 'C'\n";
+                    } else {
+                        std::cout << "RESET response unexpected size/content. "
+                                  << "Expected 2 bytes 'A','C'. Got "
+                                  << resp.size() << " bytes.\n";
+                    }
+                }
                 break;
             }
             case 2: {
+                // HOST: device 0x70, command 0xF4, 4 x 0x00
+                uint8_t bytes6[6] = {0x70, 0xF4, 0x00, 0x00, 0x00, 0x00};
+                if (sendPacket(fd, bytes6)) {
+                    std::cout << "Waiting for HOST response (idle timeout "
+                              << defaultIdleTimeoutMs << " ms)...\n";
+                    // Expect 258 bytes (A + 256 payload + C), possibly +1 checksum.
+                    auto resp = readUntilIdle(fd, defaultIdleTimeoutMs, 4096);
+                    dumpBuffer(resp);
+
+                    if (resp.size() == 258 || resp.size() == 259) {
+                        std::cout << "HOST response size looks reasonable ("
+                                  << resp.size() << " bytes).\n";
+                    } else {
+                        std::cout << "HOST response unexpected size: "
+                                  << resp.size()
+                                  << " (expected ~258/259 bytes).\n";
+                    }
+                }
+                break;
+            }
+            case 3: {
                 std::cout << "Enter 6 hex bytes (e.g. '70 FF 01 02 03 04'): ";
                 std::string line;
                 std::getline(std::cin, line);
@@ -266,22 +338,40 @@ int main() {
                 if (!parseSixHexBytes(line, bytes6)) {
                     std::cerr << "Failed to parse 6 hex bytes.\n";
                 } else {
-                    sendPacket(fd, bytes6);
+                    if (sendPacket(fd, bytes6)) {
+                        std::cout << "Wait for response? (y/N): ";
+                        std::string ans;
+                        std::getline(std::cin, ans);
+                        if (!ans.empty() && (ans[0] == 'y' || ans[0] == 'Y')) {
+                            auto resp = readUntilIdle(fd, defaultIdleTimeoutMs, 4096);
+                            dumpBuffer(resp);
+                        }
+                    }
                 }
-                break;
-            }
-            case 3: {
-                std::cout << "Enter timeout in ms (default 500): ";
-                std::string tline;
-                std::getline(std::cin, tline);
-                int timeout = 500;
-                if (!tline.empty()) {
-                    timeout = std::stoi(tline);
-                }
-                readAndDump(fd, timeout, 256);
                 break;
             }
             case 4: {
+                std::cout << "Enter idle timeout in ms (default "
+                          << defaultIdleTimeoutMs << "): ";
+                std::string tline;
+                std::getline(std::cin, tline);
+                int timeout = defaultIdleTimeoutMs;
+                if (!tline.empty()) {
+                    timeout = std::stoi(tline);
+                }
+                std::cout << "Enter max bytes to read (default 1024): ";
+                std::string mline;
+                std::getline(std::cin, mline);
+                size_t maxBytes = 1024;
+                if (!mline.empty()) {
+                    maxBytes = static_cast<size_t>(std::stoul(mline));
+                }
+
+                auto resp = readUntilIdle(fd, timeout, maxBytes);
+                dumpBuffer(resp);
+                break;
+            }
+            case 5: {
                 ::close(fd);
                 std::cout << "Enter new PTY/serial device path: ";
                 std::getline(std::cin, devicePath);
@@ -298,7 +388,7 @@ int main() {
                 }
                 break;
             }
-            case 5: {
+            case 6: {
                 running = false;
                 break;
             }
