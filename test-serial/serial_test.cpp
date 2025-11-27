@@ -114,30 +114,50 @@ uint8_t computeChecksum(const uint8_t *data, size_t len) {
     return static_cast<uint8_t>(sum & 0xFF);
 }
 
-// Hex + ASCII dump helper
-void dumpBuffer(const std::vector<uint8_t> &buffer) {
+// hexdump -C style dump
+void dumpBufferHexC(const std::vector<uint8_t> &buffer) {
     if (buffer.empty()) {
         std::cout << "(no data)\n";
         return;
     }
 
-    std::cout << "Hex dump (" << buffer.size() << " bytes):\n";
-    for (size_t i = 0; i < buffer.size(); ++i) {
-        std::cout << std::hex << std::uppercase << std::setw(2)
-                  << std::setfill('0') << (int)buffer[i] << " ";
-        if ((i + 1) % 16 == 0) std::cout << "\n";
-    }
-    std::cout << std::dec << "\n";
+    std::ios oldState(nullptr);
+    oldState.copyfmt(std::cout);
 
-    std::cout << "ASCII: ";
-    for (uint8_t b : buffer) {
-        if (b >= 32 && b <= 126) {
-            std::cout << static_cast<char>(b);
-        } else {
-            std::cout << '.';
+    size_t offset = 0;
+    while (offset < buffer.size()) {
+        size_t lineLen = std::min<size_t>(16, buffer.size() - offset);
+
+        // Offset
+        std::cout << std::hex << std::nouppercase << std::setw(8)
+                  << std::setfill('0') << offset << "  ";
+
+        // Hex bytes
+        for (size_t i = 0; i < 16; ++i) {
+            if (i < lineLen) {
+                std::cout << std::setw(2) << (int)buffer[offset + i] << ' ';
+            } else {
+                std::cout << "   ";
+            }
+            if (i == 7) std::cout << ' ';
         }
+
+        // ASCII
+        std::cout << " |";
+        for (size_t i = 0; i < lineLen; ++i) {
+            uint8_t c = buffer[offset + i];
+            if (c >= 32 && c <= 126) {
+                std::cout << static_cast<char>(c);
+            } else {
+                std::cout << '.';
+            }
+        }
+        std::cout << "|\n";
+
+        offset += lineLen;
     }
-    std::cout << "\n";
+
+    std::cout.copyfmt(oldState); // restore formatting
 }
 
 // Read data until the line is idle for idleTimeoutMs or maxBytes reached
@@ -177,7 +197,6 @@ std::vector<uint8_t> readUntilIdle(int fd, int idleTimeoutMs, size_t maxBytes) {
             break;
         }
 
-        // Append to result
         size_t toCopy = static_cast<size_t>(n);
         if (result.size() + toCopy > maxBytes) {
             toCopy = maxBytes - result.size();
@@ -187,7 +206,7 @@ std::vector<uint8_t> readUntilIdle(int fd, int idleTimeoutMs, size_t maxBytes) {
         if (result.size() >= maxBytes) {
             break;
         }
-        // Loop again; idleTimeoutMs is measured per "gap" of no data
+        // loop again; idleTimeoutMs is per gap of no data
     }
 
     return result;
@@ -297,7 +316,7 @@ int main() {
                     std::cout << "Waiting for RESET response (idle timeout "
                               << defaultIdleTimeoutMs << " ms)...\n";
                     auto resp = readUntilIdle(fd, defaultIdleTimeoutMs, 1024);
-                    dumpBuffer(resp);
+                    dumpBufferHexC(resp);
 
                     if (resp.size() == 2 && resp[0] == 'A' && resp[1] == 'C') {
                         std::cout << "RESET response OK: 'A' 'C'\n";
@@ -315,17 +334,44 @@ int main() {
                 if (sendPacket(fd, bytes6)) {
                     std::cout << "Waiting for HOST response (idle timeout "
                               << defaultIdleTimeoutMs << " ms)...\n";
-                    // Expect 258 bytes (A + 256 payload + C), possibly +1 checksum.
                     auto resp = readUntilIdle(fd, defaultIdleTimeoutMs, 4096);
-                    dumpBuffer(resp);
+                    dumpBufferHexC(resp);
 
-                    if (resp.size() == 258 || resp.size() == 259) {
-                        std::cout << "HOST response size looks reasonable ("
-                                  << resp.size() << " bytes).\n";
-                    } else {
+                    if (resp.size() != 259) {
                         std::cout << "HOST response unexpected size: "
                                   << resp.size()
-                                  << " (expected ~258/259 bytes).\n";
+                                  << " (expected 259 bytes: A,C,256 payload,checksum).\n";
+                    } else {
+                        if (resp[0] != 'A' || resp[1] != 'C') {
+                            std::cout << "HOST header bytes not 'A','C' "
+                                      << "(got "
+                                      << (int)resp[0] << ", "
+                                      << (int)resp[1] << ").\n";
+                        } else {
+                            std::cout << "HOST header OK: 'A','C'\n";
+                        }
+
+                        const size_t payloadLen = 256;
+                        const uint8_t *payload = &resp[2];
+                        uint8_t receivedChecksum = resp[2 + payloadLen];
+
+                        uint8_t computedChecksum =
+                            computeChecksum(payload, payloadLen);
+
+                        std::cout << "HOST payload checksum: "
+                                  << "computed 0x"
+                                  << std::hex << std::nouppercase
+                                  << std::setw(2) << std::setfill('0')
+                                  << (int)computedChecksum
+                                  << ", received 0x"
+                                  << std::setw(2) << (int)receivedChecksum
+                                  << std::dec << "\n";
+
+                        if (computedChecksum == receivedChecksum) {
+                            std::cout << "HOST checksum OK.\n";
+                        } else {
+                            std::cout << "HOST checksum MISMATCH.\n";
+                        }
                     }
                 }
                 break;
@@ -344,7 +390,7 @@ int main() {
                         std::getline(std::cin, ans);
                         if (!ans.empty() && (ans[0] == 'y' || ans[0] == 'Y')) {
                             auto resp = readUntilIdle(fd, defaultIdleTimeoutMs, 4096);
-                            dumpBuffer(resp);
+                            dumpBufferHexC(resp);
                         }
                     }
                 }
@@ -368,7 +414,7 @@ int main() {
                 }
 
                 auto resp = readUntilIdle(fd, timeout, maxBytes);
-                dumpBuffer(resp);
+                dumpBufferHexC(resp);
                 break;
             }
             case 5: {
