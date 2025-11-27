@@ -45,9 +45,8 @@ DEF PROC_send_packet(data$)
     ?&FE09=ASC(MID$(data$,I%,1))
     chk%=(chk%+ASC(MID$(data$,I%,1))) AND &FF
   NEXT I%
-  100
-  
-  REM Pad with zeros if needed
+
+  100 REM Pad with zeros if needed
   FOR I%=LEN(data$)+1 TO 5
     ?&FE09=0
   NEXT I%
@@ -69,16 +68,14 @@ DEF PROC_read_response
     IF (?&FE08 AND &01)<>0 THEN GOTO 200
   NEXT I%
   PRINT "(timeout)"
-  ENDPROC
-  200
-  
-  REM Read available bytes
+  GOTO 300
+
+  200 REM Read available bytes
   FOR I%=1 TO 64
     IF (?&FE08 AND &01)=0 THEN GOTO 300
     byte%=?&FE09
     IF byte%>=32 AND byte%<127 THEN PRINT CHR$(byte%);ELSE PRINT "[";~byte%;"]";
   NEXT I%
-  300
-  PRINT
+  300 PRINT
 ENDPROC
 

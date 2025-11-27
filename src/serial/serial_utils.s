@@ -2,12 +2,16 @@
 ; Provides common functions for serial communication
 
         .export flush_serial
+        .export read_1
         .export restore_output_to_screen
         .export setup_serial_19200
 
         ; functions used by C
         .export _check_rs423_buffer
         .export _read_rs423_char
+
+        .import err_bad_response
+        .import _read_serial_data
 
         .include "fujinet.inc"
 
@@ -95,49 +99,6 @@ restore_output_to_screen:
         jsr     OSBYTE
         rts
 
-;; THIS IS REPLACED WITH GENERIC 16 bit VERSION IN calc_checksum.s
-;;
-; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; ; calc_checksum - Calculate FujiNet checksum for packet
-; ; Algorithm: chk = ((chk + buf[i]) >> 8) + ((chk + buf[i]) & 0xff)
-; ; Input: X = start offset in cws_tmp workspace
-; ;        Y = number of bytes to checksum
-; ;        cws_tmp1-6
-; ; Output: A = checksum
-; ; Modifies: A, X, Y, aws_tmp00 (low byte), aws_tmp01 (high byte), aws_tmp02/03 for scratch
-; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-; calc_checksum:
-;         lda     #0
-;         sta     aws_tmp00       ; chk = 0
-;         stx     aws_tmp02       ; Save start offset
-;         sty     aws_tmp03       ; Save count
-
-; @sum_loop:
-;         ; Compute: chk = ((chk + buf[i]) >> 8) + ((chk + buf[i]) & 0xff)
-;         clc
-;         lda     aws_tmp00       ; Get current chk
-;         ldx     aws_tmp02       ; Get current offset
-;         adc     cws_tmp1,x      ; Add buffer byte
-;         sta     aws_tmp00       ; Store low byte of sum
-;         lda     #0
-;         adc     #0              ; Capture carry in A
-;         sta     aws_tmp01       ; Store high byte of sum
-
-;         ; Now collapse to 8 bits: chk = high_byte + low_byte
-;         clc
-;         lda     aws_tmp00       ; Get low byte
-;         adc     aws_tmp01       ; Add high byte
-;         sta     aws_tmp00       ; Store result
-
-;         inc     aws_tmp02       ; Next byte
-;         dec     aws_tmp03       ; Decrement count
-;         bne     @sum_loop       ; Continue if more bytes
-
-;         lda     aws_tmp00       ; Return result in A
-;         rts
-
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; _check_rs423_buffer - Check if RS423 buffer has data
 ; C prototype: uint8_t check_rs423_buffer(void);
@@ -184,4 +145,25 @@ _read_rs423_char:
 @no_char:
         ; No character available set cws_tmp1 to -1
         dec     cws_tmp1
+        rts
+
+
+read_1:
+        ; wait for rs232 buffer to say there's a byte, and read it. timeout if too long
+        ; assumes the serial is active so it doesn't expunge anything.
+        ; setup buffer for 1 byte at aws_tmp06
+        lda     #<aws_tmp06
+        sta     aws_tmp00
+        lda     #>aws_tmp06
+        sta     aws_tmp01
+        lda     #$01
+        sta     aws_tmp02
+        lda     #$00
+        sta     aws_tmp03
+        jsr     _read_serial_data
+        bne     @ok
+        jmp     err_bad_response
+
+@ok:
+        lda     aws_tmp06
         rts

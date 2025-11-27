@@ -6,6 +6,8 @@
 ; Only compile this file if SERIAL interface is selected
 .ifdef FUJINET_INTERFACE_SERIAL
 
+        .export err_bad_response
+
         .export fuji_mount_disk_data
         .export fuji_read_block_data
         .export fuji_read_catalog_data
@@ -14,15 +16,22 @@
         .export fuji_write_block_data
 
         ; FUJI functions
-        .export fuji_execute_reset
+        .export fuji_execute_get_hosts
         .export fuji_execute_set_host_url_n
+        .export fuji_execute_reset
 
+        ; other functions for debug
+        .export fuji_send_cf
+
+        .import err_bad
         .import err_disk
+        .import read_1
         .import remember_axy
         .import restore_output_to_screen
         .import setup_serial_19200
 
         .import _calc_checksum
+        .import _read_serial_data
         .import _write_serial_data
 
         .include "fujinet.inc"
@@ -180,8 +189,6 @@ fuji_execute_set_host_url_n:
         ldx     #>cmd_set_host_url_n_data
         jsr     fuji_send_cf
 
-        ; absorb the ACK/CONFIRM?
-
         ; 2. The command data:
         ;   host     (1 byte)     from current_host
         ;   url      (32 bytes)   from fuji_filename_buffer
@@ -197,6 +204,46 @@ fuji_execute_set_host_url_n:
         sta     aws_tmp03
         jmp     _write_serial_data
 
+fuji_execute_get_hosts:
+        jsr     remember_axy
+        lda     #<cmd_get_hosts_data
+        ldx     #>cmd_get_hosts_data
+        jsr     fuji_send_cf
+
+        ; start the reading cycle - WHERE THIS IS DONE NEEDS ADJUSTING
+        ; absorb the ACK
+        ; jsr     read_1
+        ; cmp     #'A'
+        ; bne     err_bad_response
+
+        ; now read the results data into buffer
+        ; Set up buffer pointer from aws_tmp12/13 to aws_tmp00/01
+        lda     #<dfs_cat_s0_header
+        sta     aws_tmp00       ; Buffer pointer low
+        lda     #>dfs_cat_s0_header
+        sta     aws_tmp01       ; Buffer pointer high
+
+        ; length = 8x32 = 256 + 1 checksum + 2 "A/C" = $0103
+        lda     #$03
+        sta     aws_tmp02
+        lda     #$01
+        sta     aws_tmp03
+        ; TODO: needs a better wrapper for reading serial, like _write_serial_data does
+        jsr     setup_serial_19200
+        jsr     _read_serial_data
+        pha
+        jsr     restore_output_to_screen
+        pla
+
+        ; On return, success status in A, 1 = ok, 0 = error
+        beq     err_bad_response
+        rts
+
+err_bad_response:
+        jsr     restore_output_to_screen
+        jsr     err_bad
+        .byte   $CB                     ; again, not sure here
+        .byte   "response", 0
 
 fuji_execute_reset:
         jsr     remember_axy
@@ -221,6 +268,9 @@ cmd_reset_data:
 
 cmd_set_host_url_n_data:
         .byte $70, $9F, $00, $00, $00, $00, $10
+
+cmd_get_hosts_data:
+        .byte $70, $F4, $00, $00, $00, $00, $65
 
 
 .endif  ; FUJINET_INTERFACE_SERIAL
