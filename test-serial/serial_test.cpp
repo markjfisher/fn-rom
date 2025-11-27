@@ -7,6 +7,7 @@
 #include <cerrno>
 #include <cstring>
 #include <algorithm> // for std::min
+#include <chrono>    // for baud timing test
 
 #include <termios.h>
 #include <unistd.h>
@@ -41,6 +42,33 @@ speed_t baudToSpeedT(int baud) {
     }
 }
 
+// Reverse: map termios speed_t back to integer baud rate (for printing)
+int speedTToBaud(speed_t speed) {
+    switch (speed) {
+        case B50: return 50;
+        case B75: return 75;
+        case B110: return 110;
+        case B134: return 134;
+        case B150: return 150;
+        case B200: return 200;
+        case B300: return 300;
+        case B600: return 600;
+        case B1200: return 1200;
+        case B1800: return 1800;
+        case B2400: return 2400;
+        case B4800: return 4800;
+        case B9600: return 9600;
+        case B19200: return 19200;
+        case B38400: return 38400;
+        case B57600: return 57600;
+        case B115200: return 115200;
+#ifdef B230400
+        case B230400: return 230400;
+#endif
+        default: return -1;
+    }
+}
+
 // Configure serial/PTY for 8N1, raw mode
 bool configurePort(int fd, int baud) {
     speed_t speed = baudToSpeedT(baud);
@@ -51,7 +79,7 @@ bool configurePort(int fd, int baud) {
 
     struct termios tty;
     if (tcgetattr(fd, &tty) != 0) {
-        std::cerr << "tcgetattr error: " << std::strerror(errno) << "\n";
+        std::cerr << "tcgetattr error (before configure): " << std::strerror(errno) << "\n";
         return false;
     }
 
@@ -79,9 +107,24 @@ bool configurePort(int fd, int baud) {
     tty.c_cc[VTIME] = 0;
 
     if (tcsetattr(fd, TCSANOW, &tty) != 0) {
-        std::cerr << "tcsetattr error: " << std::strerror(errno) << "\n";
+        std::cerr << "tcsetattr error (configure): " << std::strerror(errno) << "\n";
         return false;
     }
+
+    // Read back to confirm what the kernel actually set
+    struct termios check;
+    if (tcgetattr(fd, &check) != 0) {
+        std::cerr << "tcgetattr error (verify): " << std::strerror(errno) << "\n";
+        return false;
+    }
+    speed_t is = cfgetispeed(&check);
+    speed_t os = cfgetospeed(&check);
+    int isBaud = speedTToBaud(is);
+    int osBaud = speedTToBaud(os);
+    std::cout << "Configured baud: " << baud
+              << "  [kernel reports ispeed=" << (isBaud > 0 ? std::to_string(isBaud) : "unknown")
+              << ", ospeed=" << (osBaud > 0 ? std::to_string(osBaud) : "unknown")
+              << "]\n";
 
     return true;
 }
@@ -99,7 +142,7 @@ int openPort(const std::string &path, int baud) {
         return -1;
     }
 
-    std::cout << "Opened " << path << " at " << baud << " baud (8N1)\n";
+    std::cout << "Opened " << path << " at requested " << baud << " baud (8N1)\n";
     return fd;
 }
 
@@ -267,6 +310,68 @@ bool sendRaw(int fd, const uint8_t *data, size_t len) {
     return true;
 }
 
+// Baud timing self-test: send a large block, tcdrain, measure time
+void baudTimingTest(int fd, int baud) {
+    if (fd < 0) {
+        std::cerr << "Port not open.\n";
+        return;
+    }
+    if (baud <= 0) {
+        std::cerr << "Invalid baud rate.\n";
+        return;
+    }
+
+    const size_t bytesToSend = 50000; // big enough to notice at low baud
+    std::vector<uint8_t> buf(bytesToSend, 0x55); // 0b01010101 pattern
+
+    std::cout << "Running baud timing test: sending " << bytesToSend
+              << " bytes at nominal " << baud << " baud...\n";
+
+    // Write loop to ensure we push all bytes into the driver
+    size_t totalWritten = 0;
+    auto start = std::chrono::steady_clock::now();
+    while (totalWritten < bytesToSend) {
+        ssize_t n = ::write(fd, buf.data() + totalWritten,
+                            bytesToSend - totalWritten);
+        if (n < 0) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                continue;
+            }
+            std::cerr << "write error during timing test: "
+                      << std::strerror(errno) << "\n";
+            return;
+        }
+        totalWritten += static_cast<size_t>(n);
+    }
+
+    // Wait for all data to actually leave the UART / driver
+    if (tcdrain(fd) != 0) {
+        std::cerr << "tcdrain error: " << std::strerror(errno) << "\n";
+        return;
+    }
+    auto end = std::chrono::steady_clock::now();
+
+    std::chrono::duration<double> elapsed = end - start;
+    double seconds = elapsed.count();
+
+    // 8N1 -> 1 start + 8 data + 1 stop = 10 bits per byte
+    const double bitsPerByte = 10.0;
+    double theoreticalSeconds =
+        (bytesToSend * bitsPerByte) / static_cast<double>(baud);
+
+    std::cout << std::fixed << std::setprecision(4);
+    std::cout << "Measured time:   " << seconds << " s\n";
+    std::cout << "Theoretical time:" << theoreticalSeconds << " s (ideal)\n";
+    if (seconds > 0.0) {
+        double effectiveBaud =
+            (bytesToSend * bitsPerByte) / seconds;
+        std::cout << "Effective baud: ~" << std::setprecision(0)
+                  << effectiveBaud << " bps\n";
+    }
+    std::cout << "Note: on a PTY this mostly measures software buffering; on a\n"
+              << "real serial port it should track baud quite closely.\n";
+}
+
 // Parse 6 hex bytes from a line, e.g. "70 FF 01 02 03 04"
 bool parseSixHexBytes(const std::string &line, uint8_t out[6]) {
     std::istringstream iss(line);
@@ -291,7 +396,8 @@ void printMenu() {
     std::cout << "4) Send custom 6-byte payload (checksum auto-calculated)\n";
     std::cout << "5) Read and dump incoming bytes (until idle timeout)\n";
     std::cout << "6) Change device/baud and reopen\n";
-    std::cout << "7) Quit\n";
+    std::cout << "7) Baud timing self-test\n";
+    std::cout << "8) Quit\n";
     std::cout << "Select: ";
 }
 
@@ -320,7 +426,7 @@ int main() {
         return 1;
     }
 
-    const int defaultIdleTimeoutMs = 100; // 0.5s as requested
+    const int defaultIdleTimeoutMs = 100; // 0.1s
 
     bool running = true;
     while (running) {
@@ -364,7 +470,7 @@ int main() {
                     if (resp.size() != 259) {
                         std::cout << "HOST response unexpected size: "
                                   << resp.size()
-                                  << " (expected 259 bytes: A,C,256 payload,checksum).\n";
+                                  << " (expected 259 bytes: A,256 payload,checksum,C or similar).\n";
                     } else {
                         if (resp[0] != 'A' || resp[258] != 'C') {
                             std::cout << "HOST Accept/Complete 'A','C' "
@@ -517,6 +623,10 @@ int main() {
                 break;
             }
             case 7: {
+                baudTimingTest(fd, baudRate);
+                break;
+            }
+            case 8: {
                 running = false;
                 break;
             }

@@ -237,6 +237,37 @@ fuji_execute_get_hosts:
 
         ; On return, success status in A, 1 = ok, 0 = error
         beq     err_bad_response
+
+        ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        ;; THIS IS OPTIONAL, IF WE ARE TIGHT FOR ROM SPACE WE CAN
+        ;; PROBABLY SKIP THIS VALIDATION - saves 37 bytes
+        ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+        ; check the first byte is 'A'
+        lda     dfs_cat_s0_header
+        cmp     #'A'
+        bne     err_bad_response
+
+        ; validate the checksum in byte indexes 1 to 257
+        lda     #<(dfs_cat_s0_header+1)          ; buffer
+        sta     aws_tmp00
+        lda     #>(dfs_cat_s0_header+1)
+        sta     aws_tmp01
+        lda     #$00                             ; 256 bytes to checksum
+        sta     aws_tmp02
+        lda     #$01
+        sta     aws_tmp03
+        jsr     _calc_checksum
+        ; compare with checksum in byte 258
+        cmp     dfs_cat_s0_header+257
+        bne     err_bad_response
+
+        ; validate the last byte is 'C'
+        lda     dfs_cat_s0_header+258
+        cmp     #'C'
+        bne     err_bad_response
+
+        lda     #$01
         rts
 
 err_bad_response:
