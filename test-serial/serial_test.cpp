@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <cerrno>
 #include <cstring>
+#include <algorithm> // for std::min
 
 #include <termios.h>
 #include <unistd.h>
@@ -244,6 +245,28 @@ bool sendPacket(int fd, const uint8_t bytes6[6]) {
     return true;
 }
 
+// Send arbitrary bytes as-is, with hex dump
+bool sendRaw(int fd, const uint8_t *data, size_t len) {
+    if (fd < 0) {
+        std::cerr << "Port not open.\n";
+        return false;
+    }
+
+    ssize_t written = ::write(fd, data, len);
+    if (written < 0) {
+        std::cerr << "write error: " << std::strerror(errno) << "\n";
+        return false;
+    } else if (written != (ssize_t)len) {
+        std::cerr << "Partial write: " << written << " bytes (expected " << len << ")\n";
+        return false;
+    }
+
+    std::cout << "Sent " << len << " raw bytes:\n";
+    std::vector<uint8_t> v(data, data + len);
+    dumpBufferHexC(v);
+    return true;
+}
+
 // Parse 6 hex bytes from a line, e.g. "70 FF 01 02 03 04"
 bool parseSixHexBytes(const std::string &line, uint8_t out[6]) {
     std::istringstream iss(line);
@@ -264,10 +287,11 @@ void printMenu() {
     std::cout << "\n=== Serial Test Menu ===\n";
     std::cout << "1) Send RESET command (70 FF 00 00 00 00 + checksum)\n";
     std::cout << "2) Send HOST command  (70 F4 00 00 00 00 + checksum)\n";
-    std::cout << "3) Send custom 6-byte payload (checksum auto-calculated)\n";
-    std::cout << "4) Read and dump incoming bytes (until idle timeout)\n";
-    std::cout << "5) Change device/baud and reopen\n";
-    std::cout << "6) Quit\n";
+    std::cout << "3) Set N'th HOST (two-part command)\n";
+    std::cout << "4) Send custom 6-byte payload (checksum auto-calculated)\n";
+    std::cout << "5) Read and dump incoming bytes (until idle timeout)\n";
+    std::cout << "6) Change device/baud and reopen\n";
+    std::cout << "7) Quit\n";
     std::cout << "Select: ";
 }
 
@@ -296,7 +320,7 @@ int main() {
         return 1;
     }
 
-    const int defaultIdleTimeoutMs = 500; // 0.5s as requested
+    const int defaultIdleTimeoutMs = 100; // 0.5s as requested
 
     bool running = true;
     while (running) {
@@ -342,18 +366,18 @@ int main() {
                                   << resp.size()
                                   << " (expected 259 bytes: A,C,256 payload,checksum).\n";
                     } else {
-                        if (resp[0] != 'A' || resp[1] != 'C') {
-                            std::cout << "HOST header bytes not 'A','C' "
+                        if (resp[0] != 'A' || resp[258] != 'C') {
+                            std::cout << "HOST Accept/Complete 'A','C' "
                                       << "(got "
                                       << (int)resp[0] << ", "
-                                      << (int)resp[1] << ").\n";
+                                      << (int)resp[258] << ").\n";
                         } else {
-                            std::cout << "HOST header OK: 'A','C'\n";
+                            std::cout << "HOST Ack/Complete bytes OK: 'A','C'\n";
                         }
 
                         const size_t payloadLen = 256;
-                        const uint8_t *payload = &resp[2];
-                        uint8_t receivedChecksum = resp[2 + payloadLen];
+                        const uint8_t *payload = &resp[1];
+                        uint8_t receivedChecksum = resp[1 + payloadLen];
 
                         uint8_t computedChecksum =
                             computeChecksum(payload, payloadLen);
@@ -377,6 +401,64 @@ int main() {
                 break;
             }
             case 3: {
+                // Set N'th HOST (two-part command)
+                std::cout << "Enter host index (1-based): ";
+                std::string idxStr;
+                std::getline(std::cin, idxStr);
+                if (idxStr.empty()) {
+                    std::cerr << "Host index required.\n";
+                    break;
+                }
+                int hostIndexInt = std::stoi(idxStr);
+                if (hostIndexInt < 1 || hostIndexInt > 255) {
+                    std::cerr << "Host index out of range (1-255).\n";
+                    break;
+                }
+                // Convert to 0-based index
+                uint8_t hostIndex = static_cast<uint8_t>(hostIndexInt - 1);
+
+                std::cout << "Enter URL (max 32 chars; will be zero-padded): ";
+                std::string url;
+                std::getline(std::cin, url);
+
+                // First part: command header 70 9F 00 00 00 00 + checksum
+                uint8_t cmd6[6] = {0x70, 0x9F, 0x00, 0x00, 0x00, 0x00};
+                if (!sendPacket(fd, cmd6)) {
+                    break;
+                }
+
+                // Second part: payload: hostIndex + 32-byte URL + checksum
+                uint8_t payload[33];
+                payload[0] = hostIndex;
+                // Zero-fill URL bytes
+                for (int i = 0; i < 32; ++i) payload[i + 1] = 0x00;
+
+                // Copy URL, truncated to 32 bytes
+                size_t copyLen = std::min<size_t>(url.size(), 32);
+                for (size_t i = 0; i < copyLen; ++i) {
+                    payload[1 + i] = static_cast<uint8_t>(url[i]);
+                }
+                // At least one terminating 0x00 is guaranteed because we zero-filled
+
+                uint8_t checksum = computeChecksum(payload, 33);
+                uint8_t frame[34];
+                for (int i = 0; i < 33; ++i) frame[i] = payload[i];
+                frame[33] = checksum;
+
+                if (!sendRaw(fd, frame, sizeof(frame))) {
+                    break;
+                }
+
+                std::cout << "Waiting for DATA (idle timeout "
+                          << defaultIdleTimeoutMs << " ms)...\n";
+                {
+                    auto resp = readUntilIdle(fd, defaultIdleTimeoutMs, 64);
+                    dumpBufferHexC(resp);
+                }
+
+                break;
+            }
+            case 4: {
                 std::cout << "Enter 6 hex bytes (e.g. '70 FF 01 02 03 04'): ";
                 std::string line;
                 std::getline(std::cin, line);
@@ -396,7 +478,7 @@ int main() {
                 }
                 break;
             }
-            case 4: {
+            case 5: {
                 std::cout << "Enter idle timeout in ms (default "
                           << defaultIdleTimeoutMs << "): ";
                 std::string tline;
@@ -417,7 +499,7 @@ int main() {
                 dumpBufferHexC(resp);
                 break;
             }
-            case 5: {
+            case 6: {
                 ::close(fd);
                 std::cout << "Enter new PTY/serial device path: ";
                 std::getline(std::cin, devicePath);
@@ -434,7 +516,7 @@ int main() {
                 }
                 break;
             }
-            case 6: {
+            case 7: {
                 running = false;
                 break;
             }
