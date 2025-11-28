@@ -9,9 +9,12 @@
         .import fuji_get_hosts
         .import fuji_set_host_url_n
         .import num_params
-        .import param_count_a
         .import param_get_num
         .import param_get_string
+        .import print_char
+        .import print_newline
+        .import print_nib_fullstop
+        .import print_space
 
         .import _read_serial_data
 
@@ -69,10 +72,50 @@ fhost_list:
 
         ; Send request
         jsr     fuji_get_hosts
-        ; data is in fuji_filename_buffer
+        ; data is in dfs_cat_s0_header+1, we use Y to control the index of the current string, and increment s cws_tmp7/8
 
+        ; now let's display the 8x32 strings (all with nul terminators) line by line with an index in front of it
+        lda     #<(dfs_cat_s0_header)
+        sta     cws_tmp7
+        lda     #>(dfs_cat_s0_header)
+        sta     cws_tmp8
 
-        rts
+        ; start on a new line
+        jsr     print_newline
+
+        ldx     #$01
+        ldy     #$00                    ; set to 0 and immediately increment to get the correct index into HOST buffer
+@loop:
+        txa                             ; the host number to show (1-8)
+        jsr     print_nib_fullstop
+        jsr     print_space
+
+@loop_host:
+        iny
+        lda     (cws_tmp7), y
+        ; if nul, then we are at the end of the string, so print a newline and move to next entry
+        ; else print the char and loop again)
+        beq     @next_entry
+        jsr     print_char
+        bne     @loop_host              ; always
+
+@next_entry:
+        jsr     print_newline
+        ; need to increment aws_tmp00 and 01 to next 32 byte boundary
+        lda     cws_tmp7
+        clc
+        adc     #$20
+        sta     cws_tmp7
+        bcc     @no_inc
+        inc     cws_tmp8
+@no_inc:
+        ldy     #$00
+        inx
+        cpx     #$09
+        bcc     @loop
+
+        ; all done
+        jmp     print_newline
 
 fhost_set_host_url:
         ; get and set the current host number into current_host
