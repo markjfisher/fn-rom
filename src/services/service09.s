@@ -101,7 +101,7 @@ not_cmd_fujifs:
         lda     (text_pointer),y
         iny
         ora     #$20                    ; convert to lowercase
-        cmp     #'f'                    ; lowercase 'f'!!!
+        cmp     #'f'                    ; must be lowercase 'f' here. This was a terrible bug to hunt down
         beq     unrec_command_text_pointer
         dey
         jmp     not_cmd_futils
@@ -161,8 +161,8 @@ unrec_command_text_pointer:
         lda     cmd_table_fujifs, x
         bpl     @unrec_loop3            ; Continue until bit 7 set = HELP args byte
 
-        lda     (text_pointer),y         ; Check if command line ends with "."
-        cmp     #$2E                    ; Full stop
+        lda     (text_pointer),y        ; Check if command line ends with "."
+        cmp     #'.'
         bne     @unrec_loop1            ; If not, try next command
         iny                             ; Skip the "."
         bcs     @gocmdcode
@@ -170,7 +170,7 @@ unrec_command_text_pointer:
 @endofcmd_oncmdline:
         lda     (text_pointer),y         ; Check if next char is alphabetic
         jsr     is_alpha_char
-        bcc     @unrec_loop1             ; If is is alpha, try next command as it didn't match
+        bcc     @unrec_loop1             ; If it is alpha, try next command as it didn't match
         ; end of command match checks against $0D for the CR from command, so falls through...
 
 @gocmdcode:
@@ -181,21 +181,11 @@ unrec_command_text_pointer:
         asl     a                       ; Multiply by 2 (addresses are 2 bytes)
         tax
         lda     cmd_table_fujifs_cmds+1, x
-        bpl     @dommcinit
 
-@gocmdcode2:
         pha                             ; Push high byte
         lda     cmd_table_fujifs_cmds, x
         pha                             ; Push low byte
         rts                             ; Jump to function
-
-; MMFS uses this for VERIFY and FORM, as it knocks off $8000 for those to indicate they need
-; to start the transaction.
-@dommcinit:
-        ; we effectively do the same as no transaction
-        ;jsr     MMC_BEGIN2 ; TODO do we need this?
-        ora     #$80
-        bne     @gocmdcode2
 
 cmd_help_futils:
         dbg_string_axy "cmd_help_futils: "

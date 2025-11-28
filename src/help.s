@@ -83,8 +83,7 @@ print_help_table:
 
 ; this is equivalent of CMD_NOTHELPTBL
 not_cmd_help:
-
-        dbg_string_axy "NOT_CMD_HELP: "
+        ; dbg_string_axy "NOT_CMD_HELP: "
 
         jsr     GSINIT_A
         bne     @not_cmd_help_loop
@@ -103,7 +102,7 @@ prtcmd_at_bc_add_1:
         sta     aws_tmp08
         ldx     aws_tmp15
 
-        ; if it's futils (X >= cmdtab_offset_futils), print "F" first
+        ; if it's futils (X >= cmdtab_offset_futils), print "F" first - This requires futils commands be at the end to work.
         cpx     #cmdtab_offset_futils
         bcc     @cmdloop        ; Branch if X < futils offset
         lda     #'F'
