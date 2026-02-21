@@ -57,4 +57,48 @@ data_ptr = aws_tmp08
 filesysno               = $04
 filehndl                = $10
 
+
+; ============================================================================
+; FujiBus Protocol Constants
+; ============================================================================
+
+; SLIP protocol bytes
+SLIP_END       = $C0
+SLIP_ESCAPE    = $DB
+SLIP_ESC_END   = $DC
+SLIP_ESC_ESC   = $DD
+
+; Wire Device IDs
+FN_DEVICE_FUJI     = $70
+FN_DEVICE_DISK     = $FC
+FN_DEVICE_NETWORK  = $FD
+FN_DEVICE_FILE     = $FE
+FN_DEVICE_HOST     = $F0     ; New HostDevice
+
+; Disk Commands
+DISK_CMD_MOUNT       = $01
+DISK_CMD_UNMOUNT     = $02
+DISK_CMD_READ_SECTOR = $03
+DISK_CMD_WRITE_SECTOR = $04
+DISK_CMD_INFO        = $05
+DISK_CMD_CLEAR_CHANGED = $06
+DISK_CMD_CREATE      = $07
+
+; Host Commands
+HOST_CMD_LIST_HOSTS  = $01
+HOST_CMD_GET_HOST    = $02
+HOST_CMD_ADD_HOST    = $03
+HOST_CMD_UPDATE_HOST = $04
+HOST_CMD_REMOVE_HOST = $05
+HOST_CMD_LIST_MOUNTS = $10
+HOST_CMD_GET_MOUNT   = $11
+HOST_CMD_ADD_MOUNT   = $12
+HOST_CMD_UPDATE_MOUNT = $13
+HOST_CMD_REMOVE_MOUNT = $14
+
+; Protocol constants
+FN_HEADER_SIZE = 6
+FN_MAX_PACKET_SIZE = 1024
+FN_PROTOCOL_VERSION = $01
+
 .endif

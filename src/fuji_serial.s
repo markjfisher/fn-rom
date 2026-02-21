@@ -34,6 +34,11 @@
         .import _read_serial_data
         .import _write_serial_data
 
+        ; Import FujiBus functions
+        .import fn_disk_read_sector_impl
+        .import fn_disk_write_sector_impl
+        .import fn_calc_checksum
+
         .include "fujinet.inc"
 
         .segment "CODE"
@@ -47,14 +52,10 @@
 fuji_read_block_data:
         jsr     remember_axy
 
-        ; TODO: Implement serial communication to read block
-        ; 1. Send read command to FujiNet
-        ; 2. Send block parameters (sector, count, etc.)
-        ; 3. Receive data into buffer at data_ptr
-        ; 4. Handle any errors
+        ; Use FujiBus disk read sector
+        jsr     fn_disk_read_sector_impl
 
-        ; For now, just return success
-        clc
+        ; Return status in carry
         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -66,33 +67,53 @@ fuji_read_block_data:
 fuji_write_block_data:
         jsr     remember_axy
 
-        ; TODO: Implement serial communication to write block
-        ; 1. Send write command to FujiNet
-        ; 2. Send block parameters (sector, count, etc.)
-        ; 3. Send data from buffer at data_ptr
-        ; 4. Handle any errors
+        ; Use FujiBus disk write sector
+        jsr     fn_disk_write_sector_impl
 
-        ; For now, just return success
-        clc
+        ; Return status in carry
         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; fuji_read_catalog_DATA - Read catalog from FujiNet device
 ; Input: data_ptr points to 512-byte catalog buffer
 ; Output: Catalogue data in buffer, Carry=0 if success, Carry=1 if error
+;
+; The catalog is stored in sectors 0 and 1 of the disk.
+; We read both sectors and combine them.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 fuji_read_catalog_data:
         jsr     remember_axy
 
-        ; TODO: Implement serial communication to read catalog
-        ; 1. Send "GET_CATALOGUE" command to FujiNet
-        ; 2. Receive 512-byte catalog data
-        ; 3. Store in buffer at data_ptr (0x0E00)
-        ; 4. Handle any errors
+        ; Read sector 0 (first 256 bytes of catalog)
+        ; Set LBA = 0
+        lda     #$00
+        sta     fuji_current_sector
+        sta     fuji_current_sector+1
 
-        ; For now, just return success
+        ; Set buffer pointer
+        lda     data_ptr
+        sta     aws_tmp08
+        lda     data_ptr+1
+        sta     aws_tmp09
+
+        jsr     fn_disk_read_sector_impl
+        bcs     @read_error
+
+        ; Read sector 1 (second 256 bytes of catalog)
+        inc     fuji_current_sector
+
+        ; Advance buffer pointer by 256
+        inc     aws_tmp09
+
+        jsr     fn_disk_read_sector_impl
+        bcs     @read_error
+
         clc
+        rts
+
+@read_error:
+        sec
         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -104,33 +125,89 @@ fuji_read_catalog_data:
 fuji_write_catalog_data:
         jsr     remember_axy
 
-        ; TODO: Implement serial communication to write catalog
-        ; 1. Send "PUT_CATALOGUE" command to FujiNet
-        ; 2. Send 512-byte catalog data from buffer at data_ptr
-        ; 3. Confirm successful update
-        ; 4. Handle any errors
+        ; Write sector 0 (first 256 bytes of catalog)
+        lda     #$00
+        sta     fuji_current_sector
+        sta     fuji_current_sector+1
 
-        ; For now, just return success
+        ; Set buffer pointer
+        lda     data_ptr
+        sta     aws_tmp08
+        lda     data_ptr+1
+        sta     aws_tmp09
+
+        jsr     fn_disk_write_sector_impl
+        bcs     @write_error
+
+        ; Write sector 1 (second 256 bytes of catalog)
+        inc     fuji_current_sector
+
+        ; Advance buffer pointer by 256
+        inc     aws_tmp09
+
+        jsr     fn_disk_write_sector_impl
+        bcs     @write_error
+
         clc
+        rts
+
+@write_error:
+        sec
         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; FUJI_READ_DISC_TITLE_DATA - Read disc title from FujiNet device
 ; Input: data_ptr points to 16-byte title buffer
 ; Output: Title data in buffer, Carry=0 if success, Carry=1 if error
+;
+; The disc title is stored in:
+; - Sector 0, bytes 0-7 (first 8 chars)
+; - Sector 1, bytes 0-3 (last 4 chars)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 fuji_read_disc_title_data:
         jsr     remember_axy
 
-        ; TODO: Implement serial communication to read disc title
-        ; 1. Send "GET_DISC_TITLE" command to FujiNet
-        ; 2. Receive disc title string (up to 16 chars)
-        ; 3. Store in buffer at data_ptr (0x1000)
-        ; 4. Handle any errors
+        ; Read sector 0
+        lda     #$00
+        sta     fuji_current_sector
+        sta     fuji_current_sector+1
 
-        ; For now, just return success
+        ; Use a temporary buffer
+        lda     #<dfs_cat_s0_header
+        sta     aws_tmp08
+        lda     #>dfs_cat_s0_header
+        sta     aws_tmp09
+
+        jsr     fn_disk_read_sector_impl
+        bcs     @title_error
+
+        ; Copy first 8 bytes to title buffer
+        ldy     #$07
+@copy_first:
+        lda     dfs_cat_s0_header,y
+        sta     (data_ptr),y
+        dey
+        bpl     @copy_first
+
+        ; Read sector 1
+        inc     fuji_current_sector
+        jsr     fn_disk_read_sector_impl
+        bcs     @title_error
+
+        ; Copy bytes 0-3 to title buffer positions 8-11
+        ldy     #$03
+@copy_second:
+        lda     dfs_cat_s0_header,y
+        sta     (data_ptr),y
+        dey
+        bpl     @copy_second
+
         clc
+        rts
+
+@title_error:
+        sec
         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -144,6 +221,9 @@ fuji_read_disc_title_data:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 fuji_mount_disk_data:
+        ; TODO: Implement FujiBus disk mount
+        ; This needs to send a Mount command with the disk image path
+        ; For now, just return success
         rts
 
 
