@@ -30,7 +30,7 @@
         .import fn_tx_len
         .import fn_tx_len_hi
         .import fn_rx_len
-        .import fn_calc_checksum
+        .import _calc_checksum
 
         .import remember_axy
         .import fuji_begin_transaction
@@ -44,6 +44,7 @@
 
 ; Current slot (1-based, D1=1) - use a byte in fuji_workspace area
 fn_disk_slot    = $10F9
+fn_disk_flags   = $10F8
 
 ; ============================================================================
 ; CODE
@@ -75,26 +76,26 @@ fn_disk_slot    = $10F9
 ;   Carry clear on success, set on error
 ; ============================================================================
 fn_disk_mount:
-        ; Save registers (standard 6502 - no phx/phy)
-        pha                     ; Save slot
-        txa
-        pha                     ; Save flags
-
-        ; Build packet payload
+        ; Build packet payload directly - no stack needed
         ; Payload starts at offset 6 (after header)
-        ldy     #$00
+        ; Payload: version(1) + slot(1) + flags(1) + typeOverride(1) + sectorSizeHint(2)
+        ; Input: A = slot, X = flags
+
+        ; Save input parameters
+        sta     fn_disk_slot     ; Save slot for later
+        stx     fn_disk_flags    ; Save flags for later
 
         ; Version
         lda     #FN_PROTOCOL_VERSION
         sta     fn_tx_buffer+FN_HEADER_SIZE+0
 
-        ; Flags (pulled first - last pushed)
-        pla
-        sta     fn_tx_buffer+FN_HEADER_SIZE+2
-
-        ; Slot (pulled second)
-        pla
+        ; Slot (from saved value)
+        lda     fn_disk_slot
         sta     fn_tx_buffer+FN_HEADER_SIZE+1
+
+        ; Flags (from saved value)
+        lda     fn_disk_flags
+        sta     fn_tx_buffer+FN_HEADER_SIZE+2
 
         ; Type override = 0 (auto)
         lda     #$00
@@ -107,10 +108,8 @@ fn_disk_mount:
         ; TODO: Add fsName and path
         ; For now, just use minimal mount
 
-        ; Calculate payload length
-        ; version(1) + slot(1) + flags(1) + typeOverride(1) + sectorSizeHint(2) = 6 bytes
-
         ; Build packet
+        ; A = device ID, X = command, Y = payload length
         lda     #FN_DEVICE_DISK
         ldx     #DISK_CMD_MOUNT
         ldy     #$06            ; Payload length
@@ -418,7 +417,7 @@ fn_disk_write_sector:
         lda     fn_tx_len_hi
         sta     aws_tmp03
 
-        jsr     fn_calc_checksum
+        jsr     _calc_checksum
         sta     fn_tx_buffer+4
 
         ; Send packet

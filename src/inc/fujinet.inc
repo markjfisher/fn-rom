@@ -98,7 +98,7 @@ HOST_CMD_REMOVE_MOUNT = $14
 
 ; Protocol constants
 FN_HEADER_SIZE = 6
-FN_MAX_PACKET_SIZE = 1024
+FN_MAX_PACKET_SIZE = 320   ; Sufficient for disk operations (256 byte sector + overhead)
 FN_PROTOCOL_VERSION = $01
 
 .endif

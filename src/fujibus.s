@@ -7,7 +7,6 @@
 ; - fujinet-nio-lib/src/common/fn_slip.c
 ; - fujinet-nio-lib/src/common/fn_packet.c
 
-        .export fn_calc_checksum
         .export fn_slip_encode
         .export fn_slip_decode
         .export fn_build_packet
@@ -24,8 +23,10 @@
 
         .import _write_serial_data
         .import _read_serial_data
+        .import _calc_checksum
         .import setup_serial_19200
         .import restore_output_to_screen
+        .import inc_word_aws_tmp00_dec_word_aws_tmp02
 
         .include "fujinet.inc"
 
@@ -33,125 +34,49 @@
 ; Local Constants (not in fujinet.inc)
 ; ============================================================================
 
-; Maximum SLIP buffer size
-FN_MAX_SLIP_SIZE = 2048    ; 2x max packet + 2 END markers
+; Maximum SLIP buffer size for BBC DFS operations
+; Disk sector = 256 bytes, FujiBus header = 6 bytes, payload overhead = ~10 bytes
+; Max response = 6 + 13 + 256 = 275 bytes
+; Max SLIP encoded = 275 * 2 + 2 = 552 bytes
+FN_MAX_SLIP_SIZE = 640      ; 2x max packet + margin
 
 ; ============================================================================
-; Buffers - placed in workspace area (fuji_workspace = 0)
-; Using $1200 for buffers
-; This area is after the channel workspace ($1100-$111F)
+; Buffers - Memory-efficient layout staying under PAGE ($1900)
+; ============================================================================
+; Memory map:
+; $0E00-$0FFF - Catalog area (512 bytes) - also used for large RX ops
+; $1000-$10FF - FujiNet workspace variables
+; $1100-$111F - Channel workspace
+; $1120-$115F - FujiBus TX buffer (64 bytes)
+; $1160-$135F - FujiBus RX buffer (512 bytes)
+; $1360-$18FF - Available for future use
+; $1900       - PAGE limit (DO NOT EXCEED!)
 ; ============================================================================
 
-; Transmit buffer - 1024 bytes at $1200
-fn_tx_buffer    = $1200
+; Transmit buffer - 64 bytes at $1120 (enough for command headers)
+fn_tx_buffer    = $1120
+FN_TX_BUFFER_SIZE = 64
 
-; Receive buffer - 1024 bytes at $1600
-fn_rx_buffer    = $1600
+; Receive buffer - 512 bytes at $1160 (for responses with sector data)
+fn_rx_buffer    = $1160
+FN_RX_BUFFER_SIZE = 512
 
-; SLIP working buffer - 2048 bytes at $1A00
-fn_slip_buffer  = $1A00
+; SLIP working buffer - reuse RX buffer area during encoding
+; (TX and RX don't happen simultaneously)
+fn_slip_buffer  = $1160
 
-; Buffer lengths - use private workspace for persistent storage
+; Buffer lengths - use workspace variables
 fn_tx_len       = $10FE
 fn_tx_len_hi    = $10FF
 
 fn_rx_len       = $10FC
 fn_rx_len_hi    = $10FD
 
-; Checksum accumulator (2 bytes)
-fn_chk_sum      = $10FA
-fn_chk_sum_hi   = $10FB
-
 ; ============================================================================
 ; CODE segment
 ; ============================================================================
 
         .segment "CODE"
-
-; ============================================================================
-; FN_CALC_CHECKSUM - Calculate FujiBus checksum
-;
-; The checksum is a sum of all bytes with carry folding.
-; chk = sum of all bytes
-; chk = ((chk >> 8) + (chk & 0xFF)) & 0xFFFF
-; return chk & 0xFF
-;
-; Input:
-;   aws_tmp00/01 = pointer to data buffer
-;   aws_tmp02/03 = length of data (16-bit)
-;
-; Output:
-;   A = checksum byte
-;   X, Y preserved
-; ============================================================================
-fn_calc_checksum:
-        ; Initialize checksum to 0
-        lda     #$00
-        sta     fn_chk_sum
-        sta     fn_chk_sum_hi
-
-        ; Save buffer pointer
-        lda     aws_tmp00
-        pha
-        lda     aws_tmp01
-        pha
-
-        ; Use Y as index within current page
-        ldy     #$00
-
-@checksum_loop:
-        ; Check if we've processed all bytes
-        lda     aws_tmp02
-        ora     aws_tmp03
-        beq     @checksum_done
-
-        ; Get next byte
-        lda     (aws_tmp00),y
-        
-        ; Add to checksum
-        clc
-        adc     fn_chk_sum
-        sta     fn_chk_sum
-        bcc     @no_carry1
-        inc     fn_chk_sum_hi
-@no_carry1:
-
-        ; Fold carry: chk_sum = (chk_sum >> 8) + (chk_sum & 0xFF)
-        ; This is: chk_sum = hi(chk_sum) + lo(chk_sum)
-        lda     fn_chk_sum_hi   ; hi byte
-        clc
-        adc     fn_chk_sum      ; add lo byte
-        sta     fn_chk_sum
-        lda     #$00
-        sta     fn_chk_sum_hi   ; clear hi byte
-
-        ; Advance pointer
-        iny
-        bne     @no_page_cross
-        inc     aws_tmp01       ; Cross page boundary
-@no_page_cross:
-
-        ; Decrement length
-        dec     aws_tmp02
-        lda     aws_tmp02
-        cmp     #$FF
-        bne     @no_borrow
-        dec     aws_tmp03
-@no_borrow:
-
-        jmp     @checksum_loop
-
-@checksum_done:
-        ; Restore buffer pointer
-        pla
-        sta     aws_tmp01
-        pla
-        sta     aws_tmp00
-
-        ; Return low byte of checksum
-        lda     fn_chk_sum
-        rts
-
 
 ; ============================================================================
 ; FN_SLIP_ENCODE - Encode data with SLIP framing
@@ -372,80 +297,68 @@ fn_slip_decode:
 ;   A = device ID
 ;   X = command byte
 ;   Y = payload length (0-255 for simple packets)
-;   aws_tmp00/01 = pointer to payload data (or $0000 if no payload)
+;   aws_tmp00/01 = pointer to payload data (ignored if Y=0)
 ;
 ; Output:
 ;   fn_tx_buffer contains complete packet
 ;   fn_tx_len = total packet length
 ; ============================================================================
 fn_build_packet:
-        ; Save registers (standard 6502 - no phx/phy)
-        ; Order on stack after saves: deviceID, command, payloadLen
-        pha                     ; Device ID
-        txa
-        pha                     ; Command
-        tya
-        pha                     ; Payload length
+        ; Store header bytes directly - no stack nonsense
+        sta     fn_tx_buffer+0          ; Device ID
+        stx     fn_tx_buffer+1          ; Command
 
         ; Calculate total length = header(6) + payload
-        pla                     ; Get payload length
-        tay                     ; Save in Y for later
+        sty     fn_tx_len               ; Save payload length
+        tya
         clc
-        tya                     ; Get payload length
         adc     #FN_HEADER_SIZE
         sta     fn_tx_len
+        sta     fn_tx_buffer+2          ; Length low in header
         lda     #$00
-        sta     fn_tx_len_hi
+        sta     fn_tx_len_hi            ; High byte always 0 for small packets
+        sta     fn_tx_buffer+3          ; Length high in header
+        sta     fn_tx_buffer+4          ; Checksum placeholder (0 for calculation)
+        sta     fn_tx_buffer+5          ; Descriptor (0 for simple packets)
 
-        ; Build header
-        ; Offset 0: Device ID
-        pla                     ; Get device ID from stack
-        sta     fn_tx_buffer+0
-
-        ; Offset 1: Command
-        pla                     ; Get command
-        sta     fn_tx_buffer+1
-
-        ; Offset 2-3: Length (little-endian)
-        lda     fn_tx_len
-        sta     fn_tx_buffer+2
-        lda     fn_tx_len_hi
-        sta     fn_tx_buffer+3
-
-        ; Offset 4: Checksum placeholder (will be filled later)
-        lda     #$00
-        sta     fn_tx_buffer+4
-
-        ; Offset 5: Descriptor (0 for simple packets)
-        sta     fn_tx_buffer+5
-
-        ; Check if payload present (Y still has payload length)
+        ; Copy payload if present
         cpy     #$00
-        beq     @no_payload     ; Skip if no payload
+        beq     @calc_checksum
 
-        ; Copy payload to buffer after header
-        tay                     ; Use Y as counter
-        dey                     ; Adjust for 0-index
+        ; Save payload pointer (we need aws_tmp00/01 for checksum later)
+        lda     aws_tmp00
+        pha
+        lda     aws_tmp01
+        pha
 
+        ; Copy payload using Y as index (counting down from length-1)
+        dey                             ; Y = payload_len - 1
 @copy_loop:
         lda     (aws_tmp00),y
         sta     fn_tx_buffer+FN_HEADER_SIZE,y
         dey
         bpl     @copy_loop
 
-@no_payload:
-        ; Calculate checksum over entire packet
-        ; Set up parameters for fn_calc_checksum
+        ; Restore payload pointer
+        pla
+        sta     aws_tmp01
+        pla
+        sta     aws_tmp00
+
+@calc_checksum:
+        ; Calculate checksum using existing optimized routine
+        ; _calc_checksum expects: aws_tmp00/01 = buf, aws_tmp02/03 = len
+        ; Returns checksum in A
         lda     #<fn_tx_buffer
         sta     aws_tmp00
         lda     #>fn_tx_buffer
         sta     aws_tmp01
         lda     fn_tx_len
         sta     aws_tmp02
-        lda     fn_tx_len_hi
+        lda     #$00
         sta     aws_tmp03
 
-        jsr     fn_calc_checksum
+        jsr     _calc_checksum
 
         ; Store checksum at offset 4
         sta     fn_tx_buffer+4
@@ -573,7 +486,7 @@ fn_receive_packet:
         lda     #$00
         sta     fn_rx_buffer+4
 
-        ; Calculate checksum
+        ; Calculate checksum using optimized routine
         lda     #<fn_rx_buffer
         sta     aws_tmp00
         lda     #>fn_rx_buffer
@@ -583,11 +496,11 @@ fn_receive_packet:
         lda     fn_rx_len_hi
         sta     aws_tmp03
 
-        jsr     fn_calc_checksum
+        jsr     _calc_checksum
 
-        ; Compare with saved checksum
+        ; Compare with saved checksum (returned in A, also in aws_tmp04)
         pla
-        cmp     fn_chk_sum
+        cmp     aws_tmp04       ; _calc_checksum stores result here
         bne     @receive_error
 
         ; Success

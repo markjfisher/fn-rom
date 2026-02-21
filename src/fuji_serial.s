@@ -37,7 +37,6 @@
         ; Import FujiBus functions
         .import fn_disk_read_sector_impl
         .import fn_disk_write_sector_impl
-        .import fn_calc_checksum
 
         .include "fujinet.inc"
 
