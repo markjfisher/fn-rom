@@ -25,6 +25,22 @@ At the heart of the design is a clean separation between:
 | **Core** | Request routing, ticking, device lifecycle |
 | **Devices** | Virtual devices (Disk, Fuji config, Network, Printer, …) |
 
+### FujiBus Device IDs (for fn-rom commands)
+
+| Device | ID | Purpose |
+|--------|-----|---------|
+| FujiDevice | 0xFB | FujiNet configuration (legacy hosts) |
+| DiskService | 0xFC | Disk image mount/unmount/IO |
+| FileService | 0xFE | File system operations (list, cd) |
+
+### Key Architectural Change: No Static Hosts List
+
+**Legacy (fujinet-firmware):** FujiNet maintained a static list of 8 hosts (URL + prefix pairs).
+
+**New (fujinet-nio):** No static hosts list. Filesystem is specified via **URI** in each command (e.g., `tnfs://server:port/path`, `sd0:/`).
+
+The ROM must maintain "current filesystem" state internally.
+
 ## fn-rom transport and channel
 
 The transport used by fn-rom is fujibus (header, descriptors and payload definition) with SLIP framing. See `@../fn-rom/src/fujibus.s`.
