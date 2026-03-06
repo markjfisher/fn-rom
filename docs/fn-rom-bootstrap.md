@@ -76,18 +76,6 @@ Source is 6502 assembly language, using ca65 dialect, using cc65 to compile to R
 
 ## Memory constraints
 
-BBC ROM code working space can only fit up to $1900 hex in memory.
-The layout is as follows:
+BBC ROM code working space can only fit up to $1900 hex in memory. The authoritative buffer and workspace layout is in `@../fn-rom/src/os.s` (fuji_* symbols) and `@../fn-rom/src/fujibus.s` (FujiBus TX/RX and the memory map comments there).
 
-; ============================================================================
-; Buffers - Memory-efficient layout staying under PAGE ($1900)
-; ============================================================================
-; Memory map:
-; $0E00-$0FFF - Catalog area (512 bytes) - also used for large RX ops
-; $1000-$10FF - FujiNet workspace variables
-; $1100-$111F - Channel workspace
-; $1120-$115F - FujiBus TX buffer (64 bytes)
-; $1160-$135F - FujiBus RX buffer (512 bytes)
-; $1360-$18FF - Available for future use
-; $1900       - PAGE limit (DO NOT EXCEED!)
-; ============================================================================
+Important: **$1120 (FujiBus TX / fuji_current_fs_uri) and $1160 (FujiBus RX/slip / fuji_current_dir_path) are the same regions** in os.s and fujibus.s. Building a TX packet overwrites the current FS URI; 64 bytes is only enough for short URIs (~58 chars payload). Long URLs need a larger TX build area (not yet implemented). When adding or changing code that touches these buffers, verify that no other code in the command path (from OSCLI through to the FujiBus send) uses the same locations for different purposes.

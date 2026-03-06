@@ -43,17 +43,29 @@ FN_MAX_SLIP_SIZE = 640      ; 2x max packet + margin
 ; ============================================================================
 ; Buffers - Memory-efficient layout staying under PAGE ($1900)
 ; ============================================================================
-; Memory map:
+; Memory map (see also os.s for fuji_* symbols that share these regions):
 ; $0E00-$0FFF - Catalog area (512 bytes) - also used for large RX ops
-; $1000-$10FF - FujiNet workspace variables
-; $1100-$111F - Channel workspace
-; $1120-$115F - FujiBus TX buffer (64 bytes)
-; $1160-$135F - FujiBus RX buffer (512 bytes)
+; $1000-$10FF - FujiNet workspace variables (scalars, not buffers)
+; $1100-$111F - Channel workspace (fuji_channel_start etc.)
+; $1120-$115F - FujiBus TX buffer (64 bytes)  OVERLAPS os.s fuji_current_fs_uri
+; $1160-$135F - FujiBus RX buffer (512 bytes) OVERLAPS os.s fuji_current_dir_path
 ; $1360-$18FF - Available for future use
 ; $1900       - PAGE limit (DO NOT EXCEED!)
+;
+; OVERLAP: os.s defines fuji_current_fs_uri=$1120 and fuji_current_dir_path=$1160.
+; Building a packet in fn_tx_buffer overwrites the current FS URI. RX/slip use
+; the same 512 bytes as fuji_current_dir_path. Code that builds TX payloads must
+; not assume the base-URI pointer is valid after writing to fn_tx_buffer (hence
+; the precopy in fn_file_resolve_path).
+;
+; 64-BYTE LIMIT: FN_TX_BUFFER_SIZE=64 is too small for long URLs. ResolvePath
+; payload = 1 + 2 + base_uri_len + 2 + arg_len; with 255-byte URI + 255-byte arg
+; that is 515 bytes. Short URIs (e.g. "HOST:/FILE.SSD", ~16 chars) fit in the
+; 58-byte payload area (64 - 6 header). Long-URL support will need a larger TX
+; build area (e.g. in $1360-$18FF) or streaming; not yet implemented.
 ; ============================================================================
 
-; Transmit buffer - 64 bytes at $1120 (enough for command headers)
+; Transmit buffer - 64 bytes at $1120 (shared with fuji_current_fs_uri in os.s)
 fn_tx_buffer    = $1120
 FN_TX_BUFFER_SIZE = 64
 

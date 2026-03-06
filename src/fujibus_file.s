@@ -21,10 +21,30 @@
 ;   fuji_current_fs_uri / fuji_current_fs_len updated with resolved URI
 ;   fuji_current_dir_path / fuji_current_dir_len updated with display path
 ;   C clear on success, set on failure
+;
+;   Base URI may overlap fn_tx_buffer (e.g. fuji_current_fs_uri in same region).
+;   Copy base URI to a safe area in the TX buffer (offset 32) before building
+;   the payload so the @copy_base loop does not read its own writes.
 fn_file_resolve_path:
         lda     #$00
         sta     aws_tmp07
         sta     aws_tmp06
+
+        ; Copy base URI to fn_tx_buffer+32 so it cannot overlap payload at +6..24
+        ldy     #$00
+@precopy_base:
+        cpy     aws_tmp02
+        beq     @precopy_done
+        lda     (aws_tmp00),y
+        sta     fn_tx_buffer+32,y
+        iny
+        bne     @precopy_base
+@precopy_done:
+        lda     #<(fn_tx_buffer+32)
+        sta     aws_tmp00
+        lda     #>(fn_tx_buffer+32)
+        sta     aws_tmp01
+
         lda     #FN_PROTOCOL_VERSION
         sta     fn_tx_buffer+FN_HEADER_SIZE+0
 
@@ -50,7 +70,11 @@ fn_file_resolve_path:
         lda     #$00
         sta     fn_tx_buffer+FN_HEADER_SIZE+3,y
         iny
-        sty     aws_tmp06
+        ; Total payload length = 3 (version + base_uri_len) + base_uri_len + 2 (arg_len) = 5 + aws_tmp07
+        lda     aws_tmp07
+        clc
+        adc     #5
+        sta     aws_tmp06
 
         ldx     #$00
 @copy_arg:
@@ -71,11 +95,14 @@ fn_file_resolve_path:
         bne     @copy_arg
 
 @send:
+        ; fn_build_packet expects aws_tmp00/01 = payload pointer, Y = payload length.
+        ; We built the payload at fn_tx_buffer+FN_HEADER_SIZE; pass that pointer so
+        ; the copy does not overwrite our data (and so we don't copy from base URI).
+        lda     #<(fn_tx_buffer+FN_HEADER_SIZE)
+        sta     aws_tmp00
+        lda     #>(fn_tx_buffer+FN_HEADER_SIZE)
+        sta     aws_tmp01
         ldy     aws_tmp06
-        tya
-        clc
-        adc     #$03
-        tay
         lda     #FN_DEVICE_FILE
         ldx     #FILE_CMD_RESOLVE_PATH
         jsr     fn_build_packet
@@ -180,10 +207,14 @@ fn_file_list_directory:
         sta     fn_tx_buffer+FN_HEADER_SIZE+3,y
         iny
 
-        tya
-        clc
-        adc     #$03
-        tay
+        ; fn_build_packet expects aws_tmp00/01 = payload pointer, Y = payload length.
+        ; Y currently holds payload length (7 + uri_len).
+        sty     aws_tmp07
+        lda     #<(fn_tx_buffer+FN_HEADER_SIZE)
+        sta     aws_tmp00
+        lda     #>(fn_tx_buffer+FN_HEADER_SIZE)
+        sta     aws_tmp01
+        ldy     aws_tmp07
         lda     #FN_DEVICE_FILE
         ldx     #FILE_CMD_LIST_DIRECTORY
         jsr     fn_build_packet

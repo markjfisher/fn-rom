@@ -420,7 +420,10 @@ fuji_current_sector     = fuji_workspace + $10FA  ; Current sector being accesse
 fuji_current_fs_len     = fuji_workspace + $10FB  ; Current filesystem URI length
 fuji_current_dir_len    = fuji_workspace + $10FC  ; Current directory length
 fuji_current_mount_slot = fuji_workspace + $10FD  ; Current FujiNet persisted mount slot (0-based)
+; WARNING: Same 64 bytes as fujibus.s fn_tx_buffer ($1120). Building a FujiBus TX
+; packet overwrites this. Keep URIs short (< ~58 chars) or see fujibus.s for limits.
 fuji_current_fs_uri     = fuji_workspace + $1120  ; NUL-terminated URI buffer
+; WARNING: Same region as fujibus.s fn_rx_buffer/fn_slip_buffer ($1160, 512 bytes).
 fuji_current_dir_path   = fuji_workspace + $1160  ; NUL-terminated current directory/path buffer
 
 
