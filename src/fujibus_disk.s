@@ -67,10 +67,8 @@ fn_disk_flags   = $10F8
 ; Input:
 ;   A = slot (1-8)
 ;   X = flags (0=read-write, 1=read-only)
-;   aws_tmp00/01 = pointer to fsName string (length-prefixed)
-;   aws_tmp02 = fsName length
-;   aws_tmp03/04 = pointer to path string (length-prefixed)
-;   aws_tmp05 = path length
+;   aws_tmp00/01 = pointer to full URI string (NUL-terminated)
+;   aws_tmp02 = URI length in bytes
 ;
 ; Output:
 ;   Carry clear on success, set on error
@@ -105,14 +103,33 @@ fn_disk_mount:
         sta     fn_tx_buffer+FN_HEADER_SIZE+4
         sta     fn_tx_buffer+FN_HEADER_SIZE+5
 
-        ; TODO: Add fsName and path
-        ; For now, just use minimal mount
+        ; URI length (little-endian)
+        lda     aws_tmp02
+        sta     fn_tx_buffer+FN_HEADER_SIZE+6
+        lda     #$00
+        sta     fn_tx_buffer+FN_HEADER_SIZE+7
+
+        ; Copy URI bytes after length
+        ldy     #$00
+@copy_uri:
+        cpy     aws_tmp02
+        beq     @build_packet
+        lda     (aws_tmp00),y
+        sta     fn_tx_buffer+FN_HEADER_SIZE+8,y
+        iny
+        bne     @copy_uri
+
+@build_packet:
+        ; Total payload = fixed fields (8) + URI bytes
+        tya
+        clc
+        adc     #$08
+        tay
 
         ; Build packet
         ; A = device ID, X = command, Y = payload length
         lda     #FN_DEVICE_DISK
         ldx     #DISK_CMD_MOUNT
-        ldy     #$06            ; Payload length
 
         jsr     fn_build_packet
 

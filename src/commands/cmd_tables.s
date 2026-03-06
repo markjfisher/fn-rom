@@ -40,6 +40,8 @@
         .import cmd_fs_wipe
 
         .import cmd_fs_fin
+        .import cmd_fs_fout
+        .import cmd_fs_fdrive
         .import cmd_fs_freset
         .import cmd_help_fuji
         .import cmd_help_futils
@@ -126,8 +128,11 @@ cmd_table_futils:
         .byte   (cmd_table_futils_cmds - cmd_table_fujifs_cmds) / 2 - 1
 
         .byte   "BOOT",      $80+$07    ; <dno>/<dsp>
+        .byte   "FS",        $80+$74    ; <uri>
         .byte   "HOST",      $80+$74    ; (num) <path>
+        .byte   "DRIVE",     $80+$00    ; list mounted FujiNet drives
         .byte   "IN",        $80+$74    ; (<drive>) <dos name>
+        .byte   "OUT",       $80+$01    ; <drive>
         .byte   "RESET",     $80+$00    ; no parameter
         .byte   $00                     ; End of table
 
@@ -181,7 +186,10 @@ cmd_table_help_cmds:
 cmd_table_futils_cmds:
         .word   cmd_fs_fboot-1
         .word   cmd_fs_fhost-1
+        .word   cmd_fs_fhost-1
+        .word   cmd_fs_fdrive-1
         .word   cmd_fs_fin-1
+        .word   cmd_fs_fout-1
         .word   cmd_fs_freset-1
         .word   not_cmd_futils-1
 
@@ -199,7 +207,7 @@ parameter_table:
         .byte '<'|$80, "fsp>"                   ; 8
         .byte '('|$80, "<dos name>)"            ; 9
         .byte '<'|$80, "title>"                 ; A
-        .byte '('|$80, "<num>)"                 ; B
+        .byte '<'|$80, "uri>"                   ; B
         .byte '<'|$80, "source> <dest.>"        ; C
         .byte '<'|$80, "old fsp> <new fsp>"     ; D
         .byte '<'|$80, "filter>"                ; E

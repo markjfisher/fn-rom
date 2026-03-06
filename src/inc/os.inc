@@ -85,6 +85,10 @@ OS_INC = 1
         .import  fuji_file_offset
         .import  fuji_block_size
         .import  fuji_current_sector
+        .import  fuji_current_fs_len
+        .import  fuji_current_dir_len
+        .import  fuji_current_fs_uri
+        .import  fuji_current_dir_path
 
         .import  dfs_cat_s0_header
         .import  dfs_cat_s1_header

@@ -112,6 +112,10 @@
         .export  fuji_file_offset
         .export  fuji_block_size
         .export  fuji_current_sector
+        .export  fuji_current_fs_len
+        .export  fuji_current_dir_len
+        .export  fuji_current_fs_uri
+        .export  fuji_current_dir_path
 
         .export  dfs_cat_s0_header
         .export  dfs_cat_s1_header
@@ -410,6 +414,12 @@ fuji_buffer_addr        = fuji_workspace + $10F3  ; Buffer address (2 bytes)
 fuji_file_offset        = fuji_workspace + $10F5  ; File offset (3 bytes)
 fuji_block_size         = fuji_workspace + $10F8  ; Block size (2 bytes)
 fuji_current_sector     = fuji_workspace + $10FA  ; Current sector being accessed
+
+; Current filesystem selection state for URI-based commands
+fuji_current_fs_len     = fuji_workspace + $10FB  ; Current filesystem URI length
+fuji_current_dir_len    = fuji_workspace + $10FC  ; Current directory length
+fuji_current_fs_uri     = fuji_workspace + $1120  ; NUL-terminated URI buffer
+fuji_current_dir_path   = fuji_workspace + $1160  ; NUL-terminated current directory/path buffer
 
 
 ; see SetupChannelInfoBlock_Yintch

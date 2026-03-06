@@ -43,11 +43,9 @@ The document `@../fn-rom/docs/fn-rom-bootstrap.md` contains important informatio
 | `*FDRIVE` | List drives | List disk slots |
 | `*FLIST` / `*FLS` | List files | Uses current filesystem URI |
 | `*FCD` / `*FDIR` | Change directory | Uses current filesystem URI |
-| `*FRESET` | Reset FujiNet | Works (uses FujiDevice) |
+| `*FRESET` | Reset FujiNet | Was working but needs reviewing it is using fujibus |
 
 ### Proposed New Commands
-
-Based on MMFS reference and your requirements:
 
 | Command | Syntax | Purpose | FujiBus Target |
 |---------|--------|---------|----------------|
@@ -63,45 +61,15 @@ Based on MMFS reference and your requirements:
 
 ### Mount Command (0x01)
 
-Request:
-```
-u8 version = 1
-u8 slot (1-8)
-u8 flags (bit0 = readonly)
-u8 typeOverride (0=auto)
-u16 sectorSizeHint
-u16 fsNameLen
-u8[] fsName (e.g., "tnfs", "sd0")
-u16 pathLen
-u8[] path (e.g., "/games.atr")
-```
+See `@../fujinet-nio/docs/disk_deivce_protocol.md`
 
 ### Unmount Command (0x02)
 
-Request:
-```
-u8 version = 1
-u8 slot
-```
+See `@../fujinet-nio/docs/disk_deivce_protocol.md`
 
 ### Info Command (0x05)
 
-Request:
-```
-u8 version = 1
-u8 slot
-```
-
-Response:
-```
-u8 version
-u8 flags (bit0=inserted, bit1=readonly, bit2=dirty, bit3=changed)
-u8 slot
-u8 type
-u16 sectorSize
-u32 sectorCount
-u8 lastError
-```
+See `@../fujinet-nio/docs/disk_deivce_protocol.md`
 
 ## ROM State Management
 
@@ -139,27 +107,3 @@ current_dir:      .res 128    ; Current directory path
 ## Reference: FujiNet-NIO File Device Protocol
 
 See `docs/file_device_protocol.md` for detailed FujiBus protocol.
-
-## Reference: MMFS Command Reference
-
-See `file:///home/markf/dev/bbc/books/MMFSv2-V1.55%20Command%20Reference.pdf`
-
-## Gaps in Current Bootstrap
-
-The current `fn-rom-bootstrap.md` is missing:
-
-1. **FujiBus protocol details** - Which device ID to use for which operations
-2. **Command rewrite plan** - How existing commands map to new behavior
-3. **State management** - What ROM variables need to track
-4. **URI handling** - How to parse and store filesystem URIs
-
-## Recommended Bootstrap Updates
-
-Add a new section to `fn-rom-bootstrap.md`:
-
-```
-## Command Rewriting for FujiNet-NIO
-
-This section covers the changes needed to adapt fn-rom commands
-from the legacy hosts-list model to the new URI-based model.
-```
