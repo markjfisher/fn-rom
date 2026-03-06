@@ -1,6 +1,8 @@
         .export cmd_fs_fmount
 
         .import err_bad
+        .import fuji_get_mount_slot
+        .import fn_rx_buffer
         .import param_count_a
         .import param_drive_or_default
         .import param_get_num
@@ -25,10 +27,8 @@
 ; - FMOUNT bridges one persisted FujiNet slot onto one BBC drive by updating
 ;   the ROM-side drive mapping table fuji_drive_disk_map.
 ;
-; Review note:
-; - this currently affects ROM-side bridge state only
-; - later emulator debug may reveal a need for stronger coupling to live mount
-;   activation semantics or additional bridge validation
+; FMOUNT validates the persisted FujiNet slot via FujiDevice GetMount before the
+; BBC-side bridge is updated. Empty or disabled slots are rejected.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 cmd_fs_fmount:
@@ -41,6 +41,19 @@ cmd_fs_fmount:
         cmp     #$08
         bcs     bad_mount_slot
         sta     fuji_disk_table_index
+        sta     fuji_current_mount_slot
+
+        ; Validate that the selected persisted FujiNet slot is populated and
+        ; enabled before updating the BBC-side bridge mapping.
+        jsr     fuji_get_mount_slot
+        bcs     bad_mount_slot
+        ldy     #FN_HEADER_SIZE+1
+        lda     fn_rx_buffer,y
+        and     #$01
+        beq     bad_mount_slot
+        iny
+        lda     fn_rx_buffer,y
+        beq     bad_mount_slot
 
         ; Read optional BBC drive number, or fall back to the current/default
         ; drive if the user omitted it.

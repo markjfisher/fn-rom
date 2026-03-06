@@ -55,6 +55,10 @@ cmd_fs_fcd:
         ; On success A returns the fragment length.
         jsr     param_get_string
         bcc     @bad_path
+        beq     @print_current_path
+
+        lda     fuji_current_fs_len
+        beq     @bad_path
 
         ; Prepare ResolvePath request inputs in the shared scratch locations.
         ;
@@ -87,6 +91,13 @@ cmd_fs_fcd:
 @print_current_path:
         ; Print only the normalized human-facing path.
         ; FHOST/FFS are the commands that display the full URI state.
+        lda     fuji_current_dir_len
+        bne     @path_ready
+        lda     #'/'
+        jsr     print_char
+        jmp     @done
+
+@path_ready:
         ldy     #$00
 @loop:
         lda     fuji_current_dir_path,y

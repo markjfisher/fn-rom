@@ -1,6 +1,8 @@
         .export cmd_fs_fout
 
         .import fn_disk_unmount
+        .import fuji_clear_mount_slot
+        .import fuji_unmount_disk
         .import param_drive_no_syntax
         .import set_user_flag_x
 
@@ -14,15 +16,9 @@
 ; Syntax:
 ;   *FOUT <drive>
 ;
-; This performs a live DiskService unmount for the slot corresponding to the
-; supplied BBC drive number. This is distinct from removing a persisted FujiNet
-; mount definition from the FujiDevice configuration table.
-;
-; Review note:
-; - at present this converts a BBC drive number directly into a 1-based
-;   DiskDevice slot number on the wire
-; - if the FMOUNT bridge model evolves further, revisit whether FOUT should
-;   also clear a bridge mapping or only affect the live slot state
+; This removes the persisted FujiNet mount entry currently bridged to the BBC
+; drive, clears the BBC-side bridge mapping, and requests a live DiskService
+; unmount for the corresponding 1-based disk slot.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 cmd_fs_fout:
@@ -31,8 +27,25 @@ cmd_fs_fout:
         jsr     param_drive_no_syntax
         sta     current_drv
 
-        ; DiskDevice uses 1-based slot numbers on the wire, so convert from the
-        ; BBC's internal 0-based drive numbering before calling fn_disk_unmount.
+        ; Look up the currently bridged persisted FujiNet mount slot for this BBC
+        ; drive. If no bridge exists, treat the request as a failure.
+        ldx     current_drv
+        lda     fuji_drive_disk_map,x
+        cmp     #$FF
+        beq     @failed
+        sta     fuji_current_mount_slot
+
+        ; Remove the persisted FujiDevice mount definition first.
+        jsr     fuji_clear_mount_slot
+        bcs     @failed
+
+        ; Clear the BBC-side bridge state regardless of whether a live disk slot
+        ; was currently mounted.
+        jsr     fuji_unmount_disk
+
+        ; DiskDevice uses 1-based slot numbers on the wire. BBC drive N is backed
+        ; by live disk slot N+1 when bridged.
+        lda     current_drv
         clc
         adc     #$01
         jsr     fn_disk_unmount

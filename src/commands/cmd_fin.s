@@ -5,6 +5,8 @@
         .export cmd_fs_fin
 
         .import err_bad
+        .import fn_rx_buffer
+        .import fuji_get_mount_slot
         .import fuji_set_mount_slot
         .import num_params
         .import param_get_num
@@ -123,6 +125,23 @@ cmd_fs_fin:
         ;   fuji_buf_1060           = final NUL-terminated URI
         jsr     fuji_set_mount_slot
         bcs     fin_mount_failed
+
+        ; Refresh the slot record so callers see the same current/default slot
+        ; state as FujiDevice accepted.
+        jsr     fuji_get_mount_slot
+        bcs     fin_mount_failed
+
+        ldy     #FN_HEADER_SIZE+0
+        lda     fn_rx_buffer,y
+        cmp     fuji_current_mount_slot
+        bne     fin_mount_failed
+        iny
+        lda     fn_rx_buffer,y
+        and     #$01
+        beq     fin_mount_failed
+        iny
+        lda     fn_rx_buffer,y
+        beq     fin_mount_failed
 
         ; Standard success path: zero user flag.
         ldx     #$00

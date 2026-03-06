@@ -1,4 +1,5 @@
         .export fuji_set_mount_slot
+        .export fuji_clear_mount_slot
         .export fuji_get_mount_slot
 
         .import fn_build_packet
@@ -95,10 +96,52 @@ fuji_set_mount_slot:
         ; as command failure and leave response payload parsing to later work.
         jsr     fn_receive_packet
         bcs     @error
+
+        lda     fn_rx_buffer+FN_PARAMS_OFFSET
+        bne     @error
         clc
         rts
 
 @error:
+        sec
+        rts
+
+; Clear persisted Fuji mount slot using FujiDevice SetMount removal semantics.
+; Input:
+;   fuji_current_mount_slot = 0-based slot index
+; Output:
+;   Carry clear on success, set on failure
+;
+; Payload layout for removal is:
+;   byte 0 = slot index (0..7)
+;   byte 1 = flags (0 when disabled/unused)
+;   byte 2 = URI length = 0, which instructs FujiDevice to remove the entry
+;   byte 3 = mode length = 0
+fuji_clear_mount_slot:
+        lda     fuji_current_mount_slot
+        sta     fn_tx_buffer+FN_HEADER_SIZE+0
+
+        lda     #$00
+        sta     fn_tx_buffer+FN_HEADER_SIZE+1
+        sta     fn_tx_buffer+FN_HEADER_SIZE+2
+        sta     fn_tx_buffer+FN_HEADER_SIZE+3
+
+        lda     #FN_DEVICE_FUJI
+        ldx     #FUJI_CMD_SET_MOUNT
+        ldy     #$04
+        jsr     fn_build_packet
+        jsr     fn_send_packet
+        bcs     @clear_error
+
+        jsr     fn_receive_packet
+        bcs     @clear_error
+
+        lda     fn_rx_buffer+FN_PARAMS_OFFSET
+        bne     @clear_error
+        clc
+        rts
+
+@clear_error:
         sec
         rts
 
@@ -128,6 +171,9 @@ fuji_get_mount_slot:
         ; the caller to decode.
         jsr     fn_receive_packet
         bcs     @get_error
+
+        lda     fn_rx_buffer+FN_PARAMS_OFFSET
+        bne     @get_error
         clc
         rts
 

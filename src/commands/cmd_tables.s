@@ -28,6 +28,8 @@
         .import cmd_fs_ex
         .import cmd_fs_fboot
         .import cmd_fs_fhost
+        .import cmd_fs_fls
+        .import cmd_fs_flist
         .import cmd_fs_form
         .import cmd_fs_free
         .import cmd_fs_fuji
@@ -133,6 +135,8 @@ cmd_table_futils:
         .byte   "HOST",      $80+$74    ; (num) <path>
         .byte   "DRIVE",     $80+$00    ; list mounted FujiNet drives
         .byte   "IN",        $80+$74    ; (<drive>) <dos name>
+        .byte   "LS",        $80+$7E    ; (<path>)
+        .byte   "LIST",      $80+$7E    ; (<path>)
         .byte   "MOUNT",     $80+$14    ; <mount slot> (<drive>)
         .byte   "OUT",       $80+$01    ; <drive>
         .byte   "RESET",     $80+$00    ; no parameter
@@ -191,6 +195,8 @@ cmd_table_futils_cmds:
         .word   cmd_fs_fhost-1
         .word   cmd_fs_fdrive-1
         .word   cmd_fs_fin-1
+        .word   cmd_fs_fls-1
+        .word   cmd_fs_flist-1
         .word   cmd_fs_fmount-1
         .word   cmd_fs_fout-1
         .word   cmd_fs_freset-1

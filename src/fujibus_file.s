@@ -22,6 +22,8 @@
 ;   fuji_current_dir_path / fuji_current_dir_len updated with display path
 ;   C clear on success, set on failure
 fn_file_resolve_path:
+        lda     #$00
+        sta     aws_tmp07
         lda     #FN_PROTOCOL_VERSION
         sta     fn_tx_buffer+FN_HEADER_SIZE+0
 
@@ -77,6 +79,9 @@ fn_file_resolve_path:
         bcs     @error
         jsr     fn_receive_packet
         bcs     @error
+
+        lda     fn_rx_buffer+FN_PARAMS_OFFSET
+        bne     @error
 
         ; Parse response payload into persistent workspace.
         ; payload: version, flags, reserved(2), resolvedUriLen(2), resolvedUri..., displayPathLen(2), displayPath...
@@ -176,6 +181,9 @@ fn_file_list_directory:
         bcs     @list_error
         jsr     fn_receive_packet
         bcs     @list_error
+
+        lda     fn_rx_buffer+FN_PARAMS_OFFSET
+        bne     @list_error
         clc
         rts
 
