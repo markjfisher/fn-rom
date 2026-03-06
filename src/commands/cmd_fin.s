@@ -1,14 +1,14 @@
 ; *FIN command implementation
-; Find a file on a specific drive
-; Syntax: *FIN <drive> <filename>
+; Configure a persisted FujiNet mount slot with a URI
+; Syntax: *FIN [<mount slot>] <filename>
 
         .export cmd_fs_fin
 
         .import err_bad
-        .import param_count_a
-        .import param_drive_or_default
+        .import fuji_set_mount_slot
+        .import num_params
+        .import param_get_num
         .import param_get_string
-        .import fn_disk_mount
         .import set_user_flag_x
 
         .include "fujinet.inc"
@@ -17,93 +17,66 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; cmd_fs_fin - Handle *FIN command
-; Syntax: *FIN <drive> <filename>
-; Finds and displays information about a file on a specific drive
+; Syntax: *FIN [<mount slot>] <filename>
+; Stores a URI into the persisted FujiNet mount table.
+; If a mount slot is supplied, it becomes the new default slot.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 cmd_fs_fin:
-        ; Check parameter count (1 or 2 allowed)
-        lda     #$80                    ; flag7=1, flag0=0: allows 1-2 parameters
-        jsr     param_count_a           ; Returns C=0 if 1 param, C=1 if 2
+        jsr     num_params
+        cmp     #$01
+        beq     @use_default_slot
+        cmp     #$02
+        beq     @read_explicit_slot
+        jmp     fin_bad_filename
 
-        ; Read drive parameter or use default
-        jsr     param_drive_or_default  ; Sets current_drv
+@read_explicit_slot:
+        jsr     param_get_num
+        cmp     #$08
+        bcs     fin_bad_slot
+        sta     fuji_current_mount_slot
 
-        bcc     fin_mount_current_uri
-
-        ; Two-parameter form: read filename and append or replace onto current URI.
+@use_default_slot:
         jsr     param_get_string
         bcc     fin_bad_filename
 
-        ldy     #$00
-@copy_filename:
-        lda     fuji_filename_buffer,y
-        sta     fuji_current_dir_path,y
-        iny
-        cpy     #$40
-        bcc     @copy_filename
-
-        dey
-        sty     fuji_current_dir_len
-
-fin_mount_current_uri:
-        ldx     fuji_current_fs_len
+        lda     fuji_current_fs_len
         beq     fin_bad_uri
 
-        ; Build mountable URI into fuji_filename_buffer.
+        ; Build final URI in fuji_buf_1060.
         ldy     #$00
 @copy_base:
         lda     fuji_current_fs_uri,y
-        sta     fuji_filename_buffer,y
+        sta     fuji_buf_1060,y
         beq     @base_done
         iny
         cpy     #$3F
         bcc     @copy_base
 
 @base_done:
-        ; If current path is just root, use the current FS URI as-is.
-        lda     fuji_current_dir_len
-        cmp     #$01
-        bne     @append_current_path
-        lda     fuji_current_dir_path
-        cmp     #'/'
-        beq     @mount_uri_ready
-
-@append_current_path:
         dey
-        lda     fuji_filename_buffer,y
+        lda     fuji_buf_1060,y
         cmp     #'/'
-        beq     @append_loop_prep
+        beq     @append_name
         iny
         lda     #'/'
-        sta     fuji_filename_buffer,y
+        sta     fuji_buf_1060,y
 
-@append_loop_prep:
+@append_name:
         iny
         ldx     #$00
-@append_loop:
-        lda     fuji_current_dir_path,x
-        sta     fuji_filename_buffer,y
-        beq     @mount_uri_ready
+@copy_name:
+        lda     fuji_filename_buffer,x
+        sta     fuji_buf_1060,y
+        beq     @set_mount_done
         inx
         iny
         cpx     #$3F
-        bcc     @append_loop
+        bcc     @copy_name
 
-@mount_uri_ready:
-        sty     aws_tmp02
-        lda     #<fuji_filename_buffer
-        sta     aws_tmp00
-        lda     #>fuji_filename_buffer
-        sta     aws_tmp01
-
-        lda     current_drv
-        clc
-        adc     #$01                    ; DiskService slots are 1-based
-        ldx     #$00                    ; Mount read/write by default
-        jsr     fn_disk_mount
+@set_mount_done:
+        jsr     fuji_set_mount_slot
         bcs     fin_mount_failed
-
         ldx     #$00
         jmp     set_user_flag_x
 
@@ -116,6 +89,11 @@ fin_bad_filename:
         jsr     err_bad
         .byte   $CB
         .byte   "filename", 0
+
+fin_bad_slot:
+        jsr     err_bad
+        .byte   $CB
+        .byte   "mount slot", 0
 
 fin_mount_failed:
         ldx     #$01

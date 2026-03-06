@@ -87,6 +87,7 @@ OS_INC = 1
         .import  fuji_current_sector
         .import  fuji_current_fs_len
         .import  fuji_current_dir_len
+        .import  fuji_current_mount_slot
         .import  fuji_current_fs_uri
         .import  fuji_current_dir_path
 

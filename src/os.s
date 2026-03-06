@@ -114,6 +114,7 @@
         .export  fuji_current_sector
         .export  fuji_current_fs_len
         .export  fuji_current_dir_len
+        .export  fuji_current_mount_slot
         .export  fuji_current_fs_uri
         .export  fuji_current_dir_path
 
@@ -386,7 +387,7 @@ fuji_ram_buffer_size    = fuji_workspace + $10D0  ; RAM buffer size
 fuji_source_drive       = fuji_workspace + $10D1  ; Source drive
 fuji_dest_drive         = fuji_workspace + $10D2  ; Destination drive
 fuji_force_reset        = fuji_workspace + $10D3  ; Force reset flag
-fuji_disk_table_index   = fuji_workspace + $10D4  ; Disk table index
+fuji_disk_table_index   = fuji_workspace + $10D4  ; Disk table index, used to store the current fujinet Mount slot. 2nd byte unused
 fuji_tube_present       = fuji_workspace + $10D6  ; Tube present flag (present if 0)
 fuji_gbpb_table_lo      = fuji_workspace + $10D7  ; GBPB table low byte
 fuji_gbpb_table_hi      = fuji_workspace + $10D8  ; GBPB table high byte
@@ -418,6 +419,7 @@ fuji_current_sector     = fuji_workspace + $10FA  ; Current sector being accesse
 ; Current filesystem selection state for URI-based commands
 fuji_current_fs_len     = fuji_workspace + $10FB  ; Current filesystem URI length
 fuji_current_dir_len    = fuji_workspace + $10FC  ; Current directory length
+fuji_current_mount_slot = fuji_workspace + $10FD  ; Current FujiNet persisted mount slot (0-based)
 fuji_current_fs_uri     = fuji_workspace + $1120  ; NUL-terminated URI buffer
 fuji_current_dir_path   = fuji_workspace + $1160  ; NUL-terminated current directory/path buffer
 
