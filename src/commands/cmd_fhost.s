@@ -5,6 +5,7 @@
         .import err_bad
         .import err_syntax
         .import exit_user_ok
+        .import fn_file_resolve_path
         .import num_params
         .import param_get_string
         .import print_char
@@ -83,16 +84,33 @@ fhost_set_current_fs:
         jsr     param_get_string
         bcc     err_bad_uri
 
-        tax
-        stx     fuji_current_fs_len
+        sta     fuji_current_fs_len
 
         ldy     #$00
 @copy_uri_loop:
         lda     fuji_filename_buffer,y
         sta     fuji_current_fs_uri,y
+        beq     @copy_done
         iny
-        cpy     #$40
+        cpy     fuji_current_fs_len
         bcc     @copy_uri_loop
+
+@copy_done:
+        lda     #<fuji_current_fs_uri
+        sta     aws_tmp00
+        lda     #>fuji_current_fs_uri
+        sta     aws_tmp01
+        lda     fuji_current_fs_len
+        sta     aws_tmp02
+        lda     #<fuji_buf_1072
+        sta     aws_tmp03
+        lda     #>fuji_buf_1072
+        sta     aws_tmp04
+        lda     #$00
+        sta     aws_tmp05
+
+        jsr     fn_file_resolve_path
+        bcc     @resolved_ok
 
         lda     #'/'
         sta     fuji_current_dir_path
@@ -100,6 +118,8 @@ fhost_set_current_fs:
         sta     fuji_current_dir_path+1
         lda     #$01
         sta     fuji_current_dir_len
+
+@resolved_ok:
 
         jmp     exit_user_ok
 
