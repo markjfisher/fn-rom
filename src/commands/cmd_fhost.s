@@ -6,6 +6,7 @@
         .import err_syntax
         .import exit_user_ok
         .import fn_file_resolve_path
+        .import fuji_set_mount_slot
         .import num_params
         .import param_get_string
         .import print_char
@@ -47,6 +48,10 @@
 ;   but reset the display path to "/"
 ; - richer error reporting could later distinguish invalid URI from transport
 ;   failure if fn_file_resolve_path exposes more detail
+;
+; FHOST vs FMOUNT: FMOUNT reads the FujiNet persisted mount table (GetMount(slot)).
+; FHOST only sets the BBC "current" URI. So that *FMOUNT 0 0* works after *FHOST <uri>*,
+; we persist the newly set URI to FujiNet slot 0 after ResolvePath success.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 cmd_fs_fhost:
@@ -166,8 +171,27 @@ fhost_set_current_fs:
         sta     fuji_current_dir_path+1
         lda     #$01
         sta     fuji_current_dir_len
+        jmp     exit_user_ok
 
 @resolved_ok:
+        ; Persist this URI to FujiNet slot 0 so *FMOUNT 0 0* works without FIN.
+        ; fuji_set_mount_slot expects NUL-terminated URI in fuji_buf_1060.
+        ldy     #$00
+@copy_to_buf:
+        cpy     fuji_current_fs_len
+        beq     @nul_term
+        lda     fuji_current_fs_uri,y
+        sta     fuji_buf_1060,y
+        iny
+        bne     @copy_to_buf
+@nul_term:
+        lda     #$00
+        sta     fuji_buf_1060,y
+        lda     #$00
+        sta     fuji_current_mount_slot
+        jsr     fuji_set_mount_slot
+        ; Ignore carry: current FS is already set; FMOUNT may retry or use FIN.
+
         ; Successful completion exits through the standard ROM command helper.
         jmp     exit_user_ok
 

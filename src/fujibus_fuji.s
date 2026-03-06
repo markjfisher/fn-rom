@@ -88,6 +88,12 @@ fuji_set_mount_slot:
         ;   3 fixed bytes + uri_len + 1 modeLen + 1 modeChar
         ; No further arithmetic is required before fn_build_packet.
 
+        ; fn_build_packet copies payload from (aws_tmp00); point at fn_tx_buffer payload.
+        lda     #<(fn_tx_buffer+FN_HEADER_SIZE)
+        sta     aws_tmp00
+        lda     #>(fn_tx_buffer+FN_HEADER_SIZE)
+        sta     aws_tmp01
+
         ; Build and send FujiBus packet to FujiDevice.
         lda     #FN_DEVICE_FUJI
         ldx     #FUJI_CMD_SET_MOUNT
@@ -131,6 +137,12 @@ fuji_clear_mount_slot:
         sta     fn_tx_buffer+FN_HEADER_SIZE+2
         sta     fn_tx_buffer+FN_HEADER_SIZE+3
 
+        ; fn_build_packet copies payload from (aws_tmp00); point at fn_tx_buffer payload.
+        lda     #<(fn_tx_buffer+FN_HEADER_SIZE)
+        sta     aws_tmp00
+        lda     #>(fn_tx_buffer+FN_HEADER_SIZE)
+        sta     aws_tmp01
+
         lda     #FN_DEVICE_FUJI
         ldx     #FUJI_CMD_SET_MOUNT
         ldy     #$04
@@ -165,6 +177,12 @@ fuji_get_mount_slot:
         cmp     #$08
         bcs     @get_error
         sta     fn_tx_buffer+FN_HEADER_SIZE+0
+
+        ; fn_build_packet copies payload from (aws_tmp00); point at what we just wrote.
+        lda     #<(fn_tx_buffer+FN_HEADER_SIZE)
+        sta     aws_tmp00
+        lda     #>(fn_tx_buffer+FN_HEADER_SIZE)
+        sta     aws_tmp01
 
         ; Payload length is exactly 1 byte for GetMount.
         lda     #FN_DEVICE_FUJI

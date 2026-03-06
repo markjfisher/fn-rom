@@ -24,9 +24,12 @@
 ; param_drive_or_default falls back to the current/default BBC drive.
 ;
 ; Design split:
-; - FIN populates the persisted FujiNet mount table.
-; - FMOUNT bridges one persisted FujiNet slot onto one BBC drive by updating
-;   the ROM-side drive mapping table fuji_drive_disk_map.
+; - The FujiNet persisted mount table (slots 0..7) is populated by FIN or by
+;   FHOST when you set a URI (*FHOST <uri>* writes that URI to slot 0).
+; - FMOUNT sends GetMount(slot): payload is a single byte (slot index). FujiNet
+;   returns the stored mount record (enabled, URI, mode) for that slot.
+; - FMOUNT bridges one persisted slot onto one BBC drive by updating
+;   fuji_drive_disk_map and by calling DiskDevice Mount for the live slot.
 ;
 ; FMOUNT validates the persisted FujiNet slot via FujiDevice GetMount before the
 ; BBC-side bridge is updated. Empty or disabled slots are rejected.
