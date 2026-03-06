@@ -68,7 +68,9 @@ cmd_fs_fin:
         ; If valid, this becomes the new current/default slot for later FIN.
         jsr     param_get_num
         cmp     #$08
-        bcs     fin_bad_slot
+        bcc     @slot_ok
+        jmp     fin_bad_slot
+@slot_ok:
         sta     fuji_current_mount_slot
 
 @use_default_slot:
@@ -76,25 +78,41 @@ cmd_fs_fin:
         ; param_get_string stores bytes in fuji_filename_buffer and returns the
         ; length in A.
         jsr     param_get_string
-        bcc     fin_bad_filename
+        bcs     @filename_ok
+        jmp     fin_bad_filename
+@filename_ok:
+        bne     @filename_non_empty
+        jmp     fin_bad_filename
+@filename_non_empty:
 
         ; There must already be a current URI base selected via FHOST/FFS.
         lda     fuji_current_fs_len
-        beq     fin_bad_uri
+        bne     @base_uri_ok
+        jmp     fin_bad_uri
+@base_uri_ok:
 
         ; Build the final full URI in fuji_buf_1060.
+        lda     fuji_current_fs_len
+        cmp     #$40
+        bcc     @base_len_ok
+        jmp     fin_bad_filename
+@base_len_ok:
         ldy     #$00
 @copy_base:
+        cpy     fuji_current_fs_len
+        beq     @base_done
         lda     fuji_current_fs_uri,y
         sta     fuji_buf_1060,y
-        beq     @base_done
         iny
-        cpy     #$3F
+        cpy     #$40
         bcc     @copy_base
+        jmp     fin_bad_filename
 
 @base_done:
-        ; Y is one past the copied NUL terminator, so step back to inspect the
-        ; final real character of the base URI.
+        lda     #$00
+        sta     fuji_buf_1060,y
+        cpy     #$00
+        beq     @append_name_from_root
         dey
         lda     fuji_buf_1060,y
         cmp     #'/'
@@ -102,12 +120,18 @@ cmd_fs_fin:
 
         ; Base URI did not end in '/', so insert one before the filename.
         iny
+        cpy     #$3F
+        bcc     @slash_room_ok
+        jmp     fin_bad_filename
+@slash_room_ok:
         lda     #'/'
         sta     fuji_buf_1060,y
 
 @append_name:
-        ; Append the requested filename/resource leaf including its NUL.
         iny
+
+@append_name_from_root:
+        ; Append the requested filename/resource leaf including its NUL.
         ldx     #$00
 @copy_name:
         lda     fuji_filename_buffer,x
@@ -115,8 +139,9 @@ cmd_fs_fin:
         beq     @set_mount_done
         inx
         iny
-        cpx     #$3F
+        cpy     #$3F
         bcc     @copy_name
+        jmp     fin_bad_filename
 
 @set_mount_done:
         ; Persist the assembled URI into the current FujiNet mount slot.
@@ -142,6 +167,18 @@ cmd_fs_fin:
         iny
         lda     fn_rx_buffer,y
         beq     fin_mount_failed
+        tax
+        iny
+@skip_uri:
+        dex
+        beq     @check_mode_len
+        iny
+        bne     @skip_uri
+@check_mode_len:
+        iny
+        lda     fn_rx_buffer,y
+        beq     fin_mount_failed
+        clc
 
         ; Standard success path: zero user flag.
         ldx     #$00

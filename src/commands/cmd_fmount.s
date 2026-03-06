@@ -1,6 +1,7 @@
         .export cmd_fs_fmount
 
         .import err_bad
+        .import fn_disk_mount
         .import fuji_get_mount_slot
         .import fn_rx_buffer
         .import param_count_a
@@ -59,6 +60,36 @@ cmd_fs_fmount:
         ; drive if the user omitted it.
         jsr     param_drive_or_default  ; optional BBC drive number
         sta     current_drv
+
+        ; Build the live DiskDevice mount request from the validated persisted URI
+        ; so FMOUNT immediately affects the active runtime state as well as the
+        ; ROM-side bridge table.
+        ldy     #FN_HEADER_SIZE+2
+        lda     fn_rx_buffer,y
+        sta     aws_tmp02
+        ldx     #$00
+@copy_uri:
+        cpx     aws_tmp02
+        beq     @mount_live
+        iny
+        lda     fn_rx_buffer,y
+        sta     fuji_current_fs_uri,x
+        inx
+        bne     @copy_uri
+
+@mount_live:
+        lda     #$00
+        sta     fuji_current_fs_uri,x
+        lda     #<fuji_current_fs_uri
+        sta     aws_tmp00
+        lda     #>fuji_current_fs_uri
+        sta     aws_tmp01
+        lda     current_drv
+        clc
+        adc     #$01
+        ldx     #$00
+        jsr     fn_disk_mount
+        bcs     bad_mount_slot
 
         ; Bridge mapping table used later by DFS disk I/O:
         ;   BBC drive number -> FujiNet mount slot index

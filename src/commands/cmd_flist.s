@@ -107,10 +107,20 @@ cmd_fs_fls:
 use_current_uri:
         ; The current URI must already be selected before *FLIST with no path.
         lda     fuji_current_fs_len
-        bne     flist_issue_list
+        beq     @no_current_uri
+        jmp     flist_issue_list
+@no_current_uri:
         jmp     bad_directory
 
 flist_issue_list:
+        lda     fuji_current_fs_len
+        beq     @list_bad_directory
+        jmp     @issue_list
+
+@list_bad_directory:
+        jmp     bad_directory
+
+@issue_list:
         ; Prepare ListDirectory request inputs.
         ; aws_tmp00/01 -> URI pointer
         ; aws_tmp02    -> URI length
@@ -131,11 +141,18 @@ flist_issue_list:
         sta     aws_tmp06
 
         jsr     fn_file_list_directory
-        bcs     bad_directory
+        bcs     @list_failed
+        jmp     @list_ok
 
+@list_failed:
+        jmp     bad_directory
+
+@list_ok:
         jsr     print_newline
 
         ; Response payload byte 4/5 = returnedCount (u16 LE).
+        lda     fn_rx_buffer+FN_HEADER_SIZE+1
+        sta     aws_tmp09
         ldy     #FN_HEADER_SIZE+4
         lda     fn_rx_buffer,y
         sta     aws_tmp06
@@ -158,6 +175,9 @@ flist_issue_list:
         lda     fn_rx_buffer,y
         tax
         iny
+
+        cpx     #$00
+        beq     @skip_empty_entry
 
 @name_loop:
         cpx     #$00
@@ -188,7 +208,16 @@ flist_issue_list:
         adc     #$10
         tay
         jsr     print_newline
+        jmp     @dec_entry_count
 
+@skip_empty_entry:
+        ; Empty names are ignored in output but still consume metadata and count.
+        tya
+        clc
+        adc     #$10
+        tay
+
+@dec_entry_count:
         ; Decrement returnedCount in aws_tmp06/07.
         lda     aws_tmp06
         bne     @dec_low
@@ -198,6 +227,13 @@ flist_issue_list:
         jmp     @entry_loop
 
 @done_ok:
+        lda     aws_tmp09
+        and     #$01
+        beq     @success
+        jsr     print_string
+        .byte   "...", 0
+        jsr     print_newline
+@success:
         ldx     #$00
         jmp     set_user_flag_x
 

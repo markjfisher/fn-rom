@@ -30,8 +30,11 @@
 ; We build the payload directly in fn_tx_buffer after the 6-byte FujiBus header,
 ; then pass the final payload length in Y to fn_build_packet.
 fuji_set_mount_slot:
-        ; Write slot index into payload byte 0.
         lda     fuji_current_mount_slot
+        cmp     #$08
+        bcs     @error
+
+        ; Write slot index into payload byte 0.
         sta     fn_tx_buffer+FN_HEADER_SIZE+0
 
         ; Set the persisted mount entry enabled flag.
@@ -119,6 +122,8 @@ fuji_set_mount_slot:
 ;   byte 3 = mode length = 0
 fuji_clear_mount_slot:
         lda     fuji_current_mount_slot
+        cmp     #$08
+        bcs     @clear_error
         sta     fn_tx_buffer+FN_HEADER_SIZE+0
 
         lda     #$00
@@ -157,6 +162,8 @@ fuji_clear_mount_slot:
 fuji_get_mount_slot:
         ; Write requested slot index into payload byte 0.
         lda     fuji_current_mount_slot
+        cmp     #$08
+        bcs     @get_error
         sta     fn_tx_buffer+FN_HEADER_SIZE+0
 
         ; Payload length is exactly 1 byte for GetMount.

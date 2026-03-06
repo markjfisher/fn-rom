@@ -24,6 +24,7 @@
 fn_file_resolve_path:
         lda     #$00
         sta     aws_tmp07
+        sta     aws_tmp06
         lda     #FN_PROTOCOL_VERSION
         sta     fn_tx_buffer+FN_HEADER_SIZE+0
 
@@ -42,12 +43,14 @@ fn_file_resolve_path:
         bne     @copy_base
 
 @copy_arg_len:
+        sty     aws_tmp07
         lda     aws_tmp05
         sta     fn_tx_buffer+FN_HEADER_SIZE+3,y
         iny
         lda     #$00
         sta     fn_tx_buffer+FN_HEADER_SIZE+3,y
         iny
+        sty     aws_tmp06
 
         ldx     #$00
 @copy_arg:
@@ -60,14 +63,15 @@ fn_file_resolve_path:
         lda     (aws_tmp03),y
         pla
         tax
-        ldy     aws_tmp07
+        ldy     aws_tmp06
         sta     fn_tx_buffer+FN_HEADER_SIZE+3,y
         inx
         iny
-        sty     aws_tmp07
+        sty     aws_tmp06
         bne     @copy_arg
 
 @send:
+        ldy     aws_tmp06
         tya
         clc
         adc     #$03
@@ -83,13 +87,18 @@ fn_file_resolve_path:
         lda     fn_rx_buffer+FN_PARAMS_OFFSET
         bne     @error
 
+        lda     fn_rx_buffer+FN_HEADER_SIZE+0
+        cmp     #FN_PROTOCOL_VERSION
+        bne     @error
+
         ; Parse response payload into persistent workspace.
         ; payload: version, flags, reserved(2), resolvedUriLen(2), resolvedUri..., displayPathLen(2), displayPath...
         ldy     #FN_HEADER_SIZE+4
         lda     fn_rx_buffer,y
         sta     fuji_current_fs_len
         iny
-        ; ignore high byte for now
+        lda     fn_rx_buffer,y
+        bne     @error
         iny
         ldx     #$00
 @copy_resolved:
@@ -107,7 +116,8 @@ fn_file_resolve_path:
         lda     fn_rx_buffer,y
         sta     fuji_current_dir_len
         iny
-        ; ignore high byte
+        lda     fn_rx_buffer,y
+        bne     @error
         iny
         ldx     #$00
 @copy_display:
@@ -183,6 +193,10 @@ fn_file_list_directory:
         bcs     @list_error
 
         lda     fn_rx_buffer+FN_PARAMS_OFFSET
+        bne     @list_error
+
+        lda     fn_rx_buffer+FN_HEADER_SIZE+0
+        cmp     #FN_PROTOCOL_VERSION
         bne     @list_error
         clc
         rts

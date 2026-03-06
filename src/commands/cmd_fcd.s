@@ -56,6 +56,7 @@ cmd_fs_fcd:
         jsr     param_get_string
         bcc     @bad_path
         beq     @print_current_path
+        sta     aws_tmp05
 
         lda     fuji_current_fs_len
         beq     @bad_path
@@ -76,17 +77,13 @@ cmd_fs_fcd:
         sta     aws_tmp03
         lda     #>fuji_filename_buffer
         sta     aws_tmp04
-        ; A still contains the length returned by param_get_string.
-        sta     aws_tmp05
 
         ; Delegate directory validation + canonicalization to FujiNet-NIO.
         ; On success the helper refreshes both current URI and display path.
         jsr     fn_file_resolve_path
         bcs     @bad_path
 
-        ; Standard success path: zero user flag.
-        ldx     #$00
-        jmp     set_user_flag_x
+        jmp     @print_current_path
 
 @print_current_path:
         ; Print only the normalized human-facing path.
@@ -106,7 +103,9 @@ cmd_fs_fcd:
         iny
         bne     @loop
 @done:
-        jmp     print_newline
+        jsr     print_newline
+        ldx     #$00
+        jmp     set_user_flag_x
 
 @bad_path:
         ; Current generic failure path for unresolved, invalid, missing, or
