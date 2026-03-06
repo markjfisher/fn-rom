@@ -115,6 +115,7 @@
         .export  fuji_current_fs_len
         .export  fuji_current_dir_len
         .export  fuji_current_mount_slot
+        .export  fuji_resolve_path_flags
         .export  fuji_current_fs_uri
         .export  fuji_current_dir_path
 
@@ -420,6 +421,7 @@ fuji_current_sector     = fuji_workspace + $10FA  ; Current sector being accesse
 fuji_current_fs_len     = fuji_workspace + $10FB  ; Current filesystem URI length
 fuji_current_dir_len    = fuji_workspace + $10FC  ; Current directory length
 fuji_current_mount_slot = fuji_workspace + $10FD  ; Current FujiNet persisted mount slot (0-based)
+fuji_resolve_path_flags = fuji_workspace + $10FE  ; ResolvePath response: bit0=isDir, bit1=exists (set by fn_file_resolve_path)
 ; WARNING: Same 64 bytes as fujibus.s fn_tx_buffer ($1120). Building a FujiBus TX
 ; packet overwrites this. Keep URIs short (< ~58 chars) or see fujibus.s for limits.
 fuji_current_fs_uri     = fuji_workspace + $1120  ; NUL-terminated URI buffer

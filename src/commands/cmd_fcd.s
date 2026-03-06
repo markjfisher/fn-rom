@@ -80,8 +80,12 @@ cmd_fs_fcd:
 
         ; Delegate directory validation + canonicalization to FujiNet-NIO.
         ; On success the helper refreshes both current URI and display path.
+        ; Path must exist on target (FujiNet stat); for FCD it must be a directory.
         jsr     fn_file_resolve_path
         bcs     @bad_path
+        lda     fuji_resolve_path_flags
+        and     #$01
+        beq     @bad_path
 
         jmp     @print_current_path
 

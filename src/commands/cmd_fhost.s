@@ -174,7 +174,14 @@ fhost_set_current_fs:
         jmp     exit_user_ok
 
 @resolved_ok:
-        ; Persist this URI to FujiNet slot 0 so *FMOUNT 0 0* works without FIN.
+        ; Persist to slot 0 only when the resolved target is a file (not a directory),
+        ; so *FMOUNT 0 0* works for direct image paths; browsing to a folder does not overwrite slot 0.
+        ; fuji_resolve_path_flags: bit0=isDir, bit1=exists (FujiNet has validated existence via stat).
+        lda     fuji_resolve_path_flags
+        and     #$01
+        bne     @done_resolved
+
+        ; Resolved target is a file: copy URI to fuji_buf_1060 and persist to slot 0.
         ; fuji_set_mount_slot expects NUL-terminated URI in fuji_buf_1060.
         ldy     #$00
 @copy_to_buf:
@@ -192,6 +199,7 @@ fhost_set_current_fs:
         jsr     fuji_set_mount_slot
         ; Ignore carry: current FS is already set; FMOUNT may retry or use FIN.
 
+@done_resolved:
         ; Successful completion exits through the standard ROM command helper.
         jmp     exit_user_ok
 

@@ -118,6 +118,12 @@ fn_file_resolve_path:
         cmp     #FN_PROTOCOL_VERSION
         bne     @error
 
+        ; flags: bit0=isDir, bit1=exists. Path must exist on target (FujiNet has validated via stat).
+        lda     fn_rx_buffer+FN_HEADER_SIZE+1
+        sta     fuji_resolve_path_flags
+        and     #$02
+        beq     @error
+
         ; Parse response payload into persistent workspace.
         ; payload: version, flags, reserved(2), resolvedUriLen(2), resolvedUri..., displayPathLen(2), displayPath...
         ldy     #FN_HEADER_SIZE+4
