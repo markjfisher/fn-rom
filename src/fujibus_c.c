@@ -1,215 +1,147 @@
 /**
  * FujiBus Protocol Implementation in C for BBC Micro
  * 
- * Implements SLIP framing and FujiBus packet handling
- * Compatible with fujinet-nio FujiBus protocol
- * 
- * Based on:
- * - py/fujinet_tools/fujibus.py
- * - Original fujibus.s (commented out)
+ * Optimized for ROM - minimal overhead, uses constants where possible.
+ * Implements SLIP framing and FujiBus packet handling.
  */
 
 #include <stdint.h>
 #include <stdbool.h>
 #include "zp_overlay.h"
 #include "calc_checksum.h"
-#include "fujibus_c.h"
 
 /* ============================================================================
- * Constants
+ * Constants - Buffer sizes and addresses
  * ============================================================================ */
 
-/* SLIP protocol constants */
-#define FUJIBUS_SLIP_END       0xC0
-#define FUJIBUS_SLIP_ESCAPE    0xDB
-#define FUJIBUS_SLIP_ESC_END   0xDC
-#define FUJIBUS_SLIP_ESC_ESC   0xDD
-
-/* FujiBus protocol constants */
-#define FUJIBUS_HEADER_SIZE    6       /* device(1) + command(1) + length(2) + checksum(1) + descr(1) */
-#define FUJIBUS_MAX_SLIP_SIZE  640     /* Max SLIP encoded packet size */
-#define FUJIBUS_MAX_PACKET     320     /* Max raw packet size */
-
-/* Buffer addresses (from os.s) */
 /* fuji_workspace = $1000 */
-#define FUJI_TX_BUFFER     ((uint8_t*)0x12A0)  /* fuji_workspace + $02A0 */
-#define FUJI_RX_BUFFER     ((uint8_t*)0x1300)  /* fuji_workspace + $0300 */
-#define FUJI_SLIP_BUFFER   FUJI_RX_BUFFER       /* Reuse RX buffer for SLIP encoding */
+#define FUJI_WORKSPACE       0x1000
+
+/* Buffer addresses */
+#define FUJI_TX_BUFFER       ((uint8_t*)(FUJI_WORKSPACE + 0x02A0))
+#define FUJI_RX_BUFFER       ((uint8_t*)(FUJI_WORKSPACE + 0x0300))
+#define FUJI_SLIP_BUFFER     FUJI_RX_BUFFER   /* Reuse RX for SLIP encoding */
+
+/* Buffer sizes - constants */
+#define FUJI_TX_BUFFER_SIZE  96
+#define FUJI_RX_BUFFER_SIZE  512
+
+/* SLIP protocol */
+#define SLIP_END             0xC0
+#define SLIP_ESCAPE          0xDB
+#define SLIP_ESC_END         0xDC
+#define SLIP_ESC_ESC         0xDD
+
+/* FujiBus protocol */
+#define FUJIBUS_HEADER_SIZE  6
 
 /* ============================================================================
- * Local variables - stored in zeropage workspace
+ * External ASM functions - called using C calling convention
  * ============================================================================ */
 
-/* Buffer lengths - stored in zeropage (using ZP overlay) */
-/* aws_tmp[14-15] = tx_len, tx_len_hi (0xBE-0xBF) */
-/* aws_tmp[16-17] = rx_len, rx_len_hi (0xC0-0xC1) */
-
-#define fujibus_tx_len       (ZP.aws_tmp[14])
-#define fujibus_tx_len_hi    (ZP.aws_tmp[15])
-#define fujibus_rx_len       (ZP.aws_tmp[16])
-#define fujibus_rx_len_hi    (ZP.aws_tmp[17])
-
-/* ============================================================================
- * External ASM functions
- * ============================================================================ */
-
-/* Serial I/O - parameters in aws_tmp00/01 (buffer) and aws_tmp02/03 (length) */
 extern void write_serial_data(void);
 extern void read_serial_data(void);
 
 /* ============================================================================
- * Helper functions for ASM interface
+ * ZeroPage variables - stored in workspace
+ * These are used for communication with ASM serial functions
  * ============================================================================ */
 
-/**
- * Call ASM write_serial_data function
- * Sets up zeropage parameters before calling
- */
-static void call_write_serial(uint8_t* buffer, uint16_t len) {
-    /* Set buffer pointer in aws_tmp00/01 */
-    ZP.aws_tmp[0] = (uint8_t)((uint16_t)buffer & 0xFF);
-    ZP.aws_tmp[1] = (uint8_t)(((uint16_t)buffer >> 8) & 0xFF);
-    
-    /* Set length in aws_tmp02/03 */
-    ZP.aws_tmp[2] = (uint8_t)(len & 0xFF);
-    ZP.aws_tmp[3] = (uint8_t)((len >> 8) & 0xFF);
-    
-    /* Call ASM function */
-    write_serial_data();
-}
-
-/**
- * Call ASM read_serial_data function
- * Sets up zeropage parameters before calling
- */
-static void call_read_serial(uint8_t* buffer, uint16_t max_len) {
-    /* Set buffer pointer in aws_tmp00/01 */
-    ZP.aws_tmp[0] = (uint8_t)((uint16_t)buffer & 0xFF);
-    ZP.aws_tmp[1] = (uint8_t)(((uint16_t)buffer >> 8) & 0xFF);
-    
-    /* Set max length in aws_tmp02/03 */
-    ZP.aws_tmp[2] = (uint8_t)(max_len & 0xFF);
-    ZP.aws_tmp[3] = (uint8_t)((max_len >> 8) & 0xFF);
-    
-    /* Call ASM function */
-    read_serial_data();
-    
-    /* Read bytes read from aws_tmp04/05 (if available) */
-    /* For now, assume max_len was used */
-}
+/* aws_tmp[4-5] - used by read_serial_data for bytes read count */
+#define SERIAL_BYTES_READ    (ZP.aws_tmp[4])
 
 /* ============================================================================
- * SLIP Encoding
+ * SLIP Encoding - minimal version
+ * Uses constant buffer size, encodes in-place to SLIP buffer
  * ============================================================================ */
 
 /**
- * Encode data with SLIP framing
- * 
- * Input:
- *   input - pointer to data to encode
- *   len   - length of input data
- * 
- * Output:
- *   Returns length of SLIP-encoded data (stored in FUJI_SLIP_BUFFER)
+ * SLIP encode to SLIP buffer
+ * Input: source pointer, source length
+ * Output: encoded length in A
+ * Uses: X, Y, temp in zeropage
  */
-uint16_t fujibus_slip_encode(uint8_t* input, uint16_t len) {
-    uint16_t out_idx = 0;
-    uint16_t in_idx = 0;
+uint8_t fujibus_slip_encode(uint8_t* src, uint8_t len) {
+    uint8_t src_idx;
+    uint8_t dst_idx;
+    uint8_t b;
+    
+    dst_idx = 0;
     
     /* Start with END marker */
-    FUJI_SLIP_BUFFER[out_idx++] = FUJIBUS_SLIP_END;
+    FUJI_SLIP_BUFFER[dst_idx++] = SLIP_END;
     
     /* Encode each byte */
-    while (in_idx < len) {
-        uint8_t b = input[in_idx++];
+    for (src_idx = 0; src_idx < len; src_idx++) {
+        b = src[src_idx];
         
-        if (b == FUJIBUS_SLIP_END) {
-            /* Escape END byte */
-            FUJI_SLIP_BUFFER[out_idx++] = FUJIBUS_SLIP_ESCAPE;
-            FUJI_SLIP_BUFFER[out_idx++] = FUJIBUS_SLIP_ESC_END;
-        } else if (b == FUJIBUS_SLIP_ESCAPE) {
-            /* Escape ESCAPE byte */
-            FUJI_SLIP_BUFFER[out_idx++] = FUJIBUS_SLIP_ESCAPE;
-            FUJI_SLIP_BUFFER[out_idx++] = FUJIBUS_SLIP_ESC_ESC;
+        if (b == SLIP_END) {
+            FUJI_SLIP_BUFFER[dst_idx++] = SLIP_ESCAPE;
+            FUJI_SLIP_BUFFER[dst_idx++] = SLIP_ESC_END;
+        } else if (b == SLIP_ESCAPE) {
+            FUJI_SLIP_BUFFER[dst_idx++] = SLIP_ESCAPE;
+            FUJI_SLIP_BUFFER[dst_idx++] = SLIP_ESC_ESC;
         } else {
-            /* Normal byte */
-            FUJI_SLIP_BUFFER[out_idx++] = b;
+            FUJI_SLIP_BUFFER[dst_idx++] = b;
         }
     }
     
     /* End with END marker */
-    FUJI_SLIP_BUFFER[out_idx++] = FUJIBUS_SLIP_END;
+    FUJI_SLIP_BUFFER[dst_idx++] = SLIP_END;
     
-    /* Store output length */
-    fujibus_tx_len = (uint8_t)(out_idx & 0xFF);
-    fujibus_tx_len_hi = (uint8_t)((out_idx >> 8) & 0xFF);
-    
-    return out_idx;
+    return dst_idx;
 }
 
 /* ============================================================================
- * SLIP Decoding
+ * SLIP Decoding - minimal version
+ * Decodes from SLIP buffer to RX buffer
  * ============================================================================ */
 
 /**
- * Decode SLIP-framed data
- * 
- * Input:
- *   input - pointer to SLIP-encoded data
- *   len   - length of encoded data
- * 
- * Output:
- *   Returns length of decoded data (stored in FUJI_RX_BUFFER)
- *   Returns 0 on error (invalid frame)
+ * SLIP decode from SLIP buffer
+ * Input: encoded length
+ * Output: decoded length in A, 0 on error
+ * Uses: X, Y
  */
-uint16_t fujibus_slip_decode(uint8_t* input, uint16_t len) {
-    uint16_t out_idx = 0;
-    uint16_t in_idx = 0;
+uint8_t fujibus_slip_decode(uint8_t enc_len) {
+    uint8_t enc_idx;
+    uint8_t dec_idx;
     uint8_t b;
-    uint8_t esc;
     
-    /* Check for valid frame (must start and end with END) */
-    if (len < 2 || input[0] != FUJIBUS_SLIP_END || input[len-1] != FUJIBUS_SLIP_END) {
+    /* Check for valid frame */
+    if (enc_len < 2 || FUJI_SLIP_BUFFER[0] != SLIP_END || FUJI_SLIP_BUFFER[enc_len-1] != SLIP_END) {
         return 0;
     }
     
-    /* Skip leading END marker */
-    in_idx = 1;
+    /* Skip leading END */
+    enc_idx = 1;
+    dec_idx = 0;
     
     /* Decode until trailing END */
-    while (in_idx < len - 1) {
-        b = input[in_idx++];
+    while (enc_idx < enc_len - 1) {
+        b = FUJI_SLIP_BUFFER[enc_idx++];
         
-        if (b == FUJIBUS_SLIP_ESCAPE) {
-            /* Handle escape sequence */
-            if (in_idx >= len - 1) {
-                break;  /* Incomplete escape */
+        if (b == SLIP_ESCAPE) {
+            /* Handle escape */
+            if (enc_idx >= enc_len - 1) {
+                break;
             }
             
-            esc = input[in_idx++];
+            b = FUJI_SLIP_BUFFER[enc_idx++];
             
-            if (esc == FUJIBUS_SLIP_ESC_END) {
-                FUJI_RX_BUFFER[out_idx++] = FUJIBUS_SLIP_END;
-            } else if (esc == FUJIBUS_SLIP_ESC_ESC) {
-                FUJI_RX_BUFFER[out_idx++] = FUJIBUS_SLIP_ESCAPE;
-            } else {
-                /* Unknown escape - keep original byte (matches Python behavior) */
-                FUJI_RX_BUFFER[out_idx++] = b;
+            if (b == SLIP_ESC_END) {
+                b = SLIP_END;
+            } else if (b == SLIP_ESC_ESC) {
+                b = SLIP_ESCAPE;
             }
-        } else if (b == FUJIBUS_SLIP_END) {
-            /* End of frame */
+        } else if (b == SLIP_END) {
             break;
-        } else {
-            /* Normal byte */
-            FUJI_RX_BUFFER[out_idx++] = b;
         }
+        
+        FUJI_RX_BUFFER[dec_idx++] = b;
     }
     
-    /* Store output length */
-    fujibus_rx_len = (uint8_t)(out_idx & 0xFF);
-    fujibus_rx_len_hi = (uint8_t)((out_idx >> 8) & 0xFF);
-    
-    return out_idx;
+    return dec_idx;
 }
 
 /* ============================================================================
@@ -217,185 +149,134 @@ uint16_t fujibus_slip_decode(uint8_t* input, uint16_t len) {
  * ============================================================================ */
 
 /**
- * Build a FujiBus packet
- * 
- * Input:
- *   device   - device ID
- *   command  - command byte
- *   payload  - pointer to payload data
- *   paylen   - payload length
- * 
- * Output:
- *   Returns total packet length (stored in FUJI_TX_BUFFER)
- *   Packet is ready for SLIP encoding
+ * Build FujiBus packet in TX buffer
+ * Input: device, command, payload pointer, payload length
+ * Output: total packet length
  */
-uint16_t fujibus_build_packet(uint8_t device, uint8_t command, uint8_t* payload, uint8_t paylen) {
-    uint16_t total_len;
+uint8_t fujibus_build_packet(uint8_t device, uint8_t command, uint8_t* payload, uint8_t paylen) {
+    uint8_t total_len;
     uint8_t i;
+    uint8_t chk;
     
-    /* Calculate total length = header(6) + payload */
+    /* Total length = header(6) + payload */
     total_len = FUJIBUS_HEADER_SIZE + paylen;
     
     /* Build header */
-    FUJI_TX_BUFFER[0] = device;              /* Device ID */
-    FUJI_TX_BUFFER[1] = command;             /* Command */
-    FUJI_TX_BUFFER[2] = (uint8_t)(total_len & 0xFF);        /* Length low */
-    FUJI_TX_BUFFER[3] = (uint8_t)((total_len >> 8) & 0xFF); /* Length high */
-    FUJI_TX_BUFFER[4] = 0;                   /* Checksum placeholder (will be calculated) */
-    FUJI_TX_BUFFER[5] = 0;                   /* Descriptor (0 for simple packets) */
+    FUJI_TX_BUFFER[0] = device;
+    FUJI_TX_BUFFER[1] = command;
+    FUJI_TX_BUFFER[2] = total_len;          /* Length low */
+    FUJI_TX_BUFFER[3] = 0;                  /* Length high (always 0 for small packets) */
+    FUJI_TX_BUFFER[4] = 0;                  /* Checksum placeholder */
+    FUJI_TX_BUFFER[5] = 0;                  /* Descriptor */
     
     /* Copy payload */
     for (i = 0; i < paylen; i++) {
         FUJI_TX_BUFFER[FUJIBUS_HEADER_SIZE + i] = payload[i];
     }
     
-    /* Calculate and store checksum */
-    /* The checksum function expects buffer pointer and length */
-    /* We need to set checksum byte to 0 before calculating */
-    FUJI_TX_BUFFER[4] = 0;
-    
-    /* Calculate checksum over the entire packet */
-    FUJI_TX_BUFFER[4] = calc_checksum(FUJI_TX_BUFFER, total_len);
-    
-    /* Store packet length */
-    fujibus_tx_len = (uint8_t)(total_len & 0xFF);
-    fujibus_tx_len_hi = (uint8_t)((total_len >> 8) & 0xFF);
+    /* Calculate checksum (with placeholder = 0) */
+    chk = calc_checksum(FUJI_TX_BUFFER, total_len);
+    FUJI_TX_BUFFER[4] = chk;
     
     return total_len;
 }
 
 /* ============================================================================
- * Packet Sending
+ * Send Packet
  * ============================================================================ */
 
 /**
- * Send a FujiBus packet via serial
- * 
- * Input:
- *   device   - device ID
- *   command  - command byte
- *   payload  - pointer to payload data
- *   paylen   - payload length
- * 
- * Output:
- *   Returns true on success, false on error
+ * Send FujiBus packet
+ * Input: device, command, payload pointer, payload length
+ * Uses: serial I/O via zeropage
  */
-bool fujibus_send_packet(uint8_t device, uint8_t command, uint8_t* payload, uint8_t paylen) {
-    uint16_t pkt_len;
-    uint16_t slip_len;
+void fujibus_send_packet(uint8_t device, uint8_t command, uint8_t* payload, uint8_t paylen) {
+    uint8_t pkt_len;
+    uint8_t slip_len;
     
-    /* Build the packet */
+    /* Build packet */
     pkt_len = fujibus_build_packet(device, command, payload, paylen);
     
     /* SLIP encode */
     slip_len = fujibus_slip_encode(FUJI_TX_BUFFER, pkt_len);
     
-    /* Send via serial */
-    call_write_serial(FUJI_SLIP_BUFFER, slip_len);
+    /* Send via serial - setup zeropage params */
+    ZP.aws_tmp[0] = (uint8_t)((uint16_t)FUJI_SLIP_BUFFER & 0xFF);
+    ZP.aws_tmp[1] = (uint8_t)(((uint16_t)FUJI_SLIP_BUFFER >> 8) & 0xFF);
+    ZP.aws_tmp[2] = slip_len;
+    ZP.aws_tmp[3] = 0;
     
-    return true;
+    /* Call ASM write_serial_data */
+    write_serial_data();
 }
 
 /* ============================================================================
- * Packet Receiving
+ * Receive Packet  
  * ============================================================================ */
 
 /**
- * Receive a FujiBus packet via serial
- * 
- * Input:
- *   max_len - maximum length to read
- * 
- * Output:
- *   Returns length of received packet (in FUJI_RX_BUFFER)
- *   Returns 0 on error
- * 
- * Note: This is a simplified version. For full implementation,
- *       would need to handle timeouts and partial reads.
+ * Receive FujiBus packet into RX buffer
+ * Returns: packet length (0 = error)
+ * Uses: SERIAL_BYTES_READ from read_serial_data
  */
-uint16_t fujibus_receive_packet(uint16_t max_len) {
-    uint16_t slip_len;
-    uint16_t decoded_len;
-    uint8_t checksum_received;
-    uint8_t checksum_computed;
+uint8_t fujibus_receive_packet(void) {
+    uint8_t slip_len;
+    uint8_t dec_len;
+    uint8_t chk_received;
+    uint8_t chk_computed;
     
-    /* Limit max read size */
-    if (max_len > FUJIBUS_MAX_SLIP_SIZE) {
-        max_len = FUJIBUS_MAX_SLIP_SIZE;
-    }
+    /* Read from serial - setup zeropage params */
+    ZP.aws_tmp[0] = (uint8_t)((uint16_t)FUJI_SLIP_BUFFER & 0xFF);
+    ZP.aws_tmp[1] = (uint8_t)(((uint16_t)FUJI_SLIP_BUFFER >> 8) & 0xFF);
+    ZP.aws_tmp[2] = 0xFF;     /* Max read size */
+    ZP.aws_tmp[3] = 0;
     
-    /* Read from serial into SLIP buffer */
-    call_read_serial(FUJI_SLIP_BUFFER, max_len);
+    /* Call ASM read_serial_data */
+    read_serial_data();
     
-    /* Get actual bytes read */
-    slip_len = fujibus_rx_len;
+    /* Get bytes read */
+    slip_len = SERIAL_BYTES_READ;
     if (slip_len == 0) {
-        slip_len = max_len;  /* Use max as fallback */
+        return 0;
     }
     
     /* SLIP decode */
-    decoded_len = fujibus_slip_decode(FUJI_SLIP_BUFFER, slip_len);
+    dec_len = fujibus_slip_decode(slip_len);
     
     /* Validate minimum size */
-    if (decoded_len < FUJIBUS_HEADER_SIZE) {
+    if (dec_len < FUJIBUS_HEADER_SIZE) {
         return 0;
     }
     
     /* Validate checksum */
-    checksum_received = FUJI_RX_BUFFER[4];
+    chk_received = FUJI_RX_BUFFER[4];
+    FUJI_RX_BUFFER[4] = 0;  /* Clear for calculation */
+    chk_computed = calc_checksum(FUJI_RX_BUFFER, dec_len);
+    FUJI_RX_BUFFER[4] = chk_received;  /* Restore */
     
-    /* Zero checksum byte for calculation */
-    FUJI_RX_BUFFER[4] = 0;
-    
-    /* Calculate checksum over entire packet */
-    checksum_computed = calc_checksum(FUJI_RX_BUFFER, decoded_len);
-    
-    /* Restore checksum byte */
-    FUJI_RX_BUFFER[4] = checksum_received;
-    
-    /* Verify checksum matches */
-    if (checksum_received != checksum_computed) {
-        return 0;  /* Checksum mismatch */
-    }
-    
-    return decoded_len;
-}
-
-/**
- * Get received packet device ID
- */
-uint8_t fujibus_get_device(void) {
-    return FUJI_RX_BUFFER[0];
-}
-
-/**
- * Get received packet command
- */
-uint8_t fujibus_get_command(void) {
-    return FUJI_RX_BUFFER[1];
-}
-
-/**
- * Get received packet length
- */
-uint16_t fujibus_get_length(void) {
-    return (uint16_t)FUJI_RX_BUFFER[2] | ((uint16_t)FUJI_RX_BUFFER[3] << 8);
-}
-
-/**
- * Get pointer to received packet payload
- */
-uint8_t* fujibus_get_payload(void) {
-    return &FUJI_RX_BUFFER[FUJIBUS_HEADER_SIZE];
-}
-
-/**
- * Get received packet payload length
- */
-uint8_t fujibus_get_payload_length(void) {
-    uint16_t total_len = fujibus_get_length();
-    if (total_len < FUJIBUS_HEADER_SIZE) {
+    if (chk_received != chk_computed) {
         return 0;
     }
-    return (uint8_t)(total_len - FUJIBUS_HEADER_SIZE);
+    
+    return dec_len;
+}
+
+/* ============================================================================
+ * Accessor functions for received packet
+ * ============================================================================ */
+
+#define fujibus_get_device()     (FUJI_RX_BUFFER[0])
+#define fujibus_get_command()    (FUJI_RX_BUFFER[1])
+#define fujibus_get_length()     (FUJI_RX_BUFFER[2])
+#define fujibus_get_payload()    (&FUJI_RX_BUFFER[FUJIBUS_HEADER_SIZE])
+
+/**
+ * Get payload length from received packet
+ */
+uint8_t fujibus_get_payload_length(void) {
+    uint8_t total = fujibus_get_length();
+    if (total < FUJIBUS_HEADER_SIZE) {
+        return 0;
+    }
+    return total - FUJIBUS_HEADER_SIZE;
 }
