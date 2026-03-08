@@ -25,8 +25,8 @@
         ; .import fn_build_packet
         ; .import fn_send_packet
         ; .import fn_receive_packet
-        ; .import fuji_tx_buffer
-        ; .import fuji_rx_buffer
+        ; .import _fuji_tx_buffer
+        ; .import _fuji_rx_buffer
         ; .import fn_tx_len
         ; .import fn_tx_len_hi
         ; .import fn_rx_len
@@ -87,29 +87,29 @@ fn_disk_flags   = $10F8
 
 ;         ; Version
 ;         lda     #FN_PROTOCOL_VERSION
-;         sta     fuji_tx_buffer+FN_HEADER_SIZE+0
+;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+0
 
 ;         ; Slot (from saved value)
 ;         lda     fn_disk_slot
-;         sta     fuji_tx_buffer+FN_HEADER_SIZE+1
+;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+1
 
 ;         ; Flags (from saved value)
 ;         lda     fn_disk_flags
-;         sta     fuji_tx_buffer+FN_HEADER_SIZE+2
+;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+2
 
 ;         ; Type override = 0 (auto)
 ;         lda     #$00
-;         sta     fuji_tx_buffer+FN_HEADER_SIZE+3
+;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+3
 
 ;         ; Sector size hint = 0 (little-endian)
-;         sta     fuji_tx_buffer+FN_HEADER_SIZE+4
-;         sta     fuji_tx_buffer+FN_HEADER_SIZE+5
+;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+4
+;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+5
 
 ;         ; URI length (little-endian)
 ;         lda     aws_tmp02
-;         sta     fuji_tx_buffer+FN_HEADER_SIZE+6
+;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+6
 ;         lda     #$00
-;         sta     fuji_tx_buffer+FN_HEADER_SIZE+7
+;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+7
 
 ;         ; Copy URI bytes after length
 ;         ldy     #$00
@@ -117,7 +117,7 @@ fn_disk_flags   = $10F8
 ;         cpy     aws_tmp02
 ;         beq     @build_packet
 ;         lda     (aws_tmp00),y
-;         sta     fuji_tx_buffer+FN_HEADER_SIZE+8,y
+;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+8,y
 ;         iny
 ;         bne     @copy_uri
 
@@ -145,7 +145,7 @@ fn_disk_flags   = $10F8
 
 ;         ; Check response - look for mounted flag
 ;         ldy     #FN_HEADER_SIZE+1
-;         lda     fuji_rx_buffer,y
+;         lda     _fuji_rx_buffer,y
 ;         and     #$01            ; bit0 = mounted
 ;         beq     @mount_error
 
@@ -176,10 +176,10 @@ fn_disk_flags   = $10F8
 
 ;         ; Build packet payload
 ;         lda     #FN_PROTOCOL_VERSION
-;         sta     fuji_tx_buffer+FN_HEADER_SIZE+0
+;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+0
 
 ;         pla                     ; Get slot
-;         sta     fuji_tx_buffer+FN_HEADER_SIZE+1
+;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+1
 
 ;         ; Build packet
 ;         lda     #FN_DEVICE_DISK
@@ -233,26 +233,26 @@ fn_disk_flags   = $10F8
 
 ;         ; Version
 ;         lda     #FN_PROTOCOL_VERSION
-;         sta     fuji_tx_buffer+FN_HEADER_SIZE+0
+;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+0
 
 ;         ; Slot
 ;         lda     fn_disk_slot
-;         sta     fuji_tx_buffer+FN_HEADER_SIZE+1
+;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+1
 
 ;         ; LBA (32-bit, little-endian) - we only support 16-bit for now
 ;         lda     aws_tmp00
-;         sta     fuji_tx_buffer+FN_HEADER_SIZE+2
+;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+2
 ;         lda     aws_tmp01
-;         sta     fuji_tx_buffer+FN_HEADER_SIZE+3
+;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+3
 ;         lda     #$00
-;         sta     fuji_tx_buffer+FN_HEADER_SIZE+4
-;         sta     fuji_tx_buffer+FN_HEADER_SIZE+5
+;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+4
+;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+5
 
 ;         ; Max bytes = 256 (little-endian)
 ;         lda     #$00
-;         sta     fuji_tx_buffer+FN_HEADER_SIZE+6
+;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+6
 ;         lda     #$01
-;         sta     fuji_tx_buffer+FN_HEADER_SIZE+7
+;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+7
 
 ;         ; Build packet
 ;         lda     #FN_DEVICE_DISK
@@ -275,18 +275,18 @@ fn_disk_flags   = $10F8
 
 ;         ; Get data length from response
 ;         ldy     #FN_HEADER_SIZE+11
-;         lda     fuji_rx_buffer,y  ; dataLen low
+;         lda     _fuji_rx_buffer,y  ; dataLen low
 ;         sta     aws_tmp02
 ;         iny
-;         lda     fuji_rx_buffer,y  ; dataLen high
+;         lda     _fuji_rx_buffer,y  ; dataLen high
 ;         sta     aws_tmp03
 
 ;         ; Copy data
-;         ; Source: fuji_rx_buffer + 17
+;         ; Source: _fuji_rx_buffer + 17
 ;         ; Dest: aws_tmp08/09
 ;         ldy     #$00
 ; @copy_loop:
-;         lda     fuji_rx_buffer+FN_HEADER_SIZE+13,y
+;         lda     _fuji_rx_buffer+FN_HEADER_SIZE+13,y
 ;         sta     (aws_tmp08),y
 ;         iny
 ;         cpy     aws_tmp02
@@ -371,54 +371,54 @@ fn_disk_flags   = $10F8
 
 ;         ; Version
 ;         lda     #FN_PROTOCOL_VERSION
-;         sta     fuji_tx_buffer+FN_HEADER_SIZE+0
+;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+0
 
 ;         ; Slot
 ;         lda     fn_disk_slot
-;         sta     fuji_tx_buffer+FN_HEADER_SIZE+1
+;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+1
 
 ;         ; LBA (32-bit, little-endian)
 ;         lda     aws_tmp00
-;         sta     fuji_tx_buffer+FN_HEADER_SIZE+2
+;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+2
 ;         lda     aws_tmp01
-;         sta     fuji_tx_buffer+FN_HEADER_SIZE+3
+;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+3
 ;         lda     #$00
-;         sta     fuji_tx_buffer+FN_HEADER_SIZE+4
-;         sta     fuji_tx_buffer+FN_HEADER_SIZE+5
+;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+4
+;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+5
 
 ;         ; Data length = 256 (little-endian)
 ;         lda     #$00
-;         sta     fuji_tx_buffer+FN_HEADER_SIZE+6
+;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+6
 ;         lda     #$01
-;         sta     fuji_tx_buffer+FN_HEADER_SIZE+7
+;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+7
 
 ;         ; Copy data from source buffer
 ;         ldy     #$00
 ; @copy_data:
 ;         lda     (aws_tmp08),y
-;         sta     fuji_tx_buffer+FN_HEADER_SIZE+8,y
+;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+8,y
 ;         iny
 ;         bne     @copy_data
 
 ;         ; Build packet manually (264 bytes doesn't fit in Y)
 ;         ; Store header manually
 ;         lda     #FN_DEVICE_DISK
-;         sta     fuji_tx_buffer+0
+;         sta     _fuji_tx_buffer+0
 ;         lda     #DISK_CMD_WRITE_SECTOR
-;         sta     fuji_tx_buffer+1
+;         sta     _fuji_tx_buffer+1
 
 ;         ; Length = 6 (header) + 264 (payload) = 270
 ;         lda     #<270
-;         sta     fuji_tx_buffer+2
+;         sta     _fuji_tx_buffer+2
 ;         lda     #>270
-;         sta     fuji_tx_buffer+3
+;         sta     _fuji_tx_buffer+3
 
 ;         ; Checksum placeholder
 ;         lda     #$00
-;         sta     fuji_tx_buffer+4
+;         sta     _fuji_tx_buffer+4
 
 ;         ; Descriptor
-;         sta     fuji_tx_buffer+5
+;         sta     _fuji_tx_buffer+5
 
 ;         ; Store length
 ;         lda     #<270
@@ -427,9 +427,9 @@ fn_disk_flags   = $10F8
 ;         sta     fn_tx_len_hi
 
 ;         ; Calculate checksum
-;         lda     #<fuji_tx_buffer
+;         lda     #<_fuji_tx_buffer
 ;         sta     aws_tmp00
-;         lda     #>fuji_tx_buffer
+;         lda     #>_fuji_tx_buffer
 ;         sta     aws_tmp01
 ;         lda     fn_tx_len
 ;         sta     aws_tmp02
@@ -437,7 +437,7 @@ fn_disk_flags   = $10F8
 ;         sta     aws_tmp03
 
 ;         jsr     _calc_checksum
-;         sta     fuji_tx_buffer+4
+;         sta     _fuji_tx_buffer+4
 
 ;         ; Send packet
 ;         jsr     fn_send_packet
@@ -510,7 +510,7 @@ fn_disk_flags   = $10F8
 ; ;   A = slot (1-8)
 ; ;
 ; ; Output:
-; ;   fuji_rx_buffer contains response
+; ;   _fuji_rx_buffer contains response
 ; ;   Carry clear on success
 ; ; ============================================================================
 ; fn_disk_info:
@@ -518,10 +518,10 @@ fn_disk_flags   = $10F8
 
 ;         ; Build packet payload
 ;         lda     #FN_PROTOCOL_VERSION
-;         sta     fuji_tx_buffer+FN_HEADER_SIZE+0
+;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+0
 
 ;         pla                     ; Get slot
-;         sta     fuji_tx_buffer+FN_HEADER_SIZE+1
+;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+1
 
 ;         ; Build packet
 ;         lda     #FN_DEVICE_DISK

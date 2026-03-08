@@ -98,7 +98,6 @@
         .export  fuji_ch_flg
 
         .export  fuji_cmd_copy_buf_17
-        .export  fuji_current_fs_uri
         .export  fuji_cmd_cat_buf_8
         .export  fuji_getcat_buf_8
 
@@ -117,10 +116,10 @@
         .export  fuji_unknown_11C0
         .export  fuji_unknown_11D0
 
-        .export  fuji_current_fs_uri
-        .export  fuji_current_dir_path
-        .export  fuji_tx_buffer
-        .export  fuji_rx_buffer
+        .export  _fuji_current_fs_uri
+        .export  _fuji_current_dir_path
+        .export  _fuji_tx_buffer
+        .export  _fuji_rx_buffer
         .export  fuji_bss
 
         .export  dfs_cat_s0_header
@@ -476,16 +475,16 @@ fuji_unknown_11C0       = fuji_workspace + $1C0
 fuji_unknown_11D0       = fuji_workspace + $1D0
 
 ; 80 byte buffer
-fuji_current_fs_uri     = fuji_workspace + $0200
+_fuji_current_fs_uri     = fuji_workspace + $0200
 
 ; 80 byte buffer, technically cannot be more than uri - scheme length
-fuji_current_dir_path   = fuji_workspace + $0250
+_fuji_current_dir_path   = fuji_workspace + $0250
 
 ; 96 byte TX buffer - need to see how this pans out
-fuji_tx_buffer          = fuji_workspace + $02A0
+_fuji_tx_buffer          = fuji_workspace + $02A0
 
 ; 512 byte RX buffer - does this need to be 512 bytes?
-fuji_rx_buffer          = fuji_workspace + $0300
+_fuji_rx_buffer          = fuji_workspace + $0300
 
 
 ; the start of where BSS should be define for CC65, see fujinet-rom.cfg

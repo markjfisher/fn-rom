@@ -5,7 +5,7 @@
         .export cmd_fs_fin
 
         .import err_bad
-        .import fuji_rx_buffer
+        .import _fuji_rx_buffer
         .import fuji_get_mount_slot
         .import fuji_set_mount_slot
         .import num_params
@@ -37,7 +37,7 @@
 ;
 ; State used here:
 ; - fuji_current_mount_slot = current/default 0-based persisted mount slot
-; - fuji_current_fs_uri     = current canonical URI base selected by FHOST/FFS
+; - _fuji_current_fs_uri     = current canonical URI base selected by FHOST/FFS
 ; - fuji_cmd_cat_buf_8          = temporary assembly buffer for the final URI
 ;
 ; Current simple strategy for URI assembly:
@@ -102,7 +102,7 @@ cmd_fs_fin:
 ; @copy_base:
 ;         cpy     fuji_current_fs_len
 ;         beq     @base_done
-;         lda     fuji_current_fs_uri,y
+;         lda     _fuji_current_fs_uri,y
 ;         sta     fuji_cmd_cat_buf_8,y
 ;         iny
 ;         cpy     #$40
@@ -158,15 +158,15 @@ cmd_fs_fin:
 ;         bcs     fin_mount_failed
 
 ;         ldy     #FN_HEADER_SIZE+0
-;         lda     fuji_rx_buffer,y
+;         lda     _fuji_rx_buffer,y
 ;         cmp     fuji_current_mount_slot
 ;         bne     fin_mount_failed
 ;         iny
-;         lda     fuji_rx_buffer,y
+;         lda     _fuji_rx_buffer,y
 ;         and     #$01
 ;         beq     fin_mount_failed
 ;         iny
-;         lda     fuji_rx_buffer,y
+;         lda     _fuji_rx_buffer,y
 ;         beq     fin_mount_failed
 ;         tax
 ;         iny
@@ -177,7 +177,7 @@ cmd_fs_fin:
 ;         bne     @skip_uri
 ; @check_mode_len:
 ;         iny
-;         lda     fuji_rx_buffer,y
+;         lda     _fuji_rx_buffer,y
 ;         beq     fin_mount_failed
 ;         clc
 

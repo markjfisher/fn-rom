@@ -47,8 +47,8 @@ FN_MAX_SLIP_SIZE = 640      ; 2x max packet + margin
 ; $1100-$111F - Channel workspace (fuji_channel_start etc.)
 
 ;; THESE MAY COME DOWN - CHECK VIA EMULATOR IF ANYTHING FROM $1120 TO $1200 IS USED
-; $1200-$124F, 80 byte buffer for URI buffer: fuji_current_fs_uri
-; $1250-$129F, 80 byte buffer for current PATH buffer: fuji_current_dir_path
+; $1200-$124F, 80 byte buffer for URI buffer: _fuji_current_fs_uri
+; $1250-$129F, 80 byte buffer for current PATH buffer: _fuji_current_dir_path
 ; $12A0-$12FF, 96 byte buffer for TRANSMIT
 ; $1300-$14FF, 512 byte buffer for RX
 
@@ -63,7 +63,7 @@ FN_MAX_SLIP_SIZE = 640      ; 2x max packet + margin
 
 ; ; SLIP working buffer - reuse RX buffer area during encoding
 ; ; (TX and RX don't happen simultaneously)
-; fn_slip_buffer  = fuji_rx_buffer
+; fn_slip_buffer  = _fuji_rx_buffer
 
 ; ; Buffer lengths - use workspace variables
 ; fn_tx_len       = $10EC
@@ -199,7 +199,7 @@ FN_MAX_SLIP_SIZE = 640      ; 2x max packet + margin
 ; ;   aws_tmp02/03 = length of encoded data (16-bit)
 ; ;
 ; ; Output:
-; ;   fuji_rx_buffer contains decoded data
+; ;   _fuji_rx_buffer contains decoded data
 ; ;   fn_rx_len = length of decoded data
 ; ;   A = length low byte, 0 on error
 ; ; ============================================================================
@@ -240,7 +240,7 @@ FN_MAX_SLIP_SIZE = 640      ; 2x max packet + margin
 ;         beq     @handle_escape
 
 ;         ; Normal byte - store
-;         sta     fuji_rx_buffer,x
+;         sta     _fuji_rx_buffer,x
 ;         inx
 ;         jmp     @decode_loop
 
@@ -273,7 +273,7 @@ FN_MAX_SLIP_SIZE = 640      ; 2x max packet + margin
 ;         lda     #SLIP_ESCAPE
 
 ;         ; Store decoded byte
-;         sta     fuji_rx_buffer,x
+;         sta     _fuji_rx_buffer,x
 ;         inx
 ;         jmp     @decode_loop
 
@@ -300,13 +300,13 @@ FN_MAX_SLIP_SIZE = 640      ; 2x max packet + margin
 ; ;   aws_tmp00/01 = pointer to payload data (ignored if Y=0)
 ; ;
 ; ; Output:
-; ;   fuji_tx_buffer contains complete packet
+; ;   _fuji_tx_buffer contains complete packet
 ; ;   fn_tx_len = total packet length
 ; ; ============================================================================
 ; fn_build_packet:
 ;         ; Store header bytes directly - no stack nonsense
-;         sta     fuji_tx_buffer+0          ; Device ID
-;         stx     fuji_tx_buffer+1          ; Command
+;         sta     _fuji_tx_buffer+0          ; Device ID
+;         stx     _fuji_tx_buffer+1          ; Command
 
 ;         ; Calculate total length = header(6) + payload
 ;         sty     fn_tx_len               ; Save payload length
@@ -314,12 +314,12 @@ FN_MAX_SLIP_SIZE = 640      ; 2x max packet + margin
 ;         clc
 ;         adc     #FN_HEADER_SIZE
 ;         sta     fn_tx_len
-;         sta     fuji_tx_buffer+2          ; Length low in header
+;         sta     _fuji_tx_buffer+2          ; Length low in header
 ;         lda     #$00
 ;         sta     fn_tx_len_hi            ; High byte always 0 for small packets
-;         sta     fuji_tx_buffer+3          ; Length high in header
-;         sta     fuji_tx_buffer+4          ; Checksum placeholder (0 for calculation)
-;         sta     fuji_tx_buffer+5          ; Descriptor (0 for simple packets)
+;         sta     _fuji_tx_buffer+3          ; Length high in header
+;         sta     _fuji_tx_buffer+4          ; Checksum placeholder (0 for calculation)
+;         sta     _fuji_tx_buffer+5          ; Descriptor (0 for simple packets)
 
 ;         ; Copy payload if present
 ;         cpy     #$00
@@ -335,7 +335,7 @@ FN_MAX_SLIP_SIZE = 640      ; 2x max packet + margin
 ;         dey                             ; Y = payload_len - 1
 ; @copy_loop:
 ;         lda     (aws_tmp00),y
-;         sta     fuji_tx_buffer+FN_HEADER_SIZE,y
+;         sta     _fuji_tx_buffer+FN_HEADER_SIZE,y
 ;         dey
 ;         bpl     @copy_loop
 
@@ -349,9 +349,9 @@ FN_MAX_SLIP_SIZE = 640      ; 2x max packet + margin
 ;         ; Calculate checksum using existing optimized routine
 ;         ; _calc_checksum expects: aws_tmp00/01 = buf, aws_tmp02/03 = len
 ;         ; Returns checksum in A
-;         lda     #<fuji_tx_buffer
+;         lda     #<_fuji_tx_buffer
 ;         sta     aws_tmp00
-;         lda     #>fuji_tx_buffer
+;         lda     #>_fuji_tx_buffer
 ;         sta     aws_tmp01
 ;         lda     fn_tx_len
 ;         sta     aws_tmp02
@@ -361,7 +361,7 @@ FN_MAX_SLIP_SIZE = 640      ; 2x max packet + margin
 ;         jsr     _calc_checksum
 
 ;         ; Store checksum at offset 4
-;         sta     fuji_tx_buffer+4
+;         sta     _fuji_tx_buffer+4
 
 ;         rts
 
@@ -369,10 +369,10 @@ FN_MAX_SLIP_SIZE = 640      ; 2x max packet + margin
 ; ; ============================================================================
 ; ; FN_SEND_PACKET - Send a FujiBus packet via serial
 ; ;
-; ; SLIP-encodes the packet in fuji_tx_buffer and sends via serial.
+; ; SLIP-encodes the packet in _fuji_tx_buffer and sends via serial.
 ; ;
 ; ; Input:
-; ;   fuji_tx_buffer contains packet data
+; ;   _fuji_tx_buffer contains packet data
 ; ;   fn_tx_len = packet length
 ; ;
 ; ; Output:
@@ -380,9 +380,9 @@ FN_MAX_SLIP_SIZE = 640      ; 2x max packet + margin
 ; ; ============================================================================
 ; fn_send_packet:
 ;         ; Set up parameters for SLIP encode
-;         lda     #<fuji_tx_buffer
+;         lda     #<_fuji_tx_buffer
 ;         sta     aws_tmp00
-;         lda     #>fuji_tx_buffer
+;         lda     #>_fuji_tx_buffer
 ;         sta     aws_tmp01
 ;         lda     fn_tx_len
 ;         sta     aws_tmp02
@@ -422,7 +422,7 @@ FN_MAX_SLIP_SIZE = 640      ; 2x max packet + margin
 ; ;   None (reads from serial)
 ; ;
 ; ; Output:
-; ;   fuji_rx_buffer contains decoded packet
+; ;   _fuji_rx_buffer contains decoded packet
 ; ;   fn_rx_len = packet length
 ; ;   Carry clear on success, set on error
 ; ;   A = status (1=success, 0=error)
@@ -479,17 +479,17 @@ FN_MAX_SLIP_SIZE = 640      ; 2x max packet + margin
 ;         ; Validate checksum
 ;         ; Save checksum byte
 ;         ldy     #$04
-;         lda     fuji_rx_buffer,y
+;         lda     _fuji_rx_buffer,y
 ;         pha
 
 ;         ; Zero checksum for calculation
 ;         lda     #$00
-;         sta     fuji_rx_buffer+4
+;         sta     _fuji_rx_buffer+4
 
 ;         ; Calculate checksum using optimized routine
-;         lda     #<fuji_rx_buffer
+;         lda     #<_fuji_rx_buffer
 ;         sta     aws_tmp00
-;         lda     #>fuji_rx_buffer
+;         lda     #>_fuji_rx_buffer
 ;         sta     aws_tmp01
 ;         lda     fn_rx_len
 ;         sta     aws_tmp02

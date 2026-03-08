@@ -33,8 +33,8 @@
 ; Design split:
 ; - FHOST/FFS are the URI-facing commands.
 ; - The BBC stores two related values:
-;     fuji_current_fs_uri   -> canonical full URI for machine/protocol use
-;     fuji_current_dir_path -> display path for human-facing output only
+;     _fuji_current_fs_uri   -> canonical full URI for machine/protocol use
+;     _fuji_current_dir_path -> display path for human-facing output only
 ; - URI and path semantics are intentionally delegated to FujiNet-NIO via
 ;   FileDevice ResolvePath rather than reimplemented in 6502.
 ;
@@ -77,7 +77,7 @@ cmd_fs_fhost:
 
 ;         ldy     #$00
 ; @print_fs_loop:
-;         lda     fuji_current_fs_uri,y
+;         lda     _fuji_current_fs_uri,y
 ;         beq     @print_path
 ;         jsr     print_char
 ;         iny
@@ -97,7 +97,7 @@ cmd_fs_fhost:
 
 ;         ldy     #$00
 ; @print_dir_loop:
-;         lda     fuji_current_dir_path,y
+;         lda     _fuji_current_dir_path,y
 ;         beq     @done
 ;         jsr     print_char
 ;         iny
@@ -131,7 +131,7 @@ cmd_fs_fhost:
 ;         ldy     #$00
 ; @copy_uri_loop:
 ;         lda     fuji_filename_buffer,y
-;         sta     fuji_current_fs_uri,y
+;         sta     _fuji_current_fs_uri,y
 ;         beq     @copy_done
 ;         iny
 ;         cpy     fuji_current_fs_len
@@ -144,9 +144,9 @@ cmd_fs_fhost:
 ;         ; aws_tmp02    -> current URI length
 ;         ; aws_tmp03/04 -> placeholder arg pointer (unused because arg length=0)
 ;         ; aws_tmp05    -> 0, meaning “canonicalize this full URI directly”
-;         lda     #<fuji_current_fs_uri
+;         lda     #<_fuji_current_fs_uri
 ;         sta     aws_tmp00
-;         lda     #>fuji_current_fs_uri
+;         lda     #>_fuji_current_fs_uri
 ;         sta     aws_tmp01
 ;         lda     fuji_current_fs_len
 ;         sta     aws_tmp02
@@ -167,9 +167,9 @@ cmd_fs_fhost:
 ;         ; URI but degrade the display path to root so later commands still see
 ;         ; a minimally coherent path state.
 ;         lda     #'/'
-;         sta     fuji_current_dir_path
+;         sta     _fuji_current_dir_path
 ;         lda     #$00
-;         sta     fuji_current_dir_path+1
+;         sta     _fuji_current_dir_path+1
 ;         lda     #$01
 ;         sta     fuji_current_dir_len
 ;         jmp     exit_user_ok
@@ -188,7 +188,7 @@ cmd_fs_fhost:
 ; @copy_to_buf:
 ;         cpy     fuji_current_fs_len
 ;         beq     @nul_term
-;         lda     fuji_current_fs_uri,y
+;         lda     _fuji_current_fs_uri,y
 ;         sta     fuji_cmd_cat_buf_8,y
 ;         iny
 ;         bne     @copy_to_buf

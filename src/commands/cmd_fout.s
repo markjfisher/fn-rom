@@ -4,7 +4,7 @@
         ; .import fuji_clear_mount_slot
         ; .import fuji_get_mount_slot
         ; .import fuji_unmount_disk
-        ; .import fuji_rx_buffer
+        ; .import _fuji_rx_buffer
         ; .import param_drive_no_syntax
         ; .import set_user_flag_x
 
@@ -51,11 +51,11 @@ cmd_fs_fout:
 ;         jsr     fuji_get_mount_slot
 ;         bcs     @failed
 ;         ldy     #FN_HEADER_SIZE+1
-;         lda     fuji_rx_buffer,y
+;         lda     _fuji_rx_buffer,y
 ;         and     #$01
 ;         beq     @failed
 ;         iny
-;         lda     fuji_rx_buffer,y
+;         lda     _fuji_rx_buffer,y
 ;         beq     @failed
 
 ;         ; Request the live DiskService unmount only after the slot record was

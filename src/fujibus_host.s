@@ -15,8 +15,8 @@
         ; .import fn_build_packet
         ; .import fn_send_packet
         ; .import fn_receive_packet
-        ; .import fuji_tx_buffer
-        ; .import fuji_rx_buffer
+        ; .import _fuji_tx_buffer
+        ; .import _fuji_rx_buffer
         ; .import fn_tx_len
         ; .import fn_tx_len_hi
         ; .import fn_rx_len
@@ -56,7 +56,7 @@ FN_HOST_MAX_HOSTS     = 8
 ; FN_HOST_GET_HOSTS - Get all host slot configurations
 ;
 ; Input:  None
-; Output: Carry=0 if success, host data in fuji_rx_buffer
+; Output: Carry=0 if success, host data in _fuji_rx_buffer
 ;         Carry=1 if error
 ;
 ; Response format: [version:1][host_count:1][entries...]
@@ -68,23 +68,23 @@ FN_HOST_MAX_HOSTS     = 8
 
 ;         ; Build packet: [version:1]
 ;         lda     #FN_DEVICE_HOST
-;         sta     fuji_tx_buffer+0
+;         sta     _fuji_tx_buffer+0
 ;         lda     #FN_HOST_CMD_GET_HOSTS
-;         sta     fuji_tx_buffer+1
+;         sta     _fuji_tx_buffer+1
 ;         lda     #7                      ; length = 6 (header) + 1 (version)
-;         sta     fuji_tx_buffer+2
+;         sta     _fuji_tx_buffer+2
 ;         lda     #0
-;         sta     fuji_tx_buffer+3
-;         sta     fuji_tx_buffer+5          ; descriptor = 0
+;         sta     _fuji_tx_buffer+3
+;         sta     _fuji_tx_buffer+5          ; descriptor = 0
 
 ;         ; Version
 ;         lda     #FN_HOST_VERSION
-;         sta     fuji_tx_buffer+6
+;         sta     _fuji_tx_buffer+6
 
 ;         ; Calculate checksum
-;         lda     #<fuji_tx_buffer
+;         lda     #<_fuji_tx_buffer
 ;         sta     aws_tmp00
-;         lda     #>fuji_tx_buffer
+;         lda     #>_fuji_tx_buffer
 ;         sta     aws_tmp01
 ;         lda     #7
 ;         sta     fn_tx_len
@@ -93,7 +93,7 @@ FN_HOST_MAX_HOSTS     = 8
 ;         sta     fn_tx_len_hi
 ;         sta     aws_tmp03
 ;         jsr     _calc_checksum
-;         sta     fuji_tx_buffer+4
+;         sta     _fuji_tx_buffer+4
 
 ;         ; Send packet
 ;         jsr     fn_send_packet
@@ -105,7 +105,7 @@ FN_HOST_MAX_HOSTS     = 8
 
 ;         ; Check response status (first byte of payload after header)
 ;         ; Response: [version:1][host_count:1][entries...]
-;         lda     fuji_rx_buffer+6          ; version
+;         lda     _fuji_rx_buffer+6          ; version
 ;         cmp     #FN_HOST_VERSION
 ;         bne     @error
 
@@ -135,38 +135,38 @@ FN_HOST_MAX_HOSTS     = 8
 
 ;         ; Build packet header
 ;         lda     #FN_DEVICE_HOST
-;         sta     fuji_tx_buffer+0
+;         sta     _fuji_tx_buffer+0
 ;         lda     #FN_HOST_CMD_SET_HOST
-;         sta     fuji_tx_buffer+1
+;         sta     _fuji_tx_buffer+1
 
 ;         ; Total length = 6 (header) + 1 (version) + 1 (slot) + 1 (type) + 32 (name) + 64 (addr) = 105
 ;         lda     #105
-;         sta     fuji_tx_buffer+2
+;         sta     _fuji_tx_buffer+2
 ;         sta     fn_tx_len
 ;         lda     #0
-;         sta     fuji_tx_buffer+3
+;         sta     _fuji_tx_buffer+3
 ;         sta     fn_tx_len_hi
-;         sta     fuji_tx_buffer+5          ; descriptor = 0
+;         sta     _fuji_tx_buffer+5          ; descriptor = 0
 
 ;         ; Payload: [version:1][slot:1][type:1][name:32][address:64]
 ;         lda     #FN_HOST_VERSION
-;         sta     fuji_tx_buffer+6
+;         sta     _fuji_tx_buffer+6
 
 ;         ; Slot (from X register, saved by remember_axy)
 ;         txa
-;         sta     fuji_tx_buffer+7
+;         sta     _fuji_tx_buffer+7
 
 ;         ; Type (from A register, saved by remember_axy - need to restore it)
 ;         ; The type was in A, but remember_axy saved it. We need to pass it differently.
 ;         ; For now, assume type is in fn_host_type
 ;         lda     fn_host_type
-;         sta     fuji_tx_buffer+8
+;         sta     _fuji_tx_buffer+8
 
 ;         ; Copy name (32 bytes)
 ;         ldy     #0
 ; @copy_name:
 ;         lda     fn_host_name_buffer,y
-;         sta     fuji_tx_buffer+9,y
+;         sta     _fuji_tx_buffer+9,y
 ;         iny
 ;         cpy     #32
 ;         bne     @copy_name
@@ -175,15 +175,15 @@ FN_HOST_MAX_HOSTS     = 8
 ;         ldy     #0
 ; @copy_addr:
 ;         lda     fn_host_addr_buffer,y
-;         sta     fuji_tx_buffer+41,y
+;         sta     _fuji_tx_buffer+41,y
 ;         iny
 ;         cpy     #64
 ;         bne     @copy_addr
 
 ;         ; Calculate checksum
-;         lda     #<fuji_tx_buffer
+;         lda     #<_fuji_tx_buffer
 ;         sta     aws_tmp00
-;         lda     #>fuji_tx_buffer
+;         lda     #>_fuji_tx_buffer
 ;         sta     aws_tmp01
 ;         lda     #105
 ;         sta     fn_tx_len
@@ -192,7 +192,7 @@ FN_HOST_MAX_HOSTS     = 8
 ;         sta     fn_tx_len_hi
 ;         sta     aws_tmp03
 ;         jsr     _calc_checksum
-;         sta     fuji_tx_buffer+4
+;         sta     _fuji_tx_buffer+4
 
 ;         ; Send packet
 ;         jsr     fn_send_packet
@@ -203,11 +203,11 @@ FN_HOST_MAX_HOSTS     = 8
 ;         bcs     @error
 
 ;         ; Check response status
-;         lda     fuji_rx_buffer+6          ; version
+;         lda     _fuji_rx_buffer+6          ; version
 ;         cmp     #FN_HOST_VERSION
 ;         bne     @error
 
-;         lda     fuji_rx_buffer+7          ; status
+;         lda     _fuji_rx_buffer+7          ; status
 ;         bne     @error
 
 ;         clc
@@ -220,7 +220,7 @@ FN_HOST_MAX_HOSTS     = 8
 ; ; FN_HOST_GET_HOST - Get a single host slot configuration
 ; ;
 ; ; Input:  X = slot number (0-7)
-; ; Output: Carry=0 if success, host data in fuji_rx_buffer
+; ; Output: Carry=0 if success, host data in _fuji_rx_buffer
 ; ;         Carry=1 if error
 ; ;
 ; ; Response format: [version:1][type:1][name:32][address:64]
@@ -235,27 +235,27 @@ FN_HOST_MAX_HOSTS     = 8
 
 ;         ; Build packet: [version:1][slot:1]
 ;         lda     #FN_DEVICE_HOST
-;         sta     fuji_tx_buffer+0
+;         sta     _fuji_tx_buffer+0
 ;         lda     #FN_HOST_CMD_GET_HOST
-;         sta     fuji_tx_buffer+1
+;         sta     _fuji_tx_buffer+1
 ;         lda     #8                      ; length = 6 (header) + 2 (version + slot)
-;         sta     fuji_tx_buffer+2
+;         sta     _fuji_tx_buffer+2
 ;         lda     #0
-;         sta     fuji_tx_buffer+3
-;         sta     fuji_tx_buffer+5          ; descriptor = 0
+;         sta     _fuji_tx_buffer+3
+;         sta     _fuji_tx_buffer+5          ; descriptor = 0
 
 ;         ; Version
 ;         lda     #FN_HOST_VERSION
-;         sta     fuji_tx_buffer+6
+;         sta     _fuji_tx_buffer+6
 
 ;         ; Slot (from X register)
 ;         txa
-;         sta     fuji_tx_buffer+7
+;         sta     _fuji_tx_buffer+7
 
 ;         ; Calculate checksum
-;         lda     #<fuji_tx_buffer
+;         lda     #<_fuji_tx_buffer
 ;         sta     aws_tmp00
-;         lda     #>fuji_tx_buffer
+;         lda     #>_fuji_tx_buffer
 ;         sta     aws_tmp01
 ;         lda     #8
 ;         sta     fn_tx_len
@@ -264,7 +264,7 @@ FN_HOST_MAX_HOSTS     = 8
 ;         sta     fn_tx_len_hi
 ;         sta     aws_tmp03
 ;         jsr     _calc_checksum
-;         sta     fuji_tx_buffer+4
+;         sta     _fuji_tx_buffer+4
 
 ;         ; Send packet
 ;         jsr     fn_send_packet
@@ -275,7 +275,7 @@ FN_HOST_MAX_HOSTS     = 8
 ;         bcs     @error
 
 ;         ; Check response
-;         lda     fuji_rx_buffer+6          ; version
+;         lda     _fuji_rx_buffer+6          ; version
 ;         cmp     #FN_HOST_VERSION
 ;         bne     @error
 

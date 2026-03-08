@@ -4,7 +4,7 @@
         .import err_bad
         .import fn_file_list_directory
         .import fn_file_resolve_path
-        .import fuji_rx_buffer
+        .import _fuji_rx_buffer
         .import num_params
         .import param_get_string
         .import print_char
@@ -28,12 +28,12 @@
 ;       Resolve <path> relative to the current selection, then list that target.
 ;
 ; FileDevice helper usage:
-; - baseUriLen/baseUri are taken from fuji_current_fs_len/fuji_current_fs_uri
+; - baseUriLen/baseUri are taken from fuji_current_fs_len/_fuji_current_fs_uri
 ; - argLen/arg are taken from fuji_filename_buffer when a path is supplied
 ; - fn_file_resolve_path handles relative/canonical directory resolution
 ; - fn_file_list_directory issues the FileDevice ListDirectory request
 ;
-; Protocol fields consumed from the ListDirectory response in fuji_rx_buffer:
+; Protocol fields consumed from the ListDirectory response in _fuji_rx_buffer:
 ; - payload byte 4-5  => returnedCount (u16 LE)
 ; - each entry then encodes:
 ;     u8  entryFlags  ; bit0=isDir
@@ -83,9 +83,9 @@ cmd_fs_fls:
 ;         ; aws_tmp05    -> requested path fragment length
 ;         txa
 ;         sta     aws_tmp05
-;         lda     #<fuji_current_fs_uri
+;         lda     #<_fuji_current_fs_uri
 ;         sta     aws_tmp00
-;         lda     #>fuji_current_fs_uri
+;         lda     #>_fuji_current_fs_uri
 ;         sta     aws_tmp01
 ;         lda     fuji_current_fs_len
 ;         sta     aws_tmp02
@@ -128,9 +128,9 @@ cmd_fs_fls:
 ;         ; aws_tmp02    -> URI length
 ;         ; aws_tmp03/04 -> startIndex = 0
 ;         ; aws_tmp05/06 -> maxEntries = 32
-;         lda     #<fuji_current_fs_uri
+;         lda     #<_fuji_current_fs_uri
 ;         sta     aws_tmp00
-;         lda     #>fuji_current_fs_uri
+;         lda     #>_fuji_current_fs_uri
 ;         sta     aws_tmp01
 ;         lda     fuji_current_fs_len
 ;         sta     aws_tmp02
@@ -153,13 +153,13 @@ cmd_fs_fls:
 ;         jsr     print_newline
 
 ;         ; Response payload byte 4/5 = returnedCount (u16 LE).
-;         lda     fuji_rx_buffer+FN_HEADER_SIZE+1
+;         lda     _fuji_rx_buffer+FN_HEADER_SIZE+1
 ;         sta     aws_tmp09
 ;         ldy     #FN_HEADER_SIZE+4
-;         lda     fuji_rx_buffer,y
+;         lda     _fuji_rx_buffer,y
 ;         sta     aws_tmp06
 ;         iny
-;         lda     fuji_rx_buffer,y
+;         lda     _fuji_rx_buffer,y
 ;         sta     aws_tmp07
 ;         iny
 
@@ -169,12 +169,12 @@ cmd_fs_fls:
 ;         beq     @done_ok
 
 ;         ; entryFlags (bit0=isDir)
-;         lda     fuji_rx_buffer,y
+;         lda     _fuji_rx_buffer,y
 ;         sta     aws_tmp08
 ;         iny
 
 ;         ; nameLen
-;         lda     fuji_rx_buffer,y
+;         lda     _fuji_rx_buffer,y
 ;         tax
 ;         iny
 
@@ -184,7 +184,7 @@ cmd_fs_fls:
 ; @name_loop:
 ;         cpx     #$00
 ;         beq     @after_name
-;         lda     fuji_rx_buffer,y
+;         lda     _fuji_rx_buffer,y
 ;         jsr     print_char
 ;         iny
 ;         dex

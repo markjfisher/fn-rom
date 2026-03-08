@@ -3,7 +3,7 @@
         .import err_bad
         .import fn_disk_mount
         .import fuji_get_mount_slot
-        .import fuji_rx_buffer
+        .import _fuji_rx_buffer
         .import param_count_a
         .import param_drive_or_default
         .import param_get_num
@@ -54,11 +54,11 @@ cmd_fs_fmount:
 ;         jsr     fuji_get_mount_slot
 ;         bcs     bad_mount_slot
 ;         ldy     #FN_HEADER_SIZE+1
-;         lda     fuji_rx_buffer,y
+;         lda     _fuji_rx_buffer,y
 ;         and     #$01
 ;         beq     bad_mount_slot
 ;         iny
-;         lda     fuji_rx_buffer,y
+;         lda     _fuji_rx_buffer,y
 ;         beq     bad_mount_slot
 
 ;         ; Read optional BBC drive number, or fall back to the current/default
@@ -70,24 +70,24 @@ cmd_fs_fmount:
 ;         ; so FMOUNT immediately affects the active runtime state as well as the
 ;         ; ROM-side bridge table.
 ;         ldy     #FN_HEADER_SIZE+2
-;         lda     fuji_rx_buffer,y
+;         lda     _fuji_rx_buffer,y
 ;         sta     aws_tmp02
 ;         ldx     #$00
 ; @copy_uri:
 ;         cpx     aws_tmp02
 ;         beq     @mount_live
 ;         iny
-;         lda     fuji_rx_buffer,y
-;         sta     fuji_current_fs_uri,x
+;         lda     _fuji_rx_buffer,y
+;         sta     _fuji_current_fs_uri,x
 ;         inx
 ;         bne     @copy_uri
 
 ; @mount_live:
 ;         lda     #$00
-;         sta     fuji_current_fs_uri,x
-;         lda     #<fuji_current_fs_uri
+;         sta     _fuji_current_fs_uri,x
+;         lda     #<_fuji_current_fs_uri
 ;         sta     aws_tmp00
-;         lda     #>fuji_current_fs_uri
+;         lda     #>_fuji_current_fs_uri
 ;         sta     aws_tmp01
 ;         lda     current_drv
 ;         clc

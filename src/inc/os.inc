@@ -103,7 +103,6 @@ OS_INC = 1
         .import  fuji_ch_flg
 
         .import  fuji_cmd_copy_buf_17
-        .import  fuji_current_fs_uri
         .import  fuji_cmd_cat_buf_8
         .import  fuji_getcat_buf_8
 
@@ -123,10 +122,10 @@ OS_INC = 1
         .import  fuji_unknown_11C0
         .import  fuji_unknown_11D0
 
-        .import  fuji_current_fs_uri
-        .import  fuji_current_dir_path
-        .import  fuji_tx_buffer
-        .import  fuji_rx_buffer
+        .import  _fuji_current_fs_uri
+        .import  _fuji_current_dir_path
+        .import  _fuji_tx_buffer
+        .import  _fuji_rx_buffer
         .import  fuji_bss
 
         .import  dfs_cat_s0_header
