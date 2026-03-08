@@ -34,7 +34,7 @@ clear_exec_spool_file_handle:
         txa
         tay
         jsr     conv_yhndl_intch_exyintch
-        cpy     $10C2
+        cpy     fuji_intch
         rts
 
 @clear_spool_handle_exit:

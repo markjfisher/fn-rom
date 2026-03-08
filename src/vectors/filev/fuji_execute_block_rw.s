@@ -23,7 +23,8 @@
 
 fuji_execute_block_rw:
         ; Store operation type
-        sta     fuji_operation_type
+        pha
+        ; sta     fuji_operation_type
 
         ; Get buffer address from workspace (set by LoadFile_Ycatoffset)
         ; &BC-&BD contain the buffer address (load address)
@@ -32,7 +33,7 @@ fuji_execute_block_rw:
         lda     aws_tmp13                ; &BD (buffer address high)
         sta     fuji_buffer_addr+1
 
-        ; Get start sector from MMFS workspace variables (set by calc_buffer_sector_for_ptr)
+        ; Get start sector from workspace variables (set by calc_buffer_sector_for_ptr)
         ; Channel buffer system uses pws_tmp02/pws_tmp03 for sector info
         lda     pws_tmp03               ; Start sector low byte
         sta     fuji_file_offset
@@ -41,7 +42,7 @@ fuji_execute_block_rw:
         lda     #0
         sta     fuji_file_offset+2
 
-        ; Get block size from MMFS workspace variables 
+        ; Get block size from workspace variables 
         ; Channel buffer system uses pws_tmp00/pws_tmp01 for number of sectors
         ; Each sector is 256 bytes, so we convert sectors to bytes
         lda     pws_tmp00               ; Number of sectors low byte  
@@ -55,7 +56,8 @@ fuji_execute_block_rw:
         sta     fuji_block_size+1
 
         ; Execute network operation
-        lda     fuji_operation_type
+        pla
+        ; lda     fuji_operation_type
         cmp     #$85                     ; Read operation
         beq     @fuji_read_block
         cmp     #$A5                     ; Write operation

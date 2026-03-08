@@ -28,6 +28,9 @@ OS_INC = 1
         .import  FSCV
         .import  paged_rom_priv_ws
 
+        .import  fuji_buf_ws_tmp_buf
+
+        .import  fuji_static_workspace
         .import  fuji_filename_buffer
         .import  fuji_open_channels
         .import  fuji_channel_flag_bit
@@ -50,16 +53,37 @@ OS_INC = 1
         .import  fuji_force_reset
         .import  fuji_disk_table_index
         .import  fuji_tube_present
-        .import  fuji_gbpb_table_lo
-        .import  fuji_gbpb_table_hi
         .import  fuji_text_ptr_offset
         .import  fuji_text_ptr_hi
         .import  fuji_param_block_lo
         .import  fuji_param_block_hi
         .import  fuji_error_flag
-        .import  fuji_card_sort
+
+        .import  fuji_drive_disk_map
+        .import  fuji_state
+        .import  fuji_buffer_addr
+        .import  fuji_file_offset
+        .import  fuji_block_size
+        .import  fuji_current_sector
+        .import  fuji_current_fs_len
+        .import  fuji_current_dir_len
+        .import  fuji_current_mount_slot
+        .import  fuji_resolve_path_flags
+        .import  fuji_last_state_loc
 
         .import  fuji_channel_start
+
+        .import  fuji_ch_1101
+        .import  fuji_ch_1102
+        .import  fuji_ch_1103
+        .import  fuji_ch_1104
+        .import  fuji_ch_1105
+        .import  fuji_ch_1106
+        .import  fuji_ch_1107
+        .import  fuji_ch_1108
+        .import  fuji_ch_1109
+        .import  fuji_ch_110A
+        .import  fuji_ch_110B
 
         .import  fuji_ch_name7
         .import  fuji_ch_op
@@ -78,19 +102,32 @@ OS_INC = 1
         .import  fuji_ch_ext_hi
         .import  fuji_ch_flg
 
-        .import  fuji_state
-        .import  fuji_current_disk
-        .import  fuji_operation_type
-        .import  fuji_buffer_addr
-        .import  fuji_file_offset
-        .import  fuji_block_size
-        .import  fuji_current_sector
-        .import  fuji_current_fs_len
-        .import  fuji_current_dir_len
-        .import  fuji_current_mount_slot
-        .import  fuji_resolve_path_flags
+        .import  fuji_cmd_copy_buf_17
+        .import  fuji_current_fs_uri
+        .import  fuji_cmd_cat_buf_8
+        .import  fuji_getcat_buf_8
+
+        .import  fuji_buf_ws_tmp_buf
+
+        .import  fuji_filev_hi_addr_buf
+        .import  fuji_filev_load_hi
+        .import  fuji_filev_exec_hi
+        .import  fuji_filev_start_hi
+        .import  fuji_filev_end_hi
+
+
+        .import  fuji_ch_1118
+        .import  fuji_ch_1119
+        .import  fuji_ch_111A
+
+        .import  fuji_unknown_11C0
+        .import  fuji_unknown_11D0
+
         .import  fuji_current_fs_uri
         .import  fuji_current_dir_path
+        .import  fuji_tx_buffer
+        .import  fuji_rx_buffer
+        .import  fuji_bss
 
         .import  dfs_cat_s0_header
         .import  dfs_cat_s1_header
@@ -109,39 +146,7 @@ OS_INC = 1
         .import  dfs_cat_file_size
         .import  dfs_cat_file_op
         .import  dfs_cat_file_sect
-        .import  fuji_drive_disk_map
 
-        .import  fuji_buf_1045
-        .import  fuji_buf_1047
-        .import  fuji_buf_1050
-        .import  fuji_buf_1060
-        .import  fuji_buf_1067
-
-        .import  fuji_buf_1072
-        .import  fuji_buf_1073
-        .import  fuji_buf_1074
-        .import  fuji_buf_1075
-        .import  fuji_buf_1076
-        .import  fuji_buf_1077
-        .import  fuji_buf_1078
-        .import  fuji_buf_1079
-        .import  fuji_buf_107A
-
-        .import  fuji_ch_1101
-        .import  fuji_ch_1102
-        .import  fuji_ch_1103
-        .import  fuji_ch_1104
-        .import  fuji_ch_1105
-        .import  fuji_ch_1106
-        .import  fuji_ch_1107
-        .import  fuji_ch_1108
-        .import  fuji_ch_1109
-        .import  fuji_ch_110A
-        .import  fuji_ch_110B
-
-        .import  fuji_ch_1118
-        .import  fuji_ch_1119
-        .import  fuji_ch_111A
 
         .importzp  aws_tmp00
         .importzp  aws_tmp01
@@ -185,7 +190,6 @@ OS_INC = 1
         .importzp  pws_tmp15
 
         .importzp  current_drv
-        .importzp  current_host
         .importzp  directory_param
         .importzp  paged_ram_copy
         .importzp  text_pointer

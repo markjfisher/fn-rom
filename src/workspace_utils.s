@@ -33,14 +33,14 @@ save_static_to_private_workspace:
 @stat_loop1:
         cpy     #$C0
         bcc     @stat_y_less_c0
-        lda     $1000,y                 ; Static workspace high part
+        lda     fuji_static_workspace - $C0, y  ; Static workspace high part
         bcs     @stat_y_gtreq_c0
 @stat_y_less_c0:
         lda     $1100,y                 ; Static workspace low part
 @stat_y_gtreq_c0:
         sta     (aws_tmp00),y
         iny
-        cpy     #<(fuji_state+1)
+        cpy     #<(fuji_last_state_loc+1)
         bne     @stat_loop1
 
         ; Restore previous values

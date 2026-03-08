@@ -225,13 +225,13 @@ findv_createfile:
         ldx     #$07                    ; 1074-107B=0
 findv_loop1:
         sta     aws_tmp12,x
-        sta     fuji_buf_1074,x
+        sta     fuji_filev_hi_addr_buf,x
         dex
         bpl     findv_loop1
         dec     aws_tmp14               ; aws_tmp14 = $FF
         dec     aws_tmp15               ; aws_tmp15 = $FF
-        dec     fuji_buf_1076
-        dec     fuji_buf_1077
+        dec     fuji_filev_exec_hi
+        dec     fuji_filev_exec_hi+1
 .ifdef FUJINET_INTERFACE_DUMMY
         ; DUMMY DISK FIX: Create zero-length files instead of pre-allocating 64 sectors
         ; Our RAM disk (~9 free sectors) can't fit multiple 64-sector files
@@ -245,7 +245,6 @@ findv_loop1:
 .endif
         jsr     create_file_fsp         ; Creates file with requested size
 findv_filefound:
-        ; sty     fuji_cat_file_offset    ; Store catalog offset for later use
         plp                             ; in case another file created
         php
         bvs     findv_readorupdate      ; If opened for read or update

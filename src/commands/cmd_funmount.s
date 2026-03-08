@@ -20,12 +20,13 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 cmd_fs_funmount:
-        ; Parse the BBC drive number, mirror it into current_drv, then clear only
-        ; the ROM-side bridge state for that drive.
-        jsr     param_drive_no_syntax
-        sta     current_drv
-        jsr     fuji_unmount_disk
+        rts
+;         ; Parse the BBC drive number, mirror it into current_drv, then clear only
+;         ; the ROM-side bridge state for that drive.
+;         jsr     param_drive_no_syntax
+;         sta     current_drv
+;         jsr     fuji_unmount_disk
 
-        ; Standard success path: zero user flag.
-        ldx     #$00
-        jmp     set_user_flag_x
+;         ; Standard success path: zero user flag.
+;         ldx     #$00
+;         jmp     set_user_flag_x

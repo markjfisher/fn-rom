@@ -15,6 +15,14 @@
         .import tube_check_if_present
         .import vectors_table
 
+        .import __WORKSP_START__
+        .import __WORKSP_SIZE__
+        .import zerobss
+        .importzp c_sp
+
+        .import _cmd_test_c
+        .import filev_entry
+
 .ifdef FUJINET_INTERFACE_DUMMY
         .import fuji_init_ram_filesystem
 .endif
@@ -45,8 +53,22 @@ init_fuji:
         nop
 .endif
 
+        ; initialise c_sp for cc65 to the end of WORKSP segment, this resets CC65 stack
+        lda     #<(__WORKSP_START__ + __WORKSP_SIZE__)
+        sta     c_sp
+        lda     #>(__WORKSP_START__ + __WORKSP_SIZE__)
+        sta     c_sp+1
+
+        ; init to 00 any cc65 variables
+        jsr     zerobss
+
+        jsr     _cmd_test_c
+
+        jsr     filev_entry
+
+        ; Register as new Filing System
         lda     #$06
-        jsr     go_fscv               ; new filing system
+        jsr     go_fscv
 
         ; Copy vectors/extended vectors
         ldx     #$0D                  ; copy vectors
@@ -80,7 +102,7 @@ init_fuji:
         sty     current_cat             ; curdrvcat<>0
         sty     current_cat+1           ; this has a "?"" in MMFS src... who knows why?
         stx     current_drv             ; curdrv=0
-        stx     current_host            ; set host to 0
+        ; stx     current_host            ; set host to 0
 
         ldx     #$0F                  ; vectors claimed!
         lda     #$8F
@@ -178,8 +200,8 @@ setdefaults:
         .byte   "defs", $0D
 .endif
         lda     #' '
-        sta     $11C0
-        sta     $11D0
+        sta     fuji_unknown_11C0
+        sta     fuji_unknown_11D0
 
         lda     #'$'
         sta     fuji_default_dir
@@ -188,21 +210,12 @@ setdefaults:
         sta     fuji_lib_drive
         ldy     #$00
         sty     fuji_default_drive
-        sty     $10C0
+        sty     fuji_open_channels
 
         dey                           ; Y=$FF
         sty     fuji_cmd_enabled
         sty     fuji_fs_messages_on
-        sty     $10DD
-
-        ; Initialize OPT 5 flag to default (bit 6 clear = DISC/DISK work like FUJI)
-        ; This isn't needed, it was attempt to get it working but solution was to
-        ; put FujiNet ROM in higher slot.
-
-        ; ldx     paged_ram_copy
-        ; lda     paged_rom_priv_ws,x
-        ; and     #$BF                  ; Clear bit 6 (OPT 5,0 default)
-        ; sta     paged_rom_priv_ws,x
+        sty     fuji_error_flag
 
         ; Initialize RAM filesystem for file creation/writing
 .ifdef FUJINET_INTERFACE_DUMMY
@@ -228,7 +241,7 @@ initdfs_noreset:
         jsr     fuji_cmd_autoload
 
 skip_autoload:
-        pla
+        pla                             ; reload A from the very start of file
         bne     initdfs_exit            ; branch if not boot file
 
         jsr     load_cur_drv_cat

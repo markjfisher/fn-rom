@@ -76,15 +76,15 @@ check_exit:
 
 load_addr_hi2:
         lda     #$00
-        sta     fuji_buf_1075            ; MA+&1075
+        sta     fuji_filev_load_hi+1     ; MA+&1075
         lda     pws_tmp02                ; &C2
         and     #$08
-        sta     fuji_buf_1074            ; MA+&1074
+        sta     fuji_filev_load_hi       ; MA+&1074
         beq     ldadd_nothost
 set_load_addr_to_host:
         lda     #$FF
-        sta     fuji_buf_1075            ; MA+&1075
-        sta     fuji_buf_1074            ; MA+&1074
+        sta     fuji_filev_load_hi+1     ; MA+&1075
+        sta     fuji_filev_load_hi       ; MA+&1074
 ldadd_nothost:
         rts
 
@@ -98,15 +98,15 @@ load_and_execute_addr_hi2:
 
 exec_addr_hi2:
         lda     #$00
-        sta     fuji_buf_1077            ; MA+&1077
+        sta     fuji_filev_exec_hi+1     ; MA+&1077
         lda     pws_tmp02                ; &C2
         jsr     a_rorx6and3              ; Shift right 6 bits and mask with 3
         cmp     #$03
         bne     @exadd_nothost
         lda     #$FF
-        sta     fuji_buf_1077            ; MA+&1077
+        sta     fuji_filev_exec_hi+1     ; MA+&1077
 @exadd_nothost:
-        sta     fuji_buf_1076            ; MA+&1076
+        sta     fuji_filev_exec_hi       ; MA+&1076
         rts
 
 
@@ -138,14 +138,14 @@ create_file_fsp:
         lda     pws_tmp03
         sbc     pws_tmp01
         sta     pws_tmp01
-        lda     fuji_buf_107A
-        sbc     fuji_buf_1078
+        lda     fuji_filev_end_hi
+        sbc     fuji_filev_start_hi
 
         jsr     create_file_2
-        lda     fuji_buf_1079            ; Load Address=Start Address
-        sta     fuji_buf_1075            ; 4 bytes
-        lda     fuji_buf_1078
-        sta     fuji_buf_1074
+        lda     fuji_filev_start_hi+1   ; Load Address=Start Address
+        sta     fuji_filev_load_hi+1    ; 4 bytes
+        lda     fuji_filev_start_hi
+        sta     fuji_filev_load_hi
         pla
         sta     aws_tmp13
         pla
@@ -259,7 +259,7 @@ cfile_insertfileloop:
 
 ; and insert the new row from the buffers
 cfile_atcatentry:
-        lda     fuji_buf_1076           ; Exec address b17,b16
+        lda     fuji_filev_exec_hi      ; Exec address b17,b16
         and     #$03
         asl     a
         asl     a
@@ -268,9 +268,9 @@ cfile_atcatentry:
         eor     pws_tmp04
         asl     a
         asl     a
-        eor     fuji_buf_1074           ; Load address
+        eor     fuji_filev_load_hi      ; Load address
         and     #$FC
-        eor     fuji_buf_1074
+        eor     fuji_filev_load_hi
         asl     a
         asl     a
         eor     pws_tmp02               ; Sector
@@ -356,7 +356,8 @@ copy_vars_b0ba:
         jsr     @copy_byte
 @copy_byte:
         lda     (aws_tmp00),y
-        sta     fuji_buf_1072,x                 ; TODO: what is this?
+        ; subtract 2 from buffer address, as the copying starts when X=2
+        sta     fuji_filev_hi_addr_buf - 2, x
         inx
         iny
         rts

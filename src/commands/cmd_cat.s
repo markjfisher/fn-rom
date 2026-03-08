@@ -157,7 +157,7 @@ cat_printfilename:
 @cat_copyfnloop:
         lda     dfs_cat_file_name,y
         jsr     ucasea2
-        sta     fuji_buf_1060,x
+        sta     fuji_cmd_cat_buf_8,x
         iny
         inx
         cpx     #$08
@@ -170,14 +170,14 @@ cat_printfilename:
 @cat_comparefnloop2:
         lda     dfs_cat_file_name+$06,y
         jsr     ucasea2
-        sbc     fuji_buf_1060,x
+        sbc     fuji_cmd_cat_buf_8,x
         dey
         dex
         bpl     @cat_comparefnloop2
         jsr     y_add7
         lda     dfs_cat_file_dir,y
         jsr     ucasea2
-        sbc     fuji_buf_1067
+        sbc     fuji_cmd_cat_buf_8 + 7
         bcc     cat_printfilename
         jsr     y_add8
         bcs     @cat_comparefnloop1
@@ -186,7 +186,7 @@ cat_printfn:
         lda     dfs_cat_file_name,y
         ora     #$80
         sta     dfs_cat_file_name,y
-        lda     fuji_buf_1067
+        lda     fuji_cmd_cat_buf_8 + 7
         cmp     cws_tmp3
         beq     cat_samedir
         ldx     cws_tmp3

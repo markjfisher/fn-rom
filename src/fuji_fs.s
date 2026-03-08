@@ -2,7 +2,6 @@
 ; High-level disk operations equivalent to MMC.asm
 ; Adapted for network operations via FujiNet
 
-        .export fuji_init
         .export fuji_read_block
         .export fuji_write_block
         .export fuji_read_catalog
@@ -30,14 +29,14 @@
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; FUJI_INIT - Initialize FujiNet device
+; init_state - Initialize FujiNet device
 ; Carry=0 if ok, Carry=1 if device doesn't respond
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-fuji_init:
+init_state:
         ldx     #$00
         stx     fuji_state
-        stx     fuji_current_disk
+        ; stx     fuji_current_disk
         
         ; Initialize drive-to-disk mapping (all unmounted)
         dex                             ; $FF = no disk mounted
@@ -170,7 +169,7 @@ fuji_begin_transaction:
         ldx     #$0F
 @save_loop:
         lda     aws_tmp12,x
-        sta     $1090,x
+        sta     fuji_buf_ws_tmp_buf,x
         dex
         bpl     @save_loop
 
@@ -179,7 +178,7 @@ fuji_begin_transaction:
         bvs     @already_init
 
         ; Initialize if needed
-        jsr     fuji_init
+        jsr     init_state
         bcs     @init_failed
 
         ; Check device status
@@ -205,7 +204,7 @@ fuji_end_transaction:
         ; Is this very MMFS specific?
         ldx     #$0F
 @restore_loop:
-        lda     $1090,x
+        lda     fuji_buf_ws_tmp_buf,x
         sta     aws_tmp12,x
         dex
         bpl     @restore_loop

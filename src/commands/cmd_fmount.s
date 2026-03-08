@@ -3,7 +3,7 @@
         .import err_bad
         .import fn_disk_mount
         .import fuji_get_mount_slot
-        .import fn_rx_buffer
+        .import fuji_rx_buffer
         .import param_count_a
         .import param_drive_or_default
         .import param_get_num
@@ -36,76 +36,78 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 cmd_fs_fmount:
-        ; Count parameters first. FMOUNT supports 1 or 2 parameters only.
-        lda     #$80                    ; allows 1-2 parameters
-        jsr     param_count_a
+        rts
 
-        ; Read and validate the mandatory FujiNet mount slot index.
-        jsr     param_get_num           ; FujiNet mount slot index 0-7
-        cmp     #$08
-        bcs     bad_mount_slot
-        sta     fuji_disk_table_index
-        sta     fuji_current_mount_slot
+;         ; Count parameters first. FMOUNT supports 1 or 2 parameters only.
+;         lda     #$80                    ; allows 1-2 parameters
+;         jsr     param_count_a
 
-        ; Validate that the selected persisted FujiNet slot is populated and
-        ; enabled before updating the BBC-side bridge mapping.
-        jsr     fuji_get_mount_slot
-        bcs     bad_mount_slot
-        ldy     #FN_HEADER_SIZE+1
-        lda     fn_rx_buffer,y
-        and     #$01
-        beq     bad_mount_slot
-        iny
-        lda     fn_rx_buffer,y
-        beq     bad_mount_slot
+;         ; Read and validate the mandatory FujiNet mount slot index.
+;         jsr     param_get_num           ; FujiNet mount slot index 0-7
+;         cmp     #$08
+;         bcs     bad_mount_slot
+;         sta     fuji_disk_table_index
+;         sta     fuji_current_mount_slot
 
-        ; Read optional BBC drive number, or fall back to the current/default
-        ; drive if the user omitted it.
-        jsr     param_drive_or_default  ; optional BBC drive number
-        sta     current_drv
+;         ; Validate that the selected persisted FujiNet slot is populated and
+;         ; enabled before updating the BBC-side bridge mapping.
+;         jsr     fuji_get_mount_slot
+;         bcs     bad_mount_slot
+;         ldy     #FN_HEADER_SIZE+1
+;         lda     fuji_rx_buffer,y
+;         and     #$01
+;         beq     bad_mount_slot
+;         iny
+;         lda     fuji_rx_buffer,y
+;         beq     bad_mount_slot
 
-        ; Build the live DiskDevice mount request from the validated persisted URI
-        ; so FMOUNT immediately affects the active runtime state as well as the
-        ; ROM-side bridge table.
-        ldy     #FN_HEADER_SIZE+2
-        lda     fn_rx_buffer,y
-        sta     aws_tmp02
-        ldx     #$00
-@copy_uri:
-        cpx     aws_tmp02
-        beq     @mount_live
-        iny
-        lda     fn_rx_buffer,y
-        sta     fuji_current_fs_uri,x
-        inx
-        bne     @copy_uri
+;         ; Read optional BBC drive number, or fall back to the current/default
+;         ; drive if the user omitted it.
+;         jsr     param_drive_or_default  ; optional BBC drive number
+;         sta     current_drv
 
-@mount_live:
-        lda     #$00
-        sta     fuji_current_fs_uri,x
-        lda     #<fuji_current_fs_uri
-        sta     aws_tmp00
-        lda     #>fuji_current_fs_uri
-        sta     aws_tmp01
-        lda     current_drv
-        clc
-        adc     #$01
-        ldx     #$00
-        jsr     fn_disk_mount
-        bcs     bad_mount_slot
+;         ; Build the live DiskDevice mount request from the validated persisted URI
+;         ; so FMOUNT immediately affects the active runtime state as well as the
+;         ; ROM-side bridge table.
+;         ldy     #FN_HEADER_SIZE+2
+;         lda     fuji_rx_buffer,y
+;         sta     aws_tmp02
+;         ldx     #$00
+; @copy_uri:
+;         cpx     aws_tmp02
+;         beq     @mount_live
+;         iny
+;         lda     fuji_rx_buffer,y
+;         sta     fuji_current_fs_uri,x
+;         inx
+;         bne     @copy_uri
 
-        ; Bridge mapping table used later by DFS disk I/O:
-        ;   BBC drive number -> FujiNet mount slot index
-        ldx     current_drv
-        lda     fuji_disk_table_index
-        sta     fuji_drive_disk_map,x
+; @mount_live:
+;         lda     #$00
+;         sta     fuji_current_fs_uri,x
+;         lda     #<fuji_current_fs_uri
+;         sta     aws_tmp00
+;         lda     #>fuji_current_fs_uri
+;         sta     aws_tmp01
+;         lda     current_drv
+;         clc
+;         adc     #$01
+;         ldx     #$00
+;         jsr     fn_disk_mount
+;         bcs     bad_mount_slot
 
-        ; Standard success path: zero user flag.
-        ldx     #$00
-        jmp     set_user_flag_x
+;         ; Bridge mapping table used later by DFS disk I/O:
+;         ;   BBC drive number -> FujiNet mount slot index
+;         ldx     current_drv
+;         lda     fuji_disk_table_index
+;         sta     fuji_drive_disk_map,x
 
-bad_mount_slot:
-        ; Standard ROM "Bad mount slot" error path.
-        jsr     err_bad
-        .byte   $CB
-        .byte   "mount slot", 0
+;         ; Standard success path: zero user flag.
+;         ldx     #$00
+;         jmp     set_user_flag_x
+
+; bad_mount_slot:
+;         ; Standard ROM "Bad mount slot" error path.
+;         jsr     err_bad
+;         .byte   $CB
+;         .byte   "mount slot", 0

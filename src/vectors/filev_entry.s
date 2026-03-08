@@ -66,8 +66,10 @@ filev_entry:
 
         jsr     remember_xy_only        ; Save X,Y only - A is the return value!
         pha
+
         jsr     parameter_fsp
 
+        ; "B0/B1" is the zp pointer for indirect reading from the input parameter X/Y location
         stx     aws_tmp00              ; XY -> parameter block
         stx     fuji_param_block_lo    ; Store for later use
         sty     aws_tmp01
@@ -81,6 +83,23 @@ filev_entry:
         jsr     copy_vars_b0ba         ; C0 & 1078=start addr
         cpy     #$12                   ; C2 & 107A=end addr
         bne     @filev_copyparams_loop ; (lo word in zp, hi in page 10)
+
+; THE INTERNAL FORMAT BECOMES:
+; BA-BB = filename pointer
+;
+; BC-BD = Load Address (16 bits low)
+; BE-BF = Exec Address (16 bits low)
+; C0-C1 = Start Address (16 bits low)
+; C2-C3 = End Address (16 bits low)
+;
+; 1074-1075 = Load Address (16 bits high)
+; 1076-1076 = Exec Address (16 bits high)
+; 1078-1079 = Start Address (16 bits high)
+; 107A-107B = End Address (16 bits high)
+
+; BA onwards is goverend by copy_word_b0ba in osfile_helpers.s referring to aws_tmp10
+; 1074 onwards is goverened by 1072+X (where X is 2 at start of copying)
+; The ZP regs only clash with tmp4 and sreg, but should not be intermixing with C code at that point.
 
         pla
         tax

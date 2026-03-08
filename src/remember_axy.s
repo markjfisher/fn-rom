@@ -12,6 +12,7 @@
 ; rAXY_restore-1 H
 ; rAXY_restore-1 L
 
+        .export _remember_axy
         .export remember_axy
         .export remember_xy_only
         .export return_with_a0
@@ -19,6 +20,7 @@
 
         .segment "CODE"
 
+_remember_axy:
 remember_axy:
         ; Save A, X, Y on stack
         pha

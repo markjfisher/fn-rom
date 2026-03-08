@@ -112,17 +112,17 @@ runfile_found:
 
 runfile_run:
         ; Load the file normally
-        jsr     LoadFile_Ycatoffset    ; Load file
+        jsr     LoadFile_Ycatoffset     ; Load file
 
         ; Set up execution parameters
         clc
-        lda     fuji_text_ptr_offset   ; MA+&10D9 += text ptr (parameters)
-        tay
+        lda     fuji_text_ptr_offset    ; MA+&10D9 += text ptr (parameters)
+        tay                             ; not sure what this is required for, MMFS says "i.e. -> parameters"
         adc     text_pointer
         sta     fuji_text_ptr_offset
         lda     text_pointer+1
         adc     #$00
-        sta     fuji_text_ptr_hi       ; MA+&10DA
+        sta     fuji_text_ptr_hi        ; MA+&10DA
 
         ; FUTURE: TUBE CODE        
         ; Check if execution address is &FFFFFFFF (host execution)
@@ -133,12 +133,12 @@ runfile_inhost:
 .ifdef FN_DEBUG
         jsr     print_string
         .byte   "Exec: "
-        lda     aws_tmp15              ; High byte of exec address (stored from catalog)
+        lda     aws_tmp15               ; High byte of exec address (stored from catalog)
         jsr     print_hex
-        lda     aws_tmp14              ; Low byte of exec address (stored from catalog)
+        lda     aws_tmp14               ; Low byte of exec address (stored from catalog)
         jsr     print_hex
         jsr     print_newline
 .endif
         ; Execute program in host
-        lda     #$01                   ; Execute program
-        jmp     (aws_tmp14)            ; Jump to execution address
+        lda     #$01                    ; Execute program
+        jmp     (aws_tmp14)             ; Jump to execution address

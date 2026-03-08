@@ -31,7 +31,7 @@ service02_claim_privworkspace:
         cpy     aws_tmp01                ; Private workspace may have moved!
         beq     @samepage                ; If same as before
 
-        ldy     #<fuji_force_reset             ; $D3
+        ldy     #<fuji_force_reset       ; $D3
         sta     (aws_tmp00),y            ; PWSP+$D3=0
 
 @samepage:
@@ -41,7 +41,7 @@ service02_claim_privworkspace:
         dex                              ; X=FF=soft,0=power up,1=hard
 
         txa                              ; A=FF=soft,0=power up,1=hard
-        ldy     #<fuji_force_reset             ; $D3
+        ldy     #<fuji_force_reset       ; $D3
         and     (aws_tmp00),y
         sta     (aws_tmp00),y            ; So, PWSP+$D3 is +ve if: power up, hard reset or PSWP page has changed
         php

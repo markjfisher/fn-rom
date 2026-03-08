@@ -32,11 +32,12 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 cmd_fs_freset:
-        jsr     fuji_reset
+        rts
+;         jsr     fuji_reset
 
-        ; set operation successfully (0 in user flag)
-        ldx     #$00
-        jmp     set_user_flag_x
+;         ; set operation successfully (0 in user flag)
+;         ldx     #$00
+;         jmp     set_user_flag_x
 
 
         ; THE FOLLOWING IS A LOT OF ROM CODE TO JUST CHECK RESPONSE

@@ -23,6 +23,9 @@
         .export  FSCV
         .export  paged_rom_priv_ws
 
+        .export  fuji_buf_ws_tmp_buf
+
+        .export  fuji_static_workspace
         .export  fuji_filename_buffer
         .export  fuji_open_channels
         .export  fuji_channel_flag_bit
@@ -45,16 +48,37 @@
         .export  fuji_force_reset
         .export  fuji_disk_table_index
         .export  fuji_tube_present
-        .export  fuji_gbpb_table_lo
-        .export  fuji_gbpb_table_hi
         .export  fuji_text_ptr_offset
         .export  fuji_text_ptr_hi
         .export  fuji_param_block_lo
         .export  fuji_param_block_hi
         .export  fuji_error_flag
-        .export  fuji_card_sort
+
+        .export  fuji_drive_disk_map
+        .export  fuji_state
+        .export  fuji_buffer_addr
+        .export  fuji_file_offset
+        .export  fuji_block_size
+        .export  fuji_current_sector
+        .export  fuji_current_fs_len
+        .export  fuji_current_dir_len
+        .export  fuji_current_mount_slot
+        .export  fuji_resolve_path_flags
+        .export  fuji_last_state_loc
 
         .export  fuji_channel_start
+
+        .export  fuji_ch_1101
+        .export  fuji_ch_1102
+        .export  fuji_ch_1103
+        .export  fuji_ch_1104
+        .export  fuji_ch_1105
+        .export  fuji_ch_1106
+        .export  fuji_ch_1107
+        .export  fuji_ch_1108
+        .export  fuji_ch_1109
+        .export  fuji_ch_110A
+        .export  fuji_ch_110B
 
         .export  fuji_ch_name7
         .export  fuji_ch_op
@@ -73,51 +97,31 @@
         .export  fuji_ch_ext_hi
         .export  fuji_ch_flg
 
-        .export  fuji_ch_1101
-        .export  fuji_ch_1102
-        .export  fuji_ch_1103
-        .export  fuji_ch_1104
-        .export  fuji_ch_1105
-        .export  fuji_ch_1106
-        .export  fuji_ch_1107
-        .export  fuji_ch_1108
-        .export  fuji_ch_1109
-        .export  fuji_ch_110A
-        .export  fuji_ch_110B
+        .export  fuji_cmd_copy_buf_17
+        .export  fuji_current_fs_uri
+        .export  fuji_cmd_cat_buf_8
+        .export  fuji_getcat_buf_8
+
+        .export  fuji_buf_ws_tmp_buf
+
+        .export fuji_filev_hi_addr_buf
+        .export fuji_filev_load_hi
+        .export fuji_filev_exec_hi
+        .export fuji_filev_start_hi
+        .export fuji_filev_end_hi
 
         .export  fuji_ch_1118
         .export  fuji_ch_1119
         .export  fuji_ch_111A
 
-        .export  fuji_buf_1045
-        .export  fuji_buf_1047
-        .export  fuji_buf_1050
-        .export  fuji_buf_1060
-        .export  fuji_buf_1067
+        .export  fuji_unknown_11C0
+        .export  fuji_unknown_11D0
 
-        .export  fuji_buf_1072
-        .export  fuji_buf_1073
-        .export  fuji_buf_1074
-        .export  fuji_buf_1075
-        .export  fuji_buf_1076
-        .export  fuji_buf_1077
-        .export  fuji_buf_1078
-        .export  fuji_buf_1079
-        .export  fuji_buf_107A
-
-        .export  fuji_state
-        .export  fuji_current_disk
-        .export  fuji_operation_type
-        .export  fuji_buffer_addr
-        .export  fuji_file_offset
-        .export  fuji_block_size
-        .export  fuji_current_sector
-        .export  fuji_current_fs_len
-        .export  fuji_current_dir_len
-        .export  fuji_current_mount_slot
-        .export  fuji_resolve_path_flags
         .export  fuji_current_fs_uri
         .export  fuji_current_dir_path
+        .export  fuji_tx_buffer
+        .export  fuji_rx_buffer
+        .export  fuji_bss
 
         .export  dfs_cat_s0_header
         .export  dfs_cat_s1_header
@@ -136,7 +140,6 @@
         .export  dfs_cat_file_size
         .export  dfs_cat_file_op
         .export  dfs_cat_file_sect
-        .export  fuji_drive_disk_map
 
         .exportzp  aws_tmp00
         .exportzp  aws_tmp01
@@ -180,7 +183,6 @@
         .exportzp  pws_tmp15
 
         .exportzp  current_drv
-        .exportzp  current_host
         .exportzp  directory_param
         .exportzp  paged_ram_copy
         .exportzp  text_pointer
@@ -251,7 +253,7 @@ pws_tmp07       := $C7
 pws_tmp08       := $C8
 pws_tmp09       := $C9
 pws_tmp10       := $CA
-pws_tmp11       := $CB   ; ALSO current_host
+pws_tmp11       := $CB   ; ALSO WAS current_host
 pws_tmp12       := $CC   ; ALSO directory_param
 pws_tmp13       := $CD   ; ALSO current_drv
 pws_tmp14       := $CE
@@ -263,10 +265,11 @@ paged_rom_priv_ws := $0DF0
 
 FSCV            := $021E
 
-; aliases from PWS vars
-current_host    := $CB
+; aliases from PWS vars - FIRST 2 OVERWRITTEN BY pws_tmp05,x copying names
+; OLD: current_host    := $CB
 directory_param := $CC
 current_drv     := $CD
+; C_SP cc65 stack pointer is at CE and CF
 
 ; seems to be pretty random location... why here?
 current_cat      := $1082
@@ -340,94 +343,94 @@ dfs_cat_file_sect       = dfs_cat_file_s1_start + $07   ; 0F0F + index * 8
 
 ; FujiNet workspace (similar to MMFS MA+$10XX)
 ; This provides a dedicated workspace for FujiNet operations
-fuji_workspace          = 0  ; Base address for FujiNet workspace - this will eventually vary for MASTER
+fuji_workspace_root     = 0  ; Base address for FujiNet workspace - this will eventually vary for MASTER
+fuji_workspace          = fuji_workspace_root + $1000
 
-fuji_filename_buffer    = fuji_workspace + $1000
+; 8 byte buffer for filename 1000-1007
+fuji_filename_buffer    = fuji_workspace + 0
 
-; used in cmd_copy.s
-fuji_buf_1045           = $1045
-fuji_buf_1047           = $1047
-fuji_buf_1050           = $1050
+; used in cmd_copy.s, 17 byte buffer $1045 to $1056
+fuji_cmd_copy_buf_17    = $1045
 
-; used in starCAT
-fuji_buf_1060           = $1060
-fuji_buf_1067           = $1067
+; 1057 free?
 
-; 1072 to 107A used in osfile_helpers.s and findv_entry
-fuji_buf_1072           = $1072
-fuji_buf_1073           = $1073
-fuji_buf_1074           = $1074
-fuji_buf_1075           = $1075
-fuji_buf_1076           = $1076
-fuji_buf_1077           = $1077
-fuji_buf_1078           = $1078
-fuji_buf_1079           = $1079
-fuji_buf_107A           = $107A
+; 1058-105F used in fs_functions
+fuji_getcat_buf_8       = $1058
+
+; used in starCAT, 1060-1067
+fuji_cmd_cat_buf_8      = $1060
+
+; see @filev_entry.s, the buffer is 1074 to 107B
+fuji_filev_hi_addr_buf  = $1074  ; start of the 8 byte buffer
+fuji_filev_load_hi      = $1074  ; LOAD 2 bytes for 16 bits of the 32 bit word
+fuji_filev_exec_hi      = $1076  ; EXEC 2 bytes for 16 bits of the 32 bit word
+fuji_filev_start_hi     = $1078  ; START 2 bytes for 16 bits of the 32 bit word
+fuji_filev_end_hi       = $107A  ; END 2 bytes for 16 bits of the 32 bit word
+
+; The low 2 bytes go into BC to C3 for equiv parts.
+; the filename pointer goes into BA/BB
 
 
-; 1090 seems to be a copy of BC to CB, restoring it
-; in MMC_END
+; 1090 seems to be a copy of BC to CB, restoring it in MMC_END
+
+; 1090-109F
+fuji_buf_ws_tmp_buf     = $1090
+
+; workspace_utils.s references 10C0-10EF and 1100-11BF as static workspace
 
 ; FujiNet workspace variables (matching MMFS layout)
-fuji_open_channels      = fuji_workspace + $10C0  ; Open channels flag byte
-fuji_channel_flag_bit   = fuji_workspace + $10C1  ; Channel flag bit
-fuji_intch              = fuji_workspace + $10C2  ; Internal channel handle
-fuji_cat_file_offset    = fuji_workspace + $10C3  ; Catalog file offset
-fuji_channel_block_size = fuji_workspace + $10C4  ; Channel block size
-fuji_saved_x            = fuji_workspace + $10C5  ; Saved X register
-fuji_fs_messages_on     = fuji_workspace + $10C6  ; FS messages on flag (on if 0)
-fuji_cmd_enabled        = fuji_workspace + $10C7  ; Command enabled flag
-fuji_default_dir        = fuji_workspace + $10C9  ; Default directory
-fuji_default_drive      = fuji_workspace + $10CA  ; Default drive
-fuji_lib_dir            = fuji_workspace + $10CB  ; Library directory
-fuji_lib_drive          = fuji_workspace + $10CC  ; Library drive
-fuji_wild_hash          = fuji_workspace + $10CD  ; Wildcard hash character
-fuji_wild_star          = fuji_workspace + $10CE  ; Wildcard star character
-fuji_page               = fuji_workspace + $10CF  ; Page variable
-fuji_ram_buffer_size    = fuji_workspace + $10D0  ; RAM buffer size
-fuji_source_drive       = fuji_workspace + $10D1  ; Source drive
-fuji_dest_drive         = fuji_workspace + $10D2  ; Destination drive
-fuji_force_reset        = fuji_workspace + $10D3  ; Force reset flag
-fuji_disk_table_index   = fuji_workspace + $10D4  ; Disk table index, used to store the current fujinet Mount slot. 2nd byte unused
-fuji_tube_present       = fuji_workspace + $10D6  ; Tube present flag (present if 0)
-fuji_gbpb_table_lo      = fuji_workspace + $10D7  ; GBPB table low byte
-fuji_gbpb_table_hi      = fuji_workspace + $10D8  ; GBPB table high byte
-fuji_text_ptr_offset    = fuji_workspace + $10D9  ; Text pointer offset
-fuji_text_ptr_hi        = fuji_workspace + $10DA  ; Text pointer high byte
-fuji_param_block_lo     = fuji_workspace + $10DB  ; Parameter block low byte
-fuji_param_block_hi     = fuji_workspace + $10DC  ; Parameter block high byte
-fuji_error_flag         = fuji_workspace + $10DD  ; Error flag
-fuji_card_sort          = fuji_workspace + $10DE  ; Card sort flag
+fuji_static_workspace   = fuji_workspace + $C0
 
-
-
-; FujiNet state variables (using unused workspace locations)
-fuji_state              = fuji_workspace + $10F0  ; Device state
-fuji_current_disk       = fuji_workspace + $10F1  ; Current mounted disk (deprecated - use drive map)
+fuji_open_channels      = fuji_static_workspace + $00  ; Open channels flag byte
+fuji_channel_flag_bit   = fuji_static_workspace + $01  ; Channel flag bit
+fuji_intch              = fuji_static_workspace + $02  ; Internal channel handle
+fuji_cat_file_offset    = fuji_static_workspace + $03  ; Catalog file offset
+fuji_channel_block_size = fuji_static_workspace + $04  ; Channel block size
+fuji_saved_x            = fuji_static_workspace + $05  ; Saved X register
+fuji_fs_messages_on     = fuji_static_workspace + $06  ; FS messages on flag (on if 0)
+fuji_cmd_enabled        = fuji_static_workspace + $07  ; Command enabled flag
+fuji_default_dir        = fuji_static_workspace + $09  ; Default directory
+fuji_default_drive      = fuji_static_workspace + $0A  ; Default drive
+fuji_lib_dir            = fuji_static_workspace + $0B  ; Library directory
+fuji_lib_drive          = fuji_static_workspace + $0C  ; Library drive
+fuji_wild_hash          = fuji_static_workspace + $0D  ; Wildcard hash character
+fuji_wild_star          = fuji_static_workspace + $0E  ; Wildcard star character
+fuji_page               = fuji_static_workspace + $0F  ; Page variable
+fuji_ram_buffer_size    = fuji_static_workspace + $10  ; RAM buffer size
+fuji_source_drive       = fuji_static_workspace + $11  ; Source drive
+fuji_dest_drive         = fuji_static_workspace + $12  ; Destination drive
+fuji_force_reset        = fuji_static_workspace + $13  ; Force reset flag
+fuji_disk_table_index   = fuji_static_workspace + $14  ; Disk table index, used to store the current fujinet Mount slot. 2nd byte unused
+fuji_tube_present       = fuji_static_workspace + $15  ; Tube present flag (present if 0)
+fuji_text_ptr_offset    = fuji_static_workspace + $16  ; Text pointer offset
+fuji_text_ptr_hi        = fuji_static_workspace + $17  ; Text pointer high byte
+fuji_param_block_lo     = fuji_static_workspace + $18  ; Parameter block low byte
+fuji_param_block_hi     = fuji_static_workspace + $19  ; Parameter block high byte
+fuji_error_flag         = fuji_static_workspace + $1A  ; Error flag
 
 ; FujiNet drive-to-disk mapping (like MMFS DRIVE_INDEX)
 ; Each byte contains the disk image number mounted in that drive (0-255)
 ; 0xFF = no disk mounted
-fuji_drive_disk_map     = fuji_workspace + $10E0  ; 4 bytes: drives 0-3
+fuji_drive_disk_map     = fuji_static_workspace + $1B  ; 4 bytes: drives 0-3, 10DB to 10DE
+
+; FujiNet state variables (using unused workspace locations)
+fuji_state              = fuji_static_workspace + $1F  ; Device state
+fuji_buffer_addr        = fuji_static_workspace + $20  ; Buffer address (2 bytes)
+fuji_file_offset        = fuji_static_workspace + $22  ; File offset (3 bytes)
 
 ; FujiNet file operation workspace variables
-fuji_operation_type     = fuji_workspace + $10F2  ; Operation type ($85=read, $A5=write)
-fuji_buffer_addr        = fuji_workspace + $10F3  ; Buffer address (2 bytes)
-fuji_file_offset        = fuji_workspace + $10F5  ; File offset (3 bytes)
-fuji_block_size         = fuji_workspace + $10F8  ; Block size (2 bytes)
-fuji_current_sector     = fuji_workspace + $10FA  ; Current sector being accessed
+fuji_block_size         = fuji_static_workspace + $25  ; Block size (2 bytes)
+fuji_current_sector     = fuji_static_workspace + $27  ; Current sector being accessed
 
 ; Current filesystem selection state for URI-based commands
-fuji_current_fs_len     = fuji_workspace + $10FB  ; Current filesystem URI length
-fuji_current_dir_len    = fuji_workspace + $10FC  ; Current directory length
-fuji_current_mount_slot = fuji_workspace + $10FD  ; Current FujiNet persisted mount slot (0-based)
-fuji_resolve_path_flags = fuji_workspace + $10FE  ; ResolvePath response: bit0=isDir, bit1=exists (set by fn_file_resolve_path)
-; WARNING: Same 64 bytes as fujibus.s fn_tx_buffer ($1120). Building a FujiBus TX
-; packet overwrites this. Keep URIs short (< ~58 chars) or see fujibus.s for limits.
-fuji_current_fs_uri     = fuji_workspace + $1120  ; NUL-terminated URI buffer
-; WARNING: Same region as fujibus.s fn_rx_buffer/fn_slip_buffer ($1160, 512 bytes).
-fuji_current_dir_path   = fuji_workspace + $1160  ; NUL-terminated current directory/path buffer
+fuji_current_fs_len     = fuji_static_workspace + $28  ; Current filesystem URI length
+fuji_current_dir_len    = fuji_static_workspace + $29  ; Current directory length
+fuji_current_mount_slot = fuji_static_workspace + $2A  ; Current FujiNet persisted mount slot (0-based)
+fuji_resolve_path_flags = fuji_static_workspace + $2B  ; ResolvePath response: bit0=isDir, bit1=exists (set by fuji_file_resolve_path)
 
+
+; LAST location for the copy state in workspace_utils.s function to understand
+fuji_last_state_loc     = fuji_static_workspace + $2B  ; effectively $10EB
 
 ; see SetupChannelInfoBlock_Yintch
 ; copies from &E08 to &1100, and &F08 to &1100+1 in a loop.
@@ -466,3 +469,25 @@ fuji_ch_111A            = fuji_channel_start + $1A  ; ??? - len 2
 fuji_ch_bitmask         = fuji_channel_start + $1B  ; Bit mask
 fuji_ch_sect_lo         = fuji_channel_start + $1C  ; buffer sector low
 fuji_ch_sect_hi         = fuji_channel_start + $1D  ; buffer sector high
+
+; used in initdfs_reset, initialise static workspace
+; In mmfs100.asm "Reset the *DDRIVE table (MMFS2)"
+fuji_unknown_11C0       = fuji_workspace + $1C0
+fuji_unknown_11D0       = fuji_workspace + $1D0
+
+; 80 byte buffer
+fuji_current_fs_uri     = fuji_workspace + $0200
+
+; 80 byte buffer, technically cannot be more than uri - scheme length
+fuji_current_dir_path   = fuji_workspace + $0250
+
+; 96 byte TX buffer - need to see how this pans out
+fuji_tx_buffer          = fuji_workspace + $02A0
+
+; 512 byte RX buffer - does this need to be 512 bytes?
+fuji_rx_buffer          = fuji_workspace + $0300
+
+
+; the start of where BSS should be define for CC65, see fujinet-rom.cfg
+; this extends up to 1900 for room for temporary vars, and global C vars.
+fuji_bss                = fuji_workspace + $0500

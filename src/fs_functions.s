@@ -126,14 +126,15 @@ get_cat_firstentry80_fname:
         ldx     #$06                    ; copy filename from &C5 to &1058
 @get_cat_loop1:
         lda     pws_tmp05,x
-        sta     $1058,x
+        sta     fuji_getcat_buf_8,x
         dex
         bpl     @get_cat_loop1
         lda     #' '
-        sta     $105F
+        sta     fuji_getcat_buf_8+7     ; end of buffer
 
         jsr     check_cur_drv_cat       ; catalog entry matching
-        ldx     #$58                    ; string at &1058
+        ; ldx     #$58                  ; string at &1058
+        ldx     #<(fuji_getcat_buf_8)   ; low byte of buffer, used to be hardcoded to #$58
 
 get_cat_entry_2:
         lda     #$00                    ; word &B6 = &E00 = PTR (start of catalog)
@@ -144,7 +145,7 @@ getcatsetupb7:
 @get_cat_loop2:
         ldy     #$00
         lda     aws_tmp06               ; &B6
-        cmp     dfs_cat_num_x8                 ; ( MA+&F05) number of files *8
+        cmp     dfs_cat_num_x8          ; ( MA+&F05) number of files *8
         bcs     matfn_exitc0            ; If >dfs_cat_num_x8 Exit with C=0
         adc     #$08
         sta     aws_tmp06               ; word &B6 += 8
@@ -171,11 +172,12 @@ y_sub8:
         rts
 
 ; match_filename (MMFS line 728-756)
+; x contains the buffer start address, e.g. #$58 from low address of fuji_getcat_buf_8 (originally $1058-$105F)
 match_filename:
         jsr     remember_axy            ; Match filename at &1000+X
 @matfn_loop1:
-        lda     fuji_filename_buffer,x        ; with that at (&B6)
-        cmp     fuji_wild_star               ; wildcard character
+        lda     fuji_filename_buffer,x  ; with that at (&B6)
+        cmp     fuji_wild_star          ; wildcard character
         bne     @matfn_nomatch          ; e.g. If="*"
         inx
 @matfn_loop2:
@@ -185,7 +187,7 @@ match_filename:
         cpy     #$07
         bcc     @matfn_loop2            ; If Y<7
 @matfn_loop3:
-        lda     fuji_filename_buffer,x        ; Check next char is a space!
+        lda     fuji_filename_buffer,x  ; Check next char is a space!
         cmp     #' '
         bne     matfn_exitc0            ; If exit with c=0 (no match)
         rts                             ; exit with C=1
@@ -206,9 +208,9 @@ matfn_exit:
 
 ; match_chr (MMFS line 762-776)
 match_chr:
-        cmp     fuji_wild_star               ; wildcard character
+        cmp     fuji_wild_star          ; wildcard character
         beq     @exit                   ; eg. If "*"
-        cmp     fuji_wild_hash               ; wildcard character
+        cmp     fuji_wild_hash          ; wildcard character
         beq     @exit                   ; eg. If "#"
         jsr     is_alpha_char
         eor     (aws_tmp06),y           ; (&B6),Y
