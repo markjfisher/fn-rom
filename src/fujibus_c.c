@@ -280,3 +280,4 @@ uint8_t fujibus_get_payload_length(void) {
     }
     return total - FUJIBUS_HEADER_SIZE;
 }
+

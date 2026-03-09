@@ -40,13 +40,6 @@
 
 ;; THIS IS ALL JUNK AND UNTESTED AI CODE
 
-; ============================================================================
-; Workspace - use absolute addresses (fuji_workspace = 0)
-; ============================================================================
-
-; Current slot (1-based, D1=1) - use a byte in fuji_workspace area
-fn_disk_slot    = $10F9
-fn_disk_flags   = $10F8
 
 ; ============================================================================
 ; CODE
