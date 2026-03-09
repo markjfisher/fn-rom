@@ -62,8 +62,6 @@ init_fuji:
         ; init to 00 any cc65 variables
         jsr     zerobss
 
-        jsr     _cmd_test_c
-
         ; Register as new Filing System
         lda     #$06
         jsr     go_fscv

@@ -28,7 +28,7 @@
         .import cmd_fs_enable
         .import cmd_fs_ex
         .import cmd_fs_fboot
-        .import cmd_fs_fhost
+        .import _cmd_fs_fhost
         .import cmd_fs_fls
         .import cmd_fs_flist
         .import cmd_fs_form
@@ -195,7 +195,7 @@ cmd_table_help_cmds:
 cmd_table_futils_cmds:
         .word   cmd_fs_fboot-1
         .word   _cmd_test_c-1
-        .word   cmd_fs_fhost-1
+        .word   _cmd_fs_fhost-1
         .word   cmd_fs_fdrive-1
         .word   cmd_fs_fin-1
         .word   cmd_fs_fls-1

@@ -42,7 +42,7 @@
 /* Parameter counting - returns number of parameters in A */
 extern uint8_t num_params(void);
 
-/* Get string parameter - returns string in fuji_filename_buffer, length in A, carry set on success */
+/* Get string parameter - returns string in fuji_filename_buffer, length in A */
 extern uint8_t param_get_string(void);
 
 /* Print functions */
@@ -95,8 +95,7 @@ void fhost_show_current(void) {
     
     /* Print newline and "DIR " */
     print_newline();
-    print_string((uint8_t*)"DIR");
-    print_space();
+    print_string((uint8_t*)"DIR ");
     
     /* Get DIR path length */
     dir_len = *FUJI_CURRENT_DIR_LEN;
@@ -116,9 +115,10 @@ void fhost_show_current(void) {
 
 /* ============================================================================
  * fhost_resolve_path - Send ResolvePath to FujiNet
+ * Uses workspace: FUJI_CURRENT_FS_URI, FUJI_CURRENT_FS_LEN
  * ============================================================================ */
 
-bool fhost_resolve_path(uint8_t* uri_ptr, uint8_t uri_len) {
+bool fhost_resolve_path(void) {
     uint8_t* tx;
     uint8_t* rx;
     uint8_t resp_len;
@@ -127,9 +127,13 @@ bool fhost_resolve_path(uint8_t* uri_ptr, uint8_t uri_len) {
     uint16_t val16;
     uint16_t uri_end;
     uint16_t path_start;
+    uint8_t uri_len;
     
     tx = FUJI_TX_BUFFER;
     rx = FUJI_RX_BUFFER;
+    
+    /* Get URI from workspace */
+    uri_len = *FUJI_CURRENT_FS_LEN;
     
     /* Build ResolvePath request payload */
     /* Payload: version(1) + base_uri_len(2) + base_uri + arg_len(2) + arg(0) */
@@ -143,7 +147,7 @@ bool fhost_resolve_path(uint8_t* uri_ptr, uint8_t uri_len) {
     
     /* base_uri */
     for (i = 0; i < uri_len; i++) {
-        tx[9 + i] = uri_ptr[i];
+        tx[9 + i] = FUJI_CURRENT_FS_URI[i];
     }
     
     /* arg_len = 0 */
@@ -193,14 +197,22 @@ bool fhost_resolve_path(uint8_t* uri_ptr, uint8_t uri_len) {
 
 /* ============================================================================
  * fhost_set_uri - Set current URI from user input
+ * Uses workspace: FUJI_FILENAME_BUFFER, FUJI_CURRENT_FS_URI, FUJI_ERROR_FLAG
  * ============================================================================ */
 
-bool fhost_set_uri(uint8_t* uri) {
+bool fhost_set_uri(void) {
     uint8_t uri_len;
     uint8_t i;
     
-    /* Get URI from parameter */
+    /* Get URI from parameter - stored in fuji_filename_buffer */
     uri_len = param_get_string();
+    
+    /* Check for truncation - fuji_error_flag = 1 means truncated */
+    if (*FUJI_ERROR_FLAG != 0) {
+        /* String was truncated */
+        err_bad_uri();
+        return false;
+    }
     
     if (uri_len == 0) {
         /* No parameter - error */
@@ -208,15 +220,14 @@ bool fhost_set_uri(uint8_t* uri) {
         return false;
     }
     
-    /* Copy URI to fuji_filename_buffer first (what param_get_string uses) */
-    /* Then copy to fuji_current_fs_uri */
+    /* Copy URI from fuji_filename_buffer to fuji_current_fs_uri */
     for (i = 0; i < uri_len; i++) {
         FUJI_CURRENT_FS_URI[i] = FUJI_FILENAME_BUFFER[i];
     }
     *FUJI_CURRENT_FS_LEN = uri_len;
     
     /* Try to resolve the path */
-    if (!fhost_resolve_path(FUJI_CURRENT_FS_URI, uri_len)) {
+    if (!fhost_resolve_path()) {
         /* On failure, set display path to "/" */
         FUJI_CURRENT_DIR_PATH[0] = '/';
         FUJI_CURRENT_DIR_PATH[1] = 0;
@@ -231,14 +242,18 @@ bool fhost_set_uri(uint8_t* uri) {
 }
 
 /* ============================================================================
- * cmd_fhost - Main entry point
+ * cmd_fs_fhost - Main entry point
  * ============================================================================ */
 
-uint8_t cmd_fhost(void) {
+uint8_t cmd_fs_fhost(void) {
     uint8_t params;
+    uint8_t as_char;
     
     /* Count parameters */
     params = num_params();
+    as_char = params + '0';
+    print_char(as_char);
+    print_newline();
     
     if (params == 0) {
         /* No parameters - show current */
@@ -247,7 +262,7 @@ uint8_t cmd_fhost(void) {
         return 0;
     } else if (params == 1) {
         /* One parameter - set URI */
-        if (fhost_set_uri(FUJI_FILENAME_BUFFER)) {
+        if (fhost_set_uri()) {
             exit_user_ok();
             return 0;
         } else {

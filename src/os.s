@@ -347,7 +347,7 @@ dfs_cat_file_sect       = dfs_cat_file_s1_start + $07   ; 0F0F + index * 8
 fuji_workspace_root     = 0  ; Base address for FujiNet workspace - this will eventually vary for MASTER
 fuji_workspace          = fuji_workspace_root + $1000
 
-; 8 byte buffer for filename 1000-1007
+; 64 byte buffer for filename 1000-103F, but only used 8 bytes in some places
 fuji_filename_buffer    = fuji_workspace + 0
 
 ; used in cmd_copy.s, 17 byte buffer $1045 to $1056
@@ -479,7 +479,7 @@ fuji_ch_sect_hi         = fuji_channel_start + $1D  ; buffer sector high
 fuji_unknown_11C0       = fuji_workspace + $1C0
 fuji_unknown_11D0       = fuji_workspace + $1D0
 
-; 80 byte buffer
+; 80 byte buffer - TODO review lengths, we can only input 64 chars in param_get_string
 _fuji_current_fs_uri     = fuji_workspace + $0200
 
 ; 80 byte buffer, technically cannot be more than uri - scheme length

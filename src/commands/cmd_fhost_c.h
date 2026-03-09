@@ -31,6 +31,9 @@
 /* Current directory path length (at 0x10C9) */
 #define FUJI_CURRENT_DIR_LEN   ((uint8_t*)0x10C9)
 
+/* Error flag - 0 = OK, 1 = truncated */
+#define FUJI_ERROR_FLAG       ((uint8_t*)0x10DA)
+
 /* Filename buffer at 0x1000 */
 #define FUJI_FILENAME_BUFFER  ((uint8_t*)0x1000)
 
@@ -43,7 +46,7 @@
  * Called from ASM command dispatcher
  * Returns: 0 on success, non-zero on error
  */
-uint8_t cmd_fhost(void);
+uint8_t cmd_fs_fhost(void);
 
 /**
  * Show current filesystem and directory
@@ -52,18 +55,16 @@ uint8_t cmd_fhost(void);
 void fhost_show_current(void);
 
 /**
- * Set current filesystem from URI
- * @param uri NUL-terminated URI string
+ * Set current filesystem from workspace (fuji_filename_buffer)
  * @return true on success
  */
-bool fhost_set_uri(uint8_t* uri);
+bool fhost_set_uri(void);
 
 /**
- * ResolvePath via FujiBus and update workspace
- * @param uri_ptr Pointer to URI string
- * @param uri_len Length of URI
+ * ResolvePath via FujiNet using workspace variables
+ * Reads from FUJI_CURRENT_FS_URI and FUJI_CURRENT_FS_LEN
  * @return true on success
  */
-bool fhost_resolve_path(uint8_t* uri_ptr, uint8_t uri_len);
+bool fhost_resolve_path(void);
 
 #endif /* CMD_FHOST_C_H */

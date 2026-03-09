@@ -47,6 +47,7 @@
         .export param_drive_or_default
         .export find_and_mount_disk
 
+        .export _err_bad_string
         .export _num_params
         .export _param_get_string
 
@@ -371,7 +372,20 @@ set_current_drive_adrive_noand:
         sta     current_drv
         rts
 
+load_cur_drv_cat2:
+        jsr     remember_axy
 
+; load_cur_drv_cat - Load current drive catalog (MMFS line 7267-7279)
+; For FujiNet, this is equivalent to MMFS's exec_cat_rw with A=#&53
+load_cur_drv_cat:
+        ; Load catalog from FujiNet interface (equivalent to OW7F_Execute_and_ReportIfDiskFault)
+        jsr     fuji_read_catalog
+
+        ; Mark catalog as loaded for current drive (equivalent to MMFS line 7322-7323)
+write_current_drv_to_cat:
+        lda     current_drv
+        sta     current_cat
+        rts
 
 ; read a generic string, non optional, error if empty
 ; and save into fuji_filename_buffer
@@ -379,7 +393,21 @@ set_current_drive_adrive_noand:
 ;      fuji_filename_buffer contains 0 terminated string up to 63 bytes
 ;      C = 0 for truncated string (i.e. hit max first)
 ;      C = 1 for completed reading string
+
+; This is the C wrapper:
 _param_get_string:
+        jsr     param_get_string
+        ; for C we need to ensure X is 0 for the return. A contains the length already
+        ldx     #$00
+
+        ; set the error flag based on truncation
+        bcs     @not_truncated
+        inx
+@not_truncated:
+        stx     fuji_error_flag
+        rts
+
+
 param_get_string:
         jsr     GSINIT_A
         beq     err_bad_string
@@ -402,6 +430,7 @@ param_get_string_no_init:
         ; C=0 for truncated string (max hit), C=1 for string read to end
         rts
 
+_err_bad_string:
 err_bad_string:
         jsr     err_bad
         .byte   $CB                             ; i'm guessing this byte is for the memory param to show? Not sure how to do this for a generic "number" error
@@ -454,20 +483,6 @@ err_bad_drive:
         .byte   $CD
         .byte   "drive", 0
 
-load_cur_drv_cat2:
-        jsr     remember_axy
-
-; load_cur_drv_cat - Load current drive catalog (MMFS line 7267-7279)
-; For FujiNet, this is equivalent to MMFS's exec_cat_rw with A=#&53
-load_cur_drv_cat:
-        ; Load catalog from FujiNet interface (equivalent to OW7F_Execute_and_ReportIfDiskFault)
-        jsr     fuji_read_catalog
-
-        ; Mark catalog as loaded for current drive (equivalent to MMFS line 7322-7323)
-write_current_drv_to_cat:
-        lda     current_drv
-        sta     current_cat
-        rts
 
 save_cat_to_disk:
         lda     dfs_cat_cycle
@@ -846,7 +861,7 @@ param_count_a:
         ; if we came from X=1 check above, then C=1 and is upper limit return value
         rts
 
-; just read the number of parameters on command line, return in A
+; just read the number of parameters on command line, return in A (set X to 0)
 ; preserve Y
 _num_params:
 num_params:
@@ -868,6 +883,7 @@ num_params:
         pla                             ; restore Y
         tay
         txa                             ; set result in A
+        ldx     #$00                    ; for C callers they need A/X fully set to result
         rts
 
 ; param_drive_or_default - Read drive parameter or use default
