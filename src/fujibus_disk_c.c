@@ -18,7 +18,6 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include "zp_overlay.h"
 #include "fujibus_c.h"
 #include "fujibus_disk_c.h"
 
@@ -38,20 +37,14 @@
 #define DISK_CMD_CREATE        0x07
 
 /* ============================================================================
- * Workspace variables (using ZP overlay)
+ * Workspace variables (using persistent FujiNet workspace)
  * ============================================================================ */
 
-/* Disk slot (1-8) - stored in workspace */
-#define fn_disk_slot         (ZP.aws_tmp[6])
+/* Disk slot (1-8) - stored in persistent workspace at 0x10EC */
+#define fn_disk_slot           (*FUJI_DISK_SLOT)
 
-/* Disk flags */
-#define fn_disk_flags        (ZP.aws_tmp[7])
-
-/* Current sector number for read/write */
-#define fuji_current_sector  (ZP.pws_tmp[0])
-
-/* Data buffer pointer */
-#define data_ptr             (ZP.aws_tmp[8])
+/* Disk flags - stored in persistent workspace at 0x10ED */
+#define fn_disk_flags          (*FUJI_DISK_FLAGS)
 
 /* ============================================================================
  * Helper: Send request and receive response

@@ -14,10 +14,15 @@
  * Constants
  * ============================================================================ */
 
-#define FUJI_WORKSPACE           0x1000
-#define FUJI_TX_BUFFER           ((uint8_t*)(FUJI_WORKSPACE + 0x02A0))
-#define FUJI_RX_BUFFER           ((uint8_t*)(FUJI_WORKSPACE + 0x0300))
+#define FUJI_WORKSPACE           ((uint8_t*)0x1000)
+#define FUJI_STATIC_WORKSPACE    ((uint8_t*)0x10C0)
+
+#define FUJI_TX_BUFFER           ((uint8_t*)(0x1000 + 0x02A0))
+#define FUJI_RX_BUFFER           ((uint8_t*)(0x1000 + 0x0300))
 #define FUJI_SLIP_BUFFER         FUJI_RX_BUFFER
+
+#define FUJI_DISK_SLOT           ((uint8_t*)(0x10C0 + 0x2C))  /* fuji_disk_slot - current slot, 1-based */
+#define FUJI_DISK_FLAGS          ((uint8_t*)(0x10C0 + 0x2D))  /* fuji_disk_flags */
 
 #define FUJI_TX_BUFFER_SIZE      96
 #define FUJI_RX_BUFFER_SIZE      512
