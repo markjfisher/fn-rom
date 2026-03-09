@@ -167,24 +167,42 @@ bool fhost_resolve_path(void) {
         return false;
     }
     
-    /* Check response - payload starts at rx[4] after 5-byte FujiBus header */
-    if (rx[4] != FILEPROTO_VERSION) {
+    /* FujiBus response structure: */
+    /* rx[0-4]: header (device, cmd, length lo/hi, checksum) */
+    /* rx[5]: descr (0x01 = 1 param following = status) */
+    /* rx[6]: status param (from addParamU8) = 0x00 for success */
+    /* rx[7]: payload version */
+    /* rx[8]: payload flags */
+    /* rx[9-10]: payload reserved */
+    /* rx[11-12]: uri_len */
+    /* rx[13+]: uri, then dir_len, then dir */
+    
+    /* Check descriptor: 1 param (status) */
+    if (rx[5] != 1) {
+        return false;
+    }
+    
+    /* Check status: 0 = success */
+    if (rx[6] != 0) {
+        return false;
+    }
+    
+    /* Check payload version */
+    if (rx[7] != FILEPROTO_VERSION) {
         return false;
     }
     
     /* Get resolved_uri_len from response */
-    /* Response: version(1) + flags(1) + reserved(2) + uri_len(2) + uri + dir_len(2) + dir */
-    /* Note: uri_len is typically < 64 bytes, so we just use low byte */
-    uri_len = rx[8];  /* Low byte of uri_len (high byte is always 0 for paths < 256) */
+    uri_len = rx[11];  /* Low byte of uri_len */
     
     /* Copy resolved_uri to fuji_current_fs_uri */
-    for (i = 0; i < uri_len; i++) {
-        FUJI_CURRENT_FS_URI[i] = rx[10 + i];
+    for (i = 0; i < uri_len && i < MAX_PATH_LEN; i++) {
+        FUJI_CURRENT_FS_URI[i] = rx[12 + i];
     }
     *FUJI_CURRENT_FS_LEN = uri_len;
     
     /* Get display_path_len */
-    uri_end = 10 + uri_len;
+    uri_end = 12 + uri_len;
     dir_len = rx[uri_end + 1];  /* Low byte of dir_len */
     
     /* Copy display_path to fuji_current_dir_path */
