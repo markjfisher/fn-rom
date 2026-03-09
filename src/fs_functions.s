@@ -47,6 +47,9 @@
         .export param_drive_or_default
         .export find_and_mount_disk
 
+        .export _num_params
+        .export _param_get_string
+
         .import GSINIT_A
         .import a_rolx5
         .import a_rorx5
@@ -376,6 +379,7 @@ set_current_drive_adrive_noand:
 ;      fuji_filename_buffer contains 0 terminated string up to 63 bytes
 ;      C = 0 for truncated string (i.e. hit max first)
 ;      C = 1 for completed reading string
+_param_get_string:
 param_get_string:
         jsr     GSINIT_A
         beq     err_bad_string
@@ -844,6 +848,7 @@ param_count_a:
 
 ; just read the number of parameters on command line, return in A
 ; preserve Y
+_num_params:
 num_params:
         tya                             ; save Y
         pha

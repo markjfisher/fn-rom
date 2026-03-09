@@ -24,6 +24,10 @@
 #define FUJI_DISK_SLOT           ((uint8_t*)(0x10C0 + 0x2C))  /* fuji_disk_slot - current slot, 1-based */
 #define FUJI_DISK_FLAGS          ((uint8_t*)(0x10C0 + 0x2D))  /* fuji_disk_flags */
 
+/* FileDevice (0xFE) */
+#define FN_DEVICE_FILE           0xFE
+#define FILE_CMD_RESOLVE_PATH    0x05
+
 #define FUJI_TX_BUFFER_SIZE      96
 #define FUJI_RX_BUFFER_SIZE      512
 

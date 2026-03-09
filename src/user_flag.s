@@ -1,3 +1,4 @@
+        .export _exit_user_ok
         .export exit_user_ok
         .export set_user_flag_x
 
@@ -7,6 +8,7 @@
 OSBYTE_USER_FLAG        = $01   ; Set user flag
 
 
+_exit_user_ok:
 exit_user_ok:
         ldx     #$00
 

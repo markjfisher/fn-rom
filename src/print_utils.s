@@ -21,6 +21,13 @@
         .export  report_error
         .export  report_error_cb
 
+        .export  _print_char
+        .export  _print_newline
+        .export  _print_space
+        .export  _err_disk
+        .export  _err_bad
+
+
 .ifdef FN_DEBUG
         .export  print_axy
         .export  dump_zp_workspace
@@ -38,6 +45,7 @@
         .segment "CODE"
 
 ; Print newline
+_print_newline:
 print_newline:
         pha
         lda     #$0D
@@ -95,12 +103,14 @@ reset_leds:
 ; ERROR HANDLERS
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+_err_disk:
 err_disk:
         jsr     report_error_cb         ; Disk Error
         .byte   0
         .byte   "Disc "
         bcc     err_continue
 
+_err_bad:
 err_bad:
         jsr     report_error_cb         ; Bad Error
         .byte   0
@@ -207,6 +217,7 @@ print_string_spl:
         jsr     OSASCI
         jmp     @pstr_loop
 
+_print_space:
 print_space:
         lda     #' '
         bne     print_char
@@ -219,6 +230,7 @@ print_fullstop:
 
 ; Print a single character
 ; A = character to print
+_print_char:
 print_char:
         jsr     remember_axy
         pha

@@ -2,17 +2,9 @@
         ; .export fhost_show_current_fs
         ; .export fhost_set_current_fs
 
+        .export _err_bad_uri
+
         .import err_bad
-        .import err_syntax
-        .import exit_user_ok
-        .import fn_file_resolve_path
-        .import fuji_set_mount_slot
-        .import num_params
-        .import param_get_string
-        .import print_char
-        .import print_newline
-        .import print_space
-        .import print_string
 
         .include "fujinet.inc"
 
@@ -204,8 +196,9 @@ cmd_fs_fhost:
 ;         ; Successful completion exits through the standard ROM command helper.
 ;         jmp     exit_user_ok
 
-; err_bad_uri:
-;         ; Standard ROM “Bad uri” error path.
-;         jsr     err_bad
-;         .byte   $CB
-;         .byte   "uri", 0
+_err_bad_uri:
+err_bad_uri:
+        ; Standard ROM “Bad uri” error path.
+        jsr     err_bad
+        .byte   $CB
+        .byte   "uri", 0
