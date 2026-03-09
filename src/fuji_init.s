@@ -64,8 +64,6 @@ init_fuji:
 
         jsr     _cmd_test_c
 
-        jsr     filev_entry
-
         ; Register as new Filing System
         lda     #$06
         jsr     go_fscv
