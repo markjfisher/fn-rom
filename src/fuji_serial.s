@@ -24,15 +24,9 @@
         ; .export fuji_send_cf
 
         .import err_bad
-        .import err_disk
-        .import read_1
         .import remember_axy
         .import restore_output_to_screen
-        .import setup_serial_19200
 
-        .import _calc_checksum
-        .import _read_serial_data
-        .import _write_serial_data
 
         ; Import FujiBus functions
         ; .import fn_disk_read_sector_impl

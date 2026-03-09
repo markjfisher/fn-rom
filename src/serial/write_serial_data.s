@@ -22,3 +22,5 @@ _write_serial_data:
         bne     @loop
 
         jmp     restore_output_to_screen
+
+; MAKE A H FILE FOR THIS AND USE IT IN FUJIBUS_C.C

@@ -35,6 +35,7 @@
  * ============================================================================ */
 
 #define FILEPROTO_VERSION     1
+#define MAX_PATH_LEN          64
 
 /* ============================================================================
  * External ASM functions (no underscore prefix in C)
@@ -69,10 +70,6 @@ static void print_string(uint8_t* s) {
 /* ============================================================================
  * fhost_show_current - Display current FS and DIR
  * ============================================================================ */
-
-void fhost_debug() {
-    // do nothing, it's a function we can attach a breakpoint on.
-}
 
 void fhost_show_current(void) {
     uint8_t fs_len;
@@ -126,16 +123,14 @@ void fhost_show_current(void) {
 bool fhost_resolve_path(void) {
     uint8_t* tx;
     uint8_t* rx;
-    uint8_t resp_len;
-    uint8_t payload_len;
+    uint16_t resp_len;
+    uint16_t payload_len;
     uint8_t i;
-    uint16_t val16;
     uint16_t uri_end;
     uint16_t path_start;
     uint8_t uri_len;
+    uint8_t dir_len;
     
-    fhost_debug();
-
     tx = FUJI_TX_BUFFER;
     rx = FUJI_RX_BUFFER;
     
@@ -165,39 +160,39 @@ bool fhost_resolve_path(void) {
     fujibus_send_packet(FN_DEVICE_FILE, FILE_CMD_RESOLVE_PATH, &tx[6], payload_len);
     
     /* Receive response */
+    
     resp_len = fujibus_receive_packet();
     
     if (resp_len == 0) {
         return false;
     }
     
-    /* Check response */
-    if (rx[6] != FILEPROTO_VERSION) {
+    /* Check response - payload starts at rx[4] after 5-byte FujiBus header */
+    if (rx[4] != FILEPROTO_VERSION) {
         return false;
     }
     
     /* Get resolved_uri_len from response */
     /* Response: version(1) + flags(1) + reserved(2) + uri_len(2) + uri + dir_len(2) + dir */
-    val16 = rx[9];
-    val16 |= ((uint16_t)rx[10] << 8);
+    /* Note: uri_len is typically < 64 bytes, so we just use low byte */
+    uri_len = rx[8];  /* Low byte of uri_len (high byte is always 0 for paths < 256) */
     
     /* Copy resolved_uri to fuji_current_fs_uri */
-    for (i = 0; i < val16 && i < 80; i++) {
-        FUJI_CURRENT_FS_URI[i] = rx[11 + i];
+    for (i = 0; i < uri_len; i++) {
+        FUJI_CURRENT_FS_URI[i] = rx[10 + i];
     }
-    *FUJI_CURRENT_FS_LEN = (uint8_t)val16;
+    *FUJI_CURRENT_FS_LEN = uri_len;
     
     /* Get display_path_len */
-    uri_end = 11 + val16;
-    val16 = rx[uri_end];
-    val16 |= ((uint16_t)rx[uri_end + 1] << 8);
+    uri_end = 10 + uri_len;
+    dir_len = rx[uri_end + 1];  /* Low byte of dir_len */
     
     /* Copy display_path to fuji_current_dir_path */
     path_start = uri_end + 2;
-    for (i = 0; i < val16 && i < 80; i++) {
+    for (i = 0; i < dir_len; i++) {
         FUJI_CURRENT_DIR_PATH[i] = rx[path_start + i];
     }
-    *FUJI_CURRENT_DIR_LEN = (uint8_t)val16;
+    *FUJI_CURRENT_DIR_LEN = dir_len;
     
     return true;
 }
@@ -247,31 +242,36 @@ bool fhost_set_uri(void) {
  * ============================================================================ */
 
 uint8_t cmd_fs_fhost(void) {
-    uint8_t params;
-    uint8_t as_char;
-
     // MUST be called on function entry for any CMD_* function,
     // as we need to preserve the command line offset to the first arg in Y
     cmd_save_args_state();
-    
-    params = num_params();
 
-    if (params == 0) {
-        /* No parameters - show current */
-        fhost_show_current();
-        exit_user_ok();
-        return 0;
-    } else if (params == 1) {
-        /* One parameter - set URI */
-        if (fhost_set_uri()) {
+    // ensure no params are created on the stack before calling above
+    {
+        uint8_t params;
+        uint8_t as_char;
+        uint8_t *a;
+    
+        params = num_params();
+        a = params;
+    
+        if (params == 0) {
+            /* No parameters - show current */
+            fhost_show_current();
             exit_user_ok();
             return 0;
+        } else if (params == 1) {
+            /* One parameter - set URI */
+            if (fhost_set_uri()) {
+                exit_user_ok();
+                return 0;
+            } else {
+                return 1;
+            }
         } else {
+            /* Too many parameters */
+            err_bad();
             return 1;
         }
-    } else {
-        /* Too many parameters */
-        err_bad();
-        return 1;
     }
 }

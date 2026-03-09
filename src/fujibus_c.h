@@ -48,14 +48,14 @@
  * @param len Source data length
  * @return Encoded length
  */
-uint8_t fujibus_slip_encode(uint8_t* src, uint8_t len);
+uint16_t fujibus_slip_encode(uint8_t* src, uint16_t len);
 
 /**
  * SLIP decode from SLIP buffer
  * @param enc_len Encoded data length
  * @return Decoded length, 0 on error
  */
-uint8_t fujibus_slip_decode(uint8_t enc_len);
+uint16_t fujibus_slip_decode(uint16_t enc_len);
 
 /**
  * Build FujiBus packet in TX buffer
@@ -65,7 +65,7 @@ uint8_t fujibus_slip_decode(uint8_t enc_len);
  * @param paylen Payload length
  * @return Total packet length
  */
-uint8_t fujibus_build_packet(uint8_t device, uint8_t command, uint8_t* payload, uint8_t paylen);
+uint8_t fujibus_build_packet(uint8_t device, uint8_t command, uint8_t* payload, uint16_t paylen);
 
 /**
  * Send FujiBus packet via serial
@@ -74,13 +74,13 @@ uint8_t fujibus_build_packet(uint8_t device, uint8_t command, uint8_t* payload, 
  * @param payload Payload pointer
  * @param paylen Payload length
  */
-void fujibus_send_packet(uint8_t device, uint8_t command, uint8_t* payload, uint8_t paylen);
+void fujibus_send_packet(uint8_t device, uint8_t command, uint8_t* payload, uint16_t paylen);
 
 /**
  * Receive FujiBus packet into RX buffer
  * @return Packet length (0 = error)
  */
-uint8_t fujibus_receive_packet(void);
+uint16_t fujibus_receive_packet(void);
 
 /* Accessor macros - inline for zero overhead */
 #define fujibus_get_device()        (FUJI_RX_BUFFER[0])

@@ -51,8 +51,8 @@
  * Returns: packet length (0 = error)
  * ============================================================================ */
 
-static uint8_t fujibus_disk_transaction(uint8_t payload_len) {
-    uint8_t result;
+static uint16_t fujibus_disk_transaction(uint16_t payload_len) {
+    uint16_t result;
     
     /* Send packet */
     fujibus_send_packet(FN_DEVICE_DISK, FUJI_TX_BUFFER[1], &FUJI_TX_BUFFER[FUJIBUS_HEADER_SIZE], payload_len);
@@ -75,10 +75,10 @@ static uint8_t fujibus_disk_transaction(uint8_t payload_len) {
  *   Returns true on success, false on error
  * ============================================================================ */
 bool fujibus_disk_mount(uint8_t slot, uint8_t flags, uint8_t* uri) {
-    uint8_t uri_len;
-    uint8_t i;
+    uint16_t uri_len;
+    uint16_t i;
     uint8_t* tx;
-    uint8_t resp_len;
+    uint16_t resp_len;
     
     tx = FUJI_TX_BUFFER;
     
@@ -100,8 +100,8 @@ bool fujibus_disk_mount(uint8_t slot, uint8_t flags, uint8_t* uri) {
     tx[9] = 0;                       /* typeOverride = 0 (auto) */
     tx[10] = 0;                      /* sectorSizeHint low */
     tx[11] = 0;                      /* sectorSizeHint high */
-    tx[12] = uri_len;                /* URI length low */
-    tx[13] = 0;                      /* URI length high */
+    tx[12] = uri_len & 0xFF;                /* URI length low */
+    tx[13] = (uri_len >> 8) & 0xFF;                      /* URI length high */
     
     /* Copy URI */
     for (i = 0; i < uri_len; i++) {
@@ -135,7 +135,7 @@ bool fujibus_disk_mount(uint8_t slot, uint8_t flags, uint8_t* uri) {
  * ============================================================================ */
 bool fujibus_disk_unmount(uint8_t slot) {
     uint8_t* tx;
-    uint8_t resp_len;
+    uint16_t resp_len;
     
     tx = FUJI_TX_BUFFER;
     
@@ -166,9 +166,9 @@ bool fujibus_disk_unmount(uint8_t slot) {
 bool fujibus_disk_read_sector(uint8_t slot, uint16_t lba, uint8_t* buf) {
     uint8_t* tx;
     uint8_t* rx;
-    uint8_t resp_len;
-    uint8_t data_len;
-    uint8_t i;
+    uint16_t resp_len;
+    uint16_t data_len;
+    uint16_t i;
     
     tx = FUJI_TX_BUFFER;
     rx = FUJI_RX_BUFFER;
@@ -226,8 +226,8 @@ bool fujibus_disk_read_sector(uint8_t slot, uint16_t lba, uint8_t* buf) {
 bool fujibus_disk_write_sector(uint8_t slot, uint16_t lba, uint8_t* buf) {
     uint8_t* tx;
     uint8_t* rx;
-    uint8_t resp_len;
-    uint8_t i;
+    uint16_t resp_len;
+    uint16_t i;
     
     tx = FUJI_TX_BUFFER;
     rx = FUJI_RX_BUFFER;
@@ -278,7 +278,7 @@ bool fujibus_disk_write_sector(uint8_t slot, uint16_t lba, uint8_t* buf) {
 bool fujibus_disk_info(uint8_t slot, DiskInfo* info) {
     uint8_t* tx;
     uint8_t* rx;
-    uint8_t resp_len;
+    uint16_t resp_len;
     
     tx = FUJI_TX_BUFFER;
     rx = FUJI_RX_BUFFER;

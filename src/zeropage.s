@@ -8,6 +8,7 @@ c_sp    := $00CE   ; 2
 ; use aws_tmp00-13 for most cc65 temp regs
 ; NOTE: these are used by converted MMFS->FujiNet code at the moment, but also as temporary, so before they are refactored
 ; they should be safe to share locations, as they are by nature temporary.
+; OOPS: already discovered C code does a lot of work with ptr1, and aws_tmp00 is used across some functions
 ptr1    := $00B0   ; 2 - the one C codegen uses for generic *p stores
 ptr2    := $00B2   ; 2 - haven't seen this used yet in simple C apps, but now using general cc65 lib
 tmp1    := $00B4   ; 1

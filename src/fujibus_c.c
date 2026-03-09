@@ -9,6 +9,9 @@
 #include <stdbool.h>
 #include "zp_overlay.h"
 #include "calc_checksum.h"
+#include "serial/read_serial_data.h"
+#include "serial/serial_utils.h"
+#include "serial/write_serial_data.h"
 
 /* ============================================================================
  * Constants - Buffer sizes and addresses
@@ -36,13 +39,6 @@
 #define FUJIBUS_HEADER_SIZE  6
 
 /* ============================================================================
- * External ASM functions - called using C calling convention
- * ============================================================================ */
-
-extern void write_serial_data(void);
-extern void read_serial_data(void);
-
-/* ============================================================================
  * ZeroPage variables - stored in workspace
  * These are used for communication with ASM serial functions
  * ============================================================================ */
@@ -61,9 +57,9 @@ extern void read_serial_data(void);
  * Output: encoded length in A
  * Uses: X, Y, temp in zeropage
  */
-uint8_t fujibus_slip_encode(uint8_t* src, uint8_t len) {
-    uint8_t src_idx;
-    uint8_t dst_idx;
+uint16_t fujibus_slip_encode(uint8_t* src, uint16_t len) {
+    uint16_t src_idx;
+    uint16_t dst_idx;
     uint8_t b;
     
     dst_idx = 0;
@@ -103,9 +99,9 @@ uint8_t fujibus_slip_encode(uint8_t* src, uint8_t len) {
  * Output: decoded length in A, 0 on error
  * Uses: X, Y
  */
-uint8_t fujibus_slip_decode(uint8_t enc_len) {
-    uint8_t enc_idx;
-    uint8_t dec_idx;
+uint16_t fujibus_slip_decode(uint16_t enc_len) {
+    uint16_t enc_idx;
+    uint16_t dec_idx;
     uint8_t b;
     
     /* Check for valid frame */
@@ -153,9 +149,9 @@ uint8_t fujibus_slip_decode(uint8_t enc_len) {
  * Input: device, command, payload pointer, payload length
  * Output: total packet length
  */
-uint8_t fujibus_build_packet(uint8_t device, uint8_t command, uint8_t* payload, uint8_t paylen) {
-    uint8_t total_len;
-    uint8_t i;
+uint16_t fujibus_build_packet(uint8_t device, uint8_t command, uint8_t* payload, uint16_t paylen) {
+    uint16_t total_len;
+    uint16_t i;
     uint8_t chk;
     
     /* Total length = header(6) + payload */
@@ -164,8 +160,8 @@ uint8_t fujibus_build_packet(uint8_t device, uint8_t command, uint8_t* payload, 
     /* Build header */
     FUJI_TX_BUFFER[0] = device;
     FUJI_TX_BUFFER[1] = command;
-    FUJI_TX_BUFFER[2] = total_len;          /* Length low */
-    FUJI_TX_BUFFER[3] = 0;                  /* Length high (always 0 for small packets) */
+    FUJI_TX_BUFFER[2] = total_len & 0xFF;          /* Length low */
+    FUJI_TX_BUFFER[3] = (total_len >> 8) & 0xFF;
     FUJI_TX_BUFFER[4] = 0;                  /* Checksum placeholder */
     FUJI_TX_BUFFER[5] = 0;                  /* Descriptor */
     
@@ -200,6 +196,8 @@ void fujibus_send_packet(uint8_t device, uint8_t command, uint8_t* payload, uint
     /* SLIP encode */
     slip_len = fujibus_slip_encode(FUJI_TX_BUFFER, pkt_len);
     
+    setup_serial_19200();
+
     /* Send via serial - setup zeropage params */
     ZP.aws_tmp[0] = (uint8_t)((uint16_t)FUJI_SLIP_BUFFER & 0xFF);
     ZP.aws_tmp[1] = (uint8_t)(((uint16_t)FUJI_SLIP_BUFFER >> 8) & 0xFF);
@@ -208,6 +206,7 @@ void fujibus_send_packet(uint8_t device, uint8_t command, uint8_t* payload, uint
     
     /* Call ASM write_serial_data */
     write_serial_data();
+    restore_output_to_screen();
 }
 
 /* ============================================================================
@@ -217,25 +216,19 @@ void fujibus_send_packet(uint8_t device, uint8_t command, uint8_t* payload, uint
 /**
  * Receive FujiBus packet into RX buffer
  * Returns: packet length (0 = error)
- * Uses: SERIAL_BYTES_READ from read_serial_data
  */
-uint8_t fujibus_receive_packet(void) {
-    uint8_t slip_len;
-    uint8_t dec_len;
+uint16_t fujibus_receive_packet(void) {
+    uint16_t dec_len;
     uint8_t chk_received;
     uint8_t chk_computed;
+    uint16_t slip_len = 0;
     
+    setup_serial_19200();
+
     /* Read from serial - setup zeropage params */
-    ZP.aws_tmp[0] = (uint8_t)((uint16_t)FUJI_SLIP_BUFFER & 0xFF);
-    ZP.aws_tmp[1] = (uint8_t)(((uint16_t)FUJI_SLIP_BUFFER >> 8) & 0xFF);
-    ZP.aws_tmp[2] = 0xFF;     /* Max read size */
-    ZP.aws_tmp[3] = 0;
+    read_serial_data(FUJI_SLIP_BUFFER, 0x00FF, &slip_len);
+    restore_output_to_screen();
     
-    /* Call ASM read_serial_data */
-    read_serial_data();
-    
-    /* Get bytes read */
-    slip_len = SERIAL_BYTES_READ;
     if (slip_len == 0) {
         return 0;
     }

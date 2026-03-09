@@ -2,16 +2,18 @@
 ; Provides common functions for serial communication
 
         .export flush_serial
-        .export read_1
         .export restore_output_to_screen
         .export setup_serial_19200
+        
+        .export _flush_serial
+        .export _restore_output_to_screen
+        .export _setup_serial_19200
 
         ; functions used by C
         .export _check_rs423_buffer
         .export _read_rs423_char
 
         .import err_bad_response
-        .import _read_serial_data
 
         .include "fujinet.inc"
 
@@ -46,6 +48,7 @@ BUFFER_SERIAL_INPUT     = $01   ; Serial input buffer
 ; Modifies: A, X, Y
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+_setup_serial_19200:
 setup_serial_19200:
         ; Set RX baud to 19200
         ldx     #BAUD_19200
@@ -72,6 +75,7 @@ setup_serial_19200:
         jsr     OSBYTE
         ; ... drop through to flush
 
+_flush_serial:
 flush_serial:
         ; Flush serial input buffer
         ldx     #BUFFER_SERIAL_INPUT
@@ -85,6 +89,7 @@ flush_serial:
 ; Modifies: A, X, Y
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+_restore_output_to_screen:
 restore_output_to_screen:
         ; Restore output to screen
         ldx     #OUTPUT_SCREEN
@@ -145,25 +150,4 @@ _read_rs423_char:
 @no_char:
         ; No character available set cws_tmp1 to -1
         dec     cws_tmp1
-        rts
-
-
-read_1:
-        ; wait for rs232 buffer to say there's a byte, and read it. timeout if too long
-        ; assumes the serial is active so it doesn't expunge anything.
-        ; setup buffer for 1 byte at aws_tmp06
-        lda     #<aws_tmp06
-        sta     aws_tmp00
-        lda     #>aws_tmp06
-        sta     aws_tmp01
-        lda     #$01
-        sta     aws_tmp02
-        lda     #$00
-        sta     aws_tmp03
-        jsr     _read_serial_data
-        bne     @ok
-        jmp     err_bad_response
-
-@ok:
-        lda     aws_tmp06
         rts
