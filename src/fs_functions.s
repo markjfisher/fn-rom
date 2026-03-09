@@ -400,7 +400,7 @@ _param_get_string:
         ; for C we need to ensure X is 0 for the return. A contains the length already
         ldx     #$00
 
-        ; set the error flag based on truncation
+        ; set the error flag based on truncation, for truncated, we'll set fuji_error_flag to 1
         bcs     @not_truncated
         inx
 @not_truncated:
@@ -409,9 +409,11 @@ _param_get_string:
 
 
 param_get_string:
+        ldy     fuji_cmd_offset_y
         jsr     GSINIT_A
         beq     err_bad_string
 
+; nothing calls this, with our insistence on calling cmd_save_args_state first, we may not allow anyone to either. would need testing to see if it works correctly if Y is trashed
 param_get_string_no_init:
         ldx     #$00
 @str_loop:
@@ -862,11 +864,12 @@ param_count_a:
         rts
 
 ; just read the number of parameters on command line, return in A (set X to 0)
-; preserve Y
+; preserve Y with the value in fuji_cmd_offset_y. _cmd_save_args_state must have been called prior to this.
 _num_params:
 num_params:
-        tya                             ; save Y
-        pha
+        ldy     fuji_cmd_offset_y
+        ; tya                             ; save Y
+        ; pha
 
         ldx     #$00
 @loop1:
@@ -880,10 +883,11 @@ num_params:
         bcs     @loop1
 
 @exit_count:
-        pla                             ; restore Y
-        tay
+        ldy     fuji_cmd_offset_y
+        ; pla                             ; restore Y
+        ; tay
         txa                             ; set result in A
-        ldx     #$00                    ; for C callers they need A/X fully set to result
+        ldx     #$00                    ; for C callers they need A/X to contain 16 bit result
         rts
 
 ; param_drive_or_default - Read drive parameter or use default

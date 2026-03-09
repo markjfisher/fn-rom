@@ -28,6 +28,7 @@
 #include <string.h>
 #include "fujibus_c.h"
 #include "cmd_fhost_c.h"
+#include "commands/utils.h"
 
 /* ============================================================================
  * Constants
@@ -68,6 +69,10 @@ static void print_string(uint8_t* s) {
 /* ============================================================================
  * fhost_show_current - Display current FS and DIR
  * ============================================================================ */
+
+void fhost_debug() {
+    // do nothing, it's a function we can attach a breakpoint on.
+}
 
 void fhost_show_current(void) {
     uint8_t fs_len;
@@ -129,6 +134,8 @@ bool fhost_resolve_path(void) {
     uint16_t path_start;
     uint8_t uri_len;
     
+    fhost_debug();
+
     tx = FUJI_TX_BUFFER;
     rx = FUJI_RX_BUFFER;
     
@@ -207,17 +214,11 @@ bool fhost_set_uri(void) {
     /* Get URI from parameter - stored in fuji_filename_buffer */
     uri_len = param_get_string();
     
-    /* Check for truncation - fuji_error_flag = 1 means truncated */
-    if (*FUJI_ERROR_FLAG != 0) {
+    // Check for truncation - fuji_error_flag = 1 means truncated
+    // or no parameter
+    if (*FUJI_ERROR_FLAG != 0 || uri_len == 0) {
         /* String was truncated */
         err_bad_uri();
-        return false;
-    }
-    
-    if (uri_len == 0) {
-        /* No parameter - error */
-        err_bad_uri();
-        return false;
     }
     
     /* Copy URI from fuji_filename_buffer to fuji_current_fs_uri */
@@ -225,7 +226,7 @@ bool fhost_set_uri(void) {
         FUJI_CURRENT_FS_URI[i] = FUJI_FILENAME_BUFFER[i];
     }
     *FUJI_CURRENT_FS_LEN = uri_len;
-    
+
     /* Try to resolve the path */
     if (!fhost_resolve_path()) {
         /* On failure, set display path to "/" */
@@ -248,13 +249,13 @@ bool fhost_set_uri(void) {
 uint8_t cmd_fs_fhost(void) {
     uint8_t params;
     uint8_t as_char;
+
+    // MUST be called on function entry for any CMD_* function,
+    // as we need to preserve the command line offset to the first arg in Y
+    cmd_save_args_state();
     
-    /* Count parameters */
     params = num_params();
-    as_char = params + '0';
-    print_char(as_char);
-    print_newline();
-    
+
     if (params == 0) {
         /* No parameters - show current */
         fhost_show_current();

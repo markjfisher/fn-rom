@@ -66,6 +66,8 @@
         .export  fuji_resolve_path_flags
         .export  fuji_disk_slot
         .export  fuji_disk_flags
+        .export  fuji_cmd_offset_y
+
         .export  fuji_last_state_loc
 
         .export  fuji_channel_start
@@ -430,11 +432,12 @@ fuji_current_mount_slot = fuji_static_workspace + $2A  ; Current FujiNet persist
 fuji_resolve_path_flags = fuji_static_workspace + $2B  ; ResolvePath response: bit0=isDir, bit1=exists (set by fuji_file_resolve_path)
 
 fuji_disk_slot          = fuji_static_workspace + $2C  ; current slot, 1-based, so Disk 1 = 1
-fuji_disk_flags         = fuji_static_workspace + $2D  ; current slot, 1-based, so Disk 1 = 1
+fuji_disk_flags         = fuji_static_workspace + $2D  ; flags for disk
 
+fuji_cmd_offset_y       = fuji_static_workspace + $2E  ; save value of the command offset in Y given to CMD functions on entry.
 
 ; LAST location for the copy state in workspace_utils.s function to understand
-fuji_last_state_loc     = fuji_static_workspace + $2D  ; effectively $10ED
+fuji_last_state_loc     = fuji_static_workspace + $2E  ; effectively $10EE
 
 ; see SetupChannelInfoBlock_Yintch
 ; copies from &E08 to &1100, and &F08 to &1100+1 in a loop.
