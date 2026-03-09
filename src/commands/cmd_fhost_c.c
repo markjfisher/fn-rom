@@ -175,7 +175,8 @@ bool fhost_resolve_path(void) {
     /* rx[8]: payload flags */
     /* rx[9-10]: payload reserved */
     /* rx[11-12]: uri_len */
-    /* rx[13+]: uri, then dir_len, then dir */
+    /* rx[13]: uri starts here */
+    /* After uri: dir_len (2 bytes), then dir */
     
     /* Check descriptor: 1 param (status) */
     if (rx[5] != 1) {
@@ -196,17 +197,19 @@ bool fhost_resolve_path(void) {
     uri_len = rx[11];  /* Low byte of uri_len */
     
     /* Copy resolved_uri to fuji_current_fs_uri */
+    /* URI starts at rx[13] (after version, flags, reserved, uri_len) */
     for (i = 0; i < uri_len && i < MAX_PATH_LEN; i++) {
-        FUJI_CURRENT_FS_URI[i] = rx[12 + i];
+        FUJI_CURRENT_FS_URI[i] = rx[13 + i];
     }
     *FUJI_CURRENT_FS_LEN = uri_len;
     
     /* Get display_path_len */
-    uri_end = 12 + uri_len;
+    /* uri ends at rx[12 + uri_len], dir_len starts at rx[13 + uri_len] */
+    uri_end = 13 + uri_len - 1;
     dir_len = rx[uri_end + 1];  /* Low byte of dir_len */
     
     /* Copy display_path to fuji_current_dir_path */
-    path_start = uri_end + 2;
+    path_start = uri_end + 3;
     for (i = 0; i < dir_len; i++) {
         FUJI_CURRENT_DIR_PATH[i] = rx[path_start + i];
     }
