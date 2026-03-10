@@ -54,7 +54,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
-#include "fujibus_c.h"
 #include "cmd_fhost_c.h"
 #include "commands/utils.h"
 

@@ -16,28 +16,6 @@
 #include "fujibus_c.h"
 
 /* ============================================================================
- * Workspace addresses (from os.s)
- * ============================================================================ */
-
-/* FujiNet drive-to-disk mapping (4 bytes: drives 0-3) at 0x10DB */
-#define FUJI_DRIVE_DISK_MAP      ((uint8_t*)0x10DB)
-
-/* Current mount slot index at 0x10D4 */
-#define FUJI_DISK_TABLE_INDEX    ((uint8_t*)0x10D4)
-
-/* Current drive (0-3) at 0x10CD */
-#define CURRENT_DRV               ((uint8_t*)0x10CD)
-
-/* Current mount slot at 0x10EA */
-#define FUJI_CURRENT_MOUNT_SLOT  ((uint8_t*)0x10EA)
-
-/* Current filesystem URI buffer at 0x1200 */
-#define FUJI_CURRENT_FS_URI       ((uint8_t*)0x1200)
-
-/* Current filesystem URI length at 0x10E8 */
-#define FUJI_CURRENT_FS_LEN       ((uint8_t*)0x10E8)
-
-/* ============================================================================
  * Functions
  * ============================================================================ */
 

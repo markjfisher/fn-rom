@@ -14,15 +14,45 @@
  * Constants
  * ============================================================================ */
 
+ /* Current drive (0-3) at 0x10CD */
+#define CURRENT_DRV              ((uint8_t*)0xCD)
+
 #define FUJI_WORKSPACE           ((uint8_t*)0x1000)
+
+/* Filename buffer at 0x1000 */
+#define FUJI_FILENAME_BUFFER     ((uint8_t*)0x1000)
+
 #define FUJI_STATIC_WORKSPACE    ((uint8_t*)0x10C0)
+
+/* Current filesystem URI buffer (80 bytes at 0x1200) */
+#define FUJI_CURRENT_FS_URI      ((uint8_t*)0x1200)
+
+/* Current directory path buffer (80 bytes at 0x1250) */
+#define FUJI_CURRENT_DIR_PATH    ((uint8_t*)0x1250)
 
 #define FUJI_TX_BUFFER           ((uint8_t*)(0x1000 + 0x02A0))
 #define FUJI_RX_BUFFER           ((uint8_t*)(0x1000 + 0x0300))
 #define FUJI_SLIP_BUFFER         FUJI_RX_BUFFER
 
-#define FUJI_DISK_SLOT           ((uint8_t*)(0x10C0 + 0x2C))  /* fuji_disk_slot - current slot, 1-based */
-#define FUJI_DISK_FLAGS          ((uint8_t*)(0x10C0 + 0x2D))  /* fuji_disk_flags */
+/* Current mount slot index at 0x10D4 */
+#define FUJI_DISK_TABLE_INDEX    ((uint8_t*)0x10D4)
+
+/* Error flag - 0 = OK, 1 = truncated */
+#define FUJI_ERROR_FLAG          ((uint8_t*)0x10DA)
+/* FujiNet drive-to-disk mapping (4 bytes: drives 0-3) at 0x10DB */
+#define FUJI_DRIVE_DISK_MAP      ((uint8_t*)0x10DB)
+
+/* Current filesystem URI length (at 0x10E8) */
+#define FUJI_CURRENT_FS_LEN      ((uint8_t*)0x10E8)
+
+/* Current directory path length (at 0x10E9) */
+#define FUJI_CURRENT_DIR_LEN     ((uint8_t*)0x10E9)
+
+/* Current mount slot at 0x10EA */
+#define FUJI_CURRENT_MOUNT_SLOT  ((uint8_t*)0x10EA)
+
+#define FUJI_DISK_SLOT           ((uint8_t*)0x10EC)  /* fuji_disk_slot - current slot, 1-based */
+#define FUJI_DISK_FLAGS          ((uint8_t*)0x10ED)  /* fuji_disk_flags */
 
 /* FileDevice (0xFE) */
 #define FN_DEVICE_FILE           0xFE

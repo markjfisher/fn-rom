@@ -19,28 +19,6 @@
 #include "serial/write_serial_data.h"
 
 /* ============================================================================
- * Workspace addresses (from os.s)
- * ============================================================================ */
-
-/* Current filesystem URI buffer (80 bytes at 0x1200) */
-#define FUJI_CURRENT_FS_URI   ((uint8_t*)0x1200)
-
-/* Current directory path buffer (80 bytes at 0x1250) */
-#define FUJI_CURRENT_DIR_PATH ((uint8_t*)0x1250)
-
-/* Current filesystem URI length (at 0x10E8) */
-#define FUJI_CURRENT_FS_LEN   ((uint8_t*)0x10E8)
-
-/* Current directory path length (at 0x10E9) */
-#define FUJI_CURRENT_DIR_LEN   ((uint8_t*)0x10E9)
-
-/* Error flag - 0 = OK, 1 = truncated */
-#define FUJI_ERROR_FLAG       ((uint8_t*)0x10DA)
-
-/* Filename buffer at 0x1000 */
-#define FUJI_FILENAME_BUFFER  ((uint8_t*)0x1000)
-
-/* ============================================================================
  * Functions
  * ============================================================================ */
 

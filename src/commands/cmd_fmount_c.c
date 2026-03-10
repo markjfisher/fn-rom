@@ -53,6 +53,8 @@ uint8_t cmd_fs_fmount(void) {
     // and any further code must be in a separate block to stop the allocation of memory on the stack before we saved the Y reg
     {
         parse_fmount_params();
+
+
     }
 
     //     // Check if slot is enabled and has a URI

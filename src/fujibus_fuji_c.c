@@ -30,20 +30,16 @@ static uint8_t g_mount_mode_len;
  * @return true on success, false on failure
  */
 bool fuji_get_mount_slot(uint8_t slot) {
-    uint8_t* tx;
     uint8_t* rx;
     uint16_t resp_len;
-    uint8_t uri_len;
-    uint8_t mode_len;
     
-    tx = FUJI_TX_BUFFER;
-    rx = FUJI_RX_BUFFER;
+    // rx = FUJI_RX_BUFFER;
     
     /* Build GetMount request payload - just the slot index */
-    tx[6] = slot;  /* Slot index */
+    FUJI_TX_BUFFER[6] = slot;  /* Slot index */
     
     /* Send packet - GetMount has 1 byte payload */
-    fujibus_send_packet(FN_DEVICE_FUJI, FUJI_CMD_GET_MOUNT, &tx[6], 1);
+    fujibus_send_packet(FN_DEVICE_FUJI, FUJI_CMD_GET_MOUNT, &FUJI_TX_BUFFER[6], 1);
     
     /* Receive response */
     resp_len = fujibus_receive_packet();
@@ -58,13 +54,8 @@ bool fuji_get_mount_slot(uint8_t slot) {
     /* rx[6]: status param (0x00 for success) */
     /* rx[7]: payload starts here (flags) */
     
-    /* Check descriptor: 1 param (status) */
-    if (rx[5] != 1) {
-        return false;
-    }
-    
-    /* Check status: 0 = success */
-    if (rx[6] != 0) {
+    /* Check descriptor: 1 param (status) and its value */
+    if (FUJI_RX_BUFFER[5] != 1 || FUJI_RX_BUFFER[6] != 0) {
         return false;
     }
     
@@ -73,15 +64,11 @@ bool fuji_get_mount_slot(uint8_t slot) {
     /* rx[8]: uri_len */
     /* rx[9...]: uri */
     /* After uri: mode_len, then mode */
-    
-    g_mount_flags = rx[7];
-    g_mount_uri_len = rx[8];
-    
-    /* Calculate mode_len: total_payload - flags(1) - uri_len(1) - uri */
-    /* payload starts at rx[7], so we need to find mode_len position */
-    uri_len = g_mount_uri_len;
-    g_mount_mode_len = rx[7 + 1 + 1 + uri_len];  /* flags + uri_len + uri = mode_len position */
-    
+
+    // we're going to ignore the mode and flags for now.
+
+    *FUJI_CURRENT_FS_LEN = FUJI_RX_BUFFER[8];
+
     return true;
 }
 
