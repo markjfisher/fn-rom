@@ -24,6 +24,9 @@
 
 #define FUJI_STATIC_WORKSPACE    ((uint8_t*)0x10C0)
 
+/* Current HOST URI buffer (80 bytes at 0x11B0) */
+#define FUJI_CURRENT_HOST_URI    ((uint8_t*)0x11B0)
+
 /* Current filesystem URI buffer (80 bytes at 0x1200) */
 #define FUJI_CURRENT_FS_URI      ((uint8_t*)0x1200)
 
@@ -54,6 +57,9 @@
 #define FUJI_DISK_SLOT           ((uint8_t*)0x10EC)  /* fuji_disk_slot - current slot, 1-based */
 #define FUJI_DISK_FLAGS          ((uint8_t*)0x10ED)  /* fuji_disk_flags */
 
+#define FUJI_CURRENT_HOST_LEN    ((uint8_t*)0x10EE)
+
+
 /* FileDevice (0xFE) */
 #define FN_DEVICE_FILE           0xFE
 #define FILE_CMD_RESOLVE_PATH    0x05
@@ -65,6 +71,11 @@
 #define SLIP_ESCAPE              0xDB
 #define SLIP_ESC_END             0xDC
 #define SLIP_ESC_ESC             0xDD
+
+/* FujiDevice (0x70) - FujiNet device */
+#define FN_DEVICE_FUJI           0x70
+#define FUJI_CMD_GET_MOUNT       0xFB
+
 
 #define FUJIBUS_HEADER_SIZE      6
 
@@ -113,7 +124,7 @@ void fujibus_send_packet(uint8_t device, uint8_t command, uint8_t* payload, uint
 uint16_t fujibus_receive_packet(void);
 
 /* Accessor macros - inline for zero overhead */
-#define fujibus_get_device()        (FUJI_RX_BUFFER[0])
+#define fujibus_get_device()         (FUJI_RX_BUFFER[0])
 #define fujibus_get_command()        (FUJI_RX_BUFFER[1])
 #define fujibus_get_length()         (FUJI_RX_BUFFER[2])
 #define fujibus_get_payload()        (&FUJI_RX_BUFFER[FUJIBUS_HEADER_SIZE])

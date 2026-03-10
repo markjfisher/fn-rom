@@ -430,14 +430,14 @@ fuji_current_fs_len     = fuji_static_workspace + $28  ; Current filesystem URI 
 fuji_current_dir_len    = fuji_static_workspace + $29  ; Current directory length
 fuji_current_mount_slot = fuji_static_workspace + $2A  ; Current FujiNet persisted mount slot (0-based)
 fuji_resolve_path_flags = fuji_static_workspace + $2B  ; ResolvePath response: bit0=isDir, bit1=exists (set by fuji_file_resolve_path)
-
 fuji_disk_slot          = fuji_static_workspace + $2C  ; current fujinet mount slot for defaults, 0-based internally, 1 based on the wire
 fuji_disk_flags         = fuji_static_workspace + $2D  ; flags for disk
+fuji_current_host_len   = fuji_static_workspace + $2E  ; Current filesystem URI length
 
-fuji_cmd_offset_y       = fuji_static_workspace + $2E  ; save value of the command offset in Y given to CMD functions on entry.
+fuji_cmd_offset_y       = fuji_static_workspace + $2F  ; save value of the command offset in Y given to CMD functions on entry.
 
 ; LAST location for the copy state in workspace_utils.s function to understand
-fuji_last_state_loc     = fuji_static_workspace + $2E  ; effectively $10EE
+fuji_last_state_loc     = fuji_static_workspace + $2F  ; effectively $10EF
 
 ; see SetupChannelInfoBlock_Yintch
 ; copies from &E08 to &1100, and &F08 to &1100+1 in a loop.
@@ -482,10 +482,15 @@ fuji_ch_sect_hi         = fuji_channel_start + $1D  ; buffer sector high
 fuji_unknown_11C0       = fuji_workspace + $1C0
 fuji_unknown_11D0       = fuji_workspace + $1D0
 
+; ASSUME THE CHANNEL DATA DOES NOT GO BEYOND $1130
+
+; 80 byte buffer for current HOST string
+_fuji_current_host_uri   = fuji_workspace + $11B0
+
 ; 80 byte buffer - TODO review lengths, we can only input 64 chars in param_get_string
 _fuji_current_fs_uri     = fuji_workspace + $0200
 
-; 80 byte buffer, technically cannot be more than uri - scheme length
+; 80 byte buffer, technically cannot be more than "uri - scheme length"
 _fuji_current_dir_path   = fuji_workspace + $0250
 
 ; 96 byte TX buffer - need to see how this pans out

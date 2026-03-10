@@ -74,8 +74,8 @@ static uint16_t fujibus_disk_transaction(uint16_t payload_len) {
  * Output:
  *   Returns true on success, false on error
  * ============================================================================ */
-bool fujibus_disk_mount(uint8_t slot, uint8_t flags, uint8_t* uri) {
-    uint16_t uri_len;
+// bool fujibus_disk_mount(uint8_t slot, uint8_t flags, uint8_t uri_len, uint8_t* uri) {
+bool fujibus_disk_mount(uint8_t flags) {
     uint16_t i;
     uint8_t* tx;
     uint16_t resp_len;
@@ -83,41 +83,37 @@ bool fujibus_disk_mount(uint8_t slot, uint8_t flags, uint8_t* uri) {
     tx = FUJI_TX_BUFFER;
     
     /* Save parameters */
-    fn_disk_slot = slot;
+    fn_disk_slot = *FUJI_CURRENT_MOUNT_SLOT;
     fn_disk_flags = flags;
     
-    /* Find URI length */
-    uri_len = 0;
-    while (uri[uri_len] != 0) {
-        uri_len++;
-    }
-    
     /* Build payload in TX buffer */
+    tx[1] = DISK_CMD_MOUNT_DISK;
+
     /* Payload: version(1) + slot(1) + flags(1) + typeOverride(1) + sectorSizeHint(2) + uriLen(2) + uri */
     tx[6] = FN_PROTOCOL_VERSION;     /* version */
-    tx[7] = slot;                    /* slot */
-    tx[8] = flags;                    /* flags */
+    tx[7] = *FUJI_CURRENT_MOUNT_SLOT;                    /* slot */
+    tx[8] = flags;                   /* flags */
     tx[9] = 0;                       /* typeOverride = 0 (auto) */
     tx[10] = 0;                      /* sectorSizeHint low */
     tx[11] = 0;                      /* sectorSizeHint high */
-    tx[12] = uri_len & 0xFF;                /* URI length low */
-    tx[13] = (uri_len >> 8) & 0xFF;                      /* URI length high */
+    tx[12] = *FUJI_CURRENT_FS_LEN;         /* URI length low */
+    tx[13] = 0;                      /* URI length high */
     
     /* Copy URI */
-    for (i = 0; i < uri_len; i++) {
-        tx[14 + i] = uri[i];
+    for (i = 0; i < (*FUJI_CURRENT_FS_LEN); i++) {
+        tx[14 + i] = FUJI_CURRENT_FS_URI[i];
     }
     
     /* Payload length = 8 (fixed) + uri_len */
     /* Send and receive */
-    resp_len = fujibus_disk_transaction(8 + uri_len);
+    resp_len = fujibus_disk_transaction(8 + (*FUJI_CURRENT_FS_LEN));
     
     if (resp_len == 0) {
         return false;
     }
     
-    /* Check response - byte at offset 7 (after header) should have bit 0 set */
-    if ((FUJI_RX_BUFFER[7] & 0x01) == 0) {
+    /* Check response status */
+    if (FUJI_RX_BUFFER[5] != 1 || FUJI_RX_BUFFER[6] != 0) {
         return false;
     }
     

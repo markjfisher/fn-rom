@@ -1,8 +1,11 @@
         .export  _parse_fmount_params
         .export  _err_bad_mount_slot
+        .export  _err_failed_to_mount
+        .export  _err_not_enabled
 
         .import  param_count_a
         .import  err_bad
+        .import  report_error
         .import  param_get_num
         .import  param_optional_drive_no
         .import  set_user_flag_x
@@ -71,6 +74,15 @@ _err_bad_mount_slot:
         .byte   $CB                     ; TODO sort out what error codes we want to return
         .byte   "mount slot", 0         ; terminate after message
 
+_err_failed_to_mount:
+        jsr     report_error
+        .byte   $CB
+        .byte   "Failed to mount", 0
+
+_err_not_enabled:
+        jsr     report_error
+        .byte   $CB
+        .byte   "Mount point not enabled", 0
 
         ; Validate that the selected persisted FujiNet slot is populated and
         ; enabled before updating the BBC-side bridge mapping.

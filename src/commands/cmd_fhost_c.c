@@ -99,7 +99,6 @@ static void print_string(uint8_t* s) {
  * ============================================================================ */
 
 void fhost_show_current(void) {
-    uint8_t fs_len;
     uint8_t dir_len;
     uint8_t i;
     uint8_t *none_string = "(none)";
@@ -107,23 +106,20 @@ void fhost_show_current(void) {
     print_newline();
     
     /* Print "FS " */
-    print_string((uint8_t*)"FS ");
+    print_string((uint8_t*)"HOST: ");
     
-    /* Get FS URI length */
-    fs_len = *FUJI_CURRENT_FS_LEN;
-    
-    if (fs_len == 0) {
+    if ((*FUJI_CURRENT_HOST_LEN) == 0) {
         print_string(none_string);
     } else {
         /* Print FS URI */
-        for (i = 0; i < fs_len; i++) {
-            print_char(FUJI_CURRENT_FS_URI[i]);
+        for (i = 0; i < (*FUJI_CURRENT_HOST_LEN); i++) {
+            print_char(FUJI_CURRENT_HOST_URI[i]);
         }
     }
     
     /* Print newline and "DIR " */
     print_newline();
-    print_string((uint8_t*)"DIR ");
+    print_string((uint8_t*)"PATH: ");
     
     /* Get DIR path length */
     dir_len = *FUJI_CURRENT_DIR_LEN;
@@ -142,7 +138,7 @@ void fhost_show_current(void) {
 
 /* ============================================================================
  * fhost_resolve_path - Send ResolvePath to FujiNet
- * Uses workspace: FUJI_CURRENT_FS_URI, FUJI_CURRENT_FS_LEN
+ * Uses workspace: FUJI_CURRENT_HOST_URI, FUJI_CURRENT_HOST_LEN
  * ============================================================================ */
 
 // This will all be rewritten in ASM when it's all working.
@@ -151,33 +147,30 @@ void fhost_show_current(void) {
 
 bool fhost_resolve_path(void) {
     uint16_t resp_len;
-    uint16_t payload_len;
     uint8_t i;
     uint16_t uri_end;
     uint8_t dir_len;
     
     /* Build ResolvePath request payload */
-    /* Payload: version(1) + base_uri_len(2) + base_uri + arg_len(2) + arg(0) */
-    // payload_len = 1 + 2 + uri_len + 2;
-    payload_len = 5 + (*FUJI_CURRENT_FS_LEN);
-    
+    /* Payload: version(1) + base_uri_len(2) + base_uri + arg_len(2) + arg(0) */    
     FUJI_TX_BUFFER[6] = FILEPROTO_VERSION;           /* version */
     
     /* base_uri_len */
-    FUJI_TX_BUFFER[7] = *FUJI_CURRENT_FS_LEN;
+    FUJI_TX_BUFFER[7] = *FUJI_CURRENT_HOST_LEN;
     FUJI_TX_BUFFER[8] = 0;
     
     /* base_uri */
-    for (i = 0; i < (*FUJI_CURRENT_FS_LEN); i++) {
-        FUJI_TX_BUFFER[9 + i] = FUJI_CURRENT_FS_URI[i];
+    for (i = 0; i < (*FUJI_CURRENT_HOST_LEN); i++) {
+        FUJI_TX_BUFFER[9 + i] = FUJI_CURRENT_HOST_URI[i];
     }
     
     /* arg_len = 0 */
-    FUJI_TX_BUFFER[9 + (*FUJI_CURRENT_FS_LEN)] = 0;
-    FUJI_TX_BUFFER[10 + (*FUJI_CURRENT_FS_LEN)] = 0;
+    FUJI_TX_BUFFER[9 + (*FUJI_CURRENT_HOST_LEN)] = 0;
+    FUJI_TX_BUFFER[10 + (*FUJI_CURRENT_HOST_LEN)] = 0;
     
     /* Send packet */
-    fujibus_send_packet(FN_DEVICE_FILE, FILE_CMD_RESOLVE_PATH, &FUJI_TX_BUFFER[6], payload_len);
+    // payload_len = 1 + 2 + uri_len + 2;
+    fujibus_send_packet(FN_DEVICE_FILE, FILE_CMD_RESOLVE_PATH, &FUJI_TX_BUFFER[6], 5 + (*FUJI_CURRENT_HOST_LEN));
     
     /* Receive response */
     
@@ -204,18 +197,18 @@ bool fhost_resolve_path(void) {
     }
 
     /* Get resolved_uri_len from response */
-    *FUJI_CURRENT_FS_LEN = FUJI_RX_BUFFER[11];  /* Low byte of uri_len */
+    *FUJI_CURRENT_HOST_LEN = FUJI_RX_BUFFER[11];  /* Low byte of uri_len */
     
     /* Copy resolved_uri to fuji_current_fs_uri */
     /* URI starts at FUJI_RX_BUFFER[13] (after version, flags, reserved, uri_len) */
-    for (i = 0; i < (*FUJI_CURRENT_FS_LEN); i++) {
-        FUJI_CURRENT_FS_URI[i] = FUJI_RX_BUFFER[13 + i];
+    for (i = 0; i < (*FUJI_CURRENT_HOST_LEN); i++) {
+        FUJI_CURRENT_HOST_URI[i] = FUJI_RX_BUFFER[13 + i];
     }
-    *FUJI_CURRENT_FS_LEN = *FUJI_CURRENT_FS_LEN;
+    *FUJI_CURRENT_HOST_LEN = *FUJI_CURRENT_HOST_LEN;
     
     /* Get display_path_len */
     /* uri ends at FUJI_RX_BUFFER[13 - 1 + uri_len], dir_len starts at FUJI_RX_BUFFER[13 + uri_len] */
-    uri_end = 12 + (*FUJI_CURRENT_FS_LEN);
+    uri_end = 12 + (*FUJI_CURRENT_HOST_LEN);
     dir_len = FUJI_RX_BUFFER[uri_end + 1];  /* Low byte of dir_len */
     
     /* Copy display_path to fuji_current_dir_path */
@@ -230,7 +223,7 @@ bool fhost_resolve_path(void) {
 
 /* ============================================================================
  * fhost_set_uri - Set current URI from user input
- * Uses workspace: FUJI_FILENAME_BUFFER, FUJI_CURRENT_FS_URI, FUJI_ERROR_FLAG
+ * Uses workspace: FUJI_FILENAME_BUFFER, FUJI_CURRENT_HOST_URI, FUJI_ERROR_FLAG
  * ============================================================================ */
 
 bool fhost_set_uri(void) {
@@ -249,16 +242,16 @@ bool fhost_set_uri(void) {
     
     /* Copy URI from fuji_filename_buffer to fuji_current_fs_uri */
     for (i = 0; i < uri_len; i++) {
-        FUJI_CURRENT_FS_URI[i] = FUJI_FILENAME_BUFFER[i];
+        FUJI_CURRENT_HOST_URI[i] = FUJI_FILENAME_BUFFER[i];
     }
-    *FUJI_CURRENT_FS_LEN = uri_len;
+    *FUJI_CURRENT_HOST_LEN = uri_len;
 
     /* Try to resolve the path */
     if (!fhost_resolve_path()) {
         /* On failure, clear both URI and DIR to indicate invalid state */
         /* Clear the URI - null-terminate and set zero length */
-        FUJI_CURRENT_FS_URI[0] = '\0';
-        *FUJI_CURRENT_FS_LEN = 0;
+        FUJI_CURRENT_HOST_URI[0] = '\0';
+        *FUJI_CURRENT_HOST_LEN = 0;
         
         /* Clear the DIR - null-terminate and set zero length */
         /* When dir_len is 0, fhost_show_current displays "/" as fallback */

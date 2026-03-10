@@ -10,6 +10,10 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+// disk_device commands
+#define DISK_CMD_MOUNT_DISK     1
+
+
 /* ============================================================================
  * Structures
  * ============================================================================ */
@@ -33,10 +37,13 @@ typedef struct {
  * Mount a disk image
  * @param slot Drive slot (1-8)
  * @param flags Bit0 = read-only
- * @param uri Pointer to NUL-terminated URI string
+ * @param uri_len length of uri
+ * @param uri Pointer to URI string (not nul terminated, keep lengths separate)
  * @return true on success
  */
-bool fujibus_disk_mount(uint8_t slot, uint8_t flags, uint8_t* uri);
+// bool fujibus_disk_mount(uint8_t slot, uint8_t flags, uint8_t uri_len, uint8_t* uri);
+
+bool fujibus_disk_mount(uint8_t flags);
 
 /**
  * Unmount a disk image
