@@ -151,44 +151,34 @@ void fhost_show_current(void) {
 // also need to rethink on whether we want to support 16 bit sizes, as they kill space.
 
 bool fhost_resolve_path(void) {
-    uint8_t* tx;
-    uint8_t* rx;
     uint16_t resp_len;
     uint16_t payload_len;
     uint8_t i;
     uint16_t uri_end;
-    uint16_t path_start;
-    uint8_t uri_len;
     uint8_t dir_len;
-    
-    tx = FUJI_TX_BUFFER;
-    rx = FUJI_RX_BUFFER;
-    
-    /* Get URI from workspace */
-    uri_len = *FUJI_CURRENT_FS_LEN;
     
     /* Build ResolvePath request payload */
     /* Payload: version(1) + base_uri_len(2) + base_uri + arg_len(2) + arg(0) */
     // payload_len = 1 + 2 + uri_len + 2;
-    payload_len = 5 + uri_len;
+    payload_len = 5 + (*FUJI_CURRENT_FS_LEN);
     
-    tx[6] = FILEPROTO_VERSION;           /* version */
+    FUJI_TX_BUFFER[6] = FILEPROTO_VERSION;           /* version */
     
     /* base_uri_len */
-    tx[7] = (uint8_t)(uri_len & 0xFF);
-    tx[8] = (uint8_t)((uri_len >> 8) & 0xFF);
+    FUJI_TX_BUFFER[7] = *FUJI_CURRENT_FS_LEN;
+    FUJI_TX_BUFFER[8] = 0;
     
     /* base_uri */
-    for (i = 0; i < uri_len; i++) {
-        tx[9 + i] = FUJI_CURRENT_FS_URI[i];
+    for (i = 0; i < (*FUJI_CURRENT_FS_LEN); i++) {
+        FUJI_TX_BUFFER[9 + i] = FUJI_CURRENT_FS_URI[i];
     }
     
     /* arg_len = 0 */
-    tx[9 + uri_len] = 0;
-    tx[10 + uri_len] = 0;
+    FUJI_TX_BUFFER[9 + (*FUJI_CURRENT_FS_LEN)] = 0;
+    FUJI_TX_BUFFER[10 + (*FUJI_CURRENT_FS_LEN)] = 0;
     
     /* Send packet */
-    fujibus_send_packet(FN_DEVICE_FILE, FILE_CMD_RESOLVE_PATH, &tx[6], payload_len);
+    fujibus_send_packet(FN_DEVICE_FILE, FILE_CMD_RESOLVE_PATH, &FUJI_TX_BUFFER[6], payload_len);
     
     /* Receive response */
     
@@ -199,50 +189,40 @@ bool fhost_resolve_path(void) {
     }
     
     /* FujiBus response structure: */
-    /* rx[0-4]: header (device, cmd, length lo/hi, checksum) */
-    /* rx[5]: descr (0x01 = 1 param following = status) */
-    /* rx[6]: status param (from addParamU8) = 0x00 for success */
-    /* rx[7]: payload version */
-    /* rx[8]: payload flags */
-    /* rx[9-10]: payload reserved */
-    /* rx[11-12]: uri_len */
-    /* rx[13]: uri starts here */
+    /* FUJI_RX_BUFFER[0-4]: header (device, cmd, length lo/hi, checksum) */
+    /* FUJI_RX_BUFFER[5]: descr (0x01 = 1 param following = status) */
+    /* FUJI_RX_BUFFER[6]: status param (from addParamU8) = 0x00 for success */
+    /* FUJI_RX_BUFFER[7]: payload version */
+    /* FUJI_RX_BUFFER[8]: payload flags */
+    /* FUJI_RX_BUFFER[9-10]: payload reserved */
+    /* FUJI_RX_BUFFER[11-12]: uri_len */
+    /* FUJI_RX_BUFFER[13]: uri starts here */
     /* After uri: dir_len (2 bytes), then dir */
     
-    /* Check descriptor: 1 param (status) */
-    if (rx[5] != 1) {
+    /* Check descriptor: 1 param (status) and its value */
+    if (FUJI_RX_BUFFER[5] != 1 || FUJI_RX_BUFFER[6] != 0 || FUJI_RX_BUFFER[7] != FILEPROTO_VERSION) {
         return false;
     }
-    
-    /* Check status: 0 = success */
-    if (rx[6] != 0) {
-        return false;
-    }
-    
-    /* Check payload version */
-    if (rx[7] != FILEPROTO_VERSION) {
-        return false;
-    }
-    
+
     /* Get resolved_uri_len from response */
-    uri_len = rx[11];  /* Low byte of uri_len */
+    *FUJI_CURRENT_FS_LEN = FUJI_RX_BUFFER[11];  /* Low byte of uri_len */
     
     /* Copy resolved_uri to fuji_current_fs_uri */
-    /* URI starts at rx[13] (after version, flags, reserved, uri_len) */
-    for (i = 0; i < uri_len && i < MAX_PATH_LEN; i++) {
-        FUJI_CURRENT_FS_URI[i] = rx[13 + i];
+    /* URI starts at FUJI_RX_BUFFER[13] (after version, flags, reserved, uri_len) */
+    for (i = 0; i < (*FUJI_CURRENT_FS_LEN); i++) {
+        FUJI_CURRENT_FS_URI[i] = FUJI_RX_BUFFER[13 + i];
     }
-    *FUJI_CURRENT_FS_LEN = uri_len;
+    *FUJI_CURRENT_FS_LEN = *FUJI_CURRENT_FS_LEN;
     
     /* Get display_path_len */
-    /* uri ends at rx[12 + uri_len], dir_len starts at rx[13 + uri_len] */
-    uri_end = 13 + uri_len - 1;
-    dir_len = rx[uri_end + 1];  /* Low byte of dir_len */
+    /* uri ends at FUJI_RX_BUFFER[13 - 1 + uri_len], dir_len starts at FUJI_RX_BUFFER[13 + uri_len] */
+    uri_end = 12 + (*FUJI_CURRENT_FS_LEN);
+    dir_len = FUJI_RX_BUFFER[uri_end + 1];  /* Low byte of dir_len */
     
     /* Copy display_path to fuji_current_dir_path */
-    path_start = uri_end + 3;
+    // path_start = uri_end + 3;
     for (i = 0; i < dir_len; i++) {
-        FUJI_CURRENT_DIR_PATH[i] = rx[path_start + i];
+        FUJI_CURRENT_DIR_PATH[i] = FUJI_RX_BUFFER[uri_end + 3 + i];
     }
     *FUJI_CURRENT_DIR_LEN = dir_len;
     
