@@ -75,19 +75,18 @@ void fhost_show_current(void) {
     uint8_t fs_len;
     uint8_t dir_len;
     uint8_t i;
-    
+    uint8_t *none_string = "(none)";
+
     print_newline();
     
     /* Print "FS " */
-    print_string((uint8_t*)"FS");
-    print_space();
+    print_string((uint8_t*)"FS ");
     
     /* Get FS URI length */
     fs_len = *FUJI_CURRENT_FS_LEN;
     
     if (fs_len == 0) {
-        /* No URI set - print "(none)" */
-        print_string((uint8_t*)"(none)");
+        print_string(none_string);
     } else {
         /* Print FS URI */
         for (i = 0; i < fs_len; i++) {
@@ -103,8 +102,7 @@ void fhost_show_current(void) {
     dir_len = *FUJI_CURRENT_DIR_LEN;
     
     if (dir_len == 0) {
-        /* No DIR set - print "/" */
-        print_char('/');
+        print_string(none_string);
     } else {
         /* Print DIR path */
         for (i = 0; i < dir_len; i++) {
@@ -245,12 +243,17 @@ bool fhost_set_uri(void) {
 
     /* Try to resolve the path */
     if (!fhost_resolve_path()) {
-        /* On failure, set display path to "/" */
-        FUJI_CURRENT_DIR_PATH[0] = '/';
-        FUJI_CURRENT_DIR_PATH[1] = 0;
-        *FUJI_CURRENT_DIR_LEN = 1;
+        /* On failure, clear both URI and DIR to indicate invalid state */
+        /* Clear the URI - null-terminate and set zero length */
+        FUJI_CURRENT_FS_URI[0] = '\0';
+        *FUJI_CURRENT_FS_LEN = 0;
         
-        /* Return success anyway - we kept the typed URI */
+        /* Clear the DIR - null-terminate and set zero length */
+        /* When dir_len is 0, fhost_show_current displays "/" as fallback */
+        FUJI_CURRENT_DIR_PATH[0] = '\0';
+        *FUJI_CURRENT_DIR_LEN = 0;
+        
+        /* Return success - state cleared */
         return true;
     }
     

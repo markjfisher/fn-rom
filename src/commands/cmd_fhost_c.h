@@ -28,11 +28,11 @@
 /* Current directory path buffer (80 bytes at 0x1250) */
 #define FUJI_CURRENT_DIR_PATH ((uint8_t*)0x1250)
 
-/* Current filesystem URI length (at 0x10C8) */
-#define FUJI_CURRENT_FS_LEN   ((uint8_t*)0x10C8)
+/* Current filesystem URI length (at 0x10E8) */
+#define FUJI_CURRENT_FS_LEN   ((uint8_t*)0x10E8)
 
-/* Current directory path length (at 0x10C9) */
-#define FUJI_CURRENT_DIR_LEN   ((uint8_t*)0x10C9)
+/* Current directory path length (at 0x10E9) */
+#define FUJI_CURRENT_DIR_LEN   ((uint8_t*)0x10E9)
 
 /* Error flag - 0 = OK, 1 = truncated */
 #define FUJI_ERROR_FLAG       ((uint8_t*)0x10DA)
