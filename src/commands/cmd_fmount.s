@@ -1,56 +1,79 @@
-        .export cmd_fs_fmount
+        .export  _parse_fmount_params
+        .export  _err_bad_mount_slot
 
-        .import err_bad
-        .import fn_disk_mount
-        .import fuji_get_mount_slot
-        .import _fuji_rx_buffer
-        .import param_count_a
-        .import param_drive_or_default
-        .import param_get_num
-        .import set_user_flag_x
+        .import  param_count_a
+        .import  err_bad
+        .import  param_get_num
+        .import  param_optional_drive_no
+        .import  set_user_flag_x
+
+        .importzp  ptr1
 
         .include "fujinet.inc"
 
         .segment "CODE"
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; cmd_fs_fmount - Handle *FMOUNT command
-;
-; Syntax:
-;   *FMOUNT <fuji slot> [<bbc drive>]
-;
-; The first parameter is a 0-based FujiNet persisted mount slot index.
-; The optional second parameter is a BBC drive number (0..3). If omitted,
-; param_drive_or_default falls back to the current/default BBC drive.
-;
-; Design split:
-; - The FujiNet persisted mount table (slots 0..7) is populated by FIN or by
-;   FHOST when you set a URI (*FHOST <uri>* writes that URI to slot 0).
-; - FMOUNT sends GetMount(slot): payload is a single byte (slot index). FujiNet
-;   returns the stored mount record (enabled, URI, mode) for that slot.
-; - FMOUNT bridges one persisted slot onto one BBC drive by updating
-;   fuji_drive_disk_map and by calling DiskDevice Mount for the live slot.
-;
-; FMOUNT validates the persisted FujiNet slot via FujiDevice GetMount before the
-; BBC-side bridge is updated. Empty or disabled slots are rejected.
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-cmd_fs_fmount:
-        rts
+; Allow slot number to be 0-7
+; I'm not sure if we want to force a limit in fujinet-nio for number of mounts.
+; There's a limit on the reading params in get_param_num, so that would have
+; to be fixed if we wanted to support any number of mount entries.
+MAX_MOUNT_SLOT := 7
 
-;         ; Count parameters first. FMOUNT supports 1 or 2 parameters only.
-;         lda     #$80                    ; allows 1-2 parameters
-;         jsr     param_count_a
+; Allow drives 0-3
+MAX_BBC_DRIVE  := 3
 
-;         ; Read and validate the mandatory FujiNet mount slot index.
-;         jsr     param_get_num           ; FujiNet mount slot index 0-7
-;         cmp     #$08
-;         bcs     bad_mount_slot
-;         sta     fuji_disk_table_index
-;         sta     fuji_current_mount_slot
+; void parse_params()
+;
+; if cli args have 1 arg, set bbc_slot to default value
+; if cli args have 2 args, set both from params
+; otherwise fails with syntax error (no return)
+;
+; writes to param 1 to fuji_disk_slot, and param 2 (or default) to current_drv
 
-;         ; Validate that the selected persisted FujiNet slot is populated and
-;         ; enabled before updating the BBC-side bridge mapping.
+_parse_fmount_params:
+        ; Count parameters first. FMOUNT supports 1 or 2 parameters.
+        ldy     fuji_cmd_offset_y       ; ensure the cmd line Y index is correct
+        lda     #$80                    ; allows 1-2 parameters
+        jsr     param_count_a           ; this causes an error if we don't have 1-2 params, but preserves Y
+        ; C = 0 indicates we had 1 param, C = 1 indicates we had 2 params
+
+        ldx     #$01
+        bcc     @only_mount_slot
+        inx
+@only_mount_slot:
+        ; X is preserved though param_get_num so we retain the number of params in X
+        ; Read and the mandatory FujiNet mount slot index. Y is already the correct location after param_count_a
+        jsr     param_get_num           ; FujiNet mount slot index 0-7, this errors if the value is not between 0-9
+        sty     fuji_cmd_offset_y       ; save the command position in case we have more params
+
+        cmp     #MAX_MOUNT_SLOT
+        bcs     _err_bad_mount_slot
+
+        sta     fuji_disk_slot
+
+        ; do we have 2nd param?
+        cpx     #$02
+        bne     @done
+
+        ; use existing function to deal with optional drive
+        ldy     fuji_cmd_offset_y
+        jsr     param_optional_drive_no
+
+@done:
+        ldx     #$00
+        jmp     set_user_flag_x
+
+
+_err_bad_mount_slot:
+        ; this terminates command because the byte after the string is 0
+        jsr     err_bad
+        .byte   $CB                     ; TODO sort out what error codes we want to return
+        .byte   "mount slot", 0         ; terminate after message
+
+
+        ; Validate that the selected persisted FujiNet slot is populated and
+        ; enabled before updating the BBC-side bridge mapping.
 ;         jsr     fuji_get_mount_slot
 ;         bcs     bad_mount_slot
 ;         ldy     #FN_HEADER_SIZE+1
@@ -106,8 +129,3 @@ cmd_fs_fmount:
 ;         ldx     #$00
 ;         jmp     set_user_flag_x
 
-; bad_mount_slot:
-;         ; Standard ROM "Bad mount slot" error path.
-;         jsr     err_bad
-;         .byte   $CB
-;         .byte   "mount slot", 0

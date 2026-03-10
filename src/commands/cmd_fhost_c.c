@@ -146,6 +146,10 @@ void fhost_show_current(void) {
  * Uses workspace: FUJI_CURRENT_FS_URI, FUJI_CURRENT_FS_LEN
  * ============================================================================ */
 
+// This will all be rewritten in ASM when it's all working.
+// cc65 code is SO inefficient for local vars. SO many pointer indirection instructions for accessing stack locations
+// also need to rethink on whether we want to support 16 bit sizes, as they kill space.
+
 bool fhost_resolve_path(void) {
     uint8_t* tx;
     uint8_t* rx;
@@ -165,7 +169,8 @@ bool fhost_resolve_path(void) {
     
     /* Build ResolvePath request payload */
     /* Payload: version(1) + base_uri_len(2) + base_uri + arg_len(2) + arg(0) */
-    payload_len = 1 + 2 + uri_len + 2;
+    // payload_len = 1 + 2 + uri_len + 2;
+    payload_len = 5 + uri_len;
     
     tx[6] = FILEPROTO_VERSION;           /* version */
     

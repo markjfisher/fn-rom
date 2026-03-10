@@ -1,4 +1,3 @@
-        .export cmd_fs_fhost
         .export _err_bad_uri
 
         .import err_bad

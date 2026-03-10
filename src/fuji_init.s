@@ -4,6 +4,7 @@
         .export init_fuji
         .export set_private_workspace_pointer_b0
         .export boot_options
+        .export init_csp
 
         .import a_rorx4
         .import channel_flags_clear_bits
@@ -39,6 +40,13 @@ boot_options:
 
         .segment "CODE"
 
+init_csp:
+        lda     #<(__WORKSP_START__ + __WORKSP_SIZE__)
+        sta     c_sp
+        lda     #>(__WORKSP_START__ + __WORKSP_SIZE__)
+        sta     c_sp+1
+        rts
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; INIT_FUJI - Initialize FujiNet file system
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -54,10 +62,7 @@ init_fuji:
 .endif
 
         ; initialise c_sp for cc65 to the end of WORKSP segment, this resets CC65 stack
-        lda     #<(__WORKSP_START__ + __WORKSP_SIZE__)
-        sta     c_sp
-        lda     #>(__WORKSP_START__ + __WORKSP_SIZE__)
-        sta     c_sp+1
+        jsr     init_csp
 
         ; init to 00 any cc65 variables
         jsr     zerobss

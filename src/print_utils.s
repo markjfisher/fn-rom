@@ -39,6 +39,7 @@
         .import  osbyte_X0YFF
         .import  remember_axy
         .import  remember_xy_only
+        .import  init_csp
 
         .include "fujinet.inc"
 
@@ -110,6 +111,17 @@ err_disk:
         .byte   "Disc "
         bcc     err_continue
 
+; Usage:
+;       jsr     err_bad
+;       .byte   <error_code>
+;       .byte   "something",0   ; terminate with $80 to return to the caller!
+;
+; This will print "Bad something", and have the error code set
+; and force a break which will terminate back to the CLI.
+;
+; If the final 0 is negative (e.g. $80) then
+; the error is printed but we return to the caller to continue.
+
 _err_bad:
 err_bad:
         jsr     report_error_cb         ; Bad Error
@@ -145,23 +157,34 @@ err_continue:
         jsr     reset_leds
 
 @report_error2:
-        pla                             ; Word cws_tmp7 = Calling address + 1
+        ; grab the location of the data after "jsr err_bad"
+        ; Word cws_tmp7 = Calling address + 1
+        pla
         sta     cws_tmp7
         pla
         sta     cws_tmp8
 
         ldy     #$00
+        ; grab the error number from the byte after "jsr err_bad"
         jsr     inc_cws0708_and_load
-        sta     $0101                   ; Error number
+        sta     $0101
         dex
 
 @errstr_loop:
         inx
+        ; now grab the location of the error message
         jsr     inc_cws0708_and_load
         sta     $0100,x
+        ; any negative value after the string allows the function to continue
         bmi     print_return2           ; Bit 7 set, return
+        ; otherwise we print until a 0 byte, and then BRK to command line
         bne     @errstr_loop
         ; jsr     tube_release  ; FUTURE: add this back in
+
+        ; we're crashing out, reset the c stack
+        jsr     init_csp
+
+        ; BOOM - return to command line
         jmp     $0100
 
 print_nibble_print_string:

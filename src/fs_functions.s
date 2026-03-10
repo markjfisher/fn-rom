@@ -50,6 +50,7 @@
         .export _err_bad_string
         .export _num_params
         .export _param_get_string
+        .export _param_get_num
 
         .import GSINIT_A
         .import a_rolx5
@@ -440,7 +441,8 @@ err_bad_string:
 
 ; read a generic number, continuing from current read position (Y)
 ; non optional, error if it's not between 0-9
-; returns result in A
+; returns result in A, X is preserved
+_param_get_num:
 param_get_num:
         jsr     GSINIT_A
         beq     err_bad_num
