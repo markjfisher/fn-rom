@@ -6,6 +6,33 @@
  *   *FHOST <uri> - Set current filesystem URI
  * 
  * Uses FujiBus FileDevice (0xFE) ResolvePath (0x05) command.
+ *
+ * Supported forms:
+ *   *FHOST
+ *       Print the currently selected full URI and the current human-facing path.
+ *
+ *   *FHOST <uri>
+ *   *FFS   <uri>
+ *       Store a new current filesystem selection and ask FileDevice ResolvePath
+ *       to canonicalize it immediately.
+ *
+ * Design split:
+ * - FHOST/FFS are the URI-facing commands.
+ * - The BBC stores two related values:
+ *     _fuji_current_fs_uri   -> canonical full URI for machine/protocol use
+ *     _fuji_current_dir_path -> display path for human-facing output only
+ * - URI and path semantics are intentionally delegated to FujiNet-NIO via
+ *   FileDevice ResolvePath rather than reimplemented in 6502.
+ *
+ * FHOST vs FMOUNT: FMOUNT reads the FujiNet persisted mount table (GetMount(slot)).
+ * FHOST only sets the BBC "current" URI. So that "*FMOUNT 0 0" works after "*FHOST <uri>",
+ * we persist the newly set URI to FujiNet slot 0 after ResolvePath success.
+ *
+ *
+ * ResolvePath usage here:
+ * - baseUriLen/baseUri are taken from the just-stored fuji_current_fs_* fields
+ * - argLen is set to 0 so NIO canonicalizes the URI “as-is”
+ * - on success the helper refreshes both URI and display-path state
  * 
  * Request format:
  *   u8 version
@@ -22,6 +49,7 @@
  *   u16 display_path_len
  *   u8[] display_path
  */
+
 
 #include <stdint.h>
 #include <stdbool.h>
