@@ -49,10 +49,75 @@
 fuji_read_block_data:
         jsr     remember_axy
 
-        ; Use FujiBus disk read sector
-        ; jsr     fn_disk_read_sector_impl
+        ; C3/C2 carries the DFS start sector. The low two bits of the mixed
+        ; byte are the upper sector bits; the upper nibble encodes file length
+        ; high bits, which we currently ignore here.
+        lda     fuji_file_offset
+        sta     fuji_current_sector
+        lda     fuji_file_offset+1
+        and     #$03
+        sta     fuji_current_sector+1
 
-        ; Return status in carry
+        ; fuji_block_size holds the byte count for this transfer.
+        ; High byte = number of full 256-byte sectors.
+        ; Low byte  = trailing partial sector bytes.
+        lda     fuji_block_size
+        sta     aws_tmp14
+        lda     fuji_block_size+1
+        sta     aws_tmp15
+
+@read_full_sector:
+        lda     aws_tmp15
+        beq     @read_partial_sector
+
+        jsr     _fujibus_disk_read_sector
+        cmp     #$01
+        bne     @read_error
+
+        inc     fuji_current_sector
+        bne     :+
+        inc     fuji_current_sector+1
+:
+        inc     data_ptr+1
+        dec     aws_tmp15
+        bne     @read_full_sector
+
+@read_partial_sector:
+        lda     aws_tmp14
+        beq     @read_success
+
+        ; The C helper reads a whole sector, so use catalog RAM as a
+        ; temporary buffer and copy only the tail bytes we need.
+        lda     data_ptr
+        sta     aws_tmp08
+        lda     data_ptr+1
+        sta     aws_tmp09
+
+        lda     #<dfs_cat_s0_header
+        sta     data_ptr
+        lda     #>dfs_cat_s0_header
+        sta     data_ptr+1
+
+        jsr     _fujibus_disk_read_sector
+        cmp     #$01
+        bne     @read_error
+
+        ldy     #$00
+@copy_partial:
+        lda     dfs_cat_s0_header,y
+        sta     (aws_tmp08),y
+        iny
+        cpy     aws_tmp14
+        bne     @copy_partial
+
+@read_success:
+        lda     #$01
+        clc
+        rts
+
+@read_error:
+        lda     #$00
+        sec
         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

@@ -42,17 +42,16 @@ fuji_execute_block_rw:
         lda     #0
         sta     fuji_file_offset+2
 
-        ; Get block size from workspace variables 
-        ; Channel buffer system uses pws_tmp00/pws_tmp01 for number of sectors
-        ; Each sector is 256 bytes, so we convert sectors to bytes
-        lda     pws_tmp00               ; Number of sectors low byte  
+        ; MMFS passes C0/C1/C2/C3 in the OSWORD-style block format:
+        ; - C3/C2 bits 0-1 = start sector
+        ; - C1 + C0        = transfer size for files / one sector for channel IO
+        ;
+        ; For the current FujiNet path we keep the 16-bit byte count in
+        ; fuji_block_size. This covers normal DFS file loads and single-sector
+        ; channel buffering.
+        lda     pws_tmp00
         sta     fuji_block_size
-
-        ; For channel buffers, we typically read 1 sector = 256 bytes
-        ; Set block size to 256 bytes for channel buffer operations
-        lda     #$00                     ; 256 bytes = $0100
-        sta     fuji_block_size
-        lda     #$01
+        lda     pws_tmp01
         sta     fuji_block_size+1
 
         ; Execute network operation
@@ -96,9 +95,12 @@ fuji_read_file_block:
         ; 3. Receive data and copy to buffer
 
         jsr     fuji_read_block_data
+        bcs     @read_error
+        lda     #$01
+        rts
 
-        ; Return success (A=1) or error (A=0)
-        lda     #1                       ; TODO: ensure we set correct result
+@read_error:
+        lda     #$00
         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
