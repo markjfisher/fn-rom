@@ -17,7 +17,9 @@ tmp3    := $00B6   ; 1
 tmp4    := $00B7   ; 1
 ptr3    := $00B8   ; 2
 ptr4    := $00BA   ; 2
-sreg    := $00BC   ; 2 - used when 2 indexed operations interact, e.g. foo[x] = bar[y] 
+
+; skip BC and use CA instead. BC is used in reading blocks of data
+sreg    := $00CA   ; 2 - used when 2 indexed operations interact, e.g. foo[x] = bar[y] 
 
 ; use cws_tmp5-8, this is used in printing functions print_utils.s as cws0708, but should be fine. regsave unlikely to be used by our ROM
 regsave := $00AC   ; 4; AC-AF

@@ -95,11 +95,10 @@ fuji_read_file_block:
         ; 2. Send network command to FujiNet device
         ; 3. Receive data and copy to buffer
 
-        ; For now, just call our dummy interface
         jsr     fuji_read_block_data
 
         ; Return success (A=1) or error (A=0)
-        lda     #1                       ; Success for dummy
+        lda     #1                       ; TODO: ensure we set correct result
         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
