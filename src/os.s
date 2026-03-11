@@ -67,9 +67,9 @@
         .export  fuji_disk_slot
         .export  fuji_disk_flags
         .export  fuji_current_host_len
-        .export  fhost_param_count
         .export  fuji_cmd_offset_y
         .export  fuji_filename_len
+        .export  data_ptr
 
         .export  fuji_last_state_loc
 
@@ -426,24 +426,24 @@ fuji_file_offset        = fuji_static_workspace + $22  ; File offset (3 bytes)
 
 ; FujiNet file operation workspace variables
 fuji_block_size         = fuji_static_workspace + $25  ; Block size (2 bytes)
-fuji_current_sector     = fuji_static_workspace + $27  ; Current sector being accessed
+fuji_current_sector     = fuji_static_workspace + $27  ; Current sector being accessed (2 bytes)
 
 ; Current filesystem selection state for URI-based commands
-fuji_current_fs_len     = fuji_static_workspace + $28  ; Current filesystem URI length
-fuji_current_dir_len    = fuji_static_workspace + $29  ; Current directory length
+fuji_current_fs_len     = fuji_static_workspace + $29  ; Current filesystem URI length
+fuji_current_dir_len    = fuji_static_workspace + $2A  ; Current directory length
 ; this doesn't look like it's used: is it a dupe of fuji_disk_slot?
-fuji_current_mount_slot = fuji_static_workspace + $2A  ; Current FujiNet persisted mount slot (0-based)
-fuji_resolve_path_flags = fuji_static_workspace + $2B  ; ResolvePath response: bit0=isDir, bit1=exists (set by fuji_file_resolve_path)
-fuji_disk_slot          = fuji_static_workspace + $2C  ; current fujinet mount slot for defaults, 0-based internally, 1 based on the wire
-fuji_disk_flags         = fuji_static_workspace + $2D  ; flags for disk
-fuji_current_host_len   = fuji_static_workspace + $2E  ; Current filesystem URI length
+fuji_current_mount_slot = fuji_static_workspace + $2B  ; Current FujiNet persisted mount slot (0-based)
+fuji_resolve_path_flags = fuji_static_workspace + $2C  ; ResolvePath response: bit0=isDir, bit1=exists (set by fuji_file_resolve_path)
+fuji_disk_slot          = fuji_static_workspace + $2D  ; current fujinet mount slot for defaults, 0-based internally, 1 based on the wire
+fuji_disk_flags         = fuji_static_workspace + $2E  ; flags for disk
+fuji_current_host_len   = fuji_static_workspace + $2F  ; Current filesystem URI length
 
-fuji_cmd_offset_y       = fuji_static_workspace + $2F  ; save value of the command offset in Y given to CMD functions on entry.
-fuji_filename_len       = fuji_static_workspace + $30  ; the filename part of the FS URI input by *FIN
-fhost_param_count       = fuji_static_workspace + $31  ; parameter count for FHOST command (0 or 1)
+fuji_cmd_offset_y       = fuji_static_workspace + $30  ; save value of the command offset in Y given to CMD functions on entry.
+fuji_filename_len       = fuji_static_workspace + $31  ; the filename part of the FS URI input by *FIN
+data_ptr                = fuji_static_workspace + $32  ; Data pointer for block operations (2 bytes)
 
 ; LAST location for the copy state in workspace_utils.s function to understand
-fuji_last_state_loc     = fuji_static_workspace + $30  ; effectively $10F0
+fuji_last_state_loc     = fuji_static_workspace + $33  ; effectively $10F4
 
 ; see SetupChannelInfoBlock_Yintch
 ; copies from &E08 to &1100, and &F08 to &1100+1 in a loop.

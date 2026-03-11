@@ -500,6 +500,7 @@ fuji_read_block_data:
 ;         pla
 ; .endif
 
+        ; TODO: we don't hold data_ptr in ZP anymore
         sta     (data_ptr),y
         iny
         cpy     aws_tmp14                ; Compare with temporary variable

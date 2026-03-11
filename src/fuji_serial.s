@@ -34,6 +34,7 @@
         .import _fujibus_disk_mount
         .import _fujibus_set_mount_slot
         .import _fujibus_get_mount_slot
+        .import _fujibus_disk_read_sector
 
         .include "fujinet.inc"
 
@@ -79,39 +80,36 @@ fuji_write_block_data:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 fuji_read_catalog_data:
-        jsr     remember_axy
+        ; Read sector 0 (first 256 bytes of catalog)
+        lda     #$00
+        sta     fuji_current_sector
+        sta     fuji_current_sector+1
+
+        ; Call C function to read sector - it uses global state:
+        ; - fuji_disk_slot (set by caller)
+        ; - fuji_current_sector (set above)
+        ; - data_ptr (set by caller)
+        jsr     _fujibus_disk_read_sector
+        bcs     @read_error
+
+        ; Read sector 1 (second 256 bytes of catalog)
+        inc     fuji_current_sector
+        bne     :+
+        inc     fuji_current_sector+1
+:
+        ; Advance buffer pointer by 256
+        inc     data_ptr+1
+
+        jsr     _fujibus_disk_read_sector
+        bcs     @read_error
+
+        clc
         rts
 
-;         ; Read sector 0 (first 256 bytes of catalog)
-;         ; Set LBA = 0
-;         lda     #$00
-;         sta     fuji_current_sector
-;         sta     fuji_current_sector+1
+@read_error:
+        sec
+        rts
 
-;         ; Set buffer pointer
-;         lda     data_ptr
-;         sta     aws_tmp08
-;         lda     data_ptr+1
-;         sta     aws_tmp09
-
-;         jsr     fn_disk_read_sector_impl
-;         bcs     @read_error
-
-;         ; Read sector 1 (second 256 bytes of catalog)
-;         inc     fuji_current_sector
-
-;         ; Advance buffer pointer by 256
-;         inc     aws_tmp09
-
-;         jsr     fn_disk_read_sector_impl
-;         bcs     @read_error
-
-;         clc
-;         rts
-
-; @read_error:
-;         sec
-;         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; fuji_write_catalog_DATA - Write catalog to FujiNet device

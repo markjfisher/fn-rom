@@ -50,7 +50,7 @@ cmdtab_offset_futils    = <(cmd_table_futils - cmd_table_fujifs)
 
 ; Shared data pointer for all FujiNet interface implementations
 ; This provides a consistent interface across all implementations
-data_ptr = aws_tmp08
+; data_ptr = aws_tmp08
 
 
 ; OS constants

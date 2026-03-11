@@ -24,6 +24,7 @@
         .import fuji_execute_block_rw
 
         .include "fujinet.inc"
+        .include "os.inc"
 
         .segment "CODE"
 

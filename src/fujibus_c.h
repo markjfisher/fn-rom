@@ -45,25 +45,24 @@
 /* FujiNet drive-to-disk mapping (4 bytes: drives 0-3) at 0x10DB */
 #define FUJI_DRIVE_DISK_MAP      ((uint8_t*)0x10DB)
 
-/* Current filesystem URI length (at 0x10E8) */
-#define FUJI_CURRENT_FS_LEN      ((uint8_t*)0x10E8)
+#define fuji_current_sector      ((uint8_t*)0x10E7)
 
-/* Current directory path length (at 0x10E9) */
-#define FUJI_CURRENT_DIR_LEN     ((uint8_t*)0x10E9)
+#define FUJI_CURRENT_FS_LEN      ((uint8_t*)0x10E9)
 
-/* Current mount slot at 0x10EA */
-#define FUJI_CURRENT_MOUNT_SLOT  ((uint8_t*)0x10EA)
+#define FUJI_CURRENT_DIR_LEN     ((uint8_t*)0x10EA)
 
-#define FUJI_DISK_SLOT           ((uint8_t*)0x10EC)  /* fuji_disk_slot - current slot, 1-based */
-#define FUJI_DISK_FLAGS          ((uint8_t*)0x10ED)  /* fuji_disk_flags */
+#define FUJI_CURRENT_MOUNT_SLOT  ((uint8_t*)0x10EB)
 
-#define FUJI_CURRENT_HOST_LEN    ((uint8_t*)0x10EE)
+#define FUJI_DISK_SLOT           ((uint8_t*)0x10ED)  /* fuji_disk_slot - current slot, 1-based */
+#define FUJI_DISK_FLAGS          ((uint8_t*)0x10EE)  /* fuji_disk_flags */
+
+#define FUJI_CURRENT_HOST_LEN    ((uint8_t*)0x10EF)
 
 /* Filename length (used by param parsing) */
-#define FUJI_FILENAME_LEN        ((uint8_t*)0x10F0)
+#define FUJI_FILENAME_LEN        ((uint8_t*)0x10F1)
 
-/* FHOST parameter count (0 or 1) */
-#define fhost_param_count        ((uint8_t*)0x10F1)
+#define data_ptr                 ((uint8_t**)0x10F2)
+
 
 
 /* FileDevice (0xFE) */

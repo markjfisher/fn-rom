@@ -156,32 +156,36 @@ bool fujibus_disk_unmount(uint8_t slot) {
 /* ============================================================================
  * fujibus_disk_read_sector - Read a sector
  * 
- * Input:
- *   slot - drive number (1-8)
- *   lba - sector number (16-bit)
- *   buf - buffer for data (256 bytes)
+ * Uses global state:
+ *   slot - from fuji_disk_slot (FUJI_DISK_SLOT)
+ *   lba - from fuji_current_sector (2 bytes)
+ *   buf - from data_ptr
  * 
  * Output:
  *   Returns true on success, false on error
  * ============================================================================ */
-bool fujibus_disk_read_sector(uint8_t slot, uint16_t lba, uint8_t* buf) {
+bool fujibus_disk_read_sector(void) {
     uint8_t* tx;
     uint8_t* rx;
     uint16_t resp_len;
     uint16_t data_len;
     uint16_t i;
+    uint8_t* buf;
     
     tx = FUJI_TX_BUFFER;
     rx = FUJI_RX_BUFFER;
     
-    /* Save slot */
-    fn_disk_slot = slot;
+    /* Get buffer address from data_ptr */
+    buf = *data_ptr;
+    
+    /* Get slot from fuji_disk_slot */
+    fn_disk_slot = *FUJI_DISK_SLOT;
     
     /* Build payload */
     tx[6] = FN_PROTOCOL_VERSION;     /* version */
-    tx[7] = slot;                    /* slot */
-    tx[8] = (uint8_t)(lba & 0xFF);          /* LBA low */
-    tx[9] = (uint8_t)((lba >> 8) & 0xFF);  /* LBA high */
+    tx[7] = fn_disk_slot + 1;      /* slot - convert 0-based to 1-based for DiskDevice */
+    tx[8] = fuji_current_sector;           /* LBA low */
+    tx[9] = fuji_current_sector+1;         /* LBA high */
     tx[10] = 0;                     /* LBA bits 16-23 */
     tx[11] = 0;                     /* LBA bits 24-31 */
     tx[12] = 0;                     /* maxBytes low (request 256) */

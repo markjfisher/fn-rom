@@ -73,6 +73,7 @@ OS_INC = 1
         .import  fuji_disk_flags
         .import  fuji_cmd_offset_y
         .import  fuji_filename_len
+        .import  data_ptr
 
         .import  fuji_last_state_loc
 

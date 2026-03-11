@@ -53,13 +53,10 @@ bool fujibus_disk_mount(uint8_t flags);
 bool fujibus_disk_unmount(uint8_t slot);
 
 /**
- * Read a sector
- * @param slot Drive slot (1-8)
- * @param lba Sector number
- * @param buf 256-byte buffer for data
+ * Read a sector, values are taken from workspace state
  * @return true on success
  */
-bool fujibus_disk_read_sector(uint8_t slot, uint16_t lba, uint8_t* buf);
+bool fujibus_disk_read_sector(void);
 
 /**
  * Write a sector

@@ -11,7 +11,6 @@
         .import  fuji_filename_len
         .import  fuji_error_flag
         .import  fuji_cmd_offset_y
-        .import  fhost_param_count
 
         .include "fujinet.inc"
 
@@ -23,13 +22,6 @@
 ; FHOST supports 0 or 1 parameters:
 ;   0 params: no action needed, return 0
 ;   1 param:  read string into fuji_filename_buffer, return 1
-;
-; On error (too many params), jumps to err_bad (no return)
-;
-; Writes:
-;   fuji_filename_buffer = string parameter (if 1 param)
-;   fuji_filename_len = string length
-;   fhost_param_count = number of params (0 or 1)
 ;
 ; Returns: A = param count (0 or 1)
 
