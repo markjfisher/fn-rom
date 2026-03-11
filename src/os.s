@@ -429,6 +429,7 @@ fuji_current_sector     = fuji_static_workspace + $27  ; Current sector being ac
 ; Current filesystem selection state for URI-based commands
 fuji_current_fs_len     = fuji_static_workspace + $28  ; Current filesystem URI length
 fuji_current_dir_len    = fuji_static_workspace + $29  ; Current directory length
+; this doesn't look like it's used: is it a dupe of fuji_disk_slot?
 fuji_current_mount_slot = fuji_static_workspace + $2A  ; Current FujiNet persisted mount slot (0-based)
 fuji_resolve_path_flags = fuji_static_workspace + $2B  ; ResolvePath response: bit0=isDir, bit1=exists (set by fuji_file_resolve_path)
 fuji_disk_slot          = fuji_static_workspace + $2C  ; current fujinet mount slot for defaults, 0-based internally, 1 based on the wire

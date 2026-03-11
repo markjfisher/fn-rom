@@ -83,7 +83,7 @@ bool fujibus_disk_mount(uint8_t flags) {
     tx = FUJI_TX_BUFFER;
     
     /* Save parameters */
-    fn_disk_slot = *FUJI_CURRENT_MOUNT_SLOT;
+    fn_disk_slot = *FUJI_DISK_SLOT;  /* Use FUJI_DISK_SLOT (0x10EC) - same as FMOUNT uses */
     fn_disk_flags = flags;
     
     /* Build payload in TX buffer */
@@ -91,7 +91,7 @@ bool fujibus_disk_mount(uint8_t flags) {
 
     /* Payload: version(1) + slot(1) + flags(1) + typeOverride(1) + sectorSizeHint(2) + uriLen(2) + uri */
     tx[6] = FN_PROTOCOL_VERSION;     /* version */
-    tx[7] = *FUJI_CURRENT_MOUNT_SLOT;                    /* slot */
+    tx[7] = *FUJI_DISK_SLOT + 1;  /* slot - convert 0-based to 1-based for DiskDevice */
     tx[8] = flags;                   /* flags */
     tx[9] = 0;                       /* typeOverride = 0 (auto) */
     tx[10] = 0;                      /* sectorSizeHint low */

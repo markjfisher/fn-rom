@@ -87,7 +87,7 @@ uint8_t cmd_fs_fmount(void) {
         FUJI_CURRENT_FS_URI[0] = '\0';      // in case the length is 0, pre-write a nul byte. The buffer
 
         for (i = 0; i < uri_len; i++) {
-            FUJI_CURRENT_FS_URI[i] = FUJI_RX_BUFFER[10 + i + uri_len];
+            FUJI_CURRENT_FS_URI[i] = FUJI_RX_BUFFER[10 + i];
         }
         *FUJI_CURRENT_FS_LEN = uri_len;
 
