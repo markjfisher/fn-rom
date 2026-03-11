@@ -235,7 +235,7 @@ uint16_t fujibus_receive_packet(void) {
     setup_serial_19200();
 
     /* Read from serial - setup zeropage params */
-    read_serial_data(FUJI_SLIP_BUFFER, 0x00FF, &slip_len);
+    read_serial_data(FUJI_SLIP_BUFFER, 0x01FF, &slip_len);
     restore_output_to_screen();
     
     if (slip_len == 0) {

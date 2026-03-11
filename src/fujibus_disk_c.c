@@ -208,14 +208,14 @@ bool fujibus_disk_read_sector(void) {
         /* Just continue and copy data */
     }
     
-    /* Get data length from response: offset 15-16 (after header + version + flags + res(2) + slot + lba(4)) */
-    data_len = rx[16];
-    /* Could also check high byte at rx[17] but we only support 256 */
+    /* Get data length from response: offset 15-16 (after header + version + flags + res(2) + slot + lba(4))
+     * Data length is 2 bytes, little-endian */
+    data_len = rx[16] | (rx[17] << 8);
     
     /* Copy data to buffer */
     /* Data starts at offset 17 (header is 6, payload starts at 6, data starts at 6 + 11 = 17) */
     for (i = 0; i < data_len; i++) {
-        buf[i] = rx[17 + i];
+        buf[i] = rx[18 + i];
     }
     
     return true;

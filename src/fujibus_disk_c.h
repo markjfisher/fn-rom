@@ -85,4 +85,6 @@ bool fujibus_disk_info(uint8_t slot, DiskInfo* info);
  */
 bool fujibus_resolve_path(void);
 
+static uint16_t fujibus_disk_transaction(uint8_t command, uint16_t payload_len);
+
 #endif /* FUJIBUS_DISK_C_H */

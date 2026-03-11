@@ -90,7 +90,9 @@ fuji_read_catalog_data:
         ; - fuji_current_sector (set above)
         ; - data_ptr (set by caller)
         jsr     _fujibus_disk_read_sector
-        bcs     @read_error
+        ; check the return value in A, 1 = success
+        cmp     #$01
+        bne     @read_error
 
         ; Read sector 1 (second 256 bytes of catalog)
         inc     fuji_current_sector
@@ -101,7 +103,9 @@ fuji_read_catalog_data:
         inc     data_ptr+1
 
         jsr     _fujibus_disk_read_sector
-        bcs     @read_error
+        ; check the return value in A, 1 = success
+        cmp     #$01
+        bne     @read_error
 
         clc
         rts
