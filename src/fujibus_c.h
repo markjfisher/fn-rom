@@ -62,6 +62,9 @@
 /* Filename length (used by param parsing) */
 #define FUJI_FILENAME_LEN        ((uint8_t*)0x10F0)
 
+/* FHOST parameter count (0 or 1) */
+#define fhost_param_count        ((uint8_t*)0x10F1)
+
 
 /* FileDevice (0xFE) */
 #define FN_DEVICE_FILE           0xFE

@@ -27,64 +27,24 @@
  * FHOST vs FMOUNT: FMOUNT reads the FujiNet persisted mount table (GetMount(slot)).
  * FHOST only sets the BBC "current" URI. So that "*FMOUNT 0 0" works after "*FHOST <uri>",
  * we persist the newly set URI to FujiNet slot 0 after ResolvePath success.
- *
- *
- * ResolvePath usage here:
- * - baseUriLen/baseUri are taken from the just-stored fuji_current_fs_* fields
- * - argLen is set to 0 so NIO canonicalizes the URI “as-is”
- * - on success the helper refreshes both URI and display-path state
- * 
- * Request format:
- *   u8 version
- *   u16 base_uri_len (LE)
- *   u8[] base_uri
- *   u16 arg_len (LE) = 0
- * 
- * Response format:
- *   u8 version
- *   u8 flags (bit0=isDir, bit1=exists)
- *   u16 reserved
- *   u16 resolved_uri_len
- *   u8[] resolved_uri
- *   u16 display_path_len
- *   u8[] display_path
  */
-
 
 #include <stdint.h>
 #include <stdbool.h>
-#include <string.h>
 #include "cmd_fhost_c.h"
-#include "commands/utils.h"
 
-/* ============================================================================
- * Constants - kept for documentation
- * ============================================================================ */
+extern void cmd_save_args_state(void);
+extern uint8_t parse_fhost_params(void);
 
-// MAX_PATH_LEN - kept for documentation
-
-/* ============================================================================
- * External ASM functions (no underscore prefix in C)
- * ============================================================================ */
-
-/* Parameter counting - returns number of parameters in A */
-extern uint8_t num_params(void);
-
-/* Get string parameter - returns string in fuji_filename_buffer, length in A */
-extern uint8_t param_get_string(void);
-
-/* Print functions */
-extern void print_char(uint8_t c);
-extern void print_newline(void);
-extern void print_space(void);
-
-/* Error functions */
-extern void err_bad(void);
-extern void err_bad_uri(void);
 extern void exit_user_ok(void);
+extern void err_set_uri(void);
 
 /* FujiNet interface - use wrapper for proper layering */
 extern uint8_t fuji_resolve_path(void);
+
+/* Print functions - from print_utils.s */
+extern void print_char(uint8_t c);
+extern void print_newline(void);
 
 /* ============================================================================
  * Helper: Print NUL-terminated string
@@ -139,17 +99,6 @@ void fhost_show_current(void) {
 }
 
 /* ============================================================================
- * fhost_resolve_path - Send ResolvePath to FujiNet via wrapper
- * Uses workspace: FUJI_CURRENT_HOST_URI, FUJI_CURRENT_HOST_LEN
- * ============================================================================ */
-
-// This now delegates to fuji_resolve_path wrapper for proper layering
-bool fhost_resolve_path(void) {
-    // Call the wrapper which handles transactions and interface selection
-    return fuji_resolve_path() != 0;
-}
-
-/* ============================================================================
  * fhost_set_uri - Set current URI from user input
  * Uses workspace: FUJI_FILENAME_BUFFER, FUJI_CURRENT_HOST_URI, FUJI_ERROR_FLAG
  * ============================================================================ */
@@ -158,15 +107,7 @@ bool fhost_set_uri(void) {
     uint8_t uri_len;
     uint8_t i;
     
-    /* Get URI from parameter - stored in fuji_filename_buffer */
-    uri_len = param_get_string();
-    
-    // Check for truncation - fuji_error_flag = 1 means truncated
-    // or no parameter
-    if (*FUJI_ERROR_FLAG != 0 || uri_len == 0) {
-        /* String was truncated */
-        err_bad_uri();
-    }
+    uri_len = *FUJI_FILENAME_LEN;
     
     /* Copy URI from fuji_filename_buffer to fuji_current_fs_uri */
     for (i = 0; i < uri_len; i++) {
@@ -175,19 +116,15 @@ bool fhost_set_uri(void) {
     *FUJI_CURRENT_HOST_LEN = uri_len;
 
     /* Try to resolve the path */
-    if (!fhost_resolve_path()) {
+    if (!fuji_resolve_path()) {
         /* On failure, clear both URI and DIR to indicate invalid state */
-        /* Clear the URI - null-terminate and set zero length */
         FUJI_CURRENT_HOST_URI[0] = '\0';
         *FUJI_CURRENT_HOST_LEN = 0;
         
-        /* Clear the DIR - null-terminate and set zero length */
-        /* When dir_len is 0, fhost_show_current displays "/" as fallback */
         FUJI_CURRENT_DIR_PATH[0] = '\0';
         *FUJI_CURRENT_DIR_LEN = 0;
         
-        /* Return success - state cleared */
-        return true;
+        return false;
     }
     
     /* Success */
@@ -199,36 +136,18 @@ bool fhost_set_uri(void) {
  * ============================================================================ */
 
 uint8_t cmd_fs_fhost(void) {
-    // MUST be called on function entry for any CMD_* function,
-    // as we need to preserve the command line offset to the first arg in Y
+    /* MUST be called first to save Y register for param parsing */
     cmd_save_args_state();
 
-    // ensure no params are created on the stack before calling above
-    {
-        uint8_t params;
-        uint8_t as_char;
-        uint8_t *a;
-    
-        params = num_params();
-        a = params;
-    
-        if (params == 0) {
-            /* No parameters - show current */
-            fhost_show_current();
-            exit_user_ok();
-            return 0;
-        } else if (params == 1) {
-            /* One parameter - set URI */
-            if (fhost_set_uri()) {
-                exit_user_ok();
-                return 0;
-            } else {
-                return 1;
-            }
-        } else {
-            /* Too many parameters */
-            err_bad();
-            return 1;
+    if (parse_fhost_params() == 0) {
+        fhost_show_current();
+    } else {
+        if (!fhost_set_uri()) {
+            err_set_uri();
         }
     }
+
+    exit_user_ok();
+    return 0;
+
 }

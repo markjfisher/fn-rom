@@ -43,6 +43,7 @@
         .export set_current_drive_adrive
         .export tya_cmp_ptr_ext
         .export y_sub8
+        .export param_count
         .export param_count_a
         .export param_drive_or_default
         .export find_and_mount_disk

@@ -67,6 +67,7 @@
         .export  fuji_disk_slot
         .export  fuji_disk_flags
         .export  fuji_current_host_len
+        .export  fhost_param_count
         .export  fuji_cmd_offset_y
         .export  fuji_filename_len
 
@@ -439,6 +440,7 @@ fuji_current_host_len   = fuji_static_workspace + $2E  ; Current filesystem URI 
 
 fuji_cmd_offset_y       = fuji_static_workspace + $2F  ; save value of the command offset in Y given to CMD functions on entry.
 fuji_filename_len       = fuji_static_workspace + $30  ; the filename part of the FS URI input by *FIN
+fhost_param_count       = fuji_static_workspace + $31  ; parameter count for FHOST command (0 or 1)
 
 ; LAST location for the copy state in workspace_utils.s function to understand
 fuji_last_state_loc     = fuji_static_workspace + $30  ; effectively $10F0
