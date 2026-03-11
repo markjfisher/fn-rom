@@ -36,4 +36,15 @@
  */
 bool fuji_get_mount_slot();
 
+/**
+ * fuji_set_mount_slot - Set mount record for a slot
+ * 
+ * Sends SetMount command to FujiNet to persist a mount entry.
+ * Payload format: [slot][flags][uri_len][uri][mode_len][mode]
+ * 
+ * Uses global fuji_disk_slot for slot number.
+ * @return true on success, false on failure
+ */
+bool fuji_set_mount_slot();
+
 #endif /* FUJIBUS_FUJI_C_H */

@@ -21,9 +21,6 @@
         .import zerobss
         .importzp c_sp
 
-        .import _cmd_test_c
-        .import filev_entry
-
 .ifdef FUJINET_INTERFACE_DUMMY
         .import fuji_init_ram_filesystem
 .endif

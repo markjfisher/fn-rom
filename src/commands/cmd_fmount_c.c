@@ -34,6 +34,7 @@ extern uint8_t param_get_num(void);
 /* Error/Exit functions */
 extern void err_bad(void);
 extern void err_failed_to_mount(void);
+extern void err_bad_disk_mount(void);
 extern void err_not_enabled(void);
 extern void exit_user_ok(void);
 
@@ -91,42 +92,14 @@ uint8_t cmd_fs_fmount(void) {
         *FUJI_CURRENT_FS_LEN = uri_len;
 
         // Now create a disk mount request
-        fujibus_disk_mount(0); // TODO: sort out r/w modes, 1=read-only, although we need to support that in the fujinet too.
+        // TODO: sort out r/w modes, 1=read-only, although we need to support that in the fujinet too.
+        if (!fujibus_disk_mount(0)) {
+            err_bad_disk_mount();
+        }
 
         exit_user_ok();
         return 0;
 
     }
 
-    //     // Check if slot is enabled and has a URI
-    //     if (!fuji_mount_slot_enabled()) {
-    //         // Slot is empty or disabled
-    //         err_bad();
-    //         return 1;
-    //     }
-        
-    //     // Get URI length and copy URI to workspace
-    //     uri_len = fuji_mount_get_uri_len();
-    //     if (uri_len == 0) {
-    //         err_bad();
-    //         return 1;
-    //     }
-        
-    //     // Copy URI to current FS URI buffer
-    //     fuji_mount_get_uri(FUJI_CURRENT_FS_URI, uri_len);
-    //     FUJI_CURRENT_FS_URI[uri_len] = '\0';  // Null-terminate
-    //     *FUJI_CURRENT_FS_LEN = uri_len;
-        
-    //     // Update drive mapping: BBC drive -> FujiNet mount slot
-    //     FUJI_DRIVE_DISK_MAP[bbc_drive] = mount_slot;
-        
-    //     // Store the mount slot index in workspace
-    //     *FUJI_DISK_TABLE_INDEX = mount_slot;
-    //     *FUJI_CURRENT_MOUNT_SLOT = mount_slot;
-        
-    //     // Success
-    //     exit_user_ok();
-    //     return 0;
-
-    // }
 }

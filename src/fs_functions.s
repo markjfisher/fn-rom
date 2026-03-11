@@ -408,13 +408,15 @@ _param_get_string:
         stx     fuji_error_flag
         rts
 
-
+; INPUT: same as GSINIT:
+;  C=0, string terminated by first space, CR or 2nd quotation mark
+;  C=1, string terminated by CR or 2nd quotation mark
 param_get_string:
         ldy     fuji_cmd_offset_y
         jsr     GSINIT_A
         beq     err_bad_string
 
-; nothing calls this, with our insistence on calling cmd_save_args_state first, we may not allow anyone to either. would need testing to see if it works correctly if Y is trashed
+; nothing calls this directly, with our insistence on calling cmd_save_args_state first, we may not allow anyone to either. would need testing to see if it works correctly if Y is trashed
 param_get_string_no_init:
         ldx     #$00
 @str_loop:
@@ -436,7 +438,7 @@ param_get_string_no_init:
 _err_bad_string:
 err_bad_string:
         jsr     err_bad
-        .byte   $CB                             ; i'm guessing this byte is for the memory param to show? Not sure how to do this for a generic "number" error
+        .byte   $CB                             ; error code, need to decide what values to set in fujinet overall
         .byte   "string", 0
 
 ; read a generic number, continuing from current read position (Y)

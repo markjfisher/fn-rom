@@ -59,6 +59,9 @@
 
 #define FUJI_CURRENT_HOST_LEN    ((uint8_t*)0x10EE)
 
+/* Filename length (used by param parsing) */
+#define FUJI_FILENAME_LEN        ((uint8_t*)0x10F0)
+
 
 /* FileDevice (0xFE) */
 #define FN_DEVICE_FILE           0xFE
@@ -75,6 +78,7 @@
 /* FujiDevice (0x70) - FujiNet device */
 #define FN_DEVICE_FUJI           0x70
 #define FUJI_CMD_GET_MOUNT       0xFB
+#define FUJI_CMD_SET_MOUNT       0xFC
 
 
 #define FUJIBUS_HEADER_SIZE      6

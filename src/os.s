@@ -67,6 +67,7 @@
         .export  fuji_disk_slot
         .export  fuji_disk_flags
         .export  fuji_cmd_offset_y
+        .export  fuji_filename_len
 
         .export  fuji_last_state_loc
 
@@ -435,9 +436,10 @@ fuji_disk_flags         = fuji_static_workspace + $2D  ; flags for disk
 fuji_current_host_len   = fuji_static_workspace + $2E  ; Current filesystem URI length
 
 fuji_cmd_offset_y       = fuji_static_workspace + $2F  ; save value of the command offset in Y given to CMD functions on entry.
+fuji_filename_len       = fuji_static_workspace + $30  ; the filename part of the FS URI input by *FIN
 
 ; LAST location for the copy state in workspace_utils.s function to understand
-fuji_last_state_loc     = fuji_static_workspace + $2F  ; effectively $10EF
+fuji_last_state_loc     = fuji_static_workspace + $30  ; effectively $10F0
 
 ; see SetupChannelInfoBlock_Yintch
 ; copies from &E08 to &1100, and &F08 to &1100+1 in a loop.
@@ -484,7 +486,7 @@ fuji_unknown_11D0       = fuji_workspace + $1D0
 
 ; ASSUME THE CHANNEL DATA DOES NOT GO BEYOND $1130
 
-; 80 byte buffer for current HOST string
+; 80 byte buffer for current HOST string - some of this is copied during static/private workspace shuffle - TODO: need to sort all that out.
 _fuji_current_host_uri   = fuji_workspace + $11B0
 
 ; 80 byte buffer - TODO review lengths, we can only input 64 chars in param_get_string
@@ -500,6 +502,6 @@ _fuji_tx_buffer          = fuji_workspace + $02A0
 _fuji_rx_buffer          = fuji_workspace + $0300
 
 
-; the start of where BSS should be define for CC65, see fujinet-rom.cfg
-; this extends up to 1900 for room for temporary vars, and global C vars.
+; the start of where BSS should be defined for CC65, see fujinet-rom.cfg
+; this extends up to 1900 for room for temporary vars, and global C vars (trying not to use those - revisit this when we move to ".res" for allocating memory).
 fuji_bss                = fuji_workspace + $0500

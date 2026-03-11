@@ -1,13 +1,14 @@
-        .export  _parse_fmount_params
+        .export  _err_bad_disk_mount
         .export  _err_bad_mount_slot
         .export  _err_failed_to_mount
         .export  _err_not_enabled
+        .export  _parse_fmount_params
 
-        .import  param_count_a
         .import  err_bad
-        .import  report_error
+        .import  param_count_a
         .import  param_get_num
         .import  param_optional_drive_no
+        .import  report_error
         .import  set_user_flag_x
 
         .importzp  ptr1
@@ -77,67 +78,14 @@ _err_bad_mount_slot:
 _err_failed_to_mount:
         jsr     report_error
         .byte   $CB
-        .byte   "Failed to mount", 0
+        .byte   "Failed to set mount config", 0
 
 _err_not_enabled:
         jsr     report_error
         .byte   $CB
         .byte   "Mount point not enabled", 0
 
-        ; Validate that the selected persisted FujiNet slot is populated and
-        ; enabled before updating the BBC-side bridge mapping.
-;         jsr     fuji_get_mount_slot
-;         bcs     bad_mount_slot
-;         ldy     #FN_HEADER_SIZE+1
-;         lda     _fuji_rx_buffer,y
-;         and     #$01
-;         beq     bad_mount_slot
-;         iny
-;         lda     _fuji_rx_buffer,y
-;         beq     bad_mount_slot
-
-;         ; Read optional BBC drive number, or fall back to the current/default
-;         ; drive if the user omitted it.
-;         jsr     param_drive_or_default  ; optional BBC drive number
-;         sta     current_drv
-
-;         ; Build the live DiskDevice mount request from the validated persisted URI
-;         ; so FMOUNT immediately affects the active runtime state as well as the
-;         ; ROM-side bridge table.
-;         ldy     #FN_HEADER_SIZE+2
-;         lda     _fuji_rx_buffer,y
-;         sta     aws_tmp02
-;         ldx     #$00
-; @copy_uri:
-;         cpx     aws_tmp02
-;         beq     @mount_live
-;         iny
-;         lda     _fuji_rx_buffer,y
-;         sta     _fuji_current_fs_uri,x
-;         inx
-;         bne     @copy_uri
-
-; @mount_live:
-;         lda     #$00
-;         sta     _fuji_current_fs_uri,x
-;         lda     #<_fuji_current_fs_uri
-;         sta     aws_tmp00
-;         lda     #>_fuji_current_fs_uri
-;         sta     aws_tmp01
-;         lda     current_drv
-;         clc
-;         adc     #$01
-;         ldx     #$00
-;         jsr     fn_disk_mount
-;         bcs     bad_mount_slot
-
-;         ; Bridge mapping table used later by DFS disk I/O:
-;         ;   BBC drive number -> FujiNet mount slot index
-;         ldx     current_drv
-;         lda     fuji_disk_table_index
-;         sta     fuji_drive_disk_map,x
-
-;         ; Standard success path: zero user flag.
-;         ldx     #$00
-;         jmp     set_user_flag_x
-
+_err_bad_disk_mount:
+        jsr     report_error
+        .byte   $CB
+        .byte   "Failed to mount disk", 0

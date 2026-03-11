@@ -16,7 +16,6 @@
 
         .export parameter_table
 
-        .import _cmd_test_c
         .import cmd_fs_access
         .import cmd_fs_close
         .import cmd_fs_copy
@@ -42,7 +41,7 @@
         .import cmd_fs_verify
         .import cmd_fs_wipe
 
-        .import cmd_fs_fin
+        .import _cmd_fs_fin
         .import _cmd_fs_fmount
         .import cmd_fs_funmount
         .import cmd_fs_fout
@@ -194,10 +193,10 @@ cmd_table_help_cmds:
 ; OLD: cmdaddr4
 cmd_table_futils_cmds:
         .word   cmd_fs_fboot-1
-        .word   _cmd_test_c-1
+        .word   _cmd_fs_fhost-1
         .word   _cmd_fs_fhost-1
         .word   cmd_fs_fdrive-1
-        .word   cmd_fs_fin-1
+        .word   _cmd_fs_fin-1
         .word   cmd_fs_fls-1
         .word   cmd_fs_flist-1
         .word   _cmd_fs_fmount-1

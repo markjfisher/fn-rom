@@ -39,3 +39,67 @@ bool fuji_get_mount_slot() {
     return true;
 }
 
+/**
+ * fuji_set_mount_slot - Set mount record for a slot
+ * 
+ * Sends SetMount command to FujiNet to persist a mount entry.
+ * Payload format: [slot][flags][uri_len][uri][mode_len][mode]
+ * 
+ * Uses global fuji_disk_slot for slot number.
+ * Assumes the full URI (host + filename) is already in FUJI_CURRENT_FS_URI
+ * with length in FUJI_CURRENT_FS_LEN.
+ * 
+ * @return true on success, false on failure
+ */
+bool fuji_set_mount_slot() {
+    uint8_t slot;
+    uint8_t uri_len;
+    uint8_t mode_len;
+    uint8_t i;
+    uint8_t* tx;
+    uint8_t* uri_ptr;
+    
+    tx = FUJI_TX_BUFFER;
+    
+    /* Get slot from global */
+    slot = *FUJI_DISK_SLOT;
+    
+    /* Get URI from global */
+    uri_ptr = FUJI_CURRENT_FS_URI;
+    uri_len = *FUJI_CURRENT_FS_LEN;
+    
+    /* Default mode is "r" (read-only) */
+    mode_len = 1;
+    
+    /* Build SetMount payload at tx[6] */
+    tx[6] = slot;              /* slot index */
+    tx[7] = 0x01;              /* flags: bit0 = enabled */
+    tx[8] = uri_len;           /* URI length */
+    
+    /* Copy URI */
+    for (i = 0; i < uri_len; i++) {
+        tx[9 + i] = uri_ptr[i];
+    }
+    
+    /* Mode "r" */
+    tx[9 + uri_len] = mode_len;       /* mode length */
+    tx[9 + uri_len + 1] = 'r';        /* mode "r" */
+    
+    /* Total payload: slot(1) + flags(1) + uri_len(1) + uri + mode_len(1) + mode */
+    /* = 3 + uri_len + 1 + mode_len = 4 + uri_len + mode_len */
+    
+    /* Send packet */
+    fujibus_send_packet(FN_DEVICE_FUJI, FUJI_CMD_SET_MOUNT, &tx[6], 4 + uri_len + mode_len);
+    
+    if (fujibus_receive_packet() == 0) {
+        return false;
+    }
+    
+    /* Check descriptor: 1 param (status) and its value */
+    if (FUJI_RX_BUFFER[5] != 1 || FUJI_RX_BUFFER[6] != 0) {
+        return false;
+    }
+    
+    return true;
+}
+
