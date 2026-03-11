@@ -78,4 +78,14 @@ bool fujibus_disk_write_sector(uint8_t slot, uint16_t lba, uint8_t* buf);
  */
 bool fujibus_disk_info(uint8_t slot, DiskInfo* info);
 
+/**
+ * fujibus_resolve_path - Resolve path using FileDevice (FujiBus protocol)
+ * 
+ * Sends ResolvePath command to FujiNet FileDevice to canonicalize a URI.
+ * Uses FUJI_CURRENT_HOST_URI/LEN for input and output.
+ * 
+ * @return true on success, false on error
+ */
+bool fujibus_resolve_path(void);
+
 #endif /* FUJIBUS_DISK_C_H */

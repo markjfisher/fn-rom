@@ -66,6 +66,7 @@
         .export  fuji_resolve_path_flags
         .export  fuji_disk_slot
         .export  fuji_disk_flags
+        .export  fuji_current_host_len
         .export  fuji_cmd_offset_y
         .export  fuji_filename_len
 

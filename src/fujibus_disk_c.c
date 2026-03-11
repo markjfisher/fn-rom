@@ -5,6 +5,7 @@
  * Uses fujibus_c functions for packet handling.
  * 
  * Wire Device ID: 0xFC (FN_DEVICE_DISK)
+ * Also handles FileDevice (0xFE) commands like ResolvePath
  * 
  * Commands:
  *   0x01 - Mount
@@ -26,6 +27,7 @@
  * ============================================================================ */
 
 #define FN_DEVICE_DISK         0xFC
+#define FN_DEVICE_FILE         0xFE
 #define FN_PROTOCOL_VERSION    1
 
 #define DISK_CMD_MOUNT         0x01
@@ -35,6 +37,9 @@
 #define DISK_CMD_INFO          0x05
 #define DISK_CMD_CLEAR_CHANGED 0x06
 #define DISK_CMD_CREATE        0x07
+
+#define FILE_CMD_RESOLVE_PATH  0x05
+#define FILEPROTO_VERSION      1
 
 /* ============================================================================
  * Workspace variables (using persistent FujiNet workspace)
@@ -297,6 +302,107 @@ bool fujibus_disk_info(uint8_t slot, DiskInfo* info) {
     info->sectorSize = (uint16_t)rx[10] | ((uint16_t)rx[11] << 8);
     info->sectorCount = (uint32_t)rx[12] | ((uint32_t)rx[13] << 8) | ((uint32_t)rx[14] << 16) | ((uint32_t)rx[15] << 24);
     info->lastError = rx[16];
+    
+    return true;
+}
+
+/* ============================================================================
+ * fujibus_resolve_path - Resolve path using FileDevice (FujiBus protocol)
+ * 
+ * Sends ResolvePath command to FujiNet FileDevice to canonicalize a URI.
+ * 
+ * Uses:
+ *   FUJI_TX_BUFFER[6] - request payload built here
+ *   FUJI_RX_BUFFER - response parsed here
+ * 
+ * Input:
+ *   FUJI_CURRENT_HOST_URI - base URI
+ *   FUJI_CURRENT_HOST_LEN - base URI length
+ * 
+ * Output:
+ *   FUJI_CURRENT_HOST_URI - resolved URI
+ *   FUJI_CURRENT_HOST_LEN - resolved URI length
+ *   FUJI_CURRENT_DIR_PATH - display path
+ *   FUJI_CURRENT_DIR_LEN - display path length
+ * 
+ * Returns: true on success, false on error
+ * ============================================================================ */
+
+bool fujibus_resolve_path(void) {
+    uint16_t resp_len;
+    uint8_t i;
+    uint16_t uri_end;
+    uint8_t dir_len;
+    uint8_t* tx;
+    uint8_t* rx;
+    uint8_t uri_len;
+    
+    tx = FUJI_TX_BUFFER;
+    rx = FUJI_RX_BUFFER;
+    uri_len = *FUJI_CURRENT_HOST_LEN;
+    
+    /* Build ResolvePath request payload */
+    /* Payload: version(1) + base_uri_len(2) + base_uri + arg_len(2) + arg(0) */    
+    tx[6] = FILEPROTO_VERSION;           /* version */
+    
+    /* base_uri_len */
+    tx[7] = uri_len;
+    tx[8] = 0;
+    
+    /* base_uri */
+    for (i = 0; i < uri_len; i++) {
+        tx[9 + i] = FUJI_CURRENT_HOST_URI[i];
+    }
+    
+    /* arg_len = 0 */
+    tx[9 + uri_len] = 0;
+    tx[10 + uri_len] = 0;
+    
+    /* Send packet to FileDevice */
+    fujibus_send_packet(FN_DEVICE_FILE, FILE_CMD_RESOLVE_PATH, &tx[6], 5 + uri_len);
+    
+    /* Receive response */
+    resp_len = fujibus_receive_packet();
+    
+    if (resp_len == 0) {
+        return false;
+    }
+    
+    /* FujiBus response structure: */
+    /* rx[0-4]: header (device, cmd, length lo/hi, checksum) */
+    /* rx[5]: descr (0x01 = 1 param following = status) */
+    /* rx[6]: status param (from addParamU8) = 0x00 for success */
+    /* rx[7]: payload version */
+    /* rx[8]: payload flags */
+    /* rx[9-10]: payload reserved */
+    /* rx[11-12]: uri_len */
+    /* rx[13]: uri starts here */
+    /* After uri: dir_len (2 bytes), then dir */
+    
+    /* Check descriptor: 1 param (status) and its value */
+    if (rx[5] != 1 || rx[6] != 0 || rx[7] != FILEPROTO_VERSION) {
+        return false;
+    }
+
+    /* Get resolved_uri_len from response */
+    *FUJI_CURRENT_HOST_LEN = rx[11];  /* Low byte of uri_len */
+    
+    /* Copy resolved_uri to fuji_current_fs_uri */
+    /* URI starts at rx[13] (after version, flags, reserved, uri_len) */
+    for (i = 0; i < (*FUJI_CURRENT_HOST_LEN); i++) {
+        FUJI_CURRENT_HOST_URI[i] = rx[13 + i];
+    }
+    
+    /* Get display_path_len */
+    /* uri ends at rx[13 - 1 + uri_len], dir_len starts at rx[13 + uri_len] */
+    uri_end = 12 + (*FUJI_CURRENT_HOST_LEN);
+    dir_len = rx[uri_end + 1];  /* Low byte of dir_len */
+    
+    /* Copy display_path to fuji_current_dir_path */
+    for (i = 0; i < dir_len; i++) {
+        FUJI_CURRENT_DIR_PATH[i] = rx[uri_end + 3 + i];
+    }
+    *FUJI_CURRENT_DIR_LEN = dir_len;
     
     return true;
 }
