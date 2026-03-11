@@ -68,6 +68,12 @@ bool fujibus_disk_read_sector(void);
 bool fujibus_disk_write_sector(uint8_t slot, uint16_t lba, uint8_t* buf);
 
 /**
+ * Write a sector, values are taken from workspace state
+ * @return true on success
+ */
+bool fujibus_disk_write_sector_current(void);
+
+/**
  * Get disk slot information
  * @param slot Drive slot (1-8)
  * @param info Pointer to DiskInfo struct to fill

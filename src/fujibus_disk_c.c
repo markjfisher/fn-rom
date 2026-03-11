@@ -275,6 +275,58 @@ bool fujibus_disk_write_sector(uint8_t slot, uint16_t lba, uint8_t* buf) {
 }
 
 /* ============================================================================
+ * fujibus_disk_write_sector_current - Write a sector using workspace state
+ * 
+ * Uses global state:
+ *   slot - from fuji_disk_slot (FUJI_DISK_SLOT)
+ *   lba - from fuji_current_sector (2 bytes)
+ *   buf - from data_ptr
+ * 
+ * Output:
+ *   Returns true on success, false on error
+ * ============================================================================ */
+bool fujibus_disk_write_sector_current(void) {
+    uint8_t* tx;
+    uint8_t* rx;
+    uint16_t resp_len;
+    uint16_t i;
+    uint8_t* buf;
+    uint8_t slot;
+    
+    tx = FUJI_TX_BUFFER;
+    rx = FUJI_RX_BUFFER;
+    buf = *data_ptr;
+    slot = *FUJI_DISK_SLOT;
+    fn_disk_slot = slot;
+    
+    /* Build payload */
+    tx[6] = FN_PROTOCOL_VERSION;           /* version */
+    tx[7] = slot + 1;                      /* slot - convert 0-based to 1-based */
+    tx[8] = *fuji_current_sector;          /* LBA low */
+    tx[9] = *(fuji_current_sector + 1);    /* LBA high */
+    tx[10] = 0;                            /* LBA bits 16-23 */
+    tx[11] = 0;                            /* LBA bits 24-31 */
+    tx[12] = 0;                            /* dataLen low = 256 */
+    tx[13] = 1;                            /* dataLen high */
+    
+    for (i = 0; i < 256; i++) {
+        tx[14 + i] = buf[i];
+    }
+    
+    resp_len = fujibus_disk_transaction(DISK_CMD_WRITE_SECTOR, 264);
+    
+    if (resp_len == 0) {
+        return false;
+    }
+    
+    if (rx[7] != 0) {
+        return false;
+    }
+    
+    return true;
+}
+
+/* ============================================================================
  * fujibus_disk_info - Get disk slot information
  * 
  * Input:

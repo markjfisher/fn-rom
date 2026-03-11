@@ -35,6 +35,7 @@
         .import _fujibus_set_mount_slot
         .import _fujibus_get_mount_slot
         .import _fujibus_disk_read_sector
+        .import _fujibus_disk_write_sector_current
 
         .include "fujinet.inc"
 
@@ -129,10 +130,73 @@ fuji_read_block_data:
 fuji_write_block_data:
         jsr     remember_axy
 
-        ; Use FujiBus disk write sector
-        ; jsr     fn_disk_write_sector_impl
+        lda     fuji_file_offset
+        sta     fuji_current_sector
+        lda     fuji_file_offset+1
+        and     #$03
+        sta     fuji_current_sector+1
 
-        ; Return status in carry
+        lda     fuji_block_size
+        sta     aws_tmp14
+        lda     fuji_block_size+1
+        sta     aws_tmp15
+
+@write_full_sector:
+        lda     aws_tmp15
+        beq     @write_partial_sector
+
+        jsr     _fujibus_disk_write_sector_current
+        cmp     #$01
+        bne     @write_error
+
+        inc     fuji_current_sector
+        bne     :+
+        inc     fuji_current_sector+1
+:
+        inc     data_ptr+1
+        dec     aws_tmp15
+        bne     @write_full_sector
+
+@write_partial_sector:
+        lda     aws_tmp14
+        beq     @write_success
+
+        ; Preserve the caller's partial buffer pointer while we stage a full
+        ; sector for read/modify/write.
+        lda     data_ptr
+        sta     aws_tmp08
+        lda     data_ptr+1
+        sta     aws_tmp09
+
+        lda     #<dfs_cat_s0_header
+        sta     data_ptr
+        lda     #>dfs_cat_s0_header
+        sta     data_ptr+1
+
+        jsr     _fujibus_disk_read_sector
+        cmp     #$01
+        bne     @write_error
+
+        ldy     #$00
+@copy_partial:
+        lda     (aws_tmp08),y
+        sta     dfs_cat_s0_header,y
+        iny
+        cpy     aws_tmp14
+        bne     @copy_partial
+
+        jsr     _fujibus_disk_write_sector_current
+        cmp     #$01
+        bne     @write_error
+
+@write_success:
+        lda     #$01
+        clc
+        rts
+
+@write_error:
+        lda     #$00
+        sec
         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

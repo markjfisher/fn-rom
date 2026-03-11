@@ -125,7 +125,10 @@ fuji_write_file_block:
 
         ; For now, just call our dummy interface
         jsr     fuji_write_block_data
+        bcs     @write_error
+        lda     #$01
+        rts
 
-        ; Return success (A=1) or error (A=0)
-        lda     #1                       ; Success for dummy
+@write_error:
+        lda     #$00
         rts
