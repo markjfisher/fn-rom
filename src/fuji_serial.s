@@ -9,6 +9,8 @@
         .export err_bad_response
 
         .export fuji_mount_disk_data
+        .export fuji_set_mount_slot_data
+        .export fuji_get_mount_slot_data
         .export fuji_read_block_data
         .export fuji_read_catalog_data
         .export fuji_read_disc_title_data
@@ -30,6 +32,8 @@
 
         ; Import FujiBus C functions - use underscore prefix for C calls
         .import _fujibus_disk_mount
+        .import _fujibus_set_mount_slot
+        .import _fujibus_get_mount_slot
 
         .include "fujinet.inc"
 
@@ -222,8 +226,27 @@ fuji_mount_disk_data:
         ; Call the C function - pass flags in A (0 = read-write)
         lda     #$00
         jsr     _fujibus_disk_mount
-        ; Return - the caller (fuji_mount_disk) doesn't check carry
         rts
+
+;//////////////////////////////////////////////////////////////////////
+; fuji_set_mount_slot_data - Set mount record for a slot (data layer)
+; Calls the C function fujibus_set_mount_slot()
+;//////////////////////////////////////////////////////////////////////
+
+fuji_set_mount_slot_data:
+        jsr     _fujibus_set_mount_slot
+        rts
+
+;//////////////////////////////////////////////////////////////////////
+; fuji_get_mount_slot_data - Get mount record for a slot (data layer)
+; Calls the C function fujibus_get_mount_slot()
+;//////////////////////////////////////////////////////////////////////
+
+fuji_get_mount_slot_data:
+        jsr     _fujibus_get_mount_slot
+        rts
+
+        ; rts
 
 
 err_bad_response:

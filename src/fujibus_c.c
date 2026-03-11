@@ -3,27 +3,36 @@
  * 
  * Optimized for ROM - minimal overhead, uses constants where possible.
  * Implements SLIP framing and FujiBus packet handling.
+ * 
+ * NOTE: This file contains interface-specific code. Currently supports:
+ * - FUJINET_INTERFACE_SERIAL (serial interface)
+ * - FUJINET_INTERFACE_USERPORT (not yet implemented - needs userport read/write C wrappers)
  */
 
 #include <stdint.h>
 #include <stdbool.h>
 #include "zp_overlay.h"
 #include "calc_checksum.h"
+
+/* Interface-specific includes */
+#ifdef FUJINET_INTERFACE_SERIAL
 #include "serial/read_serial_data.h"
 #include "serial/serial_utils.h"
 #include "serial/write_serial_data.h"
+#elif defined(FUJINET_INTERFACE_USERPORT)
+/* TODO: Create userport equivalents of these headers */
+#include "userport/read_userport_data.h"
+#include "userport/userport_utils.h"
+#include "userport/write_userport_data.h"
+#else
+#error "No FUJINET_INTERFACE defined - fujibus_c.c requires an INTERFACE defined"
+#endif
+
+#include "fujibus_c.h"
 
 /* ============================================================================
  * Constants - Buffer sizes and addresses
  * ============================================================================ */
-
-/* fuji_workspace = $1000 */
-#define FUJI_WORKSPACE       0x1000
-
-/* Buffer addresses */
-#define FUJI_TX_BUFFER       ((uint8_t*)(FUJI_WORKSPACE + 0x02A0))
-#define FUJI_RX_BUFFER       ((uint8_t*)(FUJI_WORKSPACE + 0x0300))
-#define FUJI_SLIP_BUFFER     FUJI_RX_BUFFER   /* Reuse RX for SLIP encoding */
 
 /* Buffer sizes - constants */
 #define FUJI_TX_BUFFER_SIZE  96
@@ -186,7 +195,7 @@ uint16_t fujibus_build_packet(uint8_t device, uint8_t command, uint8_t* payload,
  * Input: device, command, payload pointer, payload length
  * Uses: serial I/O via zeropage
  */
-void fujibus_send_packet(uint8_t device, uint8_t command, uint8_t* payload, uint8_t paylen) {
+void fujibus_send_packet(uint8_t device, uint8_t command, uint8_t* payload, uint16_t paylen) {
     uint8_t pkt_len;
     uint8_t slip_len;
     

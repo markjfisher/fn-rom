@@ -11,7 +11,7 @@
 #include "fujibus_fuji_c.h"
 
 /**
- * fuji_get_mount_slot - Get mount record for a slot
+ * fujibus_get_mount_slot - Get mount record for a slot (FujiBus protocol)
  * 
  * Sends GetMount command to FujiNet for the specified slot.
  * Response format (after FujiBus header and status param):
@@ -20,7 +20,7 @@
  * Uses the current mount slot number
  * @return true on success, false on failure
  */
-bool fuji_get_mount_slot() {
+bool fujibus_get_mount_slot() {
     /* Build GetMount request payload - just the slot index */
     FUJI_TX_BUFFER[6] = *FUJI_DISK_SLOT;
 
@@ -40,7 +40,7 @@ bool fuji_get_mount_slot() {
 }
 
 /**
- * fuji_set_mount_slot - Set mount record for a slot
+ * fujibus_set_mount_slot - Set mount record for a slot (FujiBus protocol)
  * 
  * Sends SetMount command to FujiNet to persist a mount entry.
  * Payload format: [slot][flags][uri_len][uri][mode_len][mode]
@@ -51,7 +51,7 @@ bool fuji_get_mount_slot() {
  * 
  * @return true on success, false on failure
  */
-bool fuji_set_mount_slot() {
+bool fujibus_set_mount_slot() {
     uint8_t slot;
     uint8_t uri_len;
     uint8_t mode_len;

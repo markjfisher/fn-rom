@@ -18,7 +18,6 @@
 #include <stdbool.h>
 #include <string.h>
 #include "fujibus_c.h"
-#include "fujibus_fuji_c.h" // for setting up the mount slot in config
 #include "fujibus_disk_c.h" // for actually mounting a disk
 #include "cmd_fmount_c.h"
 #include "commands/utils.h"
@@ -35,7 +34,8 @@ extern uint8_t num_params(void);
 extern uint8_t param_get_num(void);
 
 /* Mount functions - use fuji_mount.s for proper architecture */
-extern void fuji_mount_disk(void);
+extern bool fuji_mount_disk(void);
+extern bool fuji_get_slot(void);
 
 /* Error/Exit functions */
 extern void err_bad(void);
@@ -73,13 +73,13 @@ uint8_t cmd_fs_fmount(void) {
     
     // and any further code must be in a separate block to stop the allocation of memory on the stack before we saved the Y reg
     {
-        bool get_mount_ok;
         uint8_t i = 0;
         uint8_t uri_len = 0;
 
         parse_fmount_params();
-        get_mount_ok = fuji_get_mount_slot();
-        if (!get_mount_ok) {
+        
+        /* Call through the generic interface - this handles transactions */
+        if (!fuji_get_slot()) {
             err_failed_to_mount();
         }
 
@@ -120,7 +120,9 @@ uint8_t cmd_fs_fmount(void) {
         aws_tmp08 = fuji_disk_slot;
         
         /* Call through the proper layer - this records mapping AND does the mount */
-        fuji_mount_disk();
+        if (!fuji_mount_disk()) {
+            err_failed_to_mount();
+        }
 
         exit_user_ok();
         return 0;

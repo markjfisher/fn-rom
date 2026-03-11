@@ -2,7 +2,10 @@
  * FujiBus FujiDevice C Interface - Header File
  * 
  * Provides C functions for interacting with FujiDevice (FujiNet)
- * Mount table operations.
+ * Mount table operations via FujiBus protocol.
+ * 
+ * NOTE: Functions in this file are FujiBus protocol-specific.
+ * For generic interface, use fuji_* functions in fuji_mount.s
  */
 
 #ifndef FUJIBUS_FUJI_C_H
@@ -21,11 +24,11 @@
 #define MOUNT_RESP_URI           2  /* URI starts here */
 
 /* ============================================================================
- * Functions
+ * Functions - FujiBus protocol specific
  * ============================================================================ */
 
 /**
- * fuji_get_mount_slot - Get mount record for a slot
+ * fujibus_get_mount_slot - Get mount record for a slot (FujiBus protocol)
  * 
  * Sends GetMount command to FujiNet for the specified slot.
  * On success, the mount record is stored in FUJI_RX_BUFFER:
@@ -34,10 +37,10 @@
  * Uses the global fuji mount slot index for slot number.
  * @return true on success, false on failure
  */
-bool fuji_get_mount_slot();
+bool fujibus_get_mount_slot();
 
 /**
- * fuji_set_mount_slot - Set mount record for a slot
+ * fujibus_set_mount_slot - Set mount record for a slot (FujiBus protocol)
  * 
  * Sends SetMount command to FujiNet to persist a mount entry.
  * Payload format: [slot][flags][uri_len][uri][mode_len][mode]
@@ -45,6 +48,6 @@ bool fuji_get_mount_slot();
  * Uses global fuji_disk_slot for slot number.
  * @return true on success, false on failure
  */
-bool fuji_set_mount_slot();
+bool fujibus_set_mount_slot();
 
 #endif /* FUJIBUS_FUJI_C_H */

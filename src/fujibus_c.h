@@ -110,7 +110,7 @@ uint16_t fujibus_slip_decode(uint16_t enc_len);
  * @param paylen Payload length
  * @return Total packet length
  */
-uint8_t fujibus_build_packet(uint8_t device, uint8_t command, uint8_t* payload, uint16_t paylen);
+uint16_t fujibus_build_packet(uint8_t device, uint8_t command, uint8_t* payload, uint16_t paylen);
 
 /**
  * Send FujiBus packet via serial

@@ -24,6 +24,9 @@
 #include "fujibus_fuji_c.h"
 #include "cmd_fin_c.h"
 
+/* ASM functions from fuji_mount.s */
+extern bool fuji_set_slot(void);
+
 /* External ASM functions */
 extern void cmd_save_args_state(void);
 extern void parse_fin_params(void);
@@ -86,8 +89,8 @@ uint8_t cmd_fs_fin(void) {
     /* Build full URI = host + filename */
     build_full_uri();
     
-    /* Send to FujiNet */
-    if (!fuji_set_mount_slot()) {
+    /* Call high-level interface - handles transaction and hardware selection */
+    if (!fuji_set_slot()) {
         err_set_mount_failed();
     }
     
