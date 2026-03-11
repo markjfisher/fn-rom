@@ -56,11 +56,15 @@
  * Returns: packet length (0 = error)
  * ============================================================================ */
 
-static uint16_t fujibus_disk_transaction(uint16_t payload_len) {
+static uint16_t fujibus_disk_transaction(uint8_t command, uint16_t payload_len) {
     uint16_t result;
+    uint8_t* tx = FUJI_TX_BUFFER;
+    
+    /* Set command byte */
+    tx[1] = command;
     
     /* Send packet */
-    fujibus_send_packet(FN_DEVICE_DISK, FUJI_TX_BUFFER[1], &FUJI_TX_BUFFER[FUJIBUS_HEADER_SIZE], payload_len);
+    fujibus_send_packet(FN_DEVICE_DISK, tx[1], &tx[FUJIBUS_HEADER_SIZE], payload_len);
     
     /* Receive response */
     result = fujibus_receive_packet();
@@ -111,7 +115,7 @@ bool fujibus_disk_mount(uint8_t flags) {
     
     /* Payload length = 8 (fixed) + uri_len */
     /* Send and receive */
-    resp_len = fujibus_disk_transaction(8 + (*FUJI_CURRENT_FS_LEN));
+    resp_len = fujibus_disk_transaction(DISK_CMD_MOUNT, 8 + (*FUJI_CURRENT_FS_LEN));
     
     if (resp_len == 0) {
         return false;
@@ -148,7 +152,7 @@ bool fujibus_disk_unmount(uint8_t slot) {
     tx[7] = slot;                    /* slot */
     
     /* Payload length = 2 */
-    resp_len = fujibus_disk_transaction(2);
+    resp_len = fujibus_disk_transaction(DISK_CMD_UNMOUNT, 2);
     
     return (resp_len != 0);
 }
@@ -184,15 +188,15 @@ bool fujibus_disk_read_sector(void) {
     /* Build payload */
     tx[6] = FN_PROTOCOL_VERSION;     /* version */
     tx[7] = fn_disk_slot + 1;      /* slot - convert 0-based to 1-based for DiskDevice */
-    tx[8] = fuji_current_sector;           /* LBA low */
-    tx[9] = fuji_current_sector+1;         /* LBA high */
+    tx[8] = *fuji_current_sector;           /* LBA low */
+    tx[9] = *(fuji_current_sector+1);      /* LBA high */
     tx[10] = 0;                     /* LBA bits 16-23 */
     tx[11] = 0;                     /* LBA bits 24-31 */
     tx[12] = 0;                     /* maxBytes low (request 256) */
     tx[13] = 1;                     /* maxBytes high */
     
     /* Payload length = 8 */
-    resp_len = fujibus_disk_transaction(8);
+    resp_len = fujibus_disk_transaction(DISK_CMD_READ_SECTOR, 8);
     
     if (resp_len == 0) {
         return false;
@@ -256,7 +260,7 @@ bool fujibus_disk_write_sector(uint8_t slot, uint16_t lba, uint8_t* buf) {
     }
     
     /* Payload length = 8 + 256 = 264 */
-    resp_len = fujibus_disk_transaction(264);
+    resp_len = fujibus_disk_transaction(DISK_CMD_WRITE_SECTOR, 264);
     
     if (resp_len == 0) {
         return false;
@@ -293,7 +297,7 @@ bool fujibus_disk_info(uint8_t slot, DiskInfo* info) {
     tx[7] = slot;                    /* slot */
     
     /* Payload length = 2 */
-    resp_len = fujibus_disk_transaction(2);
+    resp_len = fujibus_disk_transaction(DISK_CMD_INFO, 2);
     
     if (resp_len == 0) {
         return false;
