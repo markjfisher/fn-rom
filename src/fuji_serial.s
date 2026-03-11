@@ -28,9 +28,8 @@
         .import restore_output_to_screen
 
 
-        ; Import FujiBus functions
-        ; .import fn_disk_read_sector_impl
-        ; .import fn_disk_write_sector_impl
+        ; Import FujiBus C functions - use underscore prefix for C calls
+        .import _fujibus_disk_mount
 
         .include "fujinet.inc"
 
@@ -217,9 +216,13 @@ fuji_read_disc_title_data:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 fuji_mount_disk_data:
-        ; TODO: Implement FujiBus disk mount
-        ; This needs to send a Mount command with the disk image path
-        ; For now, just return success
+        ; Mount disk using FujiBus - call the C function
+        ; aws_tmp08 contains the slot number (already set by caller)
+        ; FUJI_CURRENT_FS_URI contains the URI (already set by cmd_fmount_c.c)
+        ; Call the C function - pass flags in A (0 = read-write)
+        lda     #$00
+        jsr     _fujibus_disk_mount
+        ; Return - the caller (fuji_mount_disk) doesn't check carry
         rts
 
 

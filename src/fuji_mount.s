@@ -3,6 +3,7 @@
 ; This is part of the Hardware Interface Layer (fuji_fs.s equivalent)
 
         .export fuji_mount_disk
+        .export _fuji_mount_disk      ; C-friendly label
         .export fuji_unmount_disk
         .export fuji_get_mounted_disk
 
@@ -26,6 +27,8 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 fuji_mount_disk:
+        ; C-friendly alias for calling from C
+_fuji_mount_disk:
         jsr     remember_axy
         
         ; Record the mapping: fuji_drive_disk_map[current_drv] = disk_num

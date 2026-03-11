@@ -9,6 +9,9 @@
  * defaults to the current BBC drive.
  * 
  * Uses FujiBus FujiDevice (0x70) GetMount (0xFB) command.
+ * 
+ * Architecture:
+ *   cmd_fmount_c.c → fuji_mount.s (fuji_mount_disk) → fuji_serial.s (fuji_mount_disk_data) → fujibus_disk_c.c
  */
 
 #include <stdint.h>
@@ -31,12 +34,26 @@ extern void cmd_save_args_state(void);
 extern uint8_t num_params(void);
 extern uint8_t param_get_num(void);
 
+/* Mount functions - use fuji_mount.s for proper architecture */
+extern void fuji_mount_disk(void);
+
 /* Error/Exit functions */
 extern void err_bad(void);
 extern void err_failed_to_mount(void);
 extern void err_bad_disk_mount(void);
 extern void err_not_enabled(void);
 extern void exit_user_ok(void);
+
+/* Workspace variables - use the defined addresses */
+/* current_drv at $CD, aws_tmp08 at $B8 */
+#define current_drv (*(uint8_t*)0xCD)
+#define aws_tmp08 (*(uint8_t*)0xB8)
+
+/* FujiNet workspace - use the defined address */
+#define fuji_disk_slot (*(uint8_t*)0x10EC)
+
+/* Fuji drive disk map - 4 bytes at 0x10E0 */
+#define fuji_drive_disk_map (*(uint8_t*)0x10E0)
 
 /* ============================================================================
  * Constants
@@ -91,11 +108,19 @@ uint8_t cmd_fs_fmount(void) {
         }
         *FUJI_CURRENT_FS_LEN = uri_len;
 
-        // Now create a disk mount request
-        // TODO: sort out r/w modes, 1=read-only, although we need to support that in the fujinet too.
-        if (!fujibus_disk_mount(0)) {
-            err_bad_disk_mount();
-        }
+        /* Call fuji_mount_disk to:
+         * 1. Record the mapping in fuji_drive_disk_map[current_drv]
+         * 2. Call fuji_mount_disk_data (in fuji_serial.s) which calls fujibus_disk_mount
+         */
+        
+        /* Set up parameters for fuji_mount_disk:
+         * - current_drv is already set by parse_fmount_params (via param_optional_drive_no)
+         * - aws_tmp08 needs the slot number
+         */
+        aws_tmp08 = fuji_disk_slot;
+        
+        /* Call through the proper layer - this records mapping AND does the mount */
+        fuji_mount_disk();
 
         exit_user_ok();
         return 0;
