@@ -45,12 +45,20 @@ set_tx_packet_header:
         rts
 
 send_small_packet:
+        lda     aws_tmp02
+        pha
+        lda     aws_tmp03
+        pha
         lda     #<_fuji_tx_buffer
         sta     aws_tmp00
         lda     #>_fuji_tx_buffer
         sta     aws_tmp01
         jsr     calc_checksum
         sta     _fuji_tx_buffer+4
+        pla
+        sta     aws_tmp03
+        pla
+        sta     aws_tmp02
 
         lda     #<_fuji_tx_buffer
         ldx     #>_fuji_tx_buffer

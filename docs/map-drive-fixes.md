@@ -1,5 +1,130 @@
 # BBC Drive to FujiNet Slot Map Fixes
 
+## Handoff Summary
+
+This note is for continuing work in a fresh agent session.
+
+### What the overall work is trying to achieve
+
+There are two parallel goals:
+
+1. fix the BBC drive to FujiNet mount-slot mapping so BBC drives behave like real removable drives
+2. reduce ROM usage by rewriting large cc65-generated C code back into 6502 assembly
+
+The mapping fixes are currently documented here and intentionally deferred until enough ROM space has been reclaimed.
+
+### Why the mapping fixes were deferred
+
+The original implementation work was hitting ROM limits. Several straightforward fixes for the drive map logic worked conceptually, but overflowed the ROM.
+
+Because of that, the immediate priority changed to:
+
+- identify the largest C-generated objects in the ROM
+- port them back to assembly
+- then apply the drive-map fixes once there is enough headroom
+
+### Current ROM-reduction work already performed
+
+We targeted `fujibus_disk_c.c` first because it was one of the largest C objects in the ROM.
+
+Before rewrite:
+
+- `fujibus_disk_c.o` contributed `0x0CF9` bytes of `CODE` in the ROM map
+
+After rewrite:
+
+- the live functionality was moved into `src/fujibus_disk.s`
+- `src/fujibus_disk_c.c` was reduced to an empty translation unit
+- `fujibus_disk.o` now contributes `0x0341` bytes of `CODE`
+- net ROM saving is about `0x09B8` bytes (`2488` bytes)
+
+### Functions moved from C to ASM
+
+The following entry points were implemented in `src/fujibus_disk.s`:
+
+- `_fujibus_disk_mount`
+- `_fujibus_disk_read_sector`
+- `_fujibus_disk_write_sector_current`
+- `_fujibus_resolve_path`
+
+This was done because these are the currently live entry points used by the ROM.
+
+### Important testing context for the ASM rewrite
+
+After rewriting `fujibus_disk_c.c` to assembly, `*FHOST` initially failed even though it had previously worked with the C version.
+
+Known-good request from the old C path:
+
+- device `0xFE`
+- command `0x05` (`ResolvePath`)
+- payload bytes:
+  - `01 06 00 68 6f 73 74 3a 2f 00 00`
+
+This corresponds to:
+
+- version `1`
+- base URI length `6`
+- base URI `host:/`
+- arg length `0`
+
+### What was observed during testing
+
+With the first ASM version, FujiNet logged:
+
+- `invalid FujiBus frame (response), dropped`
+
+To debug that, raw-frame logging was added to:
+
+- `fujinet-nio/src/lib/fujibus_transport.cpp`
+
+That showed the BBC was sending:
+
+- `c0 c0`
+
+which is an empty SLIP frame.
+
+### Root cause of the first ASM bug
+
+The bug was in `send_small_packet` inside `src/fujibus_disk.s`.
+
+`calc_checksum` destroys `aws_tmp02/03` while iterating through the packet buffer.  
+Those bytes were also being used as the packet length passed into `_fujibus_slip_encode`.
+
+So the flow became:
+
+1. packet length prepared in `aws_tmp02/03`
+2. checksum routine consumed and zeroed those bytes
+3. `_fujibus_slip_encode` was called with length `0`
+4. output became only `SLIP_END SLIP_END`, i.e. `c0 c0`
+
+This has now been fixed by preserving and restoring `aws_tmp02/03` around the checksum call.
+
+### Current state at handoff
+
+- `fn-rom` builds successfully after the `fujibus_disk` assembly rewrite
+- the drive-map fixes in this document are still not applied
+- the assembly rewrite still needs runtime validation by re-testing commands such as `*FHOST`
+- FujiNet-side raw-frame logging is currently present to help debug malformed BBC packets
+
+### If continuing from here
+
+Suggested next steps:
+
+1. re-test `*FHOST` and confirm the ASM path now sends a valid FujiBus frame
+2. if there is still a packet issue, inspect the raw SLIP frame now logged by FujiNet
+3. once the `fujibus_disk.s` rewrite is proven stable, continue porting other large C objects to ASM
+4. after enough ROM is recovered, return to the drive-map fixes described below
+
+### Other useful context
+
+The main deferred drive-map problems are:
+
+- `*FMOUNT` stores the wrong byte in `fuji_drive_disk_map`
+- disk I/O currently does not consistently treat `fuji_drive_disk_map[current_drv]` as the authoritative slot source
+- an unmapped BBC drive can therefore still appear to show a mounted disk
+
+The rest of this document captures those mapping issues and the intended fix plan.
+
 ## Purpose
 
 This document captures the drive mapping issues discovered in `fn-rom` and the changes we want to make later, once ROM space has been recovered from the C-to-ASM rewrite work.

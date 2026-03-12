@@ -8,4 +8,6 @@ test/
 trace_*.txt
 debug_*.txt
 
+old_fujibus_disk_c.c
+
 /.vscode/

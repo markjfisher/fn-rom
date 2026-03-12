@@ -491,8 +491,9 @@ fuji_unknown_11D0       = fuji_workspace + $1D0
 
 ; ASSUME THE CHANNEL DATA DOES NOT GO BEYOND $1130
 
-; 80 byte buffer for current HOST string - some of this is copied during static/private workspace shuffle - TODO: need to sort all that out.
-_fuji_current_host_uri   = fuji_workspace + $11B0
+; 80 byte buffer for current HOST string.
+; Keep this aligned with [`FUJI_CURRENT_HOST_URI`](src/fujibus_c.h:26) used by the C path.
+_fuji_current_host_uri   = fuji_workspace + $01B0
 
 ; 80 byte buffer - TODO review lengths, we can only input 64 chars in param_get_string
 _fuji_current_fs_uri     = fuji_workspace + $0200
