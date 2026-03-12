@@ -123,6 +123,7 @@
         .export  fuji_unknown_11C0
         .export  fuji_unknown_11D0
 
+        .export  _fuji_current_host_uri
         .export  _fuji_current_fs_uri
         .export  _fuji_current_dir_path
         .export  _fuji_tx_buffer

@@ -12,528 +12,482 @@
 ;   0x06 - ClearChanged
 ;   0x07 - Create
 
-        ; .export fn_disk_mount
-        ; .export fn_disk_unmount
-        ; .export fn_disk_read_sector
-        ; .export fn_disk_write_sector
-        ; .export fn_disk_info
-
-        ; ; Low-level functions called by fuji_serial.s
-        ; .export fn_disk_read_sector_impl
-        ; .export fn_disk_write_sector_impl
-
-        ; .import fn_build_packet
-        ; .import fn_send_packet
-        ; .import fn_receive_packet
-        ; .import _fuji_tx_buffer
-        ; .import _fuji_rx_buffer
-        ; .import fn_tx_len
-        ; .import fn_tx_len_hi
-        ; .import fn_rx_len
-        ; .import _calc_checksum
-
-        ; .import remember_axy
-        ; .import fuji_begin_transaction
-        ; .import fuji_end_transaction
 
         .include "fujinet.inc"
 
-;; THIS IS ALL JUNK AND UNTESTED AI CODE
-
-
-; ============================================================================
-; CODE
-; ============================================================================
+        .import calc_checksum
+        .import _fujibus_receive_packet
+        .import _fujibus_slip_encode
+        .import _fuji_current_host_uri
+        .import _write_serial_data
+        .import fuji_current_host_len
+        .import pushax
 
         .segment "CODE"
 
-; ============================================================================
-; FN_DISK_MOUNT - Mount a disk image
-;
-; Request:
-;   u8  version = 1
-;   u8  slot    = drive number (1-based)
-;   u8  flags   = bit0 = readonly_requested
-;   u8  typeOverride = 0 (auto-detect)
-;   u16 sectorSizeHint = 0
-;   u16 fsLen + fsName
-;   u16 pathLen + path
-;
-; Input:
-;   A = slot (1-8)
-;   X = flags (0=read-write, 1=read-only)
-;   aws_tmp00/01 = pointer to full URI string (NUL-terminated)
-;   aws_tmp02 = URI length in bytes
-;
-; Output:
-;   Carry clear on success, set on error
-; ============================================================================
-; fn_disk_mount:
-;         ; Build packet payload directly - no stack needed
-;         ; Payload starts at offset 6 (after header)
-;         ; Payload: version(1) + slot(1) + flags(1) + typeOverride(1) + sectorSizeHint(2)
-;         ; Input: A = slot, X = flags
-
-;         ; Save input parameters
-;         sta     fn_disk_slot     ; Save slot for later
-;         stx     fn_disk_flags    ; Save flags for later
-
-;         ; Version
-;         lda     #FN_PROTOCOL_VERSION
-;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+0
-
-;         ; Slot (from saved value)
-;         lda     fn_disk_slot
-;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+1
-
-;         ; Flags (from saved value)
-;         lda     fn_disk_flags
-;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+2
-
-;         ; Type override = 0 (auto)
-;         lda     #$00
-;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+3
-
-;         ; Sector size hint = 0 (little-endian)
-;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+4
-;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+5
-
-;         ; URI length (little-endian)
-;         lda     aws_tmp02
-;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+6
-;         lda     #$00
-;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+7
-
-;         ; Copy URI bytes after length
-;         ldy     #$00
-; @copy_uri:
-;         cpy     aws_tmp02
-;         beq     @build_packet
-;         lda     (aws_tmp00),y
-;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+8,y
-;         iny
-;         bne     @copy_uri
-
-; @build_packet:
-;         ; Total payload = fixed fields (8) + URI bytes
-;         tya
-;         clc
-;         adc     #$08
-;         tay
-
-;         ; Build packet
-;         ; A = device ID, X = command, Y = payload length
-;         lda     #FN_DEVICE_DISK
-;         ldx     #DISK_CMD_MOUNT
-
-;         jsr     fn_build_packet
-
-;         ; Send packet
-;         jsr     fn_send_packet
-;         bcs     @mount_error
-
-;         ; Receive response
-;         jsr     fn_receive_packet
-;         bcs     @mount_error
-
-;         ; Check response - look for mounted flag
-;         ldy     #FN_HEADER_SIZE+1
-;         lda     _fuji_rx_buffer,y
-;         and     #$01            ; bit0 = mounted
-;         beq     @mount_error
-
-;         ; Success
-;         clc
-;         rts
-
-; @mount_error:
-;         sec
-;         rts
-
-
-; ; ============================================================================
-; ; FN_DISK_UNMOUNT - Unmount a disk image
-; ;
-; ; Request:
-; ;   u8  version = 1
-; ;   u8  slot
-; ;
-; ; Input:
-; ;   A = slot (1-8)
-; ;
-; ; Output:
-; ;   Carry clear on success, set on error
-; ; ============================================================================
-; fn_disk_unmount:
-;         pha                     ; Save slot
-
-;         ; Build packet payload
-;         lda     #FN_PROTOCOL_VERSION
-;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+0
-
-;         pla                     ; Get slot
-;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+1
-
-;         ; Build packet
-;         lda     #FN_DEVICE_DISK
-;         ldx     #DISK_CMD_UNMOUNT
-;         ldy     #$02            ; Payload length
-
-;         jsr     fn_build_packet
-
-;         ; Send packet
-;         jsr     fn_send_packet
-;         bcs     @unmount_error
-
-;         ; Receive response
-;         jsr     fn_receive_packet
-;         bcs     @unmount_error
-
-;         clc
-;         rts
-
-; @unmount_error:
-;         sec
-;         rts
-
-
-; ; ============================================================================
-; ; FN_DISK_READ_SECTOR - Read a sector from disk
-; ;
-; ; Request:
-; ;   u8  version = 1
-; ;   u8  slot
-; ;   u32 lba (little-endian)
-; ;   u16 maxBytes (little-endian)
-; ;
-; ; Input:
-; ;   A = slot (1-8)
-; ;   X/Y = LBA (16-bit sector number, for larger use direct ZP)
-; ;   aws_tmp08/09 = buffer pointer for data
-; ;
-; ; Output:
-; ;   Data in buffer
-; ;   Carry clear on success, set on error
-; ; ============================================================================
-; fn_disk_read_sector:
-;         ; Save parameters
-;         sta     fn_disk_slot
-;         stx     aws_tmp00       ; LBA low
-;         sty     aws_tmp01       ; LBA high
-
-;         ; Build packet payload
-;         ; version(1) + slot(1) + lba(4) + maxBytes(2) = 8 bytes
-
-;         ; Version
-;         lda     #FN_PROTOCOL_VERSION
-;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+0
-
-;         ; Slot
-;         lda     fn_disk_slot
-;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+1
-
-;         ; LBA (32-bit, little-endian) - we only support 16-bit for now
-;         lda     aws_tmp00
-;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+2
-;         lda     aws_tmp01
-;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+3
-;         lda     #$00
-;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+4
-;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+5
-
-;         ; Max bytes = 256 (little-endian)
-;         lda     #$00
-;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+6
-;         lda     #$01
-;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+7
-
-;         ; Build packet
-;         lda     #FN_DEVICE_DISK
-;         ldx     #DISK_CMD_READ_SECTOR
-;         ldy     #$08            ; Payload length
-
-;         jsr     fn_build_packet
-
-;         ; Send packet
-;         jsr     fn_send_packet
-;         bcs     @read_error
-
-;         ; Receive response
-;         jsr     fn_receive_packet
-;         bcs     @read_error
-
-;         ; Copy data to destination buffer
-;         ; Response format: version(1) + flags(1) + reserved(2) + slot(1) + lbaEcho(4) + dataLen(2) + data
-;         ; Data starts at offset: 6 + 1 + 1 + 2 + 1 + 4 + 2 = 17
-
-;         ; Get data length from response
-;         ldy     #FN_HEADER_SIZE+11
-;         lda     _fuji_rx_buffer,y  ; dataLen low
-;         sta     aws_tmp02
-;         iny
-;         lda     _fuji_rx_buffer,y  ; dataLen high
-;         sta     aws_tmp03
-
-;         ; Copy data
-;         ; Source: _fuji_rx_buffer + 17
-;         ; Dest: aws_tmp08/09
-;         ldy     #$00
-; @copy_loop:
-;         lda     _fuji_rx_buffer+FN_HEADER_SIZE+13,y
-;         sta     (aws_tmp08),y
-;         iny
-;         cpy     aws_tmp02
-;         bne     @copy_loop
-
-;         clc
-;         rts
-
-; @read_error:
-;         sec
-;         rts
-
-
-; ; ============================================================================
-; ; FN_DISK_READ_SECTOR_IMPL - Low-level read for fuji_serial.s
-; ;
-; ; This is the implementation function called by fuji_read_block_data
-; ; Transaction management is handled by caller.
-; ;
-; ; Input:
-; ;   data_ptr (aws_tmp08/09) = buffer address
-; ;   Sector info in workspace variables
-; ;
-; ; Output:
-; ;   Data in buffer
-; ;   Carry clear on success
-; ; ============================================================================
-; fn_disk_read_sector_impl:
-;         jsr     remember_axy
-
-;         ; Get slot from current drive
-;         ; current_drv is 0-based, slots are 1-based
-;         lda     current_drv
-;         clc
-;         adc     #$01            ; Convert to 1-based slot
-;         sta     fn_disk_slot
-
-;         ; Get LBA from workspace
-;         ; fuji_current_sector contains the sector number
-;         lda     fuji_current_sector
-;         ldx     fuji_current_sector+1
-
-;         ; Set up buffer pointer
-;         lda     data_ptr
-;         sta     aws_tmp08
-;         lda     data_ptr+1
-;         sta     aws_tmp09
-
-;         ; Call the main read function
-;         jsr     fn_disk_read_sector
-
-;         rts
-
-
-; ; ============================================================================
-; ; FN_DISK_WRITE_SECTOR - Write a sector to disk
-; ;
-; ; Request:
-; ;   u8  version = 1
-; ;   u8  slot
-; ;   u32 lba (little-endian)
-; ;   u16 dataLen (little-endian)
-; ;   u8[] data
-; ;
-; ; Input:
-; ;   A = slot (1-8)
-; ;   X/Y = LBA (16-bit sector number)
-; ;   aws_tmp08/09 = buffer pointer for data
-; ;   aws_tmp02/03 = data length
-; ;
-; ; Output:
-; ;   Carry clear on success, set on error
-; ; ============================================================================
-; fn_disk_write_sector:
-;         ; Save parameters
-;         sta     fn_disk_slot
-;         stx     aws_tmp00       ; LBA low
-;         sty     aws_tmp01       ; LBA high
-
-;         ; Build packet payload
-;         ; version(1) + slot(1) + lba(4) + dataLen(2) + data(256) = 264 bytes
-
-;         ; Version
-;         lda     #FN_PROTOCOL_VERSION
-;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+0
-
-;         ; Slot
-;         lda     fn_disk_slot
-;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+1
-
-;         ; LBA (32-bit, little-endian)
-;         lda     aws_tmp00
-;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+2
-;         lda     aws_tmp01
-;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+3
-;         lda     #$00
-;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+4
-;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+5
-
-;         ; Data length = 256 (little-endian)
-;         lda     #$00
-;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+6
-;         lda     #$01
-;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+7
-
-;         ; Copy data from source buffer
-;         ldy     #$00
-; @copy_data:
-;         lda     (aws_tmp08),y
-;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+8,y
-;         iny
-;         bne     @copy_data
-
-;         ; Build packet manually (264 bytes doesn't fit in Y)
-;         ; Store header manually
-;         lda     #FN_DEVICE_DISK
-;         sta     _fuji_tx_buffer+0
-;         lda     #DISK_CMD_WRITE_SECTOR
-;         sta     _fuji_tx_buffer+1
-
-;         ; Length = 6 (header) + 264 (payload) = 270
-;         lda     #<270
-;         sta     _fuji_tx_buffer+2
-;         lda     #>270
-;         sta     _fuji_tx_buffer+3
-
-;         ; Checksum placeholder
-;         lda     #$00
-;         sta     _fuji_tx_buffer+4
-
-;         ; Descriptor
-;         sta     _fuji_tx_buffer+5
-
-;         ; Store length
-;         lda     #<270
-;         sta     fn_tx_len
-;         lda     #>270
-;         sta     fn_tx_len_hi
-
-;         ; Calculate checksum
-;         lda     #<_fuji_tx_buffer
-;         sta     aws_tmp00
-;         lda     #>_fuji_tx_buffer
-;         sta     aws_tmp01
-;         lda     fn_tx_len
-;         sta     aws_tmp02
-;         lda     fn_tx_len_hi
-;         sta     aws_tmp03
-
-;         jsr     _calc_checksum
-;         sta     _fuji_tx_buffer+4
-
-;         ; Send packet
-;         jsr     fn_send_packet
-;         bcs     @write_error
-
-;         ; Receive response
-;         jsr     fn_receive_packet
-;         bcs     @write_error
-
-;         clc
-;         rts
-
-; @write_error:
-;         sec
-;         rts
-
-
-; ; ============================================================================
-; ; FN_DISK_WRITE_SECTOR_IMPL - Low-level write for fuji_serial.s
-; ;
-; ; This is the implementation function called by fuji_write_block_data
-; ; Transaction management is handled by caller.
-; ;
-; ; Input:
-; ;   data_ptr (aws_tmp08/09) = buffer address
-; ;   Sector info in workspace variables
-; ;
-; ; Output:
-; ;   Carry clear on success
-; ; ============================================================================
-; fn_disk_write_sector_impl:
-;         jsr     remember_axy
-
-;         ; Get slot from current drive
-;         lda     current_drv
-;         clc
-;         adc     #$01
-;         sta     fn_disk_slot
-
-;         ; Get LBA from workspace
-;         lda     fuji_current_sector
-;         ldx     fuji_current_sector+1
-
-;         ; Set up buffer pointer
-;         lda     data_ptr
-;         sta     aws_tmp08
-;         lda     data_ptr+1
-;         sta     aws_tmp09
-
-;         ; Data length = 256
-;         lda     #$00
-;         sta     aws_tmp02
-;         lda     #$01
-;         sta     aws_tmp03
-
-;         ; Call the main write function
-;         jsr     fn_disk_write_sector
-
-;         rts
-
-
-; ; ============================================================================
-; ; FN_DISK_INFO - Get disk slot information
-; ;
-; ; Request:
-; ;   u8  version = 1
-; ;   u8  slot
-; ;
-; ; Input:
-; ;   A = slot (1-8)
-; ;
-; ; Output:
-; ;   _fuji_rx_buffer contains response
-; ;   Carry clear on success
-; ; ============================================================================
-; fn_disk_info:
-;         pha                     ; Save slot
-
-;         ; Build packet payload
-;         lda     #FN_PROTOCOL_VERSION
-;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+0
-
-;         pla                     ; Get slot
-;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+1
-
-;         ; Build packet
-;         lda     #FN_DEVICE_DISK
-;         ldx     #DISK_CMD_INFO
-;         ldy     #$02
-
-;         jsr     fn_build_packet
-
-;         ; Send packet
-;         jsr     fn_send_packet
-;         bcs     @info_error
-
-;         ; Receive response
-;         jsr     fn_receive_packet
-;         bcs     @info_error
-
-;         clc
-;         rts
-
-; @info_error:
-;         sec
-;         rts
+        .export _fujibus_disk_mount
+        .export _fujibus_disk_read_sector
+        .export _fujibus_disk_write_sector_current
+        .export _fujibus_resolve_path
+
+tx_buffer_size = 96
+
+set_tx_packet_header:
+        sta     _fuji_tx_buffer+0
+        stx     _fuji_tx_buffer+1
+        lda     aws_tmp02
+        sta     _fuji_tx_buffer+2
+        lda     aws_tmp03
+        sta     _fuji_tx_buffer+3
+        lda     #$00
+        sta     _fuji_tx_buffer+4
+        sta     _fuji_tx_buffer+5
+        rts
+
+send_small_packet:
+        lda     #<_fuji_tx_buffer
+        sta     aws_tmp00
+        lda     #>_fuji_tx_buffer
+        sta     aws_tmp01
+        jsr     calc_checksum
+        sta     _fuji_tx_buffer+4
+
+        lda     #<_fuji_tx_buffer
+        ldx     #>_fuji_tx_buffer
+        jsr     pushax
+        lda     aws_tmp02
+        ldx     aws_tmp03
+        jsr     _fujibus_slip_encode
+
+        sta     aws_tmp02
+        stx     aws_tmp03
+        lda     #<_fuji_rx_buffer
+        sta     aws_tmp00
+        lda     #>_fuji_rx_buffer
+        sta     aws_tmp01
+        jmp     _write_serial_data
+
+flush_tx_chunk:
+        stx     aws_tmp02
+        lda     #$00
+        sta     aws_tmp03
+        lda     #<_fuji_tx_buffer
+        sta     aws_tmp00
+        lda     #>_fuji_tx_buffer
+        sta     aws_tmp01
+        jsr     _write_serial_data
+        ldx     #$00
+        rts
+
+send_prebuilt_rx_packet:
+        lda     #<_fuji_rx_buffer
+        sta     aws_tmp00
+        lda     #>_fuji_rx_buffer
+        sta     aws_tmp01
+
+        ldx     #$00
+        lda     #SLIP_END
+        sta     _fuji_tx_buffer,x
+        inx
+
+@copy_loop:
+        lda     aws_tmp02
+        ora     aws_tmp03
+        beq     @finish
+
+        ldy     #$00
+        lda     (aws_tmp00),y
+        sta     aws_tmp04
+
+        inc     aws_tmp00
+        bne     :+
+        inc     aws_tmp01
+:
+        lda     aws_tmp02
+        bne     :+
+        dec     aws_tmp03
+:
+        dec     aws_tmp02
+
+        lda     aws_tmp04
+        cmp     #SLIP_END
+        beq     @escape_end
+        cmp     #SLIP_ESCAPE
+        beq     @escape_escape
+
+        cpx     #tx_buffer_size
+        bne     :+
+        jsr     flush_tx_chunk
+:
+        lda     aws_tmp04
+        sta     _fuji_tx_buffer,x
+        inx
+        jmp     @copy_loop
+
+@escape_end:
+        cpx     #(tx_buffer_size - 1)
+        bcc     :+
+        jsr     flush_tx_chunk
+:
+        lda     #SLIP_ESCAPE
+        sta     _fuji_tx_buffer,x
+        inx
+        lda     #SLIP_ESC_END
+        sta     _fuji_tx_buffer,x
+        inx
+        jmp     @copy_loop
+
+@escape_escape:
+        cpx     #(tx_buffer_size - 1)
+        bcc     :+
+        jsr     flush_tx_chunk
+:
+        lda     #SLIP_ESCAPE
+        sta     _fuji_tx_buffer,x
+        inx
+        lda     #SLIP_ESC_ESC
+        sta     _fuji_tx_buffer,x
+        inx
+        jmp     @copy_loop
+
+@finish:
+        cpx     #tx_buffer_size
+        bne     :+
+        jsr     flush_tx_chunk
+:
+        lda     #SLIP_END
+        sta     _fuji_tx_buffer,x
+        inx
+        txa
+        beq     @done
+        jsr     flush_tx_chunk
+@done:
+        rts
+
+copy_rx_payload_to_dataptr:
+        lda     data_ptr
+        sta     aws_tmp00
+        lda     data_ptr+1
+        sta     aws_tmp01
+        lda     #<(_fuji_rx_buffer + 18)
+        sta     aws_tmp08
+        lda     #>(_fuji_rx_buffer + 18)
+        sta     aws_tmp09
+        lda     _fuji_rx_buffer+16
+        sta     aws_tmp02
+        lda     _fuji_rx_buffer+17
+        sta     aws_tmp03
+
+@loop:
+        lda     aws_tmp02
+        ora     aws_tmp03
+        beq     @done
+
+        ldy     #$00
+        lda     (aws_tmp08),y
+        sta     (aws_tmp00),y
+
+        inc     aws_tmp08
+        bne     :+
+        inc     aws_tmp09
+:
+        inc     aws_tmp00
+        bne     :+
+        inc     aws_tmp01
+:
+        lda     aws_tmp02
+        bne     :+
+        dec     aws_tmp03
+:
+        dec     aws_tmp02
+        jmp     @loop
+
+@done:
+        rts
+
+return_receive_success:
+        lda     #$01
+        rts
+
+return_receive_failure:
+        lda     #$00
+        rts
+
+_fujibus_disk_mount:
+        sta     fuji_disk_flags
+        sta     aws_tmp14
+        lda     fuji_current_fs_len
+        clc
+        adc     #14
+        sta     aws_tmp02
+        lda     #$00
+        sta     aws_tmp03
+        ldx     #DISK_CMD_MOUNT
+        lda     #FN_DEVICE_DISK
+        jsr     set_tx_packet_header
+
+        lda     fuji_disk_slot
+        sta     fuji_disk_slot
+        sta     _fuji_tx_buffer+7
+        inc     _fuji_tx_buffer+7
+        lda     aws_tmp14
+        sta     _fuji_tx_buffer+8
+        lda     #FN_PROTOCOL_VERSION
+        sta     _fuji_tx_buffer+6
+        lda     #$00
+        sta     _fuji_tx_buffer+9
+        sta     _fuji_tx_buffer+10
+        sta     _fuji_tx_buffer+11
+        lda     fuji_current_fs_len
+        sta     _fuji_tx_buffer+12
+        lda     #$00
+        sta     _fuji_tx_buffer+13
+
+        ldy     #$00
+@copy_uri:
+        cpy     fuji_current_fs_len
+        beq     @send
+        lda     _fuji_current_fs_uri,y
+        sta     _fuji_tx_buffer+14,y
+        iny
+        bne     @copy_uri
+
+@send:
+        jsr     send_small_packet
+        jsr     _fujibus_receive_packet
+        sta     aws_tmp02
+        stx     aws_tmp03
+        txa
+        ora     aws_tmp02
+        bne     :+
+        jmp     return_receive_failure
+:
+        lda     _fuji_rx_buffer+5
+        cmp     #$01
+        bne     return_receive_failure
+        lda     _fuji_rx_buffer+6
+        bne     return_receive_failure
+        lda     #$01
+        rts
+
+_fujibus_disk_read_sector:
+        lda     #14
+        sta     aws_tmp02
+        lda     #$00
+        sta     aws_tmp03
+        ldx     #DISK_CMD_READ_SECTOR
+        lda     #FN_DEVICE_DISK
+        jsr     set_tx_packet_header
+
+        lda     #FN_PROTOCOL_VERSION
+        sta     _fuji_tx_buffer+6
+        lda     fuji_disk_slot
+        clc
+        adc     #$01
+        sta     _fuji_tx_buffer+7
+        lda     fuji_current_sector
+        sta     _fuji_tx_buffer+8
+        lda     fuji_current_sector+1
+        sta     _fuji_tx_buffer+9
+        lda     #$00
+        sta     _fuji_tx_buffer+10
+        sta     _fuji_tx_buffer+11
+        sta     _fuji_tx_buffer+12
+        lda     #$01
+        sta     _fuji_tx_buffer+13
+
+        jsr     send_small_packet
+        jsr     _fujibus_receive_packet
+        sta     aws_tmp02
+        stx     aws_tmp03
+        txa
+        ora     aws_tmp02
+        bne     :+
+        jmp     return_receive_failure
+:
+
+        jsr     copy_rx_payload_to_dataptr
+        lda     #$01
+        rts
+
+_fujibus_disk_write_sector_current:
+        lda     #$0E
+        sta     aws_tmp02
+        lda     #$01
+        sta     aws_tmp03
+
+        lda     #FN_DEVICE_DISK
+        sta     _fuji_rx_buffer+0
+        lda     #DISK_CMD_WRITE_SECTOR
+        sta     _fuji_rx_buffer+1
+        lda     #$0E
+        sta     _fuji_rx_buffer+2
+        lda     #$01
+        sta     _fuji_rx_buffer+3
+        lda     #$00
+        sta     _fuji_rx_buffer+4
+        sta     _fuji_rx_buffer+5
+        lda     #FN_PROTOCOL_VERSION
+        sta     _fuji_rx_buffer+6
+        lda     fuji_disk_slot
+        clc
+        adc     #$01
+        sta     _fuji_rx_buffer+7
+        lda     fuji_current_sector
+        sta     _fuji_rx_buffer+8
+        lda     fuji_current_sector+1
+        sta     _fuji_rx_buffer+9
+        lda     #$00
+        sta     _fuji_rx_buffer+10
+        sta     _fuji_rx_buffer+11
+        sta     _fuji_rx_buffer+12
+        lda     #$01
+        sta     _fuji_rx_buffer+13
+
+        lda     data_ptr
+        sta     aws_tmp08
+        lda     data_ptr+1
+        sta     aws_tmp09
+        ldy     #$00
+@copy_sector:
+        lda     (aws_tmp08),y
+        sta     _fuji_rx_buffer+14,y
+        iny
+        bne     @copy_sector
+
+        lda     #<(_fuji_rx_buffer)
+        sta     aws_tmp00
+        lda     #>(_fuji_rx_buffer)
+        sta     aws_tmp01
+        lda     #$0E
+        sta     aws_tmp02
+        lda     #$01
+        sta     aws_tmp03
+        jsr     calc_checksum
+        sta     _fuji_rx_buffer+4
+
+        lda     #$0E
+        sta     aws_tmp02
+        lda     #$01
+        sta     aws_tmp03
+        jsr     send_prebuilt_rx_packet
+
+        jsr     _fujibus_receive_packet
+        sta     aws_tmp02
+        stx     aws_tmp03
+        txa
+        ora     aws_tmp02
+        bne     :+
+        jmp     return_receive_failure
+:
+        lda     aws_tmp03
+        bne     :+
+        lda     aws_tmp02
+        cmp     #$07
+        bcs     :+
+        jmp     return_receive_failure
+:
+        lda     _fuji_rx_buffer+6
+        beq     :+
+        jmp     return_receive_failure
+:
+        lda     #$01
+        rts
+
+_fujibus_resolve_path:
+        lda     fuji_current_host_len
+        clc
+        adc     #11
+        sta     aws_tmp02
+        lda     #$00
+        sta     aws_tmp03
+        ldx     #FILE_CMD_RESOLVE_PATH
+        lda     #FN_DEVICE_FILE
+        jsr     set_tx_packet_header
+
+        lda     #FN_PROTOCOL_VERSION
+        sta     _fuji_tx_buffer+6
+        lda     fuji_current_host_len
+        sta     _fuji_tx_buffer+7
+        lda     #$00
+        sta     _fuji_tx_buffer+8
+
+        ldy     #$00
+@copy_host:
+        cpy     fuji_current_host_len
+        beq     @finish_request
+        lda     _fuji_current_host_uri,y
+        sta     _fuji_tx_buffer+9,y
+        iny
+        bne     @copy_host
+
+@finish_request:
+        lda     fuji_current_host_len
+        tay
+        lda     #$00
+        sta     _fuji_tx_buffer+9,y
+        sta     _fuji_tx_buffer+10,y
+
+        jsr     send_small_packet
+        jsr     _fujibus_receive_packet
+        sta     aws_tmp02
+        stx     aws_tmp03
+        txa
+        ora     aws_tmp02
+        bne     :+
+        jmp     return_receive_failure
+:
+
+        lda     _fuji_rx_buffer+5
+        cmp     #$01
+        beq     :+
+        jmp     return_receive_failure
+:
+        lda     _fuji_rx_buffer+6
+        beq     :+
+        jmp     return_receive_failure
+:
+        lda     _fuji_rx_buffer+7
+        cmp     #FN_PROTOCOL_VERSION
+        beq     :+
+        jmp     return_receive_failure
+:
+
+        lda     _fuji_rx_buffer+11
+        sta     fuji_current_host_len
+
+        ldy     #$00
+@copy_resolved_uri:
+        cpy     fuji_current_host_len
+        beq     @read_dir_len
+        lda     _fuji_rx_buffer+13,y
+        sta     _fuji_current_host_uri,y
+        iny
+        bne     @copy_resolved_uri
+
+@read_dir_len:
+        ldy     fuji_current_host_len
+        lda     _fuji_rx_buffer+13,y
+        sta     fuji_current_dir_len
+
+        lda     #<(_fuji_rx_buffer + 15)
+        clc
+        adc     fuji_current_host_len
+        sta     aws_tmp08
+        lda     #>(_fuji_rx_buffer + 15)
+        adc     #$00
+        sta     aws_tmp09
+
+        ldy     #$00
+@copy_dir:
+        cpy     fuji_current_dir_len
+        bne     :+
+        jmp     return_receive_success
+:
+        lda     (aws_tmp08),y
+        sta     _fuji_current_dir_path,y
+        iny
+        bne     @copy_dir
+
+        lda     #$01
+        rts
