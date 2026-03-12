@@ -130,14 +130,9 @@ void fujibus_send_packet(uint8_t device, uint8_t command, uint8_t* payload, uint
 uint16_t fujibus_receive_packet(void);
 
 /* Accessor macros - inline for zero overhead */
-#define fujibus_get_device()         (FUJI_RX_BUFFER[0])
-#define fujibus_get_command()        (FUJI_RX_BUFFER[1])
-#define fujibus_get_length()         (FUJI_RX_BUFFER[2])
-#define fujibus_get_payload()        (&FUJI_RX_BUFFER[FUJIBUS_HEADER_SIZE])
-
-/**
- * Get payload length from received packet
- */
-uint8_t fujibus_get_payload_length(void);
+// #define fujibus_get_device()         (FUJI_RX_BUFFER[0])
+// #define fujibus_get_command()        (FUJI_RX_BUFFER[1])
+// #define fujibus_get_length()         (FUJI_RX_BUFFER[2])
+// #define fujibus_get_payload()        (&FUJI_RX_BUFFER[FUJIBUS_HEADER_SIZE])
 
 #endif /* FUJIBUS_C_H */

@@ -1,5 +1,5 @@
-        .export  cmd_fs_flist
-        .export  cmd_fs_fls
+        ; .export  cmd_fs_flist
+        ; .export  cmd_fs_fls
         .export  _parse_flist_params
         .export  _err_bad_flist_path
         .export  _err_flist_failed
@@ -17,9 +17,9 @@
 
         .segment "CODE"
 
-cmd_fs_flist:
-cmd_fs_fls:
-        jmp     _cmd_fs_flist
+; cmd_fs_flist:
+; cmd_fs_fls:
+;         jmp     _cmd_fs_flist
 
 ; uint8_t parse_flist_params()
 ;
