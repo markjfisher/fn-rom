@@ -18,7 +18,6 @@
 #include <stdbool.h>
 #include <string.h>
 #include "fujibus_c.h"
-#include "fujibus_disk_c.h" // for actually mounting a disk
 #include "cmd_fmount_c.h"
 #include "commands/utils.h"
 

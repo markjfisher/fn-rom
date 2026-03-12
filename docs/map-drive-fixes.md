@@ -25,95 +25,45 @@ Because of that, the immediate priority changed to:
 
 ### Current ROM-reduction work already performed
 
-We targeted `fujibus_disk_c.c` first because it was one of the largest C objects in the ROM.
-
-Before rewrite:
-
-- `fujibus_disk_c.o` contributed `0x0CF9` bytes of `CODE` in the ROM map
-
-After rewrite:
-
-- the live functionality was moved into `src/fujibus_disk.s`
-- `src/fujibus_disk_c.c` was reduced to an empty translation unit
-- `fujibus_disk.o` now contributes `0x0341` bytes of `CODE`
-- net ROM saving is about `0x09B8` bytes (`2488` bytes)
-
-### Functions moved from C to ASM
-
-The following entry points were implemented in `src/fujibus_disk.s`:
-
-- `_fujibus_disk_mount`
-- `_fujibus_disk_read_sector`
-- `_fujibus_disk_write_sector_current`
-- `_fujibus_resolve_path`
-
-This was done because these are the currently live entry points used by the ROM.
-
-### Important testing context for the ASM rewrite
-
-After rewriting `fujibus_disk_c.c` to assembly, `*FHOST` initially failed even though it had previously worked with the C version.
-
-Known-good request from the old C path:
-
-- device `0xFE`
-- command `0x05` (`ResolvePath`)
-- payload bytes:
-  - `01 06 00 68 6f 73 74 3a 2f 00 00`
-
-This corresponds to:
-
-- version `1`
-- base URI length `6`
-- base URI `host:/`
-- arg length `0`
-
-### What was observed during testing
-
-With the first ASM version, FujiNet logged:
-
-- `invalid FujiBus frame (response), dropped`
-
-To debug that, raw-frame logging was added to:
-
-- `fujinet-nio/src/lib/fujibus_transport.cpp`
-
-That showed the BBC was sending:
-
-- `c0 c0`
-
-which is an empty SLIP frame.
-
-### Root cause of the first ASM bug
-
-The bug was in `send_small_packet` inside `src/fujibus_disk.s`.
-
-`calc_checksum` destroys `aws_tmp02/03` while iterating through the packet buffer.  
-Those bytes were also being used as the packet length passed into `_fujibus_slip_encode`.
-
-So the flow became:
-
-1. packet length prepared in `aws_tmp02/03`
-2. checksum routine consumed and zeroed those bytes
-3. `_fujibus_slip_encode` was called with length `0`
-4. output became only `SLIP_END SLIP_END`, i.e. `c0 c0`
-
-This has now been fixed by preserving and restoring `aws_tmp02/03` around the checksum call.
+We targeted `fujibus_disk_c.c` first because it was one of the largest C objects in the ROM. This is complete and has saved about 2400 bytes.
 
 ### Current state at handoff
 
 - `fn-rom` builds successfully after the `fujibus_disk` assembly rewrite
 - the drive-map fixes in this document are still not applied
-- the assembly rewrite still needs runtime validation by re-testing commands such as `*FHOST`
+- the assembly rewrite still needs runtime validation by re-testing all commands such as `*FHOST`
 - FujiNet-side raw-frame logging is currently present to help debug malformed BBC packets
 
 ### If continuing from here
 
 Suggested next steps:
 
-1. re-test `*FHOST` and confirm the ASM path now sends a valid FujiBus frame
-2. if there is still a packet issue, inspect the raw SLIP frame now logged by FujiNet
-3. once the `fujibus_disk.s` rewrite is proven stable, continue porting other large C objects to ASM
-4. after enough ROM is recovered, return to the drive-map fixes described below
+1. Now `fujibus_disk.s` rewrite is proven stable, continue porting other large C objects to ASM
+2. after enough ROM is recovered, return to the drive-map fixes described below
+
+### Largs C objects analysis
+
+```
+❯ grep -F -A2 '_c.o:' build/fujinet.rom.map
+fujibus_c.o:
+    CODE              Offs=001EDF  Size=000402  Align=00001  Fill=0000
+fujibus_fuji_c.o:
+    CODE              Offs=002FDA  Size=00019A  Align=00001  Fill=0000
+cmd_fhost_c.o:
+    CODE              Offs=003174  Size=000151  Align=00001  Fill=0000
+    RODATA            Offs=0001B7  Size=000015  Align=00001  Fill=0000
+cmd_fin_c.o:
+    CODE              Offs=0032C5  Size=0000F2  Align=00001  Fill=0000
+cmd_flist_c.o:
+    CODE              Offs=0033B7  Size=0006B4  Align=00001  Fill=0000
+cmd_fmount_c.o:
+    CODE              Offs=003A6B  Size=000079  Align=00001  Fill=0000
+```
+
+The following are our next targets:
+
+- `fujibus_flist_c`: 0x6B4
+- `fujibus_c`: 0x402
 
 ### Other useful context
 
