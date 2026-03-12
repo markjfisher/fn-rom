@@ -6,5 +6,6 @@ test/
 *.dsd
 
 trace_*.txt
+debug_*.txt
 
 /.vscode/
