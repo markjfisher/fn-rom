@@ -44,17 +44,6 @@ extern void err_bad_disk_mount(void);
 extern void err_not_enabled(void);
 extern void exit_user_ok(void);
 
-/* Workspace variables - use the defined addresses */
-/* current_drv at $CD, aws_tmp08 at $B8 */
-#define current_drv (*(uint8_t*)0xCD)
-#define aws_tmp08 (*(uint8_t*)0xB8)
-
-/* FujiNet workspace - use the defined address */
-#define fuji_disk_slot (*(uint8_t*)0x10EC)
-
-/* Fuji drive disk map - 4 bytes at 0x10E0 */
-#define fuji_drive_disk_map (*(uint8_t*)0x10E0)
-
 /* ============================================================================
  * Constants
  * ============================================================================ */
@@ -109,15 +98,15 @@ uint8_t cmd_fs_fmount(void) {
         *FUJI_CURRENT_FS_LEN = uri_len;
 
         /* Call fuji_mount_disk to:
-         * 1. Record the mapping in fuji_drive_disk_map[current_drv]
+         * 1. Record the mapping in FUJI_DRIVE_DISK_MAP[CURRENT_DRV]
          * 2. Call fuji_mount_disk_data (in fuji_serial.s) which calls fujibus_disk_mount
          */
         
         /* Set up parameters for fuji_mount_disk:
-         * - current_drv is already set by parse_fmount_params (via param_optional_drive_no)
+         * - CURRENT_DRV is already set by parse_fmount_params (via param_optional_drive_no)
          * - aws_tmp08 needs the slot number
          */
-        aws_tmp08 = fuji_disk_slot;
+        aws_tmp08 = FUJI_DISK_SLOT;
         
         /* Call through the proper layer - this records mapping AND does the mount */
         if (!fuji_mount_disk()) {

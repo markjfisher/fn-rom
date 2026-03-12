@@ -14,35 +14,35 @@
  * Constants
  * ============================================================================ */
 
- /* Current drive (0-3) at 0x10CD */
 #define CURRENT_DRV              ((uint8_t*)0xCD)
+#define aws_tmp08                (*(uint8_t*)0xB8)
 
 #define FUJI_WORKSPACE           ((uint8_t*)0x1000)
 
-/* Filename buffer at 0x1000 */
 #define FUJI_FILENAME_BUFFER     ((uint8_t*)0x1000)
-
 #define FUJI_STATIC_WORKSPACE    ((uint8_t*)0x10C0)
 
-/* Current HOST URI buffer (80 bytes at 0x11B0) */
+/* Current HOST URI buffer (80 bytes) */
 #define FUJI_CURRENT_HOST_URI    ((uint8_t*)0x11B0)
 
-/* Current filesystem URI buffer (80 bytes at 0x1200) */
+/* Current filesystem URI buffer (80 bytes) */
 #define FUJI_CURRENT_FS_URI      ((uint8_t*)0x1200)
 
-/* Current directory path buffer (80 bytes at 0x1250) */
+/* Current directory path buffer (80 bytes) */
 #define FUJI_CURRENT_DIR_PATH    ((uint8_t*)0x1250)
 
-#define FUJI_TX_BUFFER           ((uint8_t*)(0x1000 + 0x02A0))
-#define FUJI_RX_BUFFER           ((uint8_t*)(0x1000 + 0x0300))
+// 96 bytes
+#define FUJI_TX_BUFFER           ((uint8_t*)0x12A0)
+// 512 bytes
+#define FUJI_RX_BUFFER           ((uint8_t*)0x1300)
 #define FUJI_SLIP_BUFFER         FUJI_RX_BUFFER
 
-/* Current mount slot index at 0x10D4 */
+/* Current mount slot index */
 #define FUJI_DISK_TABLE_INDEX    ((uint8_t*)0x10D4)
 
-/* Error flag - 0 = OK, 1 = truncated */
+/* Error flag general purpose*/
 #define FUJI_ERROR_FLAG          ((uint8_t*)0x10DA)
-/* FujiNet drive-to-disk mapping (4 bytes: drives 0-3) at 0x10DB */
+/* FujiNet drive-to-disk mapping (4 bytes: drives 0-3) */
 #define FUJI_DRIVE_DISK_MAP      ((uint8_t*)0x10DB)
 
 #define fuji_current_sector      ((uint8_t*)0x10E7)

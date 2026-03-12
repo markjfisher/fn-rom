@@ -379,9 +379,6 @@ fuji_get_mount_slot_data:
         jsr     _fujibus_get_mount_slot
         rts
 
-        ; rts
-
-
 err_bad_response:
         jsr     restore_output_to_screen
         jsr     err_bad
