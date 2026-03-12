@@ -1,6 +1,5 @@
         .export  cmd_test
 
-        .import  _fujibus_build_packet
         .import  _fujibus_slip_decode
         .import  _fujibus_slip_encode
         .import  print_hex
@@ -49,17 +48,6 @@ cmd_test:
         sta     aws_tmp03
         jsr     _fujibus_slip_decode
 
-        ; Test 3: Build a known FujiBus packet using the same payload buffer.
-        lda     #$FC
-        jsr     pusha
-        lda     #$03
-        jsr     pusha
-        lda     #<_fuji_tx_buffer
-        ldx     #>_fuji_tx_buffer
-        jsr     pushax
-        lda     #$04
-        ldx     #$00
-        jsr     _fujibus_build_packet
 
         ; Print a few key bytes/values so the debugger has visible breadcrumbs.
         lda     _fuji_tx_buffer+0
@@ -82,20 +70,7 @@ cmd_test:
         jsr     print_hex
         lda     _fuji_tx_buffer+9
         jsr     print_hex
-        lda     _fuji_tx_buffer+10
-        jsr     print_hex
-        lda     _fuji_tx_buffer+11
-        jsr     print_hex
-        lda     _fuji_tx_buffer+12
-        jsr     print_hex
-        lda     _fuji_tx_buffer+13
-        jsr     print_hex
-        lda     _fuji_tx_buffer+14
-        jsr     print_hex
-        lda     _fuji_tx_buffer+15
-        jsr     print_hex
-        lda     _fuji_tx_buffer+16
-        jsr     print_hex
+
         jsr     print_newline
 
         rts

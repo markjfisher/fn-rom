@@ -17,7 +17,6 @@
 
         .export _fujibus_slip_encode
         .export _fujibus_slip_decode
-        .export _fujibus_build_packet
         .export _fujibus_send_packet
         .export _fujibus_receive_packet
 
@@ -35,6 +34,31 @@ fujibus_header_size = 6
 ;     aws_tmp08/09 = encoded output pointer
 
 _fujibus_slip_encode:
+        lda     aws_tmp04
+        pha
+        lda     aws_tmp08
+        pha
+        lda     aws_tmp09
+        pha
+
+        jsr     fujibus_slip_encode_impl
+
+        sta     fuji_ax_save
+        stx     fuji_ax_save+1
+
+        pla
+        sta     aws_tmp09
+        pla
+        sta     aws_tmp08
+        pla
+        sta     aws_tmp04
+
+        ldx     fuji_ax_save+1
+        lda     fuji_ax_save
+        rts
+
+
+fujibus_slip_encode_impl:
         lda     #<_fuji_rx_buffer
         sta     aws_tmp08
         lda     #>_fuji_rx_buffer
@@ -137,6 +161,35 @@ _fujibus_slip_encode:
 ;     aws_tmp08/09 = decoded output pointer
 
 _fujibus_slip_decode:
+        lda     aws_tmp04
+        pha
+        lda     aws_tmp05
+        pha
+        lda     aws_tmp08
+        pha
+        lda     aws_tmp09
+        pha
+
+        jsr     fujibus_slip_decode_impl
+
+        sta     fuji_ax_save
+        stx     fuji_ax_save+1
+
+        pla
+        sta     aws_tmp09
+        pla
+        sta     aws_tmp08
+        pla
+        sta     aws_tmp05
+        pla
+        sta     aws_tmp04
+
+        ldx     fuji_ax_save+1
+        lda     fuji_ax_save
+        rts
+
+
+fujibus_slip_decode_impl:
         lda     aws_tmp03
         bne     @check_markers
         lda     aws_tmp02
@@ -284,48 +337,163 @@ _fujibus_slip_decode:
         tax
         rts
 
-; uint16_t fujibus_build_packet(uint8_t device, uint8_t command, uint8_t* payload, uint16_t paylen)
-_fujibus_build_packet:
+; ; uint16_t fujibus_build_packet(uint8_t device, uint8_t command, uint8_t* payload, uint16_t paylen)
+; _fujibus_build_packet:
+;         sta     aws_tmp02
+;         stx     aws_tmp03
+;         jsr     popax
+;         sta     aws_tmp00         ; payload ptr lo
+;         stx     aws_tmp01         ; payload ptr hi
+;         jsr     popa
+;         sta     aws_tmp05         ; command
+;         jsr     popa
+;         sta     aws_tmp04         ; device
+
+;         lda     aws_tmp02
+;         clc
+;         adc     #fujibus_header_size
+;         sta     aws_tmp06
+;         lda     aws_tmp03
+;         adc     #$00
+;         sta     aws_tmp07
+
+;         lda     aws_tmp04
+;         sta     _fuji_tx_buffer+0
+;         lda     aws_tmp05
+;         sta     _fuji_tx_buffer+1
+;         lda     aws_tmp06
+;         sta     _fuji_tx_buffer+2
+;         lda     aws_tmp07
+;         sta     _fuji_tx_buffer+3
+;         lda     #$00
+;         sta     _fuji_tx_buffer+4
+;         sta     _fuji_tx_buffer+5
+
+;         lda     #<(_fuji_tx_buffer + fujibus_header_size)
+;         sta     aws_tmp08
+;         lda     #>(_fuji_tx_buffer + fujibus_header_size)
+;         sta     aws_tmp09
+
+;         ldy     #$00
+; @copy_payload:
+;         lda     aws_tmp02
+;         ora     aws_tmp03
+;         beq     @checksum
+
+;         lda     (aws_tmp00),y
+;         sta     (aws_tmp08),y
+
+;         inc     aws_tmp00
+;         bne     :+
+;         inc     aws_tmp01
+; :
+;         inc     aws_tmp08
+;         bne     :+
+;         inc     aws_tmp09
+; :
+;         lda     aws_tmp02
+;         bne     :+
+;         dec     aws_tmp03
+; :
+;         dec     aws_tmp02
+;         jmp     @copy_payload
+
+; @checksum:
+;         lda     #<_fuji_tx_buffer
+;         sta     aws_tmp00
+;         lda     #>_fuji_tx_buffer
+;         sta     aws_tmp01
+;         lda     aws_tmp06
+;         sta     aws_tmp02
+;         lda     aws_tmp07
+;         sta     aws_tmp03
+;         jsr     calc_checksum
+;         sta     _fuji_tx_buffer+4
+;         lda     aws_tmp06
+;         ldx     aws_tmp07
+;         rts
+
+; void fujibus_send_packet(uint8_t device, uint8_t command, uint8_t* payload, uint16_t paylen)
+
+_fujibus_send_packet:
+        sta     fuji_ax_save
+        stx     fuji_ax_save+1
+
+        lda     aws_tmp00
+        pha
+        lda     aws_tmp01
+        pha
+        lda     aws_tmp02
+        pha
+        lda     aws_tmp03
+        pha
+        lda     aws_tmp04
+        pha
+        lda     aws_tmp08
+        pha
+        lda     aws_tmp09
+        pha
+
+        ldx     fuji_ax_save+1
+        lda     fuji_ax_save
+        jsr     fujibus_send_packet_impl
+
+        pla
+        sta     aws_tmp09
+        pla
+        sta     aws_tmp08
+        pla
+        sta     aws_tmp04
+        pla
+        sta     aws_tmp03
+        pla
+        sta     aws_tmp02
+        pla
+        sta     aws_tmp01
+        pla
+        sta     aws_tmp00
+        rts
+
+
+; Internal entry:
+;   A/X     = paylen
+;   stack   = payload (16), command (8), device (8)
+
+fujibus_send_packet_impl:
+        ; save paylen
         sta     aws_tmp02
         stx     aws_tmp03
+
+        ; payload pointer
         jsr     popax
-        sta     aws_tmp00         ; payload ptr lo
-        stx     aws_tmp01         ; payload ptr hi
-        jsr     popa
-        sta     aws_tmp05         ; command
-        jsr     popa
-        sta     aws_tmp04         ; device
+        sta     aws_tmp00
+        stx     aws_tmp01
 
-        lda     aws_tmp02
-        clc
-        adc     #fujibus_header_size
-        sta     aws_tmp06
-        lda     aws_tmp03
-        adc     #$00
-        sta     aws_tmp07
-
-        lda     aws_tmp04
-        sta     _fuji_tx_buffer+0
-        lda     aws_tmp05
+        ; command -> tx buffer[1]
+        jsr     popa
         sta     _fuji_tx_buffer+1
-        lda     aws_tmp06
-        sta     _fuji_tx_buffer+2
-        lda     aws_tmp07
-        sta     _fuji_tx_buffer+3
-        lda     #$00
-        sta     _fuji_tx_buffer+4
-        sta     _fuji_tx_buffer+5
 
+        ; device -> tx buffer[0]
+        jsr     popa
+        sta     _fuji_tx_buffer+0
+
+        ; header placeholders
+        lda     #$00
+        sta     _fuji_tx_buffer+4      ; checksum
+        sta     _fuji_tx_buffer+5      ; descriptor
+
+        ; destination pointer = tx buffer + header size
         lda     #<(_fuji_tx_buffer + fujibus_header_size)
         sta     aws_tmp08
         lda     #>(_fuji_tx_buffer + fujibus_header_size)
         sta     aws_tmp09
 
         ldy     #$00
+
 @copy_payload:
         lda     aws_tmp02
         ora     aws_tmp03
-        beq     @checksum
+        beq     @payload_done
 
         lda     (aws_tmp00),y
         sta     (aws_tmp08),y
@@ -345,95 +513,42 @@ _fujibus_build_packet:
         dec     aws_tmp02
         jmp     @copy_payload
 
-@checksum:
+@payload_done:
+        ; total_len = current dest ptr - _fuji_tx_buffer
+        lda     aws_tmp08
+        sec
+        sbc     #<_fuji_tx_buffer
+        sta     aws_tmp02
+        sta     _fuji_tx_buffer+2      ; length low
+
+        lda     aws_tmp09
+        sbc     #>_fuji_tx_buffer
+        sta     aws_tmp03
+        sta     _fuji_tx_buffer+3      ; length high
+
+        ; checksum over tx buffer
         lda     #<_fuji_tx_buffer
         sta     aws_tmp00
         lda     #>_fuji_tx_buffer
         sta     aws_tmp01
-        lda     aws_tmp06
-        sta     aws_tmp02
-        lda     aws_tmp07
-        sta     aws_tmp03
         jsr     calc_checksum
         sta     _fuji_tx_buffer+4
-        lda     aws_tmp06
-        ldx     aws_tmp07
-        rts
 
-; void fujibus_send_packet(uint8_t device, uint8_t command, uint8_t* payload, uint16_t paylen)
-; void fujibus_send_packet(uint8_t device, uint8_t command, uint8_t* payload, uint16_t paylen)
-
-_fujibus_send_packet:
-        ; On entry from C:
-        ;   A/X     = paylen
-        ;   stack   = payload (16), command (8), device (8)
-
-        sta     aws_tmp02              ; paylen lo
-        stx     aws_tmp03              ; paylen hi
-
-        jsr     popax
-        sta     aws_tmp00              ; payload ptr lo
-        stx     aws_tmp01              ; payload ptr hi
-
-        jsr     popa
-        sta     aws_tmp05              ; command
-
-        jsr     popa
-        sta     aws_tmp04              ; device
-
-        ; Build packet:
-        ;   fujibus_build_packet(device, command, payload, paylen)
-        ;
-        ; For C call:
-        ;   push all but last parameter right-to-left
-        ;   final parameter goes in A/X
-        ;
-        ; Signature:
-        ;   (uint8_t device, uint8_t command, uint8_t* payload, uint16_t paylen)
-        ;
-        ; So:
-        ;   push paylen
-        ;   push payload
-        ;   push command
-        ;   A = device
-
-        lda     aws_tmp02
-        ldx     aws_tmp03
-        jsr     pushax                 ; push paylen
-
-        lda     aws_tmp00
-        ldx     aws_tmp01
-        jsr     pushax                 ; push payload
-
-        lda     aws_tmp05
-        jsr     pusha                  ; push command
-
-        lda     aws_tmp04              ; device = final parameter
-        jsr     _fujibus_build_packet  ; returns total_len in A/X
-
-        ; SLIP encode:
-        ;   aws_tmp00/01 = source pointer
-        ;   aws_tmp02/03 = source length
-
-        sta     aws_tmp02              ; pkt_len lo
-        stx     aws_tmp03              ; pkt_len hi
-
+        ; SLIP encode tx buffer -> rx buffer
         lda     #<_fuji_tx_buffer
         sta     aws_tmp00
         lda     #>_fuji_tx_buffer
         sta     aws_tmp01
-
-        jsr     _fujibus_slip_encode   ; returns slip_len in A/X
-
-        ; Save slip length for write_serial_data
-        sta     aws_tmp02
-        stx     aws_tmp03
-
-        jsr     setup_serial_19200
+        ; aws_tmp02/03 already = total_len
+        jsr     fujibus_slip_encode_impl
 
         ; write_serial_data expects:
         ;   aws_tmp00/01 = buffer pointer
         ;   aws_tmp02/03 = length
+        sta     aws_tmp02
+        stx     aws_tmp03
+
+        jsr     setup_serial_19200
 
         lda     #<_fuji_rx_buffer
         sta     aws_tmp00
@@ -441,11 +556,53 @@ _fujibus_send_packet:
         sta     aws_tmp01
 
         jsr     _write_serial_data
-        jmp     restore_output_to_screen
-
+        jsr     restore_output_to_screen
+        rts
 
 ; uint16_t fujibus_receive_packet(void)
+
 _fujibus_receive_packet:
+        lda     aws_tmp00
+        pha
+        lda     aws_tmp01
+        pha
+        lda     aws_tmp02
+        pha
+        lda     aws_tmp03
+        pha
+        lda     aws_tmp04
+        pha
+        lda     aws_tmp10
+        pha
+        lda     aws_tmp11
+        pha
+
+        jsr     fujibus_receive_packet_impl
+
+        sta     fuji_ax_save
+        stx     fuji_ax_save+1
+
+        pla
+        sta     aws_tmp11
+        pla
+        sta     aws_tmp10
+        pla
+        sta     aws_tmp04
+        pla
+        sta     aws_tmp03
+        pla
+        sta     aws_tmp02
+        pla
+        sta     aws_tmp01
+        pla
+        sta     aws_tmp00
+
+        ldx     fuji_ax_save+1
+        lda     fuji_ax_save
+        rts
+
+
+fujibus_receive_packet_impl:
         jsr     setup_serial_19200
 
         ; read_serial_data(_fuji_rx_buffer, $01FF, &aws_tmp10)
@@ -463,7 +620,7 @@ _fujibus_receive_packet:
 
         jsr     restore_output_to_screen
 
-        ; if (slip_len == 0) return 0;
+        ; if (slip_len == 0) return 0
         lda     aws_tmp10
         ora     aws_tmp11
         bne     :+
@@ -480,12 +637,12 @@ _fujibus_receive_packet:
         sta     aws_tmp02
         lda     aws_tmp11
         sta     aws_tmp03
-        jsr     _fujibus_slip_decode
+        jsr     fujibus_slip_decode_impl
 
         sta     aws_tmp02              ; dec_len lo
         stx     aws_tmp03              ; dec_len hi
 
-        ; if (dec_len < fujibus_header_size) return 0;
+        ; if (dec_len < fujibus_header_size) return 0
         lda     aws_tmp03
         bne     @validate_checksum
         lda     aws_tmp02
@@ -515,6 +672,10 @@ _fujibus_receive_packet:
         sta     aws_tmp00
         lda     #>_fuji_rx_buffer
         sta     aws_tmp01
+        lda     aws_tmp10
+        sta     aws_tmp02
+        lda     aws_tmp11
+        sta     aws_tmp03
         jsr     calc_checksum
 
         ; compare and restore original checksum byte

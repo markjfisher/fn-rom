@@ -7,7 +7,6 @@
 ; ZP usage:
 ;   aws_tmp04 = checksum
 
-        .export  _calc_checksum
         .export  calc_checksum
 
         .import  inc_word_aws_tmp00_dec_word_aws_tmp02
@@ -50,12 +49,3 @@ calc_checksum:
 @exit:
         rts
 
-; C interface to calc_checksum dealing with the locations
-; uint8_t calc_checksum(uint8_t buffer*, uint16_t len)
-_calc_checksum:
-        sta     aws_tmp02
-        stx     aws_tmp03
-        jsr     popax
-        sta     aws_tmp00
-        stx     aws_tmp01
-        jmp     calc_checksum

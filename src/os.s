@@ -123,6 +123,7 @@
         .export  fuji_unknown_11C0
         .export  fuji_unknown_11D0
 
+        .export  fuji_ax_save
         .export  _fuji_current_host_uri
         .export  _fuji_current_fs_uri
         .export  _fuji_current_dir_path
@@ -491,21 +492,24 @@ fuji_unknown_11D0       = fuji_workspace + $1D0
 
 ; ASSUME THE CHANNEL DATA DOES NOT GO BEYOND $1130
 
+; 2 byte buffer for stashing AX registers for saving result while restoring state.
+fuji_ax_save            = fuji_workspace + $01AE
+
 ; 80 byte buffer for current HOST string.
 ; Keep this aligned with [`FUJI_CURRENT_HOST_URI`](src/fujibus_c.h:26) used by the C path.
-_fuji_current_host_uri   = fuji_workspace + $01B0
+_fuji_current_host_uri  = fuji_workspace + $01B0
 
 ; 80 byte buffer - TODO review lengths, we can only input 64 chars in param_get_string
-_fuji_current_fs_uri     = fuji_workspace + $0200
+_fuji_current_fs_uri    = fuji_workspace + $0200
 
 ; 80 byte buffer, technically cannot be more than "uri - scheme length"
-_fuji_current_dir_path   = fuji_workspace + $0250
+_fuji_current_dir_path  = fuji_workspace + $0250
 
 ; 96 byte TX buffer - need to see how this pans out
-_fuji_tx_buffer          = fuji_workspace + $02A0
+_fuji_tx_buffer         = fuji_workspace + $02A0
 
 ; 512 byte RX buffer - does this need to be 512 bytes?
-_fuji_rx_buffer          = fuji_workspace + $0300
+_fuji_rx_buffer         = fuji_workspace + $0300
 
 
 ; the start of where BSS should be defined for CC65, see fujinet-rom.cfg

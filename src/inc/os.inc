@@ -128,6 +128,8 @@ OS_INC = 1
         .import  fuji_unknown_11C0
         .import  fuji_unknown_11D0
 
+        .import  fuji_ax_save
+        .import  _fuji_current_host_uri
         .import  _fuji_current_fs_uri
         .import  _fuji_current_dir_path
         .import  _fuji_tx_buffer
