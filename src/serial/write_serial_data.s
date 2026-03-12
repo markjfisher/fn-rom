@@ -1,4 +1,4 @@
-        .export  _write_serial_data
+        ; .export  _write_serial_data
 
         .import  inc_word_aws_tmp00_dec_word_aws_tmp02
         .import  restore_output_to_screen
@@ -10,17 +10,17 @@
 ;  aws_tmp00/01 = buffer to data
 ;  asw_tmp02/03 = length
 
-_write_serial_data:
-        jsr     setup_serial_19200
+; _write_serial_data:
+;         jsr     setup_serial_19200
 
-        ldy     #$00
-@loop:
-        lda     (aws_tmp00), y
-        jsr     OSWRCH                  ; preserves A,X,Y
+;         ldy     #$00
+; @loop:
+;         lda     (aws_tmp00), y
+;         jsr     OSWRCH                  ; preserves A,X,Y
 
-        jsr     inc_word_aws_tmp00_dec_word_aws_tmp02      ; does not affect Y
-        bne     @loop
+;         jsr     inc_word_aws_tmp00_dec_word_aws_tmp02      ; does not affect Y
+;         bne     @loop
 
-        jmp     restore_output_to_screen
+;         jmp     restore_output_to_screen
 
 ; MAKE A H FILE FOR THIS AND USE IT IN FUJIBUS_C.C

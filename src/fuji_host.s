@@ -9,6 +9,10 @@
         .export fuji_get_host
         .export _fuji_get_host           ; C-friendly label
 
+        .export fuji_resolve_path_data
+        .export fuji_set_host_data
+        .export fuji_get_host_data
+
         .import fuji_begin_transaction
         .import fuji_end_transaction
         .import remember_axy

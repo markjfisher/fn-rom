@@ -100,8 +100,8 @@ init_fuji:
         sty     current_cat             ; curdrvcat<>0
         sty     current_cat+1           ; this has a "?"" in MMFS src... who knows why?
         stx     current_drv             ; curdrv=0
-        stx     _fuji_current_dir_path
-        stx     _fuji_current_fs_uri
+        stx     fuji_current_dir_path
+        stx     fuji_current_fs_uri
         stx     fuji_current_fs_len
         stx     fuji_current_dir_len
         ; stx     current_host            ; set host to 0

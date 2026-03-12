@@ -5,8 +5,8 @@
         ; .import fn_build_packet
         ; .import fn_send_packet
         ; .import fn_receive_packet
-        ; .import _fuji_tx_buffer
-        ; .import _fuji_rx_buffer
+        ; .import fuji_data_buffer
+        ; .import fuji_data_buffer
 
         .include "fujinet.inc"
 
@@ -15,7 +15,7 @@
 ; Set persisted Fuji mount slot using FujiDevice SetMount.
 ; Input:
 ;   fuji_current_mount_slot = 0-based slot index
-;   _fuji_current_fs_uri = NUL-terminated URI
+;   fuji_current_fs_uri = NUL-terminated URI
 ; Output:
 ;   Carry clear on success, set on failure
 ;
@@ -27,7 +27,7 @@
 ;   next byte = mode length
 ;   next byte(s) = mode string (currently always "r")
 ;
-; We build the payload directly in _fuji_tx_buffer after the 6-byte FujiBus header,
+; We build the payload directly in fuji_data_buffer after the 6-byte FujiBus header,
 ; then pass the final payload length in Y to fn_build_packet.
 ; fuji_set_mount_slot:
 ;         lda     fuji_current_mount_slot
@@ -35,17 +35,17 @@
 ;         bcs     @error
 
 ;         ; Write slot index into payload byte 0.
-;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+0
+;         sta     fuji_data_buffer+FN_HEADER_SIZE+0
 
 ;         ; Set the persisted mount entry enabled flag.
 ;         lda     #$01                    ; enabled
-;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+1
+;         sta     fuji_data_buffer+FN_HEADER_SIZE+1
 
 ;         ; Measure URI length by scanning for the NUL terminator.
 ;         ; Y leaves this loop holding the URI length.
 ;         ldy     #$00
 ; @measure_uri:
-;         lda     _fuji_current_fs_uri,y
+;         lda     fuji_current_fs_uri,y
 ;         beq     @write_uri_len
 ;         iny
 ;         cpy     #$3F
@@ -54,15 +54,15 @@
 ; @write_uri_len:
 ;         ; Store the measured URI length into payload byte 2.
 ;         tya
-;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+2
+;         sta     fuji_data_buffer+FN_HEADER_SIZE+2
 
 ;         ; Copy exactly URI length bytes into payload bytes 3..
 ;         ldx     #$00
 ; @copy_uri:
-;         cpx     _fuji_tx_buffer+FN_HEADER_SIZE+2
+;         cpx     fuji_data_buffer+FN_HEADER_SIZE+2
 ;         beq     @write_mode
-;         lda     _fuji_current_fs_uri,x
-;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+3,x
+;         lda     fuji_current_fs_uri,x
+;         sta     fuji_data_buffer+FN_HEADER_SIZE+3,x
 ;         inx
 ;         bne     @copy_uri
 
@@ -78,20 +78,20 @@
 ;         ; Encode mode length and mode string.
 ;         ; At present FIN always writes persisted mounts in read-only mode.
 ;         lda     #$01                    ; mode len = 1
-;         sta     _fuji_tx_buffer+FN_HEADER_SIZE,y
+;         sta     fuji_data_buffer+FN_HEADER_SIZE,y
 ;         iny
 ;         lda     #'r'
-;         sta     _fuji_tx_buffer+FN_HEADER_SIZE,y
+;         sta     fuji_data_buffer+FN_HEADER_SIZE,y
 ;         iny
 
 ;         ; Y now already contains the final payload length:
 ;         ;   3 fixed bytes + uri_len + 1 modeLen + 1 modeChar
 ;         ; No further arithmetic is required before fn_build_packet.
 
-;         ; fn_build_packet copies payload from (aws_tmp00); point at _fuji_tx_buffer payload.
-;         lda     #<(_fuji_tx_buffer+FN_HEADER_SIZE)
+;         ; fn_build_packet copies payload from (aws_tmp00); point at fuji_data_buffer payload.
+;         lda     #<(fuji_data_buffer+FN_HEADER_SIZE)
 ;         sta     aws_tmp00
-;         lda     #>(_fuji_tx_buffer+FN_HEADER_SIZE)
+;         lda     #>(fuji_data_buffer+FN_HEADER_SIZE)
 ;         sta     aws_tmp01
 
 ;         ; Build and send FujiBus packet to FujiDevice.
@@ -106,7 +106,7 @@
 ;         jsr     fn_receive_packet
 ;         bcs     @error
 
-;         lda     _fuji_rx_buffer+FN_PARAMS_OFFSET
+;         lda     fuji_data_buffer+FN_PARAMS_OFFSET
 ;         bne     @error
 ;         clc
 ;         rts
@@ -130,17 +130,17 @@
 ;         lda     fuji_current_mount_slot
 ;         cmp     #$08
 ;         bcs     @clear_error
-;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+0
+;         sta     fuji_data_buffer+FN_HEADER_SIZE+0
 
 ;         lda     #$00
-;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+1
-;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+2
-;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+3
+;         sta     fuji_data_buffer+FN_HEADER_SIZE+1
+;         sta     fuji_data_buffer+FN_HEADER_SIZE+2
+;         sta     fuji_data_buffer+FN_HEADER_SIZE+3
 
-;         ; fn_build_packet copies payload from (aws_tmp00); point at _fuji_tx_buffer payload.
-;         lda     #<(_fuji_tx_buffer+FN_HEADER_SIZE)
+;         ; fn_build_packet copies payload from (aws_tmp00); point at fuji_data_buffer payload.
+;         lda     #<(fuji_data_buffer+FN_HEADER_SIZE)
 ;         sta     aws_tmp00
-;         lda     #>(_fuji_tx_buffer+FN_HEADER_SIZE)
+;         lda     #>(fuji_data_buffer+FN_HEADER_SIZE)
 ;         sta     aws_tmp01
 
 ;         lda     #FN_DEVICE_FUJI
@@ -153,7 +153,7 @@
 ;         jsr     fn_receive_packet
 ;         bcs     @clear_error
 
-;         lda     _fuji_rx_buffer+FN_PARAMS_OFFSET
+;         lda     fuji_data_buffer+FN_PARAMS_OFFSET
 ;         bne     @clear_error
 ;         clc
 ;         rts
@@ -166,7 +166,7 @@
 ; ; Input:
 ; ;   fuji_current_mount_slot = 0-based slot index
 ; ; Output:
-; ;   response remains in _fuji_rx_buffer
+; ;   response remains in fuji_data_buffer
 ; ;   Carry clear on success, set on failure
 ; ;
 ; ; Request payload layout is only one byte:
@@ -176,12 +176,12 @@
 ;         lda     fuji_current_mount_slot
 ;         cmp     #$08
 ;         bcs     @get_error
-;         sta     _fuji_tx_buffer+FN_HEADER_SIZE+0
+;         sta     fuji_data_buffer+FN_HEADER_SIZE+0
 
 ;         ; fn_build_packet copies payload from (aws_tmp00); point at what we just wrote.
-;         lda     #<(_fuji_tx_buffer+FN_HEADER_SIZE)
+;         lda     #<(fuji_data_buffer+FN_HEADER_SIZE)
 ;         sta     aws_tmp00
-;         lda     #>(_fuji_tx_buffer+FN_HEADER_SIZE)
+;         lda     #>(fuji_data_buffer+FN_HEADER_SIZE)
 ;         sta     aws_tmp01
 
 ;         ; Payload length is exactly 1 byte for GetMount.
@@ -192,12 +192,12 @@
 ;         jsr     fn_send_packet
 ;         bcs     @get_error
 
-;         ; On success the FujiDevice response record is left in _fuji_rx_buffer for
+;         ; On success the FujiDevice response record is left in fuji_data_buffer for
 ;         ; the caller to decode.
 ;         jsr     fn_receive_packet
 ;         bcs     @get_error
 
-;         lda     _fuji_rx_buffer+FN_PARAMS_OFFSET
+;         lda     fuji_data_buffer+FN_PARAMS_OFFSET
 ;         bne     @get_error
 ;         clc
 ;         rts

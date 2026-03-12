@@ -71,9 +71,9 @@ OS_INC = 1
         .import  fuji_resolve_path_flags
         .import  fuji_disk_slot
         .import  fuji_disk_flags
+        .import  fuji_current_host_len
         .import  fuji_cmd_offset_y
         .import  fuji_filename_len
-        .import  data_ptr
 
         .import  fuji_last_state_loc
 
@@ -129,11 +129,10 @@ OS_INC = 1
         .import  fuji_unknown_11D0
 
         .import  fuji_ax_save
-        .import  _fuji_current_host_uri
-        .import  _fuji_current_fs_uri
-        .import  _fuji_current_dir_path
-        .import  _fuji_tx_buffer
-        .import  _fuji_rx_buffer
+        .import  fuji_current_host_uri
+        .import  fuji_current_fs_uri
+        .import  fuji_current_dir_path
+        .import  fuji_data_buffer
         .import  fuji_bss
 
         .import  dfs_cat_s0_header
@@ -200,5 +199,6 @@ OS_INC = 1
         .importzp  directory_param
         .importzp  paged_ram_copy
         .importzp  text_pointer
+        .importzp  data_ptr
 
 .endif

@@ -15,8 +15,8 @@
 #include <stdbool.h>
 #include "fujibus_c.h"
 #include "serial/serial_utils.h"
-#include "serial/read_serial_data.h"
-#include "serial/write_serial_data.h"
+// #include "serial/read_serial_data.h"
+// #include "serial/write_serial_data.h"
 
 /* ============================================================================
  * Functions

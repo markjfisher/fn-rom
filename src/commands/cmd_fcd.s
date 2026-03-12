@@ -25,12 +25,12 @@
 ;       current URI and display path state.
 ;
 ; FileDevice ResolvePath usage:
-; - baseUriLen/baseUri are taken from fuji_current_fs_len/_fuji_current_fs_uri
+; - baseUriLen/baseUri are taken from fuji_current_fs_len/fuji_current_fs_uri
 ; - argLen/arg are taken from the user string in fuji_filename_buffer
 ; - fn_file_resolve_path is responsible for protocol encoding/transport and,
 ;   on success, overwriting both:
-;     _fuji_current_fs_uri   ; canonical machine-facing URI
-;     _fuji_current_dir_path ; human-facing path such as "/root/NEXT"
+;     fuji_current_fs_uri   ; canonical machine-facing URI
+;     fuji_current_dir_path ; human-facing path such as "/root/NEXT"
 ;
 ; Intentional design choice:
 ; - the BBC ROM does not parse filesystem schemes, URI authorities, or relative
@@ -68,9 +68,9 @@ cmd_fs_fcd:
 ;         ; aws_tmp02    -> current URI length
 ;         ; aws_tmp03/04 -> pointer to requested path fragment buffer
 ;         ; aws_tmp05    -> requested path fragment length
-;         lda     #<_fuji_current_fs_uri
+;         lda     #<fuji_current_fs_uri
 ;         sta     aws_tmp00
-;         lda     #>_fuji_current_fs_uri
+;         lda     #>fuji_current_fs_uri
 ;         sta     aws_tmp01
 ;         lda     fuji_current_fs_len
 ;         sta     aws_tmp02
@@ -102,7 +102,7 @@ cmd_fs_fcd:
 ; @path_ready:
 ;         ldy     #$00
 ; @loop:
-;         lda     _fuji_current_dir_path,y
+;         lda     fuji_current_dir_path,y
 ;         beq     @done
 ;         jsr     print_char
 ;         iny

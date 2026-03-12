@@ -19,8 +19,8 @@
  * Design split:
  * - FHOST/FFS are the URI-facing commands.
  * - The BBC stores two related values:
- *     _fuji_current_fs_uri   -> canonical full URI for machine/protocol use
- *     _fuji_current_dir_path -> display path for human-facing output only
+ *     fuji_current_fs_uri   -> canonical full URI for machine/protocol use
+ *     fuji_current_dir_path -> display path for human-facing output only
  * - URI and path semantics are intentionally delegated to FujiNet-NIO via
  *   FileDevice ResolvePath rather than reimplemented in 6502.
  *

@@ -61,8 +61,6 @@
 /* Filename length (used by param parsing) */
 #define FUJI_FILENAME_LEN        ((uint8_t*)0x10F1)
 
-#define data_ptr                 ((uint8_t**)0x10F2)
-
 
 
 /* FileDevice (0xFE) */

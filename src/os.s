@@ -69,7 +69,6 @@
         .export  fuji_current_host_len
         .export  fuji_cmd_offset_y
         .export  fuji_filename_len
-        .export  data_ptr
 
         .export  fuji_last_state_loc
 
@@ -124,11 +123,10 @@
         .export  fuji_unknown_11D0
 
         .export  fuji_ax_save
-        .export  _fuji_current_host_uri
-        .export  _fuji_current_fs_uri
-        .export  _fuji_current_dir_path
-        .export  _fuji_tx_buffer
-        .export  _fuji_rx_buffer
+        .export  fuji_current_host_uri
+        .export  fuji_current_fs_uri
+        .export  fuji_current_dir_path
+        .export  fuji_data_buffer
         .export  fuji_bss
 
         .export  dfs_cat_s0_header
@@ -194,6 +192,7 @@
         .exportzp  directory_param
         .exportzp  paged_ram_copy
         .exportzp  text_pointer
+        .exportzp  data_ptr
 
 
 ; OS vectors
@@ -260,11 +259,11 @@ pws_tmp06       := $C6
 pws_tmp07       := $C7
 pws_tmp08       := $C8
 pws_tmp09       := $C9
-pws_tmp10       := $CA
+pws_tmp10       := $CA   ; use this as 2 byte data_ptr
 pws_tmp11       := $CB   ; ALSO WAS current_host
 pws_tmp12       := $CC   ; ALSO directory_param
 pws_tmp13       := $CD   ; ALSO current_drv
-pws_tmp14       := $CE
+pws_tmp14       := $CE   ; cc65 uses these 2 as c_sp
 pws_tmp15       := $CF
 
 text_pointer    := $F2
@@ -278,6 +277,9 @@ FSCV            := $021E
 directory_param := $CC
 current_drv     := $CD
 ; C_SP cc65 stack pointer is at CE and CF
+
+; use pws_tmp10/11 for a generic data pointer
+data_ptr        := $CA
 
 ; seems to be pretty random location... why here?
 current_cat      := $1082
@@ -442,10 +444,9 @@ fuji_current_host_len   = fuji_static_workspace + $2F  ; Current filesystem URI 
 
 fuji_cmd_offset_y       = fuji_static_workspace + $30  ; save value of the command offset in Y given to CMD functions on entry.
 fuji_filename_len       = fuji_static_workspace + $31  ; the filename part of the FS URI input by *FIN
-data_ptr                = fuji_static_workspace + $32  ; Data pointer for block operations (2 bytes)
 
 ; LAST location for the copy state in workspace_utils.s function to understand
-fuji_last_state_loc     = fuji_static_workspace + $33  ; effectively $10F4
+fuji_last_state_loc     = fuji_static_workspace + $31  ; effectively $10F4
 
 ; see SetupChannelInfoBlock_Yintch
 ; copies from &E08 to &1100, and &F08 to &1100+1 in a loop.
@@ -497,19 +498,18 @@ fuji_ax_save            = fuji_workspace + $01AE
 
 ; 80 byte buffer for current HOST string.
 ; Keep this aligned with [`FUJI_CURRENT_HOST_URI`](src/fujibus_c.h:26) used by the C path.
-_fuji_current_host_uri  = fuji_workspace + $01B0
+fuji_current_host_uri  = fuji_workspace + $01B0
 
 ; 80 byte buffer - TODO review lengths, we can only input 64 chars in param_get_string
-_fuji_current_fs_uri    = fuji_workspace + $0200
+fuji_current_fs_uri    = fuji_workspace + $0200
 
 ; 80 byte buffer, technically cannot be more than "uri - scheme length"
-_fuji_current_dir_path  = fuji_workspace + $0250
+fuji_current_dir_path  = fuji_workspace + $0250
 
-; 96 byte TX buffer - need to see how this pans out
-_fuji_tx_buffer         = fuji_workspace + $02A0
+; 256+32 ($120) byte data buffer
+fuji_data_buffer         = fuji_workspace + $02A0
 
-; 512 byte RX buffer - does this need to be 512 bytes?
-_fuji_rx_buffer         = fuji_workspace + $0300
+; should be free from $13C0 to $1500
 
 
 ; the start of where BSS should be defined for CC65, see fujinet-rom.cfg

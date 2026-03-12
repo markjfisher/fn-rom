@@ -35,7 +35,7 @@
         .import _fujibus_set_mount_slot
         .import _fujibus_get_mount_slot
         .import _fujibus_disk_read_sector
-        .import _fujibus_disk_write_sector_current
+        .import _fujibus_disk_write_sector
 
         .include "fujinet.inc"
 
@@ -145,7 +145,7 @@ fuji_write_block_data:
         lda     aws_tmp15
         beq     @write_partial_sector
 
-        jsr     _fujibus_disk_write_sector_current
+        jsr     _fujibus_disk_write_sector
         cmp     #$01
         bne     @write_error
 
@@ -185,7 +185,7 @@ fuji_write_block_data:
         cpy     aws_tmp14
         bne     @copy_partial
 
-        jsr     _fujibus_disk_write_sector_current
+        jsr     _fujibus_disk_write_sector
         cmp     #$01
         bne     @write_error
 
@@ -258,7 +258,7 @@ fuji_write_catalog_data:
         lda     #$00
         sta     aws_tmp14
 
-        jsr     _fujibus_disk_write_sector_current
+        jsr     _fujibus_disk_write_sector
         cmp     #$01
         beq     :+
         inc     aws_tmp14
@@ -270,7 +270,7 @@ fuji_write_catalog_data:
 :
         inc     data_ptr+1
 
-        jsr     _fujibus_disk_write_sector_current
+        jsr     _fujibus_disk_write_sector
         cmp     #$01
         beq     :+
         inc     aws_tmp14
