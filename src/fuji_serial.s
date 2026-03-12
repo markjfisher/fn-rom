@@ -251,38 +251,30 @@ fuji_read_catalog_data:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 fuji_write_catalog_data:
-        jsr     remember_axy
+        lda     #$00
+        sta     fuji_current_sector
+        sta     fuji_current_sector+1
+
+        jsr     _fujibus_disk_write_sector_current
+        cmp     #$01
+        bne     @write_error
+
+        inc     fuji_current_sector
+        bne     :+
+        inc     fuji_current_sector+1
+:
+        inc     data_ptr+1
+
+        jsr     _fujibus_disk_write_sector_current
+        cmp     #$01
+        bne     @write_error
+
+        clc
         rts
 
-;         ; Write sector 0 (first 256 bytes of catalog)
-;         lda     #$00
-;         sta     fuji_current_sector
-;         sta     fuji_current_sector+1
-
-;         ; Set buffer pointer
-;         lda     data_ptr
-;         sta     aws_tmp08
-;         lda     data_ptr+1
-;         sta     aws_tmp09
-
-;         jsr     fn_disk_write_sector_impl
-;         bcs     @write_error
-
-;         ; Write sector 1 (second 256 bytes of catalog)
-;         inc     fuji_current_sector
-
-;         ; Advance buffer pointer by 256
-;         inc     aws_tmp09
-
-;         jsr     fn_disk_write_sector_impl
-;         bcs     @write_error
-
-;         clc
-;         rts
-
-; @write_error:
-;         sec
-;        rts
+@write_error:
+        sec
+        rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; FUJI_READ_DISC_TITLE_DATA - Read disc title from FujiNet device

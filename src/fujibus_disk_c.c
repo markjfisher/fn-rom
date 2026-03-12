@@ -19,6 +19,9 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "zp_overlay.h"
+#include "calc_checksum.h"
+#include "serial/write_serial_data.h"
 #include "fujibus_c.h"
 #include "fujibus_disk_c.h"
 
@@ -70,6 +73,75 @@ static uint16_t fujibus_disk_transaction(uint8_t command, uint16_t payload_len) 
     result = fujibus_receive_packet();
     
     return result;
+}
+
+/* ============================================================================
+ * Helper: Send a packet already built in RX buffer
+ * Uses RX as the packet source and TX as a small SLIP staging buffer.
+ * ============================================================================ */
+static void fujibus_send_prebuilt_packet(uint16_t packet_len) {
+    uint8_t* packet;
+    uint8_t* slip;
+    uint16_t src_idx;
+    uint16_t slip_idx;
+    uint8_t b;
+    
+    packet = FUJI_RX_BUFFER;
+    slip = FUJI_TX_BUFFER;
+    src_idx = 0;
+    slip_idx = 0;
+    
+    /* Start frame */
+    slip[slip_idx++] = SLIP_END;
+    
+    while (src_idx < packet_len) {
+        b = packet[src_idx++];
+        
+        if (b == SLIP_END || b == SLIP_ESCAPE) {
+            if (slip_idx > (FUJI_TX_BUFFER_SIZE - 2)) {
+                ZP.aws_tmp[0] = (uint8_t)((uint16_t)slip & 0xFF);
+                ZP.aws_tmp[1] = (uint8_t)(((uint16_t)slip >> 8) & 0xFF);
+                ZP.aws_tmp[2] = (uint8_t)(slip_idx & 0xFF);
+                ZP.aws_tmp[3] = (uint8_t)((slip_idx >> 8) & 0xFF);
+                write_serial_data();
+                slip_idx = 0;
+            }
+            
+            slip[slip_idx++] = SLIP_ESCAPE;
+            slip[slip_idx++] = (b == SLIP_END) ? SLIP_ESC_END : SLIP_ESC_ESC;
+        } else {
+            if (slip_idx > (FUJI_TX_BUFFER_SIZE - 1)) {
+                ZP.aws_tmp[0] = (uint8_t)((uint16_t)slip & 0xFF);
+                ZP.aws_tmp[1] = (uint8_t)(((uint16_t)slip >> 8) & 0xFF);
+                ZP.aws_tmp[2] = (uint8_t)(slip_idx & 0xFF);
+                ZP.aws_tmp[3] = (uint8_t)((slip_idx >> 8) & 0xFF);
+                write_serial_data();
+                slip_idx = 0;
+            }
+            
+            slip[slip_idx++] = b;
+        }
+    }
+    
+    /* End frame */
+    if (slip_idx > (FUJI_TX_BUFFER_SIZE - 1)) {
+        ZP.aws_tmp[0] = (uint8_t)((uint16_t)slip & 0xFF);
+        ZP.aws_tmp[1] = (uint8_t)(((uint16_t)slip >> 8) & 0xFF);
+        ZP.aws_tmp[2] = (uint8_t)(slip_idx & 0xFF);
+        ZP.aws_tmp[3] = (uint8_t)((slip_idx >> 8) & 0xFF);
+        write_serial_data();
+        slip_idx = 0;
+    }
+    
+    slip[slip_idx++] = SLIP_END;
+    
+    if (slip_idx != 0) {
+        ZP.aws_tmp[0] = (uint8_t)((uint16_t)slip & 0xFF);
+        ZP.aws_tmp[1] = (uint8_t)(((uint16_t)slip >> 8) & 0xFF);
+        ZP.aws_tmp[2] = (uint8_t)(slip_idx & 0xFF);
+        ZP.aws_tmp[3] = (uint8_t)((slip_idx >> 8) & 0xFF);
+        write_serial_data();
+    }
 }
 
 /* ============================================================================
@@ -233,41 +305,50 @@ bool fujibus_disk_read_sector(void) {
  *   Returns true on success, false on error
  * ============================================================================ */
 bool fujibus_disk_write_sector(uint8_t slot, uint16_t lba, uint8_t* buf) {
-    uint8_t* tx;
     uint8_t* rx;
     uint16_t resp_len;
+    uint16_t total_len;
     uint16_t i;
+    uint8_t chk;
     
-    tx = FUJI_TX_BUFFER;
     rx = FUJI_RX_BUFFER;
     
     /* Save slot */
     fn_disk_slot = slot;
     
-    /* Build payload */
-    tx[6] = FN_PROTOCOL_VERSION;     /* version */
-    tx[7] = slot;                    /* slot */
-    tx[8] = (uint8_t)(lba & 0xFF);          /* LBA low */
-    tx[9] = (uint8_t)((lba >> 8) & 0xFF);  /* LBA high */
-    tx[10] = 0;                     /* LBA bits 16-23 */
-    tx[11] = 0;                     /* LBA bits 24-31 */
-    tx[12] = 0;                     /* dataLen low = 256 */
-    tx[13] = 1;                     /* dataLen high */
+    total_len = FUJIBUS_HEADER_SIZE + 264;
     
-    /* Copy data */
+    /* Build full packet in RX buffer so large write payloads fit. */
+    rx[0] = FN_DEVICE_DISK;
+    rx[1] = DISK_CMD_WRITE_SECTOR;
+    rx[2] = (uint8_t)(total_len & 0xFF);
+    rx[3] = (uint8_t)((total_len >> 8) & 0xFF);
+    rx[4] = 0;
+    rx[5] = 0;
+    rx[6] = FN_PROTOCOL_VERSION;
+    rx[7] = slot + 1;                       /* convert 0-based to 1-based */
+    rx[8] = (uint8_t)(lba & 0xFF);
+    rx[9] = (uint8_t)((lba >> 8) & 0xFF);
+    rx[10] = 0;
+    rx[11] = 0;
+    rx[12] = 0;
+    rx[13] = 1;
+    
     for (i = 0; i < 256; i++) {
-        tx[14 + i] = buf[i];
+        rx[14 + i] = buf[i];
     }
     
-    /* Payload length = 8 + 256 = 264 */
-    resp_len = fujibus_disk_transaction(DISK_CMD_WRITE_SECTOR, 264);
+    chk = calc_checksum(rx, total_len);
+    rx[4] = chk;
+    
+    fujibus_send_prebuilt_packet(total_len);
+    resp_len = fujibus_receive_packet();
     
     if (resp_len == 0) {
         return false;
     }
     
-    /* Check for error */
-    if (rx[7] != 0) {
+    if (rx[5] != 1 || rx[6] != 0) {
         return false;
     }
     
@@ -286,40 +367,52 @@ bool fujibus_disk_write_sector(uint8_t slot, uint16_t lba, uint8_t* buf) {
  *   Returns true on success, false on error
  * ============================================================================ */
 bool fujibus_disk_write_sector_current(void) {
-    uint8_t* tx;
     uint8_t* rx;
     uint16_t resp_len;
+    uint16_t total_len;
     uint16_t i;
     uint8_t* buf;
     uint8_t slot;
+    uint8_t chk;
     
-    tx = FUJI_TX_BUFFER;
     rx = FUJI_RX_BUFFER;
     buf = *data_ptr;
     slot = *FUJI_DISK_SLOT;
     fn_disk_slot = slot;
     
-    /* Build payload */
-    tx[6] = FN_PROTOCOL_VERSION;           /* version */
-    tx[7] = slot + 1;                      /* slot - convert 0-based to 1-based */
-    tx[8] = *fuji_current_sector;          /* LBA low */
-    tx[9] = *(fuji_current_sector + 1);    /* LBA high */
-    tx[10] = 0;                            /* LBA bits 16-23 */
-    tx[11] = 0;                            /* LBA bits 24-31 */
-    tx[12] = 0;                            /* dataLen low = 256 */
-    tx[13] = 1;                            /* dataLen high */
+    total_len = FUJIBUS_HEADER_SIZE + 264;
+    
+    /* Build full packet in RX buffer so large write payloads fit. */
+    rx[0] = FN_DEVICE_DISK;
+    rx[1] = DISK_CMD_WRITE_SECTOR;
+    rx[2] = (uint8_t)(total_len & 0xFF);
+    rx[3] = (uint8_t)((total_len >> 8) & 0xFF);
+    rx[4] = 0;
+    rx[5] = 0;
+    rx[6] = FN_PROTOCOL_VERSION;
+    rx[7] = slot + 1;
+    rx[8] = *fuji_current_sector;
+    rx[9] = *(fuji_current_sector + 1);
+    rx[10] = 0;
+    rx[11] = 0;
+    rx[12] = 0;
+    rx[13] = 1;
     
     for (i = 0; i < 256; i++) {
-        tx[14 + i] = buf[i];
+        rx[14 + i] = buf[i];
     }
     
-    resp_len = fujibus_disk_transaction(DISK_CMD_WRITE_SECTOR, 264);
+    chk = calc_checksum(rx, total_len);
+    rx[4] = chk;
+    
+    fujibus_send_prebuilt_packet(total_len);
+    resp_len = fujibus_receive_packet();
     
     if (resp_len == 0) {
         return false;
     }
     
-    if (rx[7] != 0) {
+    if (rx[5] != 1 || rx[6] != 0) {
         return false;
     }
     
