@@ -2,6 +2,8 @@
 
         .import  _check_rs423_buffer
         .import  _read_rs423_char
+        .import  setup_serial_19200
+        .import  restore_output_to_screen
 
         .include "fujinet.inc"
 
@@ -21,6 +23,7 @@ WAIT_NEXT_MAX  := 2000
 ;   aws_tmp10/11 = wait counter
 
 fujibus_read_slip_stream:
+        jsr     setup_serial_19200
 
         lda     #<fuji_data_buffer
         sta     aws_tmp08
@@ -45,7 +48,7 @@ fujibus_read_slip_stream:
         beq     @dec_wait_start
 
         jsr     _read_rs423_char
-        lda     cws_tmp1
+        ldx     cws_tmp1
         beq     @no_error
         jmp     @error
 
@@ -85,7 +88,7 @@ fujibus_read_slip_stream:
         beq     @dec_wait_char
 
         jsr     _read_rs423_char
-        lda     cws_tmp1
+        ldx     cws_tmp1
         bne     @error
 
         sta     aws_tmp04
@@ -169,6 +172,7 @@ fujibus_read_slip_stream:
 ;-----------------------------------------
 
 @done:
+        jsr     restore_output_to_screen
 
         lda     aws_tmp05
         bne     @error
@@ -190,6 +194,7 @@ fujibus_read_slip_stream:
 ;-----------------------------------------
 
 @error:
+        jsr     restore_output_to_screen
         lda     #$00
         tax
         rts

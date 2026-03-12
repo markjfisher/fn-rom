@@ -21,6 +21,10 @@
         .export _fujibus_send_packet
         .export _fujibus_receive_packet
 
+        ; for debug
+        .export fujibus_send_packet_impl
+        .export fujibus_receive_packet_impl
+
 fujibus_header_size = 6
 
 
@@ -399,7 +403,7 @@ fujibus_send_packet_impl:
         jsr     popa
         sta     fuji_data_buffer+0
 
-        ; destination pointer = tx buffer + header size
+        ; destination pointer = buffer + header size
         lda     #<(fuji_data_buffer + fujibus_header_size)
         sta     aws_tmp08
         lda     #>(fuji_data_buffer + fujibus_header_size)
@@ -434,12 +438,12 @@ fujibus_send_packet_impl:
         ; total_len = current dest ptr - fuji_data_buffer
         lda     aws_tmp08
         sec
-        sbc     #<fuji_data_buffer
+        sbc     #<(fuji_data_buffer)
         sta     aws_tmp02
         sta     fuji_data_buffer+2      ; length low
 
         lda     aws_tmp09
-        sbc     #>fuji_data_buffer
+        sbc     #>(fuji_data_buffer)
         sta     aws_tmp03
         sta     fuji_data_buffer+3      ; length high
 
@@ -448,24 +452,35 @@ fujibus_send_packet_impl:
         sta     fuji_data_buffer+4
         sta     fuji_data_buffer+5
 
-        ; checksum over tx buffer
-        lda     #<fuji_data_buffer
+        ; save total_len across calc_checksum
+        lda     aws_tmp02
+        sta     fuji_ax_save
+        lda     aws_tmp03
+        sta     fuji_ax_save+1
+
+        ; checksum over full packet
+        lda     #<(fuji_data_buffer)
         sta     aws_tmp00
-        lda     #>fuji_data_buffer
+        lda     #>(fuji_data_buffer)
         sta     aws_tmp01
-        ; aws_tmp02/03 already = total_len
+        ; aws_tmp02/03 = total_len for checksum input
         jsr     calc_checksum
         sta     fuji_data_buffer+4
 
-        ; stream tx buffer as SLIP directly to serial
-        lda     #<fuji_data_buffer
+        ; restore total_len, since calc_checksum consumed it
+        lda     fuji_ax_save
+        sta     aws_tmp02
+        lda     fuji_ax_save+1
+        sta     aws_tmp03
+
+        ; stream packet as SLIP directly to serial
+        lda     #<(fuji_data_buffer)
         sta     aws_tmp00
-        lda     #>fuji_data_buffer
+        lda     #>(fuji_data_buffer)
         sta     aws_tmp01
         ; aws_tmp02/03 still = total_len
         jsr     fujibus_write_slip_stream
         rts
-
 
 ; uint16_t fujibus_receive_packet(void)
 
