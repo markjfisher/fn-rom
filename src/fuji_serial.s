@@ -255,9 +255,14 @@ fuji_write_catalog_data:
         sta     fuji_current_sector
         sta     fuji_current_sector+1
 
+        lda     #$00
+        sta     aws_tmp14
+
         jsr     _fujibus_disk_write_sector_current
         cmp     #$01
-        bne     @write_error
+        beq     :+
+        inc     aws_tmp14
+:
 
         inc     fuji_current_sector
         bne     :+
@@ -267,6 +272,11 @@ fuji_write_catalog_data:
 
         jsr     _fujibus_disk_write_sector_current
         cmp     #$01
+        beq     :+
+        inc     aws_tmp14
+:
+
+        lda     aws_tmp14
         bne     @write_error
 
         clc

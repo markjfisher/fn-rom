@@ -348,7 +348,11 @@ bool fujibus_disk_write_sector(uint8_t slot, uint16_t lba, uint8_t* buf) {
         return false;
     }
     
-    if (rx[5] != 1 || rx[6] != 0) {
+    if (resp_len < 7) {
+        return false;
+    }
+    
+    if (rx[6] != 0) {
         return false;
     }
     
@@ -412,7 +416,11 @@ bool fujibus_disk_write_sector_current(void) {
         return false;
     }
     
-    if (rx[5] != 1 || rx[6] != 0) {
+    if (resp_len < 7) {
+        return false;
+    }
+    
+    if (rx[6] != 0) {
         return false;
     }
     
