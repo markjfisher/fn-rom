@@ -70,7 +70,7 @@ ASFLAGS += --asm-include-dir $(SRCDIR) --asm-include-dir $(SRCDIR)/inc
 CFLAGS += --include-dir $(SRCDIR) --include-dir $(SRCDIR)/inc
 
 .SUFFIXES:
-.PHONY: all clean release $(DISK_TASKS) $(BUILD_TASKS) $(PROGRAM_TGT)
+.PHONY: all clean release $(DISK_TASKS) $(BUILD_TASKS) $(PROGRAM_TGT) ssd
 
 all: $(PROGRAM_TGT)
 
@@ -101,8 +101,13 @@ $(OBJDIR)/$(CURRENT_TARGET)/%.o: %.s | $(OBJDIR)
 
 $(BUILD_DIR)/$(PROGRAM_TGT): $(OBJECTS) $(LIBS) | $(BUILD_DIR)
 	$(CC) -t $(CURRENT_TARGET) $(LDFLAGS) --mapfile $@.map -Ln $@.lbl -o $@ $^
-
 $(PROGRAM_TGT): $(BUILD_DIR)/$(PROGRAM_TGT) | $(BUILD_DIR)
+
+ssd: $(PROGRAM_TGT) $(BUILD_DIR)
+	mkdir -p $(BUILD_DIR)/ssd
+	cp $(BUILD_DIR)/$(PROGRAM_TGT) $(BUILD_DIR)/ssd/
+	./bin/create_ssd.py -i $(BUILD_DIR)/ssd -o fujinet.ssd
+
 
 # Use "./" in front of all dirs being removed as a simple safety guard to
 # ensure deleting from current dir, and not something like root "/".
