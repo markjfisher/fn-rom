@@ -58,6 +58,8 @@
         .import not_cmd_help
         .import not_cmd_utils
 
+        .import cmd_ftest
+
 ; These all come after the HEADER in the ROM.
 ; and ensures all the strings are in the same page as each other.
         .segment "RODATA"
@@ -143,6 +145,7 @@ cmd_table_futils:
         .byte   "UNMOUNT",   $80+$01    ; <drive>
         .byte   "OUT",       $80+$01    ; <drive>
         .byte   "RESET",     $80+$00    ; no parameter
+        .byte   "TEST",      $80+$00    ; no parameter
         .byte   $00                     ; End of table
 
 
@@ -204,6 +207,7 @@ cmd_table_futils_cmds:
         .word   cmd_fs_funmount-1
         .word   cmd_fs_fout-1
         .word   cmd_fs_freset-1
+        .word   cmd_ftest-1
         .word   not_cmd_futils-1
 
 cmd_table_END:

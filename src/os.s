@@ -448,6 +448,12 @@ fuji_filename_len       = fuji_static_workspace + $31  ; the filename part of th
 ; LAST location for the copy state in workspace_utils.s function to understand
 fuji_last_state_loc     = fuji_static_workspace + $31  ; effectively $10F4
 
+
+; Advanced disk guide describes how 1200-12FF is for open file 1
+; 1300-13FF for open file 2, ...etc up to 1600-16FF for open file 5
+
+
+
 ; see SetupChannelInfoBlock_Yintch
 ; copies from &E08 to &1100, and &F08 to &1100+1 in a loop.
 ; seemingly interweving catalog data
@@ -485,6 +491,7 @@ fuji_ch_111A            = fuji_channel_start + $1A  ; ??? - len 2
 fuji_ch_bitmask         = fuji_channel_start + $1B  ; Bit mask
 fuji_ch_sect_lo         = fuji_channel_start + $1C  ; buffer sector low
 fuji_ch_sect_hi         = fuji_channel_start + $1D  ; buffer sector high
+
 
 ; used in initdfs_reset, initialise static workspace
 ; In mmfs100.asm "Reset the *DDRIVE table (MMFS2)"
