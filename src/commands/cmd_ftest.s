@@ -10,7 +10,7 @@ USER_FLAG_VALUE := $0281
 
 cmd_ftest:
         jsr     print_string
-        .byte   "Debug FTEST command", $0d, $0d
+        .byte   "FujiNet Debug", $0d, $0d
         nop
 
         jsr     print_string

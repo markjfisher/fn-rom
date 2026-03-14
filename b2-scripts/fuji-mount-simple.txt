@@ -1,0 +1,5 @@
+*FUJI
+*FHOST host:/
+*FIN simple.ssd
+*FMOUNT 0 0
+*.
