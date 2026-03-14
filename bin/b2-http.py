@@ -262,6 +262,8 @@ Examples:
             print(text, end="")
     else:
         output_file = getattr(args, "output", None)
+        if output_file == Path("-"):
+            output_file = None  # "-" means stdout (e.g. for piping to hexdump)
         handle_response(resp, output_file)
         if output_file is None and resp.content:
             sys.stdout.buffer.write(resp.content)

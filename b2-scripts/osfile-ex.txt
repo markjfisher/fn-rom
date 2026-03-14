@@ -1,0 +1,35 @@
+10 REM ----------------------------------------------------
+20 REM DEMONSTRATION
+30 REM ----------------------------------------------------
+40 REM OSFILE Save Memory Block
+50 REM ----------------------------------------------------
+60
+70 REM This program assembles the code below, and then saves
+80 REM just the machine-code bits of itself to a file, "Myself".
+90
+100 DIM code% &100
+110 osfile = &FFDD
+120 FOR pass% = 0 TO 2 STEP 2
+130 P% = code%
+140 [ OPT pass%
+150 \ parameter block
+160 .parms EQUW fname \ address of filename string
+170 EQUD parms \ load address
+180 EQUD start \ execute address
+190 EQUD parms \ save start address
+200 EQUD end \ save end address
+210 .parad EQUW parms \ address of param block
+220 .fname EQUS "Myself" \ filename string
+230 EQUB &D \ termination
+240
+250 .start LDA #0 \ specify save
+260 LDX parad \ point X and Y
+270 LDY parad+1 \ at parms
+280 JSR osfile \ call OSFILE
+290 RTS \ bye bye
+300 .end EQUB 0 \ dummy byte
+310 ]
+320 NEXT pass%
+330 CALL start
+340 *INFO Myself
+350 END
