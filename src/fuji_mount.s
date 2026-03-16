@@ -113,7 +113,7 @@ _fuji_set_slot:
 ; This is the high-level interface that manages transactions
 ;
 ; Entry: current_drv = slot number (0-7)
-; Exit:  Mount record retrieved into FUJI_RX_BUFFER
+; Exit:  Mount record retrieved into FUJI_DATA_BUFFER
 ;//////////////////////////////////////////////////////////////////////
 
 fuji_get_slot:

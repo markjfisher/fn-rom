@@ -22,17 +22,17 @@
  */
 bool fujibus_get_mount_slot() {
     /* Build GetMount request payload - just the slot index */
-    FUJI_TX_BUFFER[6] = *FUJI_DISK_SLOT;
+    FUJI_DATA_BUFFER[6] = *FUJI_DISK_SLOT;
 
     /* Send packet - GetMount has 1 byte payload */
-    fujibus_send_packet(FN_DEVICE_FUJI, FUJI_CMD_GET_MOUNT, &FUJI_TX_BUFFER[6], 1);
+    fujibus_send_packet(FN_DEVICE_FUJI, FUJI_CMD_GET_MOUNT, &FUJI_DATA_BUFFER[6], 1);
     
     if (fujibus_receive_packet() == 0) {
         return false;
     }
     
     /* Check descriptor: 1 param (status) and its value */
-    if (FUJI_RX_BUFFER[5] != 1 || FUJI_RX_BUFFER[6] != 0) {
+    if (FUJI_DATA_BUFFER[5] != 1 || FUJI_DATA_BUFFER[6] != 0) {
         return false;
     }
     
@@ -59,7 +59,7 @@ bool fujibus_set_mount_slot() {
     uint8_t* tx;
     uint8_t* uri_ptr;
     
-    tx = FUJI_TX_BUFFER;
+    tx = FUJI_DATA_BUFFER;
     
     /* Get slot from global */
     slot = *FUJI_DISK_SLOT;
@@ -96,7 +96,7 @@ bool fujibus_set_mount_slot() {
     }
     
     /* Check descriptor: 1 param (status) and its value */
-    if (FUJI_RX_BUFFER[5] != 1 || FUJI_RX_BUFFER[6] != 0) {
+    if (FUJI_DATA_BUFFER[5] != 1 || FUJI_DATA_BUFFER[6] != 0) {
         return false;
     }
     

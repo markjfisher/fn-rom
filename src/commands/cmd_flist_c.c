@@ -19,7 +19,7 @@ extern void print_newline(void);
 #define FLIST_PAGE_SIZE        1
 #define FLIST_URI_BUFFER_SIZE  80
 
-static void print_name(const uint8_t* s, uint8_t len, bool is_dir)
+void print_name(const uint8_t* s, uint8_t len, bool is_dir)
 {
     uint8_t i;
 
@@ -34,7 +34,7 @@ static void print_name(const uint8_t* s, uint8_t len, bool is_dir)
     print_newline();
 }
 
-static bool flist_resolve_target(void)
+bool flist_resolve_target(void)
 {
     uint16_t resp_len;
     uint8_t i;
@@ -43,8 +43,8 @@ static bool flist_resolve_target(void)
     uint8_t* tx;
     uint8_t* rx;
 
-    tx = FUJI_TX_BUFFER;
-    rx = FUJI_RX_BUFFER;
+    tx = FUJI_DATA_BUFFER;
+    rx = FUJI_DATA_BUFFER;
     base_len = *FUJI_CURRENT_HOST_LEN;
     arg_len = *FUJI_FILENAME_LEN;
 
@@ -104,7 +104,7 @@ static bool flist_resolve_target(void)
     return true;
 }
 
-static bool flist_list_page(uint16_t start_index, uint8_t* returned_count, bool* more)
+bool flist_list_page(uint16_t start_index, uint8_t* returned_count, bool* more)
 {
     uint16_t resp_len;
     uint16_t offset;
@@ -114,8 +114,8 @@ static bool flist_list_page(uint16_t start_index, uint8_t* returned_count, bool*
     uint8_t* rx;
     uint8_t uri_len;
 
-    tx = FUJI_TX_BUFFER;
-    rx = FUJI_RX_BUFFER;
+    tx = FUJI_DATA_BUFFER;
+    rx = FUJI_DATA_BUFFER;
     uri_len = *FUJI_CURRENT_FS_LEN;
 
     tx[6] = FILEPROTO_VERSION;
@@ -176,53 +176,55 @@ static bool flist_list_page(uint16_t start_index, uint8_t* returned_count, bool*
 
 uint8_t cmd_fs_flist(void)
 {
-    uint8_t param_count;
-    uint16_t start_index;
-    uint8_t returned_count;
-    bool more;
-
     cmd_save_args_state();
 
-    if (*FUJI_CURRENT_HOST_LEN == 0) {
-        err_no_host_flist();
+    {
+        uint8_t param_count;
+        uint16_t start_index;
+        uint8_t returned_count;
+        bool more;
+
+        if (*FUJI_CURRENT_HOST_LEN == 0) {
+            err_no_host_flist();
+        }
+
+        param_count = parse_flist_params();
+
+        if (param_count == 0) {
+            *FUJI_CURRENT_FS_LEN = *FUJI_CURRENT_HOST_LEN;
+
+            if (*FUJI_CURRENT_FS_LEN >= FLIST_URI_BUFFER_SIZE) {
+                err_bad_flist_path();
+            }
+
+            for (start_index = 0; start_index < (*FUJI_CURRENT_FS_LEN); start_index++) {
+                FUJI_CURRENT_FS_URI[start_index] = FUJI_CURRENT_HOST_URI[start_index];
+            }
+            FUJI_CURRENT_FS_URI[*FUJI_CURRENT_FS_LEN] = '\0';
+        } else {
+            if (!flist_resolve_target()) {
+                err_bad_flist_path();
+            }
+        }
+
+        print_newline();
+
+        start_index = 0;
+        more = true;
+
+        while (more) {
+            if (!flist_list_page(start_index, &returned_count, &more)) {
+                err_flist_failed();
+            }
+
+            if (returned_count == 0) {
+                break;
+            }
+
+            start_index = (uint16_t)(start_index + returned_count);
+        }
+
+        exit_user_ok();
+        return 0;
     }
-
-    param_count = parse_flist_params();
-
-    if (param_count == 0) {
-        *FUJI_CURRENT_FS_LEN = *FUJI_CURRENT_HOST_LEN;
-
-        if (*FUJI_CURRENT_FS_LEN >= FLIST_URI_BUFFER_SIZE) {
-            err_bad_flist_path();
-        }
-
-        for (start_index = 0; start_index < (*FUJI_CURRENT_FS_LEN); start_index++) {
-            FUJI_CURRENT_FS_URI[start_index] = FUJI_CURRENT_HOST_URI[start_index];
-        }
-        FUJI_CURRENT_FS_URI[*FUJI_CURRENT_FS_LEN] = '\0';
-    } else {
-        if (!flist_resolve_target()) {
-            err_bad_flist_path();
-        }
-    }
-
-    print_newline();
-
-    start_index = 0;
-    more = true;
-
-    while (more) {
-        if (!flist_list_page(start_index, &returned_count, &more)) {
-            err_flist_failed();
-        }
-
-        if (returned_count == 0) {
-            break;
-        }
-
-        start_index = (uint16_t)(start_index + returned_count);
-    }
-
-    exit_user_ok();
-    return 0;
 }

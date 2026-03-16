@@ -82,17 +82,17 @@ uint8_t cmd_fs_fmount(void) {
         // example:
         // 02 00 00 01 72 == slot 2, disabled, no uri string, 1 byte, "r"
 
-        // check enabled flag, FUJI_RX_BUFFER[7] bit 0
-        if (FUJI_RX_BUFFER[8] == 0) {
+        // check enabled flag, FUJI_DATA_BUFFER[7] bit 0
+        if (FUJI_DATA_BUFFER[8] == 0) {
             err_not_enabled();
         }
 
         // copy the uri to the FS uri
-        uri_len = FUJI_RX_BUFFER[9];
+        uri_len = FUJI_DATA_BUFFER[9];
         FUJI_CURRENT_FS_URI[0] = '\0';      // in case the length is 0, pre-write a nul byte. The buffer
 
         for (i = 0; i < uri_len; i++) {
-            FUJI_CURRENT_FS_URI[i] = FUJI_RX_BUFFER[10 + i];
+            FUJI_CURRENT_FS_URI[i] = FUJI_DATA_BUFFER[10 + i];
         }
         *FUJI_CURRENT_FS_LEN = uri_len;
 

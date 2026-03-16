@@ -31,7 +31,7 @@
  * fujibus_get_mount_slot - Get mount record for a slot (FujiBus protocol)
  * 
  * Sends GetMount command to FujiNet for the specified slot.
- * On success, the mount record is stored in FUJI_RX_BUFFER:
+ * On success, the mount record is stored in FUJI_DATA_BUFFER:
  *   [flags][uri_len][uri][mode_len][mode]
  * 
  * Uses the global fuji mount slot index for slot number.

@@ -453,10 +453,9 @@ fuji_last_state_loc     = fuji_static_workspace + $31  ; effectively $10F4
 ; 1300-13FF for open file 2, ...etc up to 1600-16FF for open file 5
 
 
-
 ; see SetupChannelInfoBlock_Yintch
 ; copies from &E08 to &1100, and &F08 to &1100+1 in a loop.
-; seemingly interweving catalog data
+; interweving catalog data
 
 ; channel info block
 fuji_channel_start      = fuji_workspace + $1100  ; name byte 1
@@ -502,6 +501,10 @@ fuji_unknown_11D0       = fuji_workspace + $1D0
 
 ; 2 byte buffer for stashing AX registers for saving result while restoring state.
 fuji_ax_save            = fuji_workspace + $01AE
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; BUFFERS - NEED TO REVIEW THEIR USAGE
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ; 80 byte buffer for current HOST string.
 ; Keep this aligned with [`FUJI_CURRENT_HOST_URI`](src/fujibus_c.h:26) used by the C path.

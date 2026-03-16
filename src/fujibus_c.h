@@ -22,20 +22,10 @@
 #define FUJI_FILENAME_BUFFER     ((uint8_t*)0x1000)
 #define FUJI_STATIC_WORKSPACE    ((uint8_t*)0x10C0)
 
-/* Current HOST URI buffer (80 bytes) */
-#define FUJI_CURRENT_HOST_URI    ((uint8_t*)0x11B0)
 
-/* Current filesystem URI buffer (80 bytes) */
-#define FUJI_CURRENT_FS_URI      ((uint8_t*)0x1200)
-
-/* Current directory path buffer (80 bytes) */
-#define FUJI_CURRENT_DIR_PATH    ((uint8_t*)0x1250)
-
-// 96 bytes
-#define FUJI_TX_BUFFER           ((uint8_t*)0x12A0)
-// 512 bytes
-#define FUJI_RX_BUFFER           ((uint8_t*)0x1300)
-#define FUJI_SLIP_BUFFER         FUJI_RX_BUFFER
+//////////////////////////////////////////////////////////////////////////
+// LOCATIONS WITHIN 1000-10FF
+//////////////////////////////////////////////////////////////////////////
 
 /* Current mount slot index */
 #define FUJI_DISK_TABLE_INDEX    ((uint8_t*)0x10D4)
@@ -62,18 +52,35 @@
 #define FUJI_FILENAME_LEN        ((uint8_t*)0x10F1)
 
 
+//////////////////////////////////////////////////////////////////////////
+// BUFFERS
+//////////////////////////////////////////////////////////////////////////
+
+// THESE ARE WRONG - THEY INTERFERE WITH IO BUFFERS
+// See page 111 of the Advanced Disk User Guide.
+
+/* Current HOST URI buffer (80 bytes) */
+#define FUJI_CURRENT_HOST_URI    ((uint8_t*)0x11B0)
+
+/* Current filesystem URI buffer (80 bytes) */
+#define FUJI_CURRENT_FS_URI      ((uint8_t*)0x1200)
+
+/* Current directory path buffer (80 bytes) */
+#define FUJI_CURRENT_DIR_PATH    ((uint8_t*)0x1250)
+
+// We only really need about 256+32 bytes for our data buffer for the sector plus headers etc.
+#define FUJI_DATA_BUFFER         ((uint8_t*)0x12A0)
+
+
 
 /* FileDevice (0xFE) */
 #define FN_DEVICE_FILE           0xFE
 #define FILE_CMD_RESOLVE_PATH    0x05
 
-#define FUJI_TX_BUFFER_SIZE      96
-#define FUJI_RX_BUFFER_SIZE      512
-
-#define SLIP_END                 0xC0
-#define SLIP_ESCAPE              0xDB
-#define SLIP_ESC_END             0xDC
-#define SLIP_ESC_ESC             0xDD
+// #define SLIP_END                 0xC0
+// #define SLIP_ESCAPE              0xDB
+// #define SLIP_ESC_END             0xDC
+// #define SLIP_ESC_ESC             0xDD
 
 /* FujiDevice (0x70) - FujiNet device */
 #define FN_DEVICE_FUJI           0x70
@@ -81,7 +88,7 @@
 #define FUJI_CMD_SET_MOUNT       0xFC
 
 
-#define FUJIBUS_HEADER_SIZE      6
+// #define FUJIBUS_HEADER_SIZE      6
 
 /* ============================================================================
  * Functions
@@ -128,9 +135,9 @@ void fujibus_send_packet(uint8_t device, uint8_t command, uint8_t* payload, uint
 uint16_t fujibus_receive_packet(void);
 
 /* Accessor macros - inline for zero overhead */
-// #define fujibus_get_device()         (FUJI_RX_BUFFER[0])
-// #define fujibus_get_command()        (FUJI_RX_BUFFER[1])
-// #define fujibus_get_length()         (FUJI_RX_BUFFER[2])
-// #define fujibus_get_payload()        (&FUJI_RX_BUFFER[FUJIBUS_HEADER_SIZE])
+// #define fujibus_get_device()         (FUJI_DATA_BUFFER[0])
+// #define fujibus_get_command()        (FUJI_DATA_BUFFER[1])
+// #define fujibus_get_length()         (FUJI_DATA_BUFFER[2])
+// #define fujibus_get_payload()        (&FUJI_DATA_BUFFER[FUJIBUS_HEADER_SIZE])
 
 #endif /* FUJIBUS_C_H */
