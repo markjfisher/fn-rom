@@ -4,13 +4,19 @@
         .export gbpbv_entry
         .export fscv_entry
 
+        .export updext
+        .export upgbpb
+
         .export extendedvectors_table
         .export parameter_afsp
         .export parameter_fsp
         .export vectors_table
+        .export gbpbv_table3
 
         .export fscv_os_about_to_proc_cmd
-        .export fscv_entry_jumping_to_function
+
+        .import remember_axy
+        .import return_with_a0
 
         .import argsv_entry
         .import bgetv_entry
@@ -26,6 +32,15 @@
         .import fscv7_hndlrange
         .import fscv9_star_ex
         .import fscv10_starINFO
+
+        .import gbpb_put_bytes
+        .import gbpb_getbyte_savebyte
+        .import gbpb_get_mediatitle
+        .import gbpb_rd_cur_dir_device
+        .import gbpb_rd_cur_lib_device
+        .import gbpb_rd_file_cur_dir
+        .import fastgb
+
         .import print_axy
         .import print_string
 
@@ -43,11 +58,11 @@
 fscv_entry:
         dbg_string_axy "FSCV_ENTRY: "
 
-        cmp     #$0C
+        cmp     #$0C                    ; we handle commands $00 to $0B, or 0-11
         bcs     unknown_op
-        stx     aws_tmp05              ; Save X
+        stx     aws_tmp05               ; Save X
 
-        tax
+        tax                             ; the fscv command (index into table)
         lda     fscv_table_hi,x         ; High byte first
         pha
         lda     fscv_table_lo,x         ; Low byte second
@@ -55,38 +70,51 @@ fscv_entry:
         txa
         ldx     aws_tmp05             ; Restore X
 
-fscv_entry_jumping_to_function:
+        ; we love a good rts jump, this is also used as a generic rts in table
+just_rts:
         rts
 
 unknown_op:
         dbg_string_axy "FSCV_UNKNOWN_OP: "
         rts
 
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; GBPBV_ENTRY - General Purpose Block Transfer Vector
 ; Handles OSGBPB calls for file operations
+; See 16.1.5 of New Advanced User Guide
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 gbpbv_entry:
         cmp     #$09
-        bcs     @unknown_op
+        bcs     unknown_op2
+
+        jsr     remember_axy
+        jsr     return_with_a0
+
+        stx     fuji_gbpbv_blk_save_ptr
+        sty     fuji_gbpbv_blk_save_ptr+1
 
         dbg_string_axy "GBPBV: "
 
-        ; Look up function in FSCV table
-        tax
-        lda     fscv_table_lo,x
-        pha
-        lda     fscv_table_hi,x
-        pha
-        txa
+        jmp     fastgb
+
+; TODO - fill in the functions around here
+upgbpb:
+
+updext:
+
+
         rts
 
-@unknown_op:
+unknown_op2:
+        dbg_string_axy "GBPBV_UNKNOWN_OP: "
+
         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; FSCV TABLES - Maps FSCV operation numbers to function addresses
+; See New Advanced User Guide: "16.1.7 Filing system control vector, FSCV"
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 .feature line_continuations +
@@ -103,26 +131,50 @@ gbpbv_entry:
         ; 9: *EX
         ; 10: *INFO
         ; 11: *RUN
-        ; 12: *RENAME
-
-; See New_Advanced_User_Guide.pdf 16.1.7: Filing System Control Vector
+        ; 12: *RENAME   - NOT SUPPORTED
 
 .define FSCV_TABLE \
-        fscv0_starOPT             - 1, \
-        fscv1_eof_yhndl           - 1, \
-        fscv2_4_11_starRUN        - 1, \
-        fscv3_unreccommand        - 1, \
-        fscv2_4_11_starRUN        - 1, \
-        fscv5_starCAT             - 1, \
+        fscv0_starOPT                - 1, \
+        fscv1_eof_yhndl              - 1, \
+        fscv2_4_11_starRUN           - 1, \
+        fscv3_unreccommand           - 1, \
+        fscv2_4_11_starRUN           - 1, \
+        fscv5_starCAT                - 1, \
         fscv6_shutdown_filing_system - 1, \
-        fscv7_hndlrange           - 1, \
-        fscv_os_about_to_proc_cmd - 1, \
-        fscv9_star_ex             - 1, \
-        fscv10_starINFO           - 1, \
-        fscv2_4_11_starRUN        - 1
+        fscv7_hndlrange              - 1, \
+        fscv_os_about_to_proc_cmd    - 1, \
+        fscv9_star_ex                - 1, \
+        fscv10_starINFO              - 1, \
+        fscv2_4_11_starRUN           - 1
 
 fscv_table_lo: .lobytes FSCV_TABLE
 fscv_table_hi: .hibytes FSCV_TABLE
+
+        ; 1: write bytes to file at sequential file pointer specified
+        ; 2: append bytes to file at current file pointer
+        ; 3: read bytes from specified position in file
+        ; 4: read bytes from current position in file
+        ; 5: read title, option and drive into memory
+        ; 6: read current directory and drive names
+        ; 7: read current library and drive names
+        ; 8: read file names from the current directory
+
+.define GBPBV_TABLE \
+        just_rts                     - 1, \
+        gbpb_put_bytes               - 1, \
+        gbpb_put_bytes               - 1, \
+        gbpb_getbyte_savebyte        - 1, \
+        gbpb_getbyte_savebyte        - 1, \
+        gbpb_get_mediatitle          - 1, \
+        gbpb_rd_cur_dir_device       - 1, \
+        gbpb_rd_cur_lib_device       - 1, \
+        gbpb_rd_file_cur_dir         - 1
+
+gbpbv_table_lo: .lobytes GBPBV_TABLE
+gbpbv_table_hi: .hibytes GBPBV_TABLE
+
+gbpbv_table3:
+        .byte $04, $02, $03, $06, $07, $04, $04, $04, $04
 
 .feature line_continuations -
 

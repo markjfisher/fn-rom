@@ -120,6 +120,8 @@ OS_INC = 1
         .import  fuji_filev_start_hi
         .import  fuji_filev_end_hi
 
+        .import  fuji_gbpbv_blk_save_ptr
+
 
         .import  fuji_ch_1118
         .import  fuji_ch_1119

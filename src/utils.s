@@ -55,6 +55,10 @@ osbyte_0f_flush_inbuf2:
         jmp     OSBYTE
 
 
+; For Lots of OSBYTE calls, the formula for NEW and OLD values for the service call is
+; NEW = (OLD & Y) EOR X
+; with X=0, Y=FF, this becomes "no change", i.e. NEW == OLD
+; Thus we fetch the current value and don't amend it.
 osbyte_X0YFF:
         ldx     #0
 osbyte_YFF:

@@ -115,6 +115,8 @@
         .export fuji_filev_start_hi
         .export fuji_filev_end_hi
 
+        .export fuji_gbpbv_blk_save_ptr
+
         .export  fuji_ch_1118
         .export  fuji_ch_1119
         .export  fuji_ch_111A
@@ -193,7 +195,6 @@
         .exportzp  paged_ram_copy
         .exportzp  text_pointer
         .exportzp  data_ptr
-
 
 ; OS vectors
 ROMSEL          := $FE30
@@ -379,6 +380,13 @@ fuji_filev_end_hi       = $107A  ; END 2 bytes for 16 bits of the 32 bit word
 
 ; The low 2 bytes go into BC to C3 for equiv parts.
 ; the filename pointer goes into BA/BB
+
+; GBPB USAGE IN MMFS
+; $017D/107E save pointer to command block (MMFS)
+fuji_gbpbv_blk_save_ptr = $107D ; 2 bytes pointer to gbpbv param block
+
+; $1081      used in tube checking?
+; $10D7/10D8 copied from GBPBV_TABLE indexed by command
 
 
 ; 1090 seems to be a copy of BC to CB, restoring it in MMC_END

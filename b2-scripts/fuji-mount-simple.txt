@@ -1,6 +1,6 @@
 *FUJI
 *FHOST host:/
-REM *FLS
-REM *FIN simple.ssd
-REM *FMOUNT 0 0
-REM *.
+*FLS
+*FIN simple.ssd
+*FMOUNT 0 0
+*.

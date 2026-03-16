@@ -17,6 +17,7 @@
         .export err_file_open
         .export findv_entry
         .export setup_channel_info_block_yintch
+        .export channel_set_dir_drive_get_cat_entry_yintch
 
         .export findv_createfile
         .export findv_filefound

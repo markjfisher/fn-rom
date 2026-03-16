@@ -69,14 +69,14 @@ init_fuji:
         jsr     go_fscv
 
         ; Copy vectors/extended vectors
-        ldx     #$0D                  ; copy vectors
+        ldx     #$0D
 @vect_loop:
         lda     vectors_table,x
-        sta     $0212,x
+        sta     $0212,x                 ; $212 to $21F = FILEV, ARGSV, BGETV, BPUTV, GBPBV, FINDF, FSCV
         dex
         bpl     @vect_loop
 
-        lda     #$A8                  ; copy extended vectors
+        lda     #$A8                  ; Read address of ROM pointer table (0D9F for OS 1.2)
         jsr     osbyte_X0YFF
         sty     aws_tmp01
         stx     aws_tmp00
@@ -236,8 +236,8 @@ setdefaults:
 initdfs_noreset:
         jsr     tube_check_if_present   ; Tube present?
 
-        lda     #$FD                    ; Read hard/soft break
-        jsr     osbyte_X0YFF            ; X=0=soft,1=power up,2=hard
+        lda     #$FD                    ; Read hard/soft break value
+        jsr     osbyte_X0YFF            ; X=0 soft break, X=1 power up reset, X=2 hard break
         cpx     #$00
         beq     skip_autoload
         jsr     fuji_cmd_autoload
