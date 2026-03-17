@@ -173,6 +173,10 @@ fscv_table_hi: .hibytes FSCV_TABLE
 gbpbv_table_lo: .lobytes GBPBV_TABLE
 gbpbv_table_hi: .hibytes GBPBV_TABLE
 
+; this is used in fastgp as microcode bytes.
+; bit 0:  1 == preserving PTR
+; bit 1:  1 == transfer data
+; bit 2:  1 == tube operation (TODO)
 gbpbv_table3:
         .byte $04, $02, $03, $06, $07, $04, $04, $04, $04
 

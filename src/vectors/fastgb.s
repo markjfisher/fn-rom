@@ -15,6 +15,7 @@
 
         .include "os.inc"
 
+; This is converted from MMFS version which is converted from https://github.com/tom-seddon/acorn_1770_dfs_disassembly/blob/main/dfs224.asm.txt
 
 fuji_workspace  := $1000
 
@@ -36,8 +37,8 @@ seqlma          := seqmap + $15         ; 2MSB of open file's extent
 seqlha          := seqmap + $16         ; MSB of open file's extent
 seqdah          := seqmap + $1D         ; MSB of starting LBA
 
-atemp           := aws_tmp04            ; 2 bytes from aws_tmp04
-work            := aws_tmp10
+atemp           := aws_tmp04            ; 2 bytes for general ZP pointer
+work            := aws_tmp10            ; temporary area
 wrkcat          := work + $02           ; load/exec/length/start sector in catalogue format
 lodlo           := work + $02           ; LSB load address in OSFILE
 lodhi           := work + $03           ; 3MSB load address in OSFILE
@@ -46,10 +47,8 @@ lbalo           := work + $09           ; LSB LBA in OSFILE
 lenlo           := work + $06           ; LSB file length in OSFILE
 lenhi           := work + $07           ; 2MSB file length in OSFILE
 
-; This is converted from MMFS version which is converted from https://github.com/tom-seddon/acorn_1770_dfs_disassembly/blob/main/dfs224.asm.txt
-
 fastgb:
-        jsr     gbpb_wordB4_word107D    ; set up pointer to user's OSGBPB block
+        jsr     gbpb_load_blkptr        ; set up pointer to user's OSGBPB block
         lda     gbpbv_table3,y          ; get microcode byte from table
         and     #$03                    ; test bit 1 = transfer data
         lsr     A                       ; set C=1 iff preserving PTR
@@ -115,7 +114,7 @@ fgbfin:
         php                             ; save carry flag that says which
         jsr     addtol                  ; add remaining request to bytes not transferred
         plp                             ; restore carry flag returned from OSGBPB call
-        jsr     gbpb_wordB4_word107D    ; set up pointer to user's OSGBPB block
+        jsr     gbpb_load_blkptr        ; set up pointer to user's OSGBPB block
         ldy     #$0C                    ; copy 13 bytes of OSGBPB control block
 retnl:
         lda     dosram,y                ; from DFS workspace
@@ -270,17 +269,17 @@ addl:
 
 docmd:
         cmp     #$03
-        bcc     dowrcmd                 ; latest MMFS has this fixed.
+        bcc     dowrcmd
 dordcmd:
         jmp     load_mem_block          ; Commands 3/4 as reads
 dowrcmd:
         jmp     save_mem_block          ; Command 1/2 are writes
 
 
-; aws_tmp04 = B4
-gbpb_wordB4_word107D:
+; originally called gbpb_wordB4_word107D, this loads the block parameter pointer into ZP location
+gbpb_load_blkptr:
 	lda     fuji_gbpbv_blk_save_ptr
-	sta     aws_tmp04
+	sta     atemp
 	lda     fuji_gbpbv_blk_save_ptr+1
-	sta     aws_tmp05
+	sta     atemp
 	rts
