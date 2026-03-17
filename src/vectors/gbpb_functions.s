@@ -7,7 +7,9 @@
         .export  gbpb_gosub
 
         .import  remember_axy
+        .import  is_alpha_char
         .import  a_rorx4
+        .import  y_add8
 
         .import  argsv_rdseqptr_or_filelen
         .import  argsv_write_seq_pointer
@@ -25,8 +27,6 @@
 
         .include "fujinet.inc"
 
-; TODO all the GBPBV functions from MMFS
-
 gbpb_put_bytes:
         jsr     @gbpb_pb_loadbyte
         jsr     bputv_entry
@@ -43,13 +43,6 @@ gbpb_put_bytes:
         jsr     gbpb_b8_memptr
         lda     (aws_tmp08, x)                  ; wow, first time using this type of indirection
         jmp     gbpb_inc_data_ptr
-
-
-gbpb6_rd_cur_dir_device:
-gbpb7_rd_cur_lib_device:
-gbpb8_rd_file_cur_dir:
-
-        rts
 
 
 ; ENTRY:
@@ -163,10 +156,52 @@ gbpb_rwdata:
         plp                                     ; C=1 means transfer not completed
         rts
 
+; GBPB 8
+gbpb8_rd_file_cur_dir:
+        jsr     set_curdirdrv_to_defaults_check_cur_drv_cat
+        lda     #<gbpb8_getbyte
+        sta     fuji_param_block_lo
+        lda     #>gbpb8_getbyte
+        sta     fuji_param_block_hi
+        bne     gbpb_rwdata                     ; always
+
+gbpb8_getbyte:
+        ldy     gbpb_seqptr                     ; GBPB 8 - Get Byte
+@gbpb8_loop:
+        cpy     dfs_cat_num_x8
+        bcs     @gbpb8_endofcat                 ; If end of catalogue, C=1
+        lda     dfs_cat_file_dir, y             ; Directory
+        jsr     is_alpha_char
+        eor     directory_param
+        bcs     @gbpb8_notalpha
+        and     #$DF
+@gbpb8_notalpha:
+        and     #$7F
+        beq     @gbpb8_filefound                ; If in current dir
+        jsr     y_add8
+        bne     @gbpb8_loop                      ; next file
+@gbpb8_filefound:
+        lda     #$07                            ; Length of filename
+        jsr     gbpb_gb_savebyte
+        sta     aws_tmp00                       ; loop counter
+@gbpb8_copyfn_loop:
+        lda     dfs_cat_file_s0_start,Y         ; Copy fn
+        jsr     gbpb_gb_savebyte
+        iny
+        dec     aws_tmp00
+        bne     @gbpb8_copyfn_loop
+        clc                                     ; C=0 indicates more to follow
+@gbpb8_endofcat:
+        sty     gbpb_seqptr                     ; Save offset (seq ptr)
+        lda     dfs_cat_cycle
+        sta     gbpb_file_handle                ; Cycle number (file handle)
+        rts
+
+;;
 gbpb_gb_savebyte_and_gbpb_save_01:
         ora     #$30                            ; Drive no. to ascii
         jsr     gbpb_gb_savebyte
-gbpb_SAVE_01:
+gbpb_save_01:
         lda     #$01
         bne     gbpb_gb_savebyte                ; always
 
@@ -203,25 +238,6 @@ gbpb_inc_dbl_word_buf_x:
 gbpb_inc_dbl_word_exit:
         rts
 
-; set word aws_tmp08 to ctrl block mem pointer (host)
-gbpb_b8_memptr:
-        ldx     gbpb_ctl_blk_mem_ptr_host
-        stx     aws_tmp08
-        ldx     gbpb_ctl_blk_mem_ptr_host+1
-        stx     aws_tmp09
-        ldx     #$00
-        rts
-
-gbpb_bytes_xfer_invert:
-        ldx     #$03                            ; bytes to transfer XOR $FFFF
-@gbpb_bytes_xfer_invert_loop:
-        lda     #$FF
-        eor     gbpb_buf_0c+5, x
-        sta     gbpb_buf_0c+5, x
-        dex
-        bpl     @gbpb_bytes_xfer_invert_loop
-        rts
-
 gbpb5_get_mediatitle:
         jsr     set_curdirdrv_to_defaults_check_cur_drv_cat
         lda     #$0C                            ; Length of title
@@ -244,3 +260,36 @@ gbpb5_get_mediatitle:
         jsr     gbpb_gb_savebyte
         lda     current_drv
         jmp     gbpb_gb_savebyte
+
+gbpb6_rd_cur_dir_device:
+        jsr     gbpb_save_01                      ; GBPB 6
+        lda     fuji_default_drive                ; Length of dev.name=1
+        jsr     gbpb_gb_savebyte_and_gbpb_save_01 ; Lendgh of dir.name=1
+        lda     fuji_default_dir                  ; Directory
+        bne     gbpb_gb_savebyte
+
+gbpb7_rd_cur_lib_device:
+        jsr     gbpb_save_01                      ; GBPB 7
+        lda     fuji_lib_drive                    ; Length of dev.name=1
+        jsr     gbpb_gb_savebyte_and_gbpb_save_01 ; Lendgh of dir.name=1
+        lda     fuji_lib_dir                      ; Directory
+        bne     gbpb_gb_savebyte
+
+; set word aws_tmp08 to ctrl block mem pointer (host)
+gbpb_b8_memptr:
+        ldx     gbpb_ctl_blk_mem_ptr_host
+        stx     aws_tmp08
+        ldx     gbpb_ctl_blk_mem_ptr_host+1
+        stx     aws_tmp09
+        ldx     #$00
+        rts
+
+gbpb_bytes_xfer_invert:
+        ldx     #$03                            ; bytes to transfer XOR $FFFF
+@gbpb_bytes_xfer_invert_loop:
+        lda     #$FF
+        eor     gbpb_buf_0c+5, x
+        sta     gbpb_buf_0c+5, x
+        dex
+        bpl     @gbpb_bytes_xfer_invert_loop
+        rts
