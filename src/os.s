@@ -18,6 +18,8 @@
         .export  OSWRCH
         .export  ROMSEL
 
+        .export  tube_code
+        .export  gbpb_tube
         .export  current_cat
         .export  dfs_cat_num_x8
         .export  FSCV
@@ -104,18 +106,22 @@
         .export  fuji_ch_flg
 
         .export  fuji_cmd_copy_buf_17
-        .export  fuji_cmd_cat_buf_8
         .export  fuji_getcat_buf_8
+        .export  fuji_cmd_cat_buf_8
+        .export  gbpb_buf_0c
+        .export  gbpb_file_handle
+        .export  gbpb_seqptr
 
         .export  fuji_buf_ws_tmp_buf
 
-        .export fuji_filev_hi_addr_buf
-        .export fuji_filev_load_hi
-        .export fuji_filev_exec_hi
-        .export fuji_filev_start_hi
-        .export fuji_filev_end_hi
+        .export  fuji_filev_hi_addr_buf
+        .export  fuji_filev_load_hi
+        .export  fuji_filev_exec_hi
+        .export  fuji_filev_start_hi
+        .export  fuji_filev_end_hi
 
-        .export fuji_gbpbv_blk_save_ptr
+        .export  fuji_gbpbv_blk_save_ptr
+        .export  fuji_gbpbv_tube_op
 
         .export  fuji_ch_1118
         .export  fuji_ch_1119
@@ -282,9 +288,7 @@ current_drv     := $CD
 ; use pws_tmp10/11 for a generic data pointer
 data_ptr        := $CA
 
-; seems to be pretty random location... why here?
-current_cat      := $1082
-
+tube_code         := $0406      ; MMFS defined in SYSVARS.asm, documented in New Advanced User Guide just as "call tube code"
 TubeNoTransferIf0 := $10AE
 
 ; 0E00 is a copy of the disk catalog, see fuji_read_catalog in fuji_fs.s
@@ -368,8 +372,19 @@ fuji_cmd_copy_buf_17    = $1045
 ; 1058-105F used in fs_functions
 fuji_getcat_buf_8       = $1058
 
-; used in starCAT, 1060-1067
+; used in starCAT, 1060-1067.
 fuji_cmd_cat_buf_8      = $1060
+
+; also used in gbpb_functions.s as 1060-106C
+gbpb_buf_0c             = $1060
+
+; named locations within the buffer
+gbpb_file_handle        = $1060  ; 1 byte file handle
+
+; gbpb uses $1069-106C in seqptr loop as a 4 byte pointer (pling)
+; document this better when we know more about it - it's also shared in above
+gbpb_seqptr             = $1069
+
 
 ; see @filev_entry.s, the buffer is 1074 to 107B
 fuji_filev_hi_addr_buf  = $1074  ; start of the 8 byte buffer
@@ -383,11 +398,15 @@ fuji_filev_end_hi       = $107A  ; END 2 bytes for 16 bits of the 32 bit word
 
 ; GBPB USAGE IN MMFS
 ; $017D/107E save pointer to command block (MMFS)
-fuji_gbpbv_blk_save_ptr = $107D ; 2 bytes pointer to gbpbv param block
+fuji_gbpbv_blk_save_ptr = $107D  ; 2 bytes pointer to gbpbv param block
+fuji_gbpbv_tube_op      = $107F  ; used in gbpb_gosub
 
-; $1081      used in tube checking?
-; $10D7/10D8 copied from GBPBV_TABLE indexed by command
+; $1081      used in tube checking
+gbpb_tube               = $1081
 
+current_cat             = $1082
+
+; $10D7/10D8 copied from GBPBV_TABLE indexed by command, but in fujinet it's fuji_param_block_lo
 
 ; 1090 seems to be a copy of BC to CB, restoring it in MMC_END
 
@@ -502,8 +521,8 @@ fuji_ch_sect_hi         = fuji_channel_start + $1D  ; buffer sector high
 
 ; used in initdfs_reset, initialise static workspace
 ; In mmfs100.asm "Reset the *DDRIVE table (MMFS2)"
-fuji_unknown_11C0       = fuji_workspace + $1C0
-fuji_unknown_11D0       = fuji_workspace + $1D0
+fuji_unknown_11C0       = fuji_workspace + $01C0
+fuji_unknown_11D0       = fuji_workspace + $01D0
 
 ; ASSUME THE CHANNEL DATA DOES NOT GO BEYOND $1130
 

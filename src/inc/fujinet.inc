@@ -57,6 +57,9 @@ cmdtab_offset_futils    = <(cmd_table_futils - cmd_table_fujifs)
 filesysno               = $04
 filehndl                = $10
 
+; same as MMFS tube code. will this be an issue?
+tube_id                 = $0A
+
 
 ; ============================================================================
 ; FujiBus Protocol Constants

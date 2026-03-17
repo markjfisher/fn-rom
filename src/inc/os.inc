@@ -23,6 +23,8 @@ OS_INC = 1
         .import  OSWRCH
         .import  ROMSEL
 
+        .import  tube_code
+        .import  gbpb_tube
         .import  current_cat
         .import  dfs_cat_num_x8
         .import  FSCV
@@ -109,8 +111,11 @@ OS_INC = 1
         .import  fuji_ch_flg
 
         .import  fuji_cmd_copy_buf_17
-        .import  fuji_cmd_cat_buf_8
         .import  fuji_getcat_buf_8
+        .import  fuji_cmd_cat_buf_8
+        .import  gbpb_buf_0c
+        .import  gbpb_file_handle
+        .import  gbpb_seqptr
 
         .import  fuji_buf_ws_tmp_buf
 
@@ -121,7 +126,7 @@ OS_INC = 1
         .import  fuji_filev_end_hi
 
         .import  fuji_gbpbv_blk_save_ptr
-
+        .import  fuji_gbpbv_tube_op
 
         .import  fuji_ch_1118
         .import  fuji_ch_1119

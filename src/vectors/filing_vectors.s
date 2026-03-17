@@ -4,13 +4,15 @@
         .export gbpbv_entry
         .export fscv_entry
 
-        .export updext
         .export upgbpb
 
         .export extendedvectors_table
         .export parameter_afsp
         .export parameter_fsp
         .export vectors_table
+
+        .export gbpbv_table_lo
+        .export gbpbv_table_hi
         .export gbpbv_table3
 
         .export fscv_os_about_to_proc_cmd
@@ -33,6 +35,7 @@
         .import fscv9_star_ex
         .import fscv10_starINFO
 
+        .import gbpb_gosub
         .import gbpb_put_bytes
         .import gbpb_getbyte_savebyte
         .import gbpb_get_mediatitle
@@ -40,6 +43,8 @@
         .import gbpb_rd_cur_lib_device
         .import gbpb_rd_file_cur_dir
         .import fastgb
+
+        .import tube_release_no_check
 
         .import print_axy
         .import print_string
@@ -87,7 +92,7 @@ unknown_op:
 
 gbpbv_entry:
         cmp     #$09
-        bcs     unknown_op2
+        bcs     gbpbv_unknown
 
         jsr     remember_axy
         jsr     return_with_a0
@@ -97,19 +102,19 @@ gbpbv_entry:
 
         dbg_string_axy "GBPBV: "
 
+        tay
         jmp     fastgb
 
-; TODO - fill in the functions around here
 upgbpb:
+        jsr     gbpb_gosub
+        php
+        bit     gbpb_tube
+        bpl     @gbpb_nottube
+        jsr     tube_release_no_check
+@gbpb_nottube:
+        plp
 
-updext:
-
-
-        rts
-
-unknown_op2:
-        dbg_string_axy "GBPBV_UNKNOWN_OP: "
-
+gbpbv_unknown:
         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -159,16 +164,17 @@ fscv_table_hi: .hibytes FSCV_TABLE
         ; 7: read current library and drive names
         ; 8: read file names from the current directory
 
+; this is not used as an rts jump table, so doesn't need the -1
 .define GBPBV_TABLE \
-        just_rts                     - 1, \
-        gbpb_put_bytes               - 1, \
-        gbpb_put_bytes               - 1, \
-        gbpb_getbyte_savebyte        - 1, \
-        gbpb_getbyte_savebyte        - 1, \
-        gbpb_get_mediatitle          - 1, \
-        gbpb_rd_cur_dir_device       - 1, \
-        gbpb_rd_cur_lib_device       - 1, \
-        gbpb_rd_file_cur_dir         - 1
+        just_rts,               \
+        gbpb_put_bytes,         \
+        gbpb_put_bytes,         \
+        gbpb_getbyte_savebyte,  \
+        gbpb_getbyte_savebyte,  \
+        gbpb_get_mediatitle,    \
+        gbpb_rd_cur_dir_device, \
+        gbpb_rd_cur_lib_device, \
+        gbpb_rd_file_cur_dir   
 
 gbpbv_table_lo: .lobytes GBPBV_TABLE
 gbpbv_table_hi: .hibytes GBPBV_TABLE

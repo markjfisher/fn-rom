@@ -22,6 +22,10 @@
         .export  y_add8
         .export  _vblank
 
+        .export tube_claim
+        .export tube_release
+        .export tube_release_no_check
+
         .import  remember_axy
 
         .include "fujinet.inc"
@@ -213,4 +217,29 @@ inc_word_aws_tmp00_dec_word_aws_tmp02:
         ; check if we hit 0 so we can use BEQ
         lda     aws_tmp02
         ora     aws_tmp03
+        rts
+
+tube_claim:
+        pha
+@tclaim_loop:
+        lda     #$C0 + tube_id    ; see comment below about tube_id
+        jsr     tube_code
+        bcc     @tclaim_loop
+        pla
+        rts
+
+tube_release:
+        jsr     tube_check_if_present
+        bmi     trelease_exit
+
+tube_release_no_check:
+        pha
+        ; #$80 + tubeid ($0A iin mmfs), commentary from MMFS:
+        ;   See Tube Application Note No.004 Page 7
+        ;   &0A is unallocated so shouldn't clash
+        lda     #$80 + tube_id
+        jsr     tube_code
+        pla
+
+trelease_exit:
         rts

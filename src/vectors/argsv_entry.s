@@ -3,6 +3,9 @@
 ; Translated from MMFS mmfs100.asm lines 4939-4967
 
         .export argsv_entry
+        .export  argsv_rdseqptr_or_filelen
+        .export  argsv_write_seq_pointer
+
         .export channel_buffer_to_disk_yhandle_a0
         .export channel_buffer_to_disk_yhandle
 

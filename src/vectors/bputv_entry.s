@@ -7,6 +7,7 @@
         .export err_file_read_only
         .export bp_entry
         .export ai_suggestion
+        .export updext
 
         .import a_rolx4
         .import calc_buffer_sector_for_ptr
@@ -133,6 +134,8 @@ bp_entry:
         sta     (aws_tmp10,x)   ; Byte to buffer (MMFS line 5352)
         jsr     tya_cmp_ptr_ext         ; Check if PTR >= EXT (MMFS line 5353)
         bcc     bp_exit                 ; If PTR<EXT (MMFS line 5354)
+
+updext:
         lda     #$20                    ; Update cat file len when closed (MMFS line 5358)
         jsr     channel_flags_set_bits  ; Set bit 5 (MMFS line 5359)
         ldx     #$02                    ; EXT=PTR (MMFS line 5360)

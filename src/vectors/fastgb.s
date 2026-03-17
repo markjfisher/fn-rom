@@ -1,4 +1,5 @@
         .export  fastgb
+        .export  gbpb_load_blkptr
 
         .import  cmp_ptr_ext
         .import  gbpbv_table3
