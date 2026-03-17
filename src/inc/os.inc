@@ -22,6 +22,17 @@ OS_INC = 1
         .import  OSWORD
         .import  OSWRCH
         .import  ROMSEL
+        .import  TUBE_BASE
+
+        .import  TUBE_R1_STATUS
+        .import  TUBE_R1_DATA
+        .import  TUBE_R2_STATUS
+        .import  TUBE_R2_DATA
+        .import  TUBE_R3_STATUS
+        .import  TUBE_R3_DATA
+        .import  TUBE_R4_STATUS
+        .import  TUBE_R4_DATA
+
 
         .import  tube_code
         .import  gbpb_tube
@@ -115,6 +126,7 @@ OS_INC = 1
         .import  fuji_cmd_cat_buf_8
         .import  gbpb_buf_0c
         .import  gbpb_file_handle
+        .import  gbpb_ctl_blk_mem_ptr_host
         .import  gbpb_seqptr
 
         .import  fuji_buf_ws_tmp_buf

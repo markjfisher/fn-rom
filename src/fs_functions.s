@@ -38,6 +38,7 @@
         .export read_fspba_reset
         .export read_fsp_text_pointer
         .export save_cat_to_disk
+        .export set_curdirdrv_to_defaults_check_cur_drv_cat
         .export set_curdir_drv_to_defaults
         .export set_curdrv_to_default
         .export set_current_drive_adrive
@@ -351,6 +352,9 @@ err_syntax:
         jsr     prtcmd_prtchr            ; Print null character
         jmp     $0100                    ; Cause BREAK!
 
+
+set_curdirdrv_to_defaults_check_cur_drv_cat:
+        jsr     set_curdir_drv_to_defaults
 
 ; check_cur_drv_cat - Check if current drive catalog is loaded (MMFS line 7255-7259)
 check_cur_drv_cat:

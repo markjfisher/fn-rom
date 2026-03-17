@@ -38,10 +38,11 @@
         .import gbpb_gosub
         .import gbpb_put_bytes
         .import gbpb_getbyte_savebyte
-        .import gbpb_get_mediatitle
-        .import gbpb_rd_cur_dir_device
-        .import gbpb_rd_cur_lib_device
-        .import gbpb_rd_file_cur_dir
+        .import gbpb5_get_mediatitle
+        .import gbpb6_rd_cur_dir_device
+        .import gbpb7_rd_cur_lib_device
+        .import gbpb8_rd_file_cur_dir
+
         .import fastgb
 
         .import tube_release_no_check
@@ -165,16 +166,16 @@ fscv_table_hi: .hibytes FSCV_TABLE
         ; 8: read file names from the current directory
 
 ; this is not used as an rts jump table, so doesn't need the -1
-.define GBPBV_TABLE \
-        just_rts,               \
-        gbpb_put_bytes,         \
-        gbpb_put_bytes,         \
-        gbpb_getbyte_savebyte,  \
-        gbpb_getbyte_savebyte,  \
-        gbpb_get_mediatitle,    \
-        gbpb_rd_cur_dir_device, \
-        gbpb_rd_cur_lib_device, \
-        gbpb_rd_file_cur_dir   
+.define GBPBV_TABLE              \
+        just_rts,                \
+        gbpb_put_bytes,          \
+        gbpb_put_bytes,          \
+        gbpb_getbyte_savebyte,   \
+        gbpb_getbyte_savebyte,   \
+        gbpb5_get_mediatitle,    \
+        gbpb6_rd_cur_dir_device, \
+        gbpb7_rd_cur_lib_device, \
+        gbpb8_rd_file_cur_dir   
 
 gbpbv_table_lo: .lobytes GBPBV_TABLE
 gbpbv_table_hi: .hibytes GBPBV_TABLE

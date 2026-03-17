@@ -17,6 +17,16 @@
         .export  OSWORD
         .export  OSWRCH
         .export  ROMSEL
+        .export  TUBE_BASE
+
+        .export  TUBE_R1_STATUS
+        .export  TUBE_R1_DATA
+        .export  TUBE_R2_STATUS
+        .export  TUBE_R2_DATA
+        .export  TUBE_R3_STATUS
+        .export  TUBE_R3_DATA
+        .export  TUBE_R4_STATUS
+        .export  TUBE_R4_DATA
 
         .export  tube_code
         .export  gbpb_tube
@@ -110,6 +120,7 @@
         .export  fuji_cmd_cat_buf_8
         .export  gbpb_buf_0c
         .export  gbpb_file_handle
+        .export  gbpb_ctl_blk_mem_ptr_host
         .export  gbpb_seqptr
 
         .export  fuji_buf_ws_tmp_buf
@@ -204,6 +215,7 @@
 
 ; OS vectors
 ROMSEL          := $FE30
+TUBE_BASE       := $FEE0
 OSRDRM          := $FFB9
 GSINIT          := $FFC2
 GSREAD          := $FFC5
@@ -290,6 +302,15 @@ data_ptr        := $CA
 
 tube_code         := $0406      ; MMFS defined in SYSVARS.asm, documented in New Advanced User Guide just as "call tube code"
 TubeNoTransferIf0 := $10AE
+
+TUBE_R1_STATUS    := TUBE_BASE + $00
+TUBE_R1_DATA      := TUBE_BASE + $01
+TUBE_R2_STATUS    := TUBE_BASE + $02
+TUBE_R2_DATA      := TUBE_BASE + $03
+TUBE_R3_STATUS    := TUBE_BASE + $04
+TUBE_R3_DATA      := TUBE_BASE + $05
+TUBE_R4_STATUS    := TUBE_BASE + $06
+TUBE_R4_DATA      := TUBE_BASE + $07
 
 ; 0E00 is a copy of the disk catalog, see fuji_read_catalog in fuji_fs.s
 ; e.g. 0F05 = Num*8, 0F0C,X = size of nth file where X = 8 + n*8
@@ -379,7 +400,9 @@ fuji_cmd_cat_buf_8      = $1060
 gbpb_buf_0c             = $1060
 
 ; named locations within the buffer
-gbpb_file_handle        = $1060  ; 1 byte file handle
+gbpb_file_handle          = $1060  ; 1 byte file handle
+gbpb_ctl_blk_mem_ptr_host = $1061  ; 2 bytes, used in gbpb_b8_memptr
+
 
 ; gbpb uses $1069-106C in seqptr loop as a 4 byte pointer (pling)
 ; document this better when we know more about it - it's also shared in above

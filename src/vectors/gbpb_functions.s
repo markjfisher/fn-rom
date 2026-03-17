@@ -1,31 +1,53 @@
         .export  gbpb_put_bytes
         .export  gbpb_getbyte_savebyte
-        .export  gbpb_get_mediatitle
-        .export  gbpb_rd_cur_dir_device
-        .export  gbpb_rd_cur_lib_device
-        .export  gbpb_rd_file_cur_dir
+        .export  gbpb5_get_mediatitle
+        .export  gbpb6_rd_cur_dir_device
+        .export  gbpb7_rd_cur_lib_device
+        .export  gbpb8_rd_file_cur_dir
         .export  gbpb_gosub
 
         .import  remember_axy
+        .import  a_rorx4
+
         .import  argsv_rdseqptr_or_filelen
         .import  argsv_write_seq_pointer
+        .import  set_curdirdrv_to_defaults_check_cur_drv_cat
+
         .import  tube_claim
 
-        .import gbpb_load_blkptr
-        .import gbpbv_table_hi
-        .import gbpbv_table_lo
-        .import gbpbv_table3
+        .import  gbpb_load_blkptr
+        .import  gbpbv_table_hi
+        .import  gbpbv_table_lo
+        .import  gbpbv_table3
+
+        .import  bgetv_entry
+        .import  bputv_entry
 
         .include "fujinet.inc"
 
 ; TODO all the GBPBV functions from MMFS
 
 gbpb_put_bytes:
-gbpb_getbyte_savebyte:
-gbpb_get_mediatitle:
-gbpb_rd_cur_dir_device:
-gbpb_rd_cur_lib_device:
-gbpb_rd_file_cur_dir:
+        jsr     @gbpb_pb_loadbyte
+        jsr     bputv_entry
+        clc
+        rts
+
+@gbpb_pb_loadbyte:
+        bit     gbpb_tube
+        bpl     @gbpb_pb_fromhost
+        lda     TUBE_R3_DATA
+        jmp     gbpb_inc_data_ptr
+
+@gbpb_pb_fromhost:
+        jsr     gbpb_b8_memptr
+        lda     (aws_tmp08, x)                  ; wow, first time using this type of indirection
+        jmp     gbpb_inc_data_ptr
+
+
+gbpb6_rd_cur_dir_device:
+gbpb7_rd_cur_lib_device:
+gbpb8_rd_file_cur_dir:
 
         rts
 
@@ -95,10 +117,10 @@ gbpb_rw_seqptr:
         ldy     gbpb_file_handle
         lda     #$00
         plp                             ; "bit 0" from table3, which is "preserving PTR" if set to 1
-        bcs     @gpbp_dont_write_seqptr
+        bcs     @gbpb_dont_write_seqptr
         jsr     argsv_write_seq_pointer
 
-@gpbp_dont_write_seqptr:
+@gbpb_dont_write_seqptr:
         jsr     argsv_rdseqptr_or_filelen
 
         ldx     #$03
@@ -141,6 +163,29 @@ gbpb_rwdata:
         plp                                     ; C=1 means transfer not completed
         rts
 
+gbpb_gb_savebyte_and_gbpb_save_01:
+        ora     #$30                            ; Drive no. to ascii
+        jsr     gbpb_gb_savebyte
+gbpb_SAVE_01:
+        lda     #$01
+        bne     gbpb_gb_savebyte                ; always
+
+
+gbpb_getbyte_savebyte:
+        jsr     bgetv_entry
+        bcs     gbpb_inc_dbl_word_exit          ; If EOF
+
+
+gbpb_gb_savebyte:
+        bit     gbpb_tube
+        bpl     gbpb_gb_fromhost
+        sta     TUBE_R3_DATA                    ; fast Tube Bget
+        bmi     gbpb_inc_data_ptr
+gbpb_gb_fromhost:
+        jsr     gbpb_b8_memptr
+        sta     (aws_tmp08, x)
+
+
 gbpb_inc_data_ptr:
         jsr     remember_axy
         ldx     #$01
@@ -150,12 +195,21 @@ gbpb_inc_dbl_word_buf_x:
 
 @gbpb_inc_dbl_word_loop:
         inc     gbpb_buf_0c, x
-        bne     @gbpb_inc_dbl_word_exit
+        bne     gbpb_inc_dbl_word_exit
         inx
         dey
         bne     @gbpb_inc_dbl_word_loop
 
-@gbpb_inc_dbl_word_exit:
+gbpb_inc_dbl_word_exit:
+        rts
+
+; set word aws_tmp08 to ctrl block mem pointer (host)
+gbpb_b8_memptr:
+        ldx     gbpb_ctl_blk_mem_ptr_host
+        stx     aws_tmp08
+        ldx     gbpb_ctl_blk_mem_ptr_host+1
+        stx     aws_tmp09
+        ldx     #$00
         rts
 
 gbpb_bytes_xfer_invert:
@@ -167,3 +221,26 @@ gbpb_bytes_xfer_invert:
         dex
         bpl     @gbpb_bytes_xfer_invert_loop
         rts
+
+gbpb5_get_mediatitle:
+        jsr     set_curdirdrv_to_defaults_check_cur_drv_cat
+        lda     #$0C                            ; Length of title
+        jsr     gbpb_gb_savebyte
+        ldy     #$00
+@gbpb5_titleloop:
+        cpy     #$08                            ; Title
+        bcs     @gbpb5_titlehi
+        lda     dfs_cat_s0_title, y
+        bcc     @gbpb5_titlelo
+@gbpb5_titlehi:
+        lda     dfs_cat_s1_title-8, y           ; adjust for the Y index of 8
+@gbpb5_titlelo:
+        jsr     gbpb_gb_savebyte
+        iny
+        cpy     #$0C
+        bne     @gbpb5_titleloop
+        lda     dfs_cat_boot_option
+        jsr     a_rorx4
+        jsr     gbpb_gb_savebyte
+        lda     current_drv
+        jmp     gbpb_gb_savebyte
