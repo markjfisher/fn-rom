@@ -1,15 +1,26 @@
 ; Service call 02 - Claim private workspace
-        .export service02_claim_privworkspace
+; Service call 03 - Auto-boot
 
+; combined to save some space, and 03 is trivial
+
+        .export service02_claim_privworkspace
+        .export service03_autoboot
+
+        .import  autoboot
+        .import  osbyte_X0YFF
         .import  print_axy
         .import  print_string
-        .import  osbyte_X0YFF
+        .import  remember_axy
         .import  save_static_to_private_workspace
 
         .include "fujinet.inc"
 
         .segment "CODE"
 
+; On entry:
+;  A = 02
+;  X = rom slot
+;  Y = first available page for PWS
 service02_claim_privworkspace:
 
         dbg_string_axy "service02: "
@@ -28,6 +39,7 @@ service02_claim_privworkspace:
         lda     #$00
         sta     aws_tmp00                ; $B0 = 0 (low byte)
 
+        ; this seems to set force-reset flag to 0 if page has changed, which is AND'd against the power up indicator below
         cpy     aws_tmp01                ; Private workspace may have moved!
         beq     @samepage                ; If same as before
 
@@ -49,6 +61,7 @@ service02_claim_privworkspace:
         plp
         bpl     @notsoft                 ; If not soft break
 
+        ; I'm not sure about this part. D4 seems to be arbitrarily after the force_reset flag, but not part of it
         lda     (aws_tmp00),y            ; A=PWSP+$D4
         bpl     @notsoft                 ; If PWSP "full"
 
@@ -64,7 +77,29 @@ service02_claim_privworkspace:
         pla
         tay
         lda     #$02
+
+        ; Here is where we claim 2 pages of PWS, only need 1 if we're not doing UTILS
         iny
         iny
+
+; save a byte by sharing RTS between the 2 services
+svr3_exit:
+        rts
+
+service03_autoboot:
+        jsr     remember_axy
+        sty     aws_tmp03
+        lda     #$7A            ; keyboard scan
+        jsr     OSBYTE
+        txa
+        bmi     jmp_autoboot
+        cmp     #'F'            ; F for FujiNet break
+
+        bne     svr3_exit
+        lda     #$78
+        jsr     OSBYTE
+
+jmp_autoboot:
+        jmp     autoboot
 
         rts

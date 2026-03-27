@@ -28,28 +28,28 @@
 //////////////////////////////////////////////////////////////////////////
 
 /* Current mount slot index */
-#define FUJI_DISK_TABLE_INDEX    ((uint8_t*)0x10D4)
+#define FUJI_DISK_TABLE_INDEX    ((uint8_t*)0x10C7)
 
 /* Error flag general purpose*/
-#define FUJI_ERROR_FLAG          ((uint8_t*)0x10DA)
+#define FUJI_ERROR_FLAG          ((uint8_t*)0x10D9)
 /* FujiNet drive-to-disk mapping (4 bytes: drives 0-3) */
-#define FUJI_DRIVE_DISK_MAP      ((uint8_t*)0x10DB)
+#define FUJI_DRIVE_DISK_MAP      ((uint8_t*)0x10DA)
 
-#define fuji_current_sector      ((uint8_t*)0x10E7)
+#define fuji_current_sector      ((uint8_t*)0x10E6)
 
-#define FUJI_CURRENT_FS_LEN      ((uint8_t*)0x10E9)
+#define FUJI_CURRENT_FS_LEN      ((uint8_t*)0x10E8)
 
-#define FUJI_CURRENT_DIR_LEN     ((uint8_t*)0x10EA)
+#define FUJI_CURRENT_DIR_LEN     ((uint8_t*)0x10E9)
 
-#define FUJI_CURRENT_MOUNT_SLOT  ((uint8_t*)0x10EB)
+#define FUJI_CURRENT_MOUNT_SLOT  ((uint8_t*)0x10EA)
 
-#define FUJI_DISK_SLOT           ((uint8_t*)0x10ED)  /* fuji_disk_slot - current slot, 1-based */
-#define FUJI_DISK_FLAGS          ((uint8_t*)0x10EE)  /* fuji_disk_flags */
+#define FUJI_DISK_SLOT           ((uint8_t*)0x10EC)  /* fuji_disk_slot - current slot, 1-based */
+#define FUJI_DISK_FLAGS          ((uint8_t*)0x10ED)  /* fuji_disk_flags */
 
-#define FUJI_CURRENT_HOST_LEN    ((uint8_t*)0x10EF)
+#define FUJI_CURRENT_HOST_LEN    ((uint8_t*)0x10EE)
 
 /* Filename length (used by param parsing) */
-#define FUJI_FILENAME_LEN        ((uint8_t*)0x10F1)
+#define FUJI_FILENAME_LEN        ((uint8_t*)0x10F0)
 
 
 //////////////////////////////////////////////////////////////////////////

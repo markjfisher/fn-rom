@@ -5,6 +5,9 @@
         .export set_private_workspace_pointer_b0
         .export boot_options
         .export init_csp
+        .export autoboot
+        .export cmd_fs_disc
+        .export cmd_fs_fuji
 
         .import a_rorx4
         .import channel_flags_clear_bits
@@ -44,6 +47,36 @@ init_csp:
         sta     c_sp+1
         rts
 
+autoboot:
+        lda     aws_tmp03               ; the stored value of Y when service 03 was called
+        jsr     print_string
+        ; This will need to be made to react to the type of build
+        .byte   "Model B - FujiNet", $0D, $0D, 0
+
+        bcc     init_fuji
+
+cmd_fs_disc:
+        dbg_string_axy "CMD_FS_DISC: "
+
+        ; Following MMFS CMD_DISC pattern (lines 2928-2941)
+        ; Check bit 6 of PagedROM_PrivWorkspaces to see if DISC/DISK should pass to DFS
+
+        ldx     paged_ram_copy          ; Get current ROM number
+        lda     paged_rom_priv_ws,x     ; Get private workspace flags  
+        and     #$40                    ; Test bit 6 (OPT 5 flag)
+        beq     cmd_fs_fuji             ; If bit 6 clear, act like *FUJI (activate FujiNet)
+        rts
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; CMD_FS_FUJI - Handle *FUJI command (filing system selection)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+cmd_fs_fuji:
+        dbg_string_axy "CMD_FS_FUJI: "
+
+        ; Initialize FujiNet filing system (following MMFS CMD_CARD pattern)
+        lda     #$FF                    ; Set A=$FF to indicate not a boot file
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; INIT_FUJI - Initialize FujiNet file system
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -51,12 +84,6 @@ init_csp:
 init_fuji:
         jsr     return_with_a0        ; On entry: if A=0 then boot file
         pha
-
-.ifdef FN_DEBUG
-        jsr     print_string
-        .byte   "Starting FujiNet", $0D
-        nop
-.endif
 
         ; initialise c_sp for cc65 to the end of WORKSP segment, this resets CC65 stack
         jsr     init_csp
@@ -98,7 +125,7 @@ init_fuji:
 
         ; X=0, Y=$30
         sty     current_cat             ; curdrvcat<>0
-        sty     current_cat+1           ; this has a "?"" in MMFS src... who knows why?
+        sty     current_cat+1           ; this has the comment "?" in MMFS src... who knows why?
         stx     current_drv             ; curdrv=0
         stx     fuji_current_dir_path
         stx     fuji_current_fs_uri
@@ -115,39 +142,19 @@ init_fuji:
         ldy     #filesysno            ; Our filing system number
         jsr     OSBYTE
 
-.ifdef FN_DEBUG
-        jsr     print_string
-        .byte   "Filing system selected", $0D
-        nop
-.endif
-
         ; If soft break and pws "full" and not booting a disk
         ; then copy pws to sws
         ; else reset fs to defaults.
 
-; .ifdef FN_DEBUG
-;         jsr     print_string
-;         .byte   "Before workspace check", $0D
-;         nop
-;         jsr     dump_zp_workspace
-; .endif
-
         jsr     set_private_workspace_pointer_b0
 
-; .ifdef FN_DEBUG
-;         jsr     print_string
-;         .byte   "After set_private_workspace_pointer_b0", $0D
-;         nop
-;         jsr     dump_zp_workspace
-; .endif
-
-        ldy     #<fuji_force_reset          ; D3
-        lda     (aws_tmp00),y         ; A=PWSP+$D3 (-ve=soft break)
+        ldy     #<fuji_force_reset          ; C9
+        lda     (aws_tmp00),y         ; A=PWSP+$C9 (-ve=soft break)
 
         bpl     initdfs_reset         ; Branch if power up or hard break
 
-        ldy     #<(fuji_force_reset+1)      ; D4
-        lda     (aws_tmp00),y         ; A=PWSP+$D4
+        ldy     #<(fuji_force_reset+1)      ; CA
+        lda     (aws_tmp00),y         ; A=PWSP+$CF
 
         bmi     initdfs_noreset       ; Branch if PWSP "empty"
 

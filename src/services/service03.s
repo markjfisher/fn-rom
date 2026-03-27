@@ -1,15 +1,23 @@
-; Service call 03 - Auto boot
-        .export service03_autoboot
+; ; Service call 03 - Auto boot
+;         .export service03_autoboot
 
-        .import  print_axy
-        .import  print_string
+;         .import  print_axy
+;         .import  print_string
 
-        .include "fujinet.inc"
+;         .include "fujinet.inc"
 
-        .segment "CODE"
+;         .segment "CODE"
 
-service03_autoboot:
+; service03_autoboot:
+;         jsr     remember_axy
+;         sty     aws_tmp03
+;         lda     #$7A
+;         jsr     OSBYTE
+;         txa
+;         bmi     jmp_autoboot
+;         cmp     #'F'            ; F for FujiNet break
 
-        dbg_string_axy "service03: "
+;         bne     svr3_exit
 
-        rts
+
+;         rts

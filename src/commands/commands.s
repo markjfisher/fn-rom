@@ -2,7 +2,7 @@
 ; These are the actual command functions called by the command tables
 
         .export cmd_fs_fboot
-        .export cmd_fs_fuji
+        ; .export cmd_fs_fuji
         .export cmd_utils_roms
         .export not_cmd_utils
 
@@ -29,12 +29,12 @@ cmd_fs_fboot:
 ; CMD_FS_FUJI - Handle *FUJI command (filing system selection)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-cmd_fs_fuji:
-        dbg_string_axy "CMD_FS_FUJI: "
+; cmd_fs_fuji:
+;         dbg_string_axy "CMD_FS_FUJI: "
 
-        ; Initialize FujiNet filing system (following MMFS CMD_CARD pattern)
-        lda     #$FF                    ; Set A=$FF to indicate not a boot file
-        jmp     init_fuji               ; Call the initialization function
+;         ; Initialize FujiNet filing system (following MMFS CMD_CARD pattern)
+;         lda     #$FF                    ; Set A=$FF to indicate not a boot file
+;         jmp     init_fuji               ; Call the initialization function
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; CMD_UTILS_ROMS - Handle *ROMS command
