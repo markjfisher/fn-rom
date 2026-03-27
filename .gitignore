@@ -4,6 +4,7 @@ test/
 
 *.ssd
 *.dsd
+/*.hex
 
 trace_*.txt
 debug_*.txt
