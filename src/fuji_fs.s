@@ -161,18 +161,43 @@ fuji_read_disc_title:
         jsr     fuji_read_disc_title_data
         rts
 
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; device_reset - reset routine for specific devices
+; This will need to be implemented externally and included via build
+; at some point, for now it's a TODO: placeholder
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+device_reset:
+        rts
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; FUJI_BEGIN_TRANSACTION - Begin FujiNet transaction
+; this is the equivalent of MMC_BEGIN1 which stores data into 1090-109f for _MM32_
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 fuji_begin_transaction:
-        ; Save workspace variables
+        ; Some entry paths (e.g. shift-boot) arrive with IRQs disabled.
+        ; FujiBus RS423 I/O relies on OS buffering/servicing, so temporarily
+        ; enable IRQs for the duration of the transaction and restore on exit.
+        php
+        pla
+        and     #$04                    ; I flag bit
+        sta     fuji_saved_i
+        cli
+
+        ; Save workspace variables - this is saving $BC-$CB (aws_tmp12-15 & pws_tmp00-11) into 1090-109f
         ldx     #$0F
 @save_loop:
         lda     aws_tmp12,x
         sta     fuji_buf_ws_tmp_buf,x
         dex
         bpl     @save_loop
+
+        ; TODO: In MMFS2 it does a "MMC_DEVICE_RESET" here, which is a chance for the device implementation to reset
+        ; e.g. UserPort, elkplus1, ... or MemoryMapped (which just does RTS)
+        jsr     device_reset
 
         ; Check if FujiNet initialized
         bit     fuji_state
@@ -209,6 +234,16 @@ fuji_end_transaction:
         sta     aws_tmp12,x
         dex
         bpl     @restore_loop
+
+        ; Restore original IRQ-disable state without disturbing other flags
+        ; (e.g. carry from the wrapped operation).
+        lda     fuji_saved_i
+        bne     @restore_sei
+        cli
+        rts
+
+@restore_sei:
+        sei
         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

@@ -1,0 +1,4 @@
+*FHOST tnfs://192.168.1.101/bbc/
+*FIN simple.ssd
+*FMOUNT 0 0
+*.

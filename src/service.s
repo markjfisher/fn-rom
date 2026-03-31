@@ -29,7 +29,7 @@ handle_service:
         cmp     #$12
         beq     service12_init_filesystem
 
-        cmp     #$0B            ; only $12 is services above $0B, which is dealt with
+        cmp     #$0B            ; only $12 is serviced above $0B, which is dealt with
         bcs     service_null
 
         ; jump to the appropriate function according to the command in A
@@ -71,6 +71,7 @@ service12_init_filesystem:
         jsr     remember_axy
         jmp     cmd_fs_fuji
 
+; NOTE: These will need to be adjusted for MASTER or SWRAM future work
 service_table:
         .word   service_null - 1                        ; 0
         .word   service01_claim_absworkspace - 1        ; 1

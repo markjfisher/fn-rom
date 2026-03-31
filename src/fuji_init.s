@@ -9,6 +9,13 @@
         .export cmd_fs_disc
         .export cmd_fs_fuji
 
+        ; for debugging and tracing
+        .export not_opt0
+        .export initdfs_noreset
+        .export setdefaults
+        .export go_fscv
+        .export initdfs_exit
+
         .import a_rorx4
         .import channel_flags_clear_bits
         .import extendedvectors_table
@@ -30,13 +37,17 @@
 
         .include "fujinet.inc"
 
-        .segment "RODATA"
+        .segment "RO_EARLY"
 
-; Boot options strings, force them into first page of ROM so they are together
+; Boot options strings, force them into first page of ROM so they are together.
+; Using a custom segment to not mix with the standard CA65 RODATA
 boot_options:
-        .byte   "L.!BOOT", $0D
-        .byte   "!BOOT", $0D
-        .byte   "E.!BOOT", $0D
+        .byte   "L.!BOOT", $0D  ; needs to be exactly 8 bytes
+        ; .byte   "!BOOT", $0D  ; this is just a substring of E.!BOOT so no need to reproduce it
+        .byte   "E.!BOOT", $0D  ; must start with only 2 chars before the !BOOT for the offsets to work
+
+.assert >boot_options = >(boot_options + 8), lderror, "boot_options crosses a page"
+.assert >boot_options = >(boot_options + 10), lderror, "boot_options crosses a page"
 
         .segment "CODE"
 
@@ -88,8 +99,8 @@ init_fuji:
         ; initialise c_sp for cc65 to the end of WORKSP segment, this resets CC65 stack
         jsr     init_csp
 
-        ; init to 00 any cc65 variables
-        jsr     zerobss
+        ; init to 00 any cc65 variables - this trashes X/Y, do we need them?
+        ; jsr     zerobss
 
         ; Register as new Filing System
         lda     #$06
@@ -133,13 +144,8 @@ init_fuji:
         stx     fuji_current_dir_len
         ; stx     current_host            ; set host to 0
 
-        ldx     #$0F                  ; vectors claimed!
-        lda     #$8F
-        jsr     OSBYTE
-
-        ; Select our filing system as active
-        lda     #$12                  ; Select filing system
-        ldy     #filesysno            ; Our filing system number
+        ldx     #$0F                    ; vectors claimed!
+        lda     #$8F                    ; Issue Paged ROM Service Request
         jsr     OSBYTE
 
         ; If soft break and pws "full" and not booting a disk
@@ -148,13 +154,13 @@ init_fuji:
 
         jsr     set_private_workspace_pointer_b0
 
-        ldy     #<fuji_force_reset          ; C9
-        lda     (aws_tmp00),y         ; A=PWSP+$C9 (-ve=soft break)
+        ldy     #<fuji_force_reset
+        lda     (aws_tmp00),y         ; A=PWSP + offset (-ve=soft break)
 
         bpl     initdfs_reset         ; Branch if power up or hard break
 
-        ldy     #<(fuji_force_reset+1)      ; CA
-        lda     (aws_tmp00),y         ; A=PWSP+$CF
+        ldy     #<fuji_own_sws_indicator
+        lda     (aws_tmp00),y         ; A=PWSP indicator location
 
         bmi     initdfs_noreset       ; Branch if PWSP "empty"
 
@@ -178,7 +184,8 @@ init_fuji:
 @copyfromPWS2:
         dey
         bne     @copyfromPWStoSWS_loop
-        beq     setdefaults
+
+        ; beq     setdefaults
 
         ; TODO: does this have a place in FN?
 
@@ -186,17 +193,17 @@ init_fuji:
         ; cmp     CHECK_CRC7
         ; bne     setdefaults
 
-;         lda     #$A0                  ; Refresh channel block info
-; @setchans_loop:
-;         tay
-;         pha
-;         lda     #$3F
-;         jsr     channel_flags_clear_bits  ; Clear bits 7 & 6, C=0
-;         pla
-;         sta     $111D,y               ; Buffer sector hi?
-;         sbc     #$1F                  ; A=A-$1F-(1-C)=A-$20
-;         bne     @setchans_loop
-;         beq     initdfs_noreset       ; always
+        lda     #$A0                  ; Refresh channel block info
+@setchans_loop:
+        tay
+        pha
+        lda     #$3F
+        jsr     channel_flags_clear_bits  ; Clear bits 7 & 6, C=0
+        pla
+        sta     $111D,y               ; Buffer sector hi?
+        sbc     #$1F                  ; A=A-$1F-(1-C)=A-$20
+        bne     @setchans_loop
+        beq     initdfs_noreset       ; always
 
 ; Initialise SWS (Static Workspace)
 initdfs_reset:
@@ -266,13 +273,14 @@ not_opt0:
         ldy     #>(boot_options)        ; boot file?
         ldx     #<(boot_options)        ; ->L.!BOOT
         cmp     #$02
-        bcc     @jmp_oscli               ; branch if opt 1
-        beq     @oscli_opt2              ; branch if opt 2
-        ldy     #>(boot_options+8)
+        bcc     @jmp_oscli              ; branch if opt 1
+        beq     @oscli_opt2             ; branch if opt 2
+
+        ; ldy     #>(boot_options+8)    ; they are in the same page, so don't need to redo the hi byte
         ldx     #<(boot_options+8)      ; ->E.!BOOT
-        bne     @jmp_oscli               ; always
+        bne     @jmp_oscli              ; always
 @oscli_opt2:
-        ldy     #>(boot_options+10)
+        ; ldy     #>(boot_options+10)   ; as above, same page
         ldx     #<(boot_options+10)     ; ->!BOOT
 @jmp_oscli:
         jmp     OSCLI

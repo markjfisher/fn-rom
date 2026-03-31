@@ -45,6 +45,7 @@
         .export  fuji_cat_file_offset
         .export  fuji_channel_block_size
         .export  fuji_saved_x
+        .export  fuji_saved_i
         .export  fuji_fs_messages_on
         .export  fuji_cmd_enabled
         .export  fuji_default_dir
@@ -81,6 +82,7 @@
         .export  fuji_current_host_len
         .export  fuji_cmd_offset_y
         .export  fuji_filename_len
+        .export  fuji_own_sws_indicator
 
         .export  fuji_last_state_loc
 
@@ -451,7 +453,7 @@ fuji_saved_x            = fuji_static_workspace + $05  ; Saved X register
 fuji_fs_messages_on     = fuji_static_workspace + $06  ; FS messages on flag (on if 0)
 fuji_disk_table_index   = fuji_static_workspace + $07  ; Disk table index, used to store the current fujinet Mount slot. 2nd byte unused
 fuji_cmd_enabled        = fuji_static_workspace + $08  ; Command enabled flag
-fuji_force_reset        = fuji_static_workspace + $09  ; Force reset flag
+fuji_error_flag         = fuji_static_workspace + $09  ; Error flag
 fuji_default_dir        = fuji_static_workspace + $0A  ; Default directory
 fuji_default_drive      = fuji_static_workspace + $0B  ; Default drive
 fuji_lib_dir            = fuji_static_workspace + $0C  ; Library directory
@@ -467,37 +469,46 @@ fuji_text_ptr_hi        = fuji_static_workspace + $15  ; Text pointer high byte
 fuji_tube_present       = fuji_static_workspace + $16  ; Tube present flag (present if 0)
 fuji_param_block_lo     = fuji_static_workspace + $17  ; Parameter block low byte
 fuji_param_block_hi     = fuji_static_workspace + $18  ; Parameter block high byte
-fuji_error_flag         = fuji_static_workspace + $19  ; Error flag
 
 ; FujiNet drive-to-disk mapping (like MMFS DRIVE_INDEX)
 ; Each byte contains the disk image number mounted in that drive (0-255)
 ; 0xFF = no disk mounted
-fuji_drive_disk_map     = fuji_static_workspace + $1A  ; 4 bytes: drives 0-3, 10DA to 10DD
+fuji_drive_disk_map     = fuji_static_workspace + $19  ; 4 bytes: drives 0-3, 10D9 to 10DC
 
 ; FujiNet state variables (using unused workspace locations)
-fuji_state              = fuji_static_workspace + $1E  ; Device state
-fuji_buffer_addr        = fuji_static_workspace + $1F  ; Buffer address (2 bytes)
-fuji_file_offset        = fuji_static_workspace + $21  ; File offset (3 bytes)
+fuji_state              = fuji_static_workspace + $1D  ; Device state
+fuji_buffer_addr        = fuji_static_workspace + $1E  ; Buffer address (2 bytes)
+fuji_file_offset        = fuji_static_workspace + $20  ; File offset (3 bytes)
 
 ; FujiNet file operation workspace variables
-fuji_block_size         = fuji_static_workspace + $24  ; Block size (2 bytes)
-fuji_current_sector     = fuji_static_workspace + $26  ; Current sector being accessed (2 bytes)
+fuji_block_size         = fuji_static_workspace + $23  ; Block size (2 bytes)
+fuji_current_sector     = fuji_static_workspace + $25  ; Current sector being accessed (2 bytes)
 
 ; Current filesystem selection state for URI-based commands
-fuji_current_fs_len     = fuji_static_workspace + $28  ; Current filesystem URI length
-fuji_current_dir_len    = fuji_static_workspace + $29  ; Current directory length
+fuji_current_fs_len     = fuji_static_workspace + $27  ; Current filesystem URI length
+fuji_current_dir_len    = fuji_static_workspace + $28  ; Current directory length
 ; this doesn't look like it's used: is it a dupe of fuji_disk_slot?
-fuji_current_mount_slot = fuji_static_workspace + $2A  ; Current FujiNet persisted mount slot (0-based)
-fuji_resolve_path_flags = fuji_static_workspace + $2B  ; ResolvePath response: bit0=isDir, bit1=exists (set by fuji_file_resolve_path)
-fuji_disk_slot          = fuji_static_workspace + $2C  ; current fujinet mount slot for defaults, 0-based internally, 1 based on the wire
-fuji_disk_flags         = fuji_static_workspace + $2D  ; flags for disk
-fuji_current_host_len   = fuji_static_workspace + $2E  ; Current filesystem URI length
+fuji_current_mount_slot = fuji_static_workspace + $29  ; Current FujiNet persisted mount slot (0-based)
+fuji_resolve_path_flags = fuji_static_workspace + $2A  ; ResolvePath response: bit0=isDir, bit1=exists (set by fuji_file_resolve_path)
+fuji_disk_slot          = fuji_static_workspace + $2B  ; current fujinet mount slot for defaults, 0-based internally, 1 based on the wire
+fuji_disk_flags         = fuji_static_workspace + $2C  ; flags for disk
+fuji_current_host_len   = fuji_static_workspace + $2D  ; Current filesystem URI length
 
-fuji_cmd_offset_y       = fuji_static_workspace + $2F  ; save value of the command offset in Y given to CMD functions on entry.
-fuji_filename_len       = fuji_static_workspace + $30  ; the filename part of the FS URI input by *FIN
+fuji_cmd_offset_y       = fuji_static_workspace + $2E  ; save value of the command offset in Y given to CMD functions on entry.
+fuji_filename_len       = fuji_static_workspace + $2F  ; the filename part of the FS URI input by *FIN
+
+; These 2 need to be in this order, as there is an optimization to use INY to index the owns sws indicator flag
+fuji_force_reset        = fuji_static_workspace + $30  ; Force reset flag
+fuji_own_sws_indicator  = fuji_static_workspace + $31  ; Used to check if we currently own the SWS
+
+
+; Saved IRQ-disable state for temporarily enabling IRQs during FujiBus I/O.
+; 0 = IRQs were enabled on entry, nonzero = IRQs were disabled on entry.
+; Must not overlap with any MMFS-mapped fields; kept outside the MMFS copy range.
+fuji_saved_i            = fuji_static_workspace + $32
 
 ; LAST location for the copy state in workspace_utils.s function to understand
-fuji_last_state_loc     = fuji_static_workspace + $30  ; effectively $10F0
+fuji_last_state_loc     = fuji_static_workspace + $32  ; effectively $10F2
 
 
 ; Advanced disk guide describes how 1200-12FF is for open file 1
@@ -509,7 +520,7 @@ fuji_last_state_loc     = fuji_static_workspace + $30  ; effectively $10F0
 ; interweving catalog data
 
 ; channel info block
-fuji_channel_start      = fuji_workspace + $1100  ; name byte 1
+fuji_channel_start      = fuji_workspace_root + $1100  ; name byte 1
 fuji_ch_1101            = fuji_channel_start + $01 ; load addr byte 1
 fuji_ch_1102            = fuji_channel_start + $02 ; name byte 2
 fuji_ch_1103            = fuji_channel_start + $03 ; load addr byte 2
@@ -556,6 +567,8 @@ fuji_ax_save            = fuji_workspace + $01AE
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; BUFFERS - NEED TO REVIEW THEIR USAGE
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+; these should be the claimed pages from PWS (usually 1700-18FF)
 
 ; 80 byte buffer for current HOST string.
 ; Keep this aligned with [`FUJI_CURRENT_HOST_URI`](src/fujibus_c.h:26) used by the C path.

@@ -14,13 +14,13 @@ rom_header:
 
         .byte   $82                     ; rom type: service ROM, 6502 code
         .byte   <(rom_copyright)        ; (c) location
-        .byte   $01                     ; version
+        .byte   $02                     ; version
 
 rom_title:
         .byte   "FujiNet"
 
 rom_version_string:
-        .byte   0, "0.01"
+        .byte   0, "0.02"
 
 rom_copyright:
-        .byte   0, "(C) Mark Fisher 2025", 0
+        .byte   0, "(C) Mark Fisher 2026", 0

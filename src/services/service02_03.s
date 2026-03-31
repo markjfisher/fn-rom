@@ -29,11 +29,13 @@ service02_claim_privworkspace:
         tya
         pha                             ; Save Y=PWS Page
 
-        ; Set up workspace pointer at $B0/$B1
-        sta     aws_tmp01                ; $B1 = PWS page
+        ; Set up workspace pointer at $B0/$B1, i.e. aws_tmp01 for ZP indirection
+        sta     aws_tmp01
+
+        ; get the private workspace location for this ROM that was allocated on boot. e.g. $17
         ldy     paged_rom_priv_ws,x
         tya
-        and     #$40                     ; Preserve bit 6
+        and     #$40                     ; Preserve bit 6 - not sure why, this was in MMFS
         ora     aws_tmp01
         sta     paged_rom_priv_ws,x
         lda     #$00
@@ -43,8 +45,8 @@ service02_claim_privworkspace:
         cpy     aws_tmp01                ; Private workspace may have moved!
         beq     @samepage                ; If same as before
 
-        ldy     #<fuji_force_reset       ; $D3
-        sta     (aws_tmp00),y            ; PWSP+$D3=0
+        ldy     #<fuji_force_reset
+        sta     (aws_tmp00),y
 
 @samepage:
         ; Read hard/soft BREAK
@@ -53,16 +55,16 @@ service02_claim_privworkspace:
         dex                              ; X=FF=soft,0=power up,1=hard
 
         txa                              ; A=FF=soft,0=power up,1=hard
-        ldy     #<fuji_force_reset       ; $D3
+        ldy     #<fuji_force_reset
         and     (aws_tmp00),y
-        sta     (aws_tmp00),y            ; So, PWSP+$D3 is +ve if: power up, hard reset or PSWP page has changed
+        sta     (aws_tmp00),y            ; So, PWSP:fuji_force_reset is +ve if: power up, hard reset or PSWP page has changed
         php
-        iny                              ; $D4
+        ; OPTIMIZATION - requires fuji_own_sws_indicator to be after fuji_force_reset in memory
+        iny                              ; This is the location after force reset, used for the "I Own SWS" indicator
         plp
         bpl     @notsoft                 ; If not soft break
 
-        ; I'm not sure about this part. D4 seems to be arbitrarily after the force_reset flag, but not part of it
-        lda     (aws_tmp00),y            ; A=PWSP+$D4
+        lda     (aws_tmp00),y            ; A=PWSP : fuji_own_sws_indicator
         bpl     @notsoft                 ; If PWSP "full"
 
         ; If soft break and pws is empty then I must have owned sws,
@@ -71,8 +73,9 @@ service02_claim_privworkspace:
 
 @notsoft:
         lda     #$00
-        sta     (aws_tmp00),y            ; PWSP+$D4=0 = PWSP "full"
+        sta     (aws_tmp00),y            ; PWSP:fuji_own_sws_indicator = 0 => PWSP "full"
 
+        ; RESET A=2 (service call), X=<rom slot>, Y=Original PWS page (before incrementing it for next caller)
         ldx     paged_ram_copy
         pla
         tay

@@ -13,8 +13,9 @@
         .segment "CODE"
 
 ; Copy valuable data from static workspace (sws) to private workspace (pws)
-; (sws data 10C0-10EF, and 1100-11BF)
+; (sws data 10C0-10XX (uses fuji_last_state_loc), and 1100-11BF)
 save_static_to_private_workspace:
+        ; Preserves A/X/Y on exit, so Y (currently pointing to fuji_own_sws_indicator) is preserved
         jsr     remember_axy
 
 .ifdef FN_DEBUG

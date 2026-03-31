@@ -11,7 +11,6 @@
         .import  fuji_filename_buffer
         .import  fuji_filename_len
         .import  exit_user_ok
-        .import  fuji_filename_len
 
         .import  _err_bad_mount_slot
 

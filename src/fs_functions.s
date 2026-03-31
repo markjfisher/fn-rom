@@ -378,8 +378,9 @@ set_current_drive_adrive_noand:
         sta     current_drv
         rts
 
+; No need to do remember_axy here, as it's called in fuji_read_catalog at start
 load_cur_drv_cat2:
-        jsr     remember_axy
+        ; jsr     remember_axy
 
 ; load_cur_drv_cat - Load current drive catalog (MMFS line 7267-7279)
 ; For FujiNet, this is equivalent to MMFS's exec_cat_rw with A=#&53
