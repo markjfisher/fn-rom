@@ -124,8 +124,20 @@ fujibus_read_slip_stream:
         lda     aws_tmp10
         ora     aws_tmp11
         bne     @wait_char
+        beq     @error
 
-        jmp     @error
+;-----------------------------------------
+; Error exit
+;-----------------------------------------
+
+@error_pla:
+        pla                                     ; clean up the pushed byte
+
+@error:
+        jsr     restore_output_to_screen
+        lda     #$00
+        tax
+        rts
 
 ;-----------------------------------------
 ; Process received byte
@@ -156,15 +168,15 @@ fujibus_read_slip_stream:
         beq     :+
         cmp     #SLIP_ESC_ESC
         beq     :++
-        jmp     @error
+        bne     @error
 :
         lda     #SLIP_END
-        sta     aws_tmp04
-        jmp     @store_byte
+        ; sta     aws_tmp04
+        bne     @store_byte                     ; always
 :
         lda     #SLIP_ESCAPE
-        sta     aws_tmp04
-        jmp     @store_byte
+        ; sta     aws_tmp04
+        bne     @store_byte                     ; always
 
 @set_escape:
         lda     #$01
@@ -182,23 +194,19 @@ fujibus_read_slip_stream:
         beq     @frame_loop
 
 @store_byte:
+        pha                                     ; save the byte to store while we check capacity
         lda     cws_tmp6
         ora     cws_tmp7
-        beq     @error
+        beq     @error_pla
 
-        ; Decrement capacity without clobbering the byte to store: capacity
-        ; logic used lda cws_tmp6 / dec cws_tmp6, leaving A = old low count
-        ; ($40, $3F, …) so (aws_tmp08) was filled with that pattern, not data.
-        lda     aws_tmp04
-        pha
-
+        ; Decrement capacity
         lda     cws_tmp6
         bne     @dec_cap_lo
         dec     cws_tmp7
 @dec_cap_lo:
         dec     cws_tmp6
 
-        pla
+        pla                                     ; fetch the byte to save again, the capacity check passed
         ldy     #$00
         sta     (aws_tmp08),y
         inc     aws_tmp08
@@ -227,14 +235,4 @@ fujibus_read_slip_stream:
         tax
 
         pla
-        rts
-
-;-----------------------------------------
-; Error exit
-;-----------------------------------------
-
-@error:
-        jsr     restore_output_to_screen
-        lda     #$00
-        tax
         rts
