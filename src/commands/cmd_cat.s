@@ -152,6 +152,8 @@ cat_exit:
         rts
 
 cat_printfilename:
+        ; cws_tmp4 aliases buffer_ptr lo; FujiBus already finished after fuji_read_catalog.
+        ; Listing loop does not call fuji_begin_transaction, so this is only scratch here.
         sty     cws_tmp4
         ldx     #$00
 @cat_copyfnloop:

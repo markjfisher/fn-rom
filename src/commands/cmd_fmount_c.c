@@ -82,19 +82,23 @@ uint8_t cmd_fs_fmount(void) {
         // example:
         // 02 00 00 01 72 == slot 2, disabled, no uri string, 1 byte, "r"
 
-        // check enabled flag, FUJI_DATA_BUFFER[7] bit 0
-        if (FUJI_DATA_BUFFER[8] == 0) {
+        {
+        uint8_t *db = fuji_data_buffer_ptr();
+
+        // check enabled flag
+        if (db[8] == 0) {
             err_not_enabled();
         }
 
         // copy the uri to the FS uri
-        uri_len = FUJI_DATA_BUFFER[9];
+        uri_len = db[9];
         FUJI_CURRENT_FS_URI[0] = '\0';      // in case the length is 0, pre-write a nul byte. The buffer
 
         for (i = 0; i < uri_len; i++) {
-            FUJI_CURRENT_FS_URI[i] = FUJI_DATA_BUFFER[10 + i];
+            FUJI_CURRENT_FS_URI[i] = db[10 + i];
         }
         *FUJI_CURRENT_FS_LEN = uri_len;
+        }
 
         /* Call fuji_mount_disk to:
          * 1. Record the mapping in FUJI_DRIVE_DISK_MAP[CURRENT_DRV]

@@ -36,10 +36,13 @@ cmd_fs_wipe:
         jsr     check_for_disk_change
         stx     aws_tmp06               ; Restore catalog pointer
         jsr     delete_cat_entry_adjust_ptr ; Delete and adjust pointer
-        sty     cws_tmp4                ; Save Y
+        ; save Y across save_cat_to_disk — that path calls fuji_begin_transaction,
+        ; which sets buffer_ptr (cws_tmp4/5) and must not use cws_tmp4 as scratch
+        tya
+        pha
         jsr     save_cat_to_disk        ; Save catalog
-        lda     cws_tmp4                ; Restore Y
-        sta     aws_tmp06               ; Update catalog pointer
+        pla
+        sta     aws_tmp06               ; Update catalog pointer (was Y)
 @wipenext:
         jsr     get_cat_nextentry       ; Get next matching entry
         bcs     @wipeloop               ; Loop if more files

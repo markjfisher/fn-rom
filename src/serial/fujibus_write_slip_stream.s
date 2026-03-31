@@ -1,34 +1,20 @@
         .export  fujibus_write_slip_stream
+        .export  fujibus_write_slip_stream_dual
 
         .import  setup_serial_19200
         .import  restore_output_to_screen
 
         .include "fujinet.inc"
 
-; write raw buffer as SLIP frame directly to serial
-;
-; input:
-;   aws_tmp00/01 = source pointer
-;   aws_tmp02/03 = source length
-;
-; uses:
-;   A, Y, aws_tmp04
-;
-; output:
-;   none
-
-fujibus_write_slip_stream:
-        jsr     setup_serial_19200
-
-        lda     #SLIP_END
-        jsr     OSWRCH
-
+; SLIP-encode and write one contiguous region (aws_tmp00/01 = ptr, aws_tmp02/03 = len).
+; Clobbers A, Y, aws_tmp04.
+slip_emit_region:
         ldy     #$00
 
 @loop:
         lda     aws_tmp02
         ora     aws_tmp03
-        beq     @done
+        beq     @done_region
 
         lda     (aws_tmp00),y
         sta     aws_tmp04
@@ -66,7 +52,48 @@ fujibus_write_slip_stream:
         jsr     OSWRCH
         jmp     @loop
 
-@done:
+@done_region:
+        rts
+
+; write raw buffer as SLIP frame directly to serial
+;
+; input:
+;   aws_tmp00/01 = source pointer
+;   aws_tmp02/03 = source length
+fujibus_write_slip_stream:
+        jsr     setup_serial_19200
+
+        lda     #SLIP_END
+        jsr     OSWRCH
+
+        jsr     slip_emit_region
+
+        lda     #SLIP_END
+        jsr     OSWRCH
+        jmp     restore_output_to_screen
+
+; One SLIP frame from two contiguous regions (e.g. header in RAM + sector from data_ptr).
+; First region:  aws_tmp00/01 + aws_tmp02/03
+; Second region: aws_tmp06/07 + aws_tmp08/09
+fujibus_write_slip_stream_dual:
+        jsr     setup_serial_19200
+
+        lda     #SLIP_END
+        jsr     OSWRCH
+
+        jsr     slip_emit_region
+
+        lda     aws_tmp06
+        sta     aws_tmp00
+        lda     aws_tmp07
+        sta     aws_tmp01
+        lda     aws_tmp08
+        sta     aws_tmp02
+        lda     aws_tmp09
+        sta     aws_tmp03
+
+        jsr     slip_emit_region
+
         lda     #SLIP_END
         jsr     OSWRCH
         jmp     restore_output_to_screen

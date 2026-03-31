@@ -40,11 +40,13 @@ bool flist_resolve_target(void)
     uint8_t i;
     uint8_t base_len;
     uint8_t arg_len;
+    uint8_t* buf;
     uint8_t* tx;
     uint8_t* rx;
 
-    tx = FUJI_DATA_BUFFER;
-    rx = FUJI_DATA_BUFFER;
+    buf = fuji_data_buffer_ptr();
+    tx = buf;
+    rx = buf;
     base_len = *FUJI_CURRENT_HOST_LEN;
     arg_len = *FUJI_FILENAME_LEN;
 
@@ -110,12 +112,14 @@ bool flist_list_page(uint16_t start_index, uint8_t* returned_count, bool* more)
     uint16_t offset;
     uint8_t name_len;
     bool is_dir;
+    uint8_t* buf;
     uint8_t* tx;
     uint8_t* rx;
     uint8_t uri_len;
 
-    tx = FUJI_DATA_BUFFER;
-    rx = FUJI_DATA_BUFFER;
+    buf = fuji_data_buffer_ptr();
+    tx = buf;
+    rx = buf;
     uri_len = *FUJI_CURRENT_FS_LEN;
 
     tx[6] = FILEPROTO_VERSION;

@@ -147,7 +147,6 @@
         .export  fuji_current_host_uri
         .export  fuji_current_fs_uri
         .export  fuji_current_dir_path
-        .export  fuji_data_buffer
         .export  fuji_bss
 
         .export  dfs_cat_s0_header
@@ -189,6 +188,10 @@
         .exportzp  cws_tmp3
         .exportzp  cws_tmp4
         .exportzp  cws_tmp5
+        ; 16-bit pointer to FujiBus packet buffer in PWS (aliases cws_tmp4/5). Set by
+        ; set_fuji_data_buffer_ptr from fuji_begin_transaction; do not use as scratch
+        ; across any call that may begin a Fuji transaction (or save Y elsewhere).
+        .exportzp  buffer_ptr
         .exportzp  cws_tmp6
         .exportzp  cws_tmp7
         .exportzp  cws_tmp8
@@ -248,6 +251,9 @@ cws_tmp5        := $AC
 cws_tmp6        := $AD
 cws_tmp7        := $AE
 cws_tmp8        := $AF
+
+; Used for data_buffer_ptr indirection
+buffer_ptr      := cws_tmp4
 
 ; Absolute workspace variables, general Temporary Variables
 aws_tmp00       := $B0
@@ -580,8 +586,8 @@ fuji_current_fs_uri    = fuji_workspace + $0200
 ; 80 byte buffer, technically cannot be more than "uri - scheme length"
 fuji_current_dir_path  = fuji_workspace + $0250
 
-; 256+32 ($120) byte data buffer
-fuji_data_buffer         = fuji_workspace + $02A0
+; FujiBus packet buffer: lives in private workspace (see FUJI_PWS_* in fujinet.inc).
+; Runtime base address is set in buffer_ptr (cws_tmp4/5) by set_fuji_data_buffer_ptr.
 
 ; should be free from $13C0 to $1500
 

@@ -8,6 +8,7 @@
 ;   aws_tmp04 = checksum
 
         .export  calc_checksum
+        .export  calc_checksum_continue
 
         .import  inc_word_aws_tmp00_dec_word_aws_tmp02
         .import  popax
@@ -26,6 +27,9 @@ calc_checksum:
         ; chk = 0
         lda     #$00
         sta     aws_tmp04
+
+; Same as calc_checksum, but does not clear aws_tmp04 first (continues rolling checksum).
+calc_checksum_continue:
 
         ; if len == 0 -> return 0
         lda     aws_tmp02
@@ -48,4 +52,3 @@ calc_checksum:
         lda     aws_tmp04          ; return checksum
 @exit:
         rts
-

@@ -68,8 +68,8 @@
 /* Current directory path buffer (80 bytes) */
 #define FUJI_CURRENT_DIR_PATH    ((uint8_t*)0x1250)
 
-// We only really need about 256+32 bytes for our data buffer for the sector plus headers etc.
-#define FUJI_DATA_BUFFER         ((uint8_t*)0x12A0)
+/* FujiBus RX/TX packet buffer: base = private workspace + FUJI_PWS_PACKET_OFFSET (runtime). */
+extern uint8_t* fuji_data_buffer_ptr(void);
 
 
 

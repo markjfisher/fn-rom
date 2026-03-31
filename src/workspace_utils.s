@@ -1,5 +1,7 @@
 ; Workspace utility functions
         .export save_static_to_private_workspace
+        .export set_fuji_data_buffer_ptr
+        .export _fuji_data_buffer_ptr
 
         .import  remember_axy
         .import  print_string
@@ -11,6 +13,24 @@
         .include "fujinet.inc"
 
         .segment "CODE"
+
+; Set buffer_ptr to PWS + FUJI_PWS_PACKET_OFFSET (FujiBus RX/TX packet buffer).
+set_fuji_data_buffer_ptr:
+        jsr     set_private_workspace_pointer_b0
+        lda     aws_tmp00
+        clc
+        adc     #<FUJI_PWS_PACKET_OFFSET
+        sta     buffer_ptr
+        lda     aws_tmp01
+        adc     #>FUJI_PWS_PACKET_OFFSET
+        sta     buffer_ptr+1
+        rts
+
+; uint8_t *fuji_data_buffer_ptr(void);  return in A/X
+_fuji_data_buffer_ptr:
+        lda     buffer_ptr
+        ldx     buffer_ptr+1
+        rts
 
 ; Copy valuable data from static workspace (sws) to private workspace (pws)
 ; (sws data 10C0-10XX (uses fuji_last_state_loc), and 1100-11BF)

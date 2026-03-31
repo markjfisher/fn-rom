@@ -10,7 +10,8 @@
 WAIT_FIRST_MAX := 50000
 WAIT_NEXT_MAX  := 2000
 
-; Read and decode one SLIP frame from RS423
+; Read and decode one SLIP frame from RS423 into the buffer at buffer_ptr.
+; Decoded length is capped at FUJI_PWS_PACKET_SIZE bytes.
 ;
 ; Output:
 ;   A/X = decoded length
@@ -20,14 +21,15 @@ WAIT_NEXT_MAX  := 2000
 ;   aws_tmp04 = current byte
 ;   aws_tmp05 = escape flag
 ;   aws_tmp08/09 = output pointer
-;   aws_tmp10/11 = wait counter
+;   aws_tmp10/11 = wait countdown
+;   cws_tmp6/7   = bytes remaining (decode capacity)
 
 fujibus_read_slip_stream:
         jsr     setup_serial_19200
 
-        lda     #<fuji_data_buffer
+        lda     buffer_ptr
         sta     aws_tmp08
-        lda     #>fuji_data_buffer
+        lda     buffer_ptr+1
         sta     aws_tmp09
 
         lda     #$00
@@ -56,7 +58,7 @@ fujibus_read_slip_stream:
         cmp     #SLIP_END
         bne     @wait_start
 
-        jmp     @frame_loop
+        jmp     @begin_frame
 
 @dec_wait_start:
         lda     aws_tmp10
@@ -70,6 +72,21 @@ fujibus_read_slip_stream:
         bne     @wait_start
 
         jmp     @error
+
+;-----------------------------------------
+; Begin frame: reset output pointer and capacity
+;-----------------------------------------
+
+@begin_frame:
+        lda     buffer_ptr
+        sta     aws_tmp08
+        lda     buffer_ptr+1
+        sta     aws_tmp09
+
+        lda     #<FUJI_PWS_PACKET_SIZE
+        sta     cws_tmp6
+        lda     #>FUJI_PWS_PACKET_SIZE
+        sta     cws_tmp7
 
 ;-----------------------------------------
 ; Frame decode loop
@@ -89,10 +106,13 @@ fujibus_read_slip_stream:
 
         jsr     _read_rs423_char
         ldx     cws_tmp1
-        bne     @error
+        bne     @read_err
 
         sta     aws_tmp04
-        jmp     @process_char
+        beq     @process_char
+
+@read_err:
+        jmp     @error
 
 @dec_wait_char:
         lda     aws_tmp10
@@ -152,19 +172,30 @@ fujibus_read_slip_stream:
 @handle_end:
         ; ignore repeated leading ENDs
         lda     aws_tmp08
-        cmp     #<fuji_data_buffer
+        cmp     buffer_ptr
         bne     @done
         lda     aws_tmp09
-        cmp     #>fuji_data_buffer
+        cmp     buffer_ptr+1
         bne     @done
-        jmp     @frame_loop
+        beq     @frame_loop
 
 @store_byte:
+        lda     cws_tmp6
+        ora     cws_tmp7
+        beq     @error
+
+        lda     cws_tmp6
+        bne     @dec_cap_lo
+        dec     cws_tmp7
+@dec_cap_lo:
+        dec     cws_tmp6
+
         ldy     #$00
         sta     (aws_tmp08),y
         inc     aws_tmp08
-        bne     @frame_loop
+        bne     @after_inc_hi
         inc     aws_tmp09
+@after_inc_hi:
         jmp     @frame_loop
 
 ;-----------------------------------------
@@ -179,11 +210,11 @@ fujibus_read_slip_stream:
 
         lda     aws_tmp08
         sec
-        sbc     #<fuji_data_buffer
+        sbc     buffer_ptr
         pha
 
         lda     aws_tmp09
-        sbc     #>fuji_data_buffer
+        sbc     buffer_ptr+1
         tax
 
         pla

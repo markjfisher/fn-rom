@@ -153,7 +153,7 @@ OS_INC = 1
         .import  fuji_current_host_uri
         .import  fuji_current_fs_uri
         .import  fuji_current_dir_path
-        .import  fuji_data_buffer
+        .importzp  buffer_ptr
         .import  fuji_bss
 
         .import  dfs_cat_s0_header
