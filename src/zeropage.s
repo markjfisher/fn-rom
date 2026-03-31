@@ -21,8 +21,9 @@ ptr4    := $00BA   ; 2
 ; skip BC and use CA instead. BC is used in reading blocks of data
 sreg    := $00CA   ; 2 - used when 2 indexed operations interact, e.g. foo[x] = bar[y] 
 
-; use cws_tmp5-8, this is used in printing functions print_utils.s as cws0708, but should be fine. regsave unlikely to be used by our ROM
-regsave := $00AC   ; 4; AC-AF
+; cc65 regsave: must NOT overlap buffer_ptr (cws_tmp4/5 = $AB/$AC) or pushax will
+; corrupt the FujiBus packet base.  $A4-$A7 are below cws_tmp1 ($A8).
+regsave := $00A4   ; 4; A4-A7
 
 ;; ALTERNATE CWS/PWS usage - didn't try this, but used above instead
 ; ; use cws_tmp1-8 for most commonly used values

@@ -254,10 +254,10 @@ fujibus_receive_packet_impl:
         jmp     @fail
 
 @validate_checksum:
-        ; chk_received = rx[4]
+        ; chk_received = rx[4] — must not use aws_tmp04; calc_checksum clobbers it.
         ldy     #$04
         lda     (buffer_ptr),y
-        sta     aws_tmp04
+        sta     aws_tmp05
 
         ; rx[4] = 0
         lda     #$00
@@ -269,7 +269,7 @@ fujibus_receive_packet_impl:
         lda     aws_tmp03
         sta     aws_tmp11
 
-        ; calc_checksum(buffer_ptr, dec_len)
+        ; calc_checksum(buffer_ptr, dec_len) → A = computed checksum
         lda     buffer_ptr
         sta     aws_tmp00
         lda     buffer_ptr+1
@@ -280,19 +280,19 @@ fujibus_receive_packet_impl:
         sta     aws_tmp03
         jsr     calc_checksum
 
-        cmp     aws_tmp04
+        cmp     aws_tmp05
         beq     :+
 
-        ; checksum mismatch
+        ; checksum mismatch — restore wire byte for debugging, then fail
         ldy     #$04
-        lda     aws_tmp04
+        lda     aws_tmp05
         sta     (buffer_ptr),y
         jmp     @fail
 
 :
         ; restore original checksum byte
         ldy     #$04
-        lda     aws_tmp04
+        lda     aws_tmp05
         sta     (buffer_ptr),y
 
         lda     aws_tmp10

@@ -159,9 +159,11 @@ fujibus_read_slip_stream:
         jmp     @error
 :
         lda     #SLIP_END
+        sta     aws_tmp04
         jmp     @store_byte
 :
         lda     #SLIP_ESCAPE
+        sta     aws_tmp04
         jmp     @store_byte
 
 @set_escape:
@@ -184,12 +186,19 @@ fujibus_read_slip_stream:
         ora     cws_tmp7
         beq     @error
 
+        ; Decrement capacity without clobbering the byte to store: capacity
+        ; logic used lda cws_tmp6 / dec cws_tmp6, leaving A = old low count
+        ; ($40, $3F, …) so (aws_tmp08) was filled with that pattern, not data.
+        lda     aws_tmp04
+        pha
+
         lda     cws_tmp6
         bne     @dec_cap_lo
         dec     cws_tmp7
 @dec_cap_lo:
         dec     cws_tmp6
 
+        pla
         ldy     #$00
         sta     (aws_tmp08),y
         inc     aws_tmp08
