@@ -156,42 +156,8 @@ fujibus_read_slip_stream:
         cmp     #SLIP_ESCAPE
         beq     @set_escape
 
-        lda     aws_tmp04
-        jmp     @store_byte
-
-@escaped_byte:
-        lda     #$00
-        sta     aws_tmp05
-
-        lda     aws_tmp04
-        cmp     #SLIP_ESC_END
-        beq     :+
-        cmp     #SLIP_ESC_ESC
-        beq     :++
-        bne     @error
-:
-        lda     #SLIP_END
-        ; sta     aws_tmp04
-        bne     @store_byte                     ; always
-:
-        lda     #SLIP_ESCAPE
-        ; sta     aws_tmp04
-        bne     @store_byte                     ; always
-
-@set_escape:
-        lda     #$01
-        sta     aws_tmp05
-        jmp     @frame_loop
-
-@handle_end:
-        ; ignore repeated leading ENDs
-        lda     aws_tmp08
-        cmp     buffer_ptr
-        bne     @done
-        lda     aws_tmp09
-        cmp     buffer_ptr+1
-        bne     @done
-        beq     @frame_loop
+        ; fall through to storing the byte
+        ; jmp     @store_byte
 
 @store_byte:
         pha                                     ; save the byte to store while we check capacity
@@ -213,6 +179,38 @@ fujibus_read_slip_stream:
         bne     @after_inc_hi
         inc     aws_tmp09
 @after_inc_hi:
+        jmp     @frame_loop
+
+@escaped_byte:
+        lda     #$00
+        sta     aws_tmp05
+
+        lda     aws_tmp04
+        cmp     #SLIP_ESC_END
+        beq     :+
+        cmp     #SLIP_ESC_ESC
+        beq     :++
+        bne     @error
+:
+        lda     #SLIP_END
+        bne     @store_byte                     ; always
+:
+        lda     #SLIP_ESCAPE
+        bne     @store_byte                     ; always
+
+@set_escape:
+        lda     #$01
+        sta     aws_tmp05
+        bne     @frame_loop
+
+@handle_end:
+        ; ignore repeated leading ENDs
+        lda     aws_tmp08
+        cmp     buffer_ptr
+        bne     @done
+        lda     aws_tmp09
+        cmp     buffer_ptr+1
+        bne     @done
         jmp     @frame_loop
 
 ;-----------------------------------------
