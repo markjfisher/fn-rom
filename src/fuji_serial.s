@@ -297,50 +297,8 @@ fuji_write_catalog_data:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 fuji_read_disc_title_data:
-        jsr     remember_axy
+        ; jsr     remember_axy
         rts
-
-;         ; Read sector 0
-;         lda     #$00
-;         sta     fuji_current_sector
-;         sta     fuji_current_sector+1
-
-;         ; Use a temporary buffer
-;         lda     #<dfs_cat_s0_header
-;         sta     aws_tmp08
-;         lda     #>dfs_cat_s0_header
-;         sta     aws_tmp09
-
-;         jsr     fn_disk_read_sector_impl
-;         bcs     @title_error
-
-;         ; Copy first 8 bytes to title buffer
-;         ldy     #$07
-; @copy_first:
-;         lda     dfs_cat_s0_header,y
-;         sta     (data_ptr),y
-;         dey
-;         bpl     @copy_first
-
-;         ; Read sector 1
-;         inc     fuji_current_sector
-;         jsr     fn_disk_read_sector_impl
-;         bcs     @title_error
-
-;         ; Copy bytes 0-3 to title buffer positions 8-11
-;         ldy     #$03
-; @copy_second:
-;         lda     dfs_cat_s0_header,y
-;         sta     (data_ptr),y
-;         dey
-;         bpl     @copy_second
-
-;         clc
-;         rts
-
-; @title_error:
-;         sec
-;         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; fuji_mount_disk_data - Mount disk image into drive (hardware implementation)

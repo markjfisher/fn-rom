@@ -583,7 +583,7 @@ fuji_ch_sect_hi         = fuji_channel_start + $1D  ; buffer sector high
 ; The channels are stored in blocks of $20 bytes.
 ; I believe there are only 5 channels available, and then above that the memory is free for use (11C0-11FF)
 ; 0=1100, 1=1120, 2=1140, 3=1160, 4=1180, 5=11A0, [6=11C0, 7=11E0]
-; The offsets from 1100 are also the YINTCH value! A0 = [101]0 0000, high 3 bits = 5, with matches the index value.
+; The offsets from 1100 are also the YINTCH value! A0 = [101]0 0000, high 3 bits = 5, which matches the index value.
 
 ; so we have FREE MEMORY of 64 bytes we can use later
 ; Confirmed in is_file_open_yoffset which starts looking for channels from A0 down

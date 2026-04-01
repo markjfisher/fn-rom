@@ -26,6 +26,8 @@ set_fuji_data_buffer_ptr:
         sta     buffer_ptr+1
         rts
 
+
+
 ; uint8_t *fuji_data_buffer_ptr(void);  return in A/X
 _fuji_data_buffer_ptr:
         lda     buffer_ptr

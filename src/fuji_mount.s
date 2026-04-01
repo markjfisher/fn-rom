@@ -3,13 +3,13 @@
 ; This is part of the Hardware Interface Layer (fuji_fs.s equivalent)
 
         .export fuji_mount_disk
-        .export _fuji_mount_disk      ; C-friendly label
+        .export _fuji_mount_disk
         .export fuji_unmount_disk
         .export fuji_get_mounted_disk
         .export fuji_set_slot
-        .export _fuji_set_slot       ; C-friendly label
+        .export _fuji_set_slot
         .export fuji_get_slot
-        .export _fuji_get_slot       ; C-friendly label
+        .export _fuji_get_slot
 
         .import fuji_mount_disk_data
         .import fuji_set_mount_slot_data
@@ -29,7 +29,7 @@
 ; This is the high-level interface that manages transactions
 ;
 ; Entry: current_drv = drive number (0-3)
-;        aws_tmp08/09 = disk image number to mount
+;        aws_tmp08 = disk image number to mount
 ; Exit:  Disk image mounted (mapping recorded)
 ;        A, X, Y may be modified
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
