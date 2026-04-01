@@ -222,7 +222,7 @@ is_seq_pointer_in_buffer_yintch:
 
         lda     fuji_ch_sec_start,y
         adc     fuji_ch_bptr_mid,y
-        sta     fuji_channel_block_size
+        sta     fuji_channel_scratch         ; this is just a spare location we can temporarily save the value to
 
         lda     fuji_ch_op,y
         and     #$03
@@ -230,7 +230,7 @@ is_seq_pointer_in_buffer_yintch:
         cmp     fuji_ch_sect_hi,y
         bne     cmp_to_ext_exit
 
-        lda     fuji_channel_block_size
+        lda     fuji_channel_scratch         ; restore
         cmp     fuji_ch_sect_lo,y
         bne     cmp_to_ext_exit
         jmp     channel_flags_set_bit7

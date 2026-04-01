@@ -251,18 +251,18 @@ findv_filefound:
         bvs     findv_readorupdate      ; If opened for read or update
         jsr     check_file_not_locked_y ; If locked report error
 findv_readorupdate:
-        jsr     is_file_open_yoffset    ; Exits with Y=intch, A=flag
+        jsr     is_file_open_yoffset    ; Exits with Y=intch, A=flag, C=0 if didn't get a channel
         bcc     findv_openchannel       ; If file not open
 findv_loop2:
         lda     fuji_ch_name7,y
-        bpl     err_file_open            ; If already opened for writing
+        bpl     err_file_open           ; If already opened for writing
         plp
         php
-        bmi     err_file_open            ; If opening again to write
+        bmi     err_file_open           ; If opening again to write
         jsr     is_file_open_continue   ; ** File can only be opened  **
         bcs     findv_loop2             ; ** once if being written to **
 findv_openchannel:
-        ldy     fuji_intch              ; Y=intch
+        ldy     fuji_intch              ; Y=intch, it's 0 if nothing was found
         bne     setup_channel_info_block_yintch
 
 err_toomanyfilesopen:
@@ -282,8 +282,8 @@ err_file_open:
 
 setup_channel_info_block_yintch:
         lda     #$08
-        sta     fuji_channel_block_size
-chnlblock_loop1:
+        sta     fuji_channel_scratch         ; just used as a loop counter. No significance to it otherwise.
+@chnlblock_loop1:
         lda     dfs_cat_file_s0_start,x         ; Copy filename sector (name + dir)
         sta     fuji_channel_start,y            ; to channel info block
         iny
@@ -291,22 +291,22 @@ chnlblock_loop1:
         sta     fuji_channel_start,y
         iny
         inx
-        dec     fuji_channel_block_size
-        bne     chnlblock_loop1
+        dec     fuji_channel_scratch
+        bne     @chnlblock_loop1
 
         ldx     #$10
-        lda     #$00                    ; Clear rest of block
-chnlblock_loop2:
+        lda     #$00                    ; Clear rest of block, i.e. $1100 + $20 * channel number + $10 ... + $1F
+@chnlblock_loop2:
         sta     fuji_channel_start,y
         iny
         dex
-        bne     chnlblock_loop2
+        bne     @chnlblock_loop2
 
-        lda     fuji_intch              ; A=intch
+        lda     fuji_intch              ; A=intch (3 high bits)
         tay
-        jsr     a_rorx5
-        adc     #$11                    ; Buffer page
-        sta     fuji_ch_buf_page,y      ; Buffer page
+        jsr     a_rorx5                 ; scale down to 1-7, C will be 0
+        adc     #$11                    ; convert to $12 to $18 (although channel is only 1-5, so page becomes $12 to $16)
+        sta     fuji_ch_buf_page,y      ; Buffer page high address for this block, i.e. the memory page we give OS to use for file data
         lda     fuji_channel_flag_bit
         sta     fuji_ch_bitmask,y       ; Mask bit
         ora     fuji_open_channels
@@ -394,58 +394,82 @@ is_file_open_continue:
         pha
         jmp     fop_nothisfile
 
+; find either a matching file by name and same drive as an open channel
+; or the lowest channel that is not open.
+
 is_file_open_yoffset:
         ; Check if file is already open and allocate channel if not
         ; Based on MMFS IsFileOpen_Yoffset (lines 4855-4906)
         lda     #$00
-        sta     fuji_intch              ; MA+&10C2 = 0
+        sta     fuji_intch              ; start at intch = 0, thus if there are no channels available, we exit with intch = 0
+
         lda     #$08
-        sta     aws_tmp05               ; &B5 = Channel flag bit
-        tya
+        sta     aws_tmp05               ; Channel flag bit %0000 1000, this is channel 5 (to start) mask for the open channels
+
+        tya                             ; move the Y offset into X
         tax                             ; X = cat offset
-        ldy     #$A0                    ; Y = intch (start from channel &A0)
+        
+        ; Y = intch, 1010 0000 is "int channel 5" (start from channel offset &A0).
+        ; Channel offsets from $1100 are each $20 bytes long, with A0 being channel 5.
+        ; This is very clever. It's also the high 3 bits as an index, A0 = [101]0 0000, which is [5] in binary
+        ldy     #$A0
 fop_main_loop:
-        sty     aws_tmp03               ; &B3 = intch
+        sty     aws_tmp03               ; keep intch in tmp03
         txa                             ; save X
         pha
+
         lda     #$08
-        sta     aws_tmp02               ; &B2 = cmpfn_loop counter
-        lda     aws_tmp05               ; A = flag bit
-        bit     fuji_open_channels      ; MA+&10C0
-        beq     fop_channelnotopen      ; If channel not open
-        lda     fuji_ch_flg,y           ; MA+&1117,Y
-        eor     current_drv
+        sta     aws_tmp02               ; name matching counter
+
+        lda     aws_tmp05               ; A = flag bit. 1000 0000 => channel 1, 0100 0000 => channel 2, etc.
+        bit     fuji_open_channels      ; A (starts with 0000 1000) AND fuji_open_channels tells us if that channel is currently open if the mask matches
+        beq     fop_channelnotopen      ; channel is not open, need to keep looking, but mark this as potentially the lowest channel slot we can use
+
+        lda     fuji_ch_flg,y           ; read drive of current open channel
+        eor     current_drv             ; if it matches, lower 2 bits will be 00
         and     #$03
-        bne     fop_nothisfile          ; If not current drv?
+        bne     fop_nothisfile          ; Didn't match the drive, so can't be a match, jump and check next location
+
+        ; we have an open channel with a matching drive, check if this also matches on filename
 fop_cmpfn_loop:
-        lda     dfs_cat_file_name,x             ; MA+&0E08,X - Compare filename
-        eor     fuji_channel_start,y      ; MA+&1100,Y
-        and     #$7F
-        bne     fop_nothisfile
-        inx
+        lda     dfs_cat_file_name,x     ; Check the Catalog information against the channel info's file name
+        eor     fuji_channel_start,y
+        and     #$7F                    ; are all 7 lower bits matching?
+        bne     fop_nothisfile          ; names didn't match (ignoring high bit)
+
+        inx                             ; the catalog data indexed by X is contiguous
         iny
-        iny
-        dec     aws_tmp02               ; &B2
-        bne     fop_cmpfn_loop
+        iny                             ; channel info names are interwoven every other byte, so need to skip 2 at a time
+        dec     aws_tmp02               ; counter for whole name match
+        bne     fop_cmpfn_loop          ; potential match still, keep looping...
+
+        ; if we get here, we found a match
         sec
         bcs     fop_matchifcset         ; always
+
+        ; this will be a not-this-file scenario too.
+        ; during looping we either don't match anything, so channel 1 is finally picked, or we match something higher up.
+        ; extremely efficient way of ensuring when we exit we get the lowest index file open, or we get the one matching the name,
+        ; so if nothing is open, eventually this would return INTCH = 20 (channel 1), and flag_bit = %1000 0000, as the next loop would exit due to flag being = 0
 fop_channelnotopen:
-        sty     fuji_intch              ; MA+&10C2 = Y=intch = allocated to new channel
-        sta     fuji_channel_flag_bit   ; MA+&10C1 = A=Channel Flag Bit
+        sty     fuji_intch              ; save the attempted intch, it's allocated to a new channel if no name matches
+        sta     fuji_channel_flag_bit   ; store the Channel Flag Bit Mask, it indicates the channel number where %1000 0000 would be channel 1, %0100 0000 would be channel 2, ...
 fop_nothisfile:
         sec
-        lda     aws_tmp03               ; &B3
+        lda     aws_tmp03
         sbc     #$20
-        sta     aws_tmp03               ; intch=intch-&20
-        asl     aws_tmp05               ; flag bit << 1
+        sta     aws_tmp03               ; intch=intch-&20, which is the channel info block size, so A0 -> 80 -> 60 -> 40 -> 20 are 5 channel offsets
+        asl     aws_tmp05               ; flag bit << 1, this starts as %0000 1000 for channel 5, and moves left until a channel is found, or becomes 0 and exit
         clc
 fop_matchifcset:
         pla                             ; restore X
         tax
         ldy     aws_tmp03               ; Y=intch
         lda     aws_tmp05               ; A=flag bit
-        bcs     fop_exit
+        bcs     fop_exit                ; do we need to loop again? C was set if we found matching file name
+        ; eventually, the A value (channel flag bit) becomes 00 if no channels are available via ASL above.
+        ; we've already checked if C = 0, so if A becomes 0 this exits function with A=0, C=0, 
         bne     fop_main_loop           ; If flag bit <> 0
 fop_exit:
-        rts                             ; Exit: A=flag Y=intch
+        rts                             ; Exit: A=flag (1000 000 for channel 1, 0100 0000 for channel 2, etc) Y=intch if slot available/found, C=1 if it got a channel
 

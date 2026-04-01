@@ -38,6 +38,8 @@
 
         .include "fujinet.inc"
 
+.code
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; FSCV5_STARCAT - Handle *CAT command
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -212,6 +214,9 @@ cat_skipspaces:
         jsr     prt_filename_yoffset
         jmp     cat_sortloop1
 
+
+; ALLOCATE IN RODATA FOR STRINGS
+.rodata
 
 ; 4 byte strings, short ones terminate with 0,
 diskoptions_table:

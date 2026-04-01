@@ -7,7 +7,7 @@
 
         .include "fujinet.inc"
 
-WAIT_FIRST_MAX := 50000
+WAIT_FIRST_MAX := 65000
 WAIT_NEXT_MAX  := 2000
 
 ; Read and decode one SLIP frame from RS423 into the buffer at buffer_ptr.
@@ -157,7 +157,6 @@ fujibus_read_slip_stream:
         beq     @set_escape
 
         ; fall through to storing the byte
-        ; jmp     @store_byte
 
 @store_byte:
         pha                                     ; save the byte to store while we check capacity

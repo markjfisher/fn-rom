@@ -49,7 +49,7 @@ OS_INC = 1
         .import  fuji_channel_flag_bit
         .import  fuji_intch
         .import  fuji_cat_file_offset
-        .import  fuji_channel_block_size
+        .import  fuji_channel_scratch
         .import  fuji_saved_x
         .import  fuji_saved_i
         .import  fuji_fs_messages_on
@@ -146,14 +146,10 @@ OS_INC = 1
         .import  fuji_ch_1119
         .import  fuji_ch_111A
 
-        .import  fuji_unknown_11C0
-        .import  fuji_unknown_11D0
-
         .import  fuji_ax_save
         .import  fuji_current_host_uri
         .import  fuji_current_fs_uri
         .import  fuji_current_dir_path
-        .importzp  buffer_ptr
         .import  fuji_bss
 
         .import  dfs_cat_s0_header
@@ -196,6 +192,7 @@ OS_INC = 1
         .importzp  cws_tmp3
         .importzp  cws_tmp4
         .importzp  cws_tmp5
+        .importzp  buffer_ptr           ; copy of cws_tmp5
         .importzp  cws_tmp6
         .importzp  cws_tmp7
         .importzp  cws_tmp8

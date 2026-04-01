@@ -119,8 +119,8 @@ FN_PARAMS_OFFSET = 4
 ; Disk read decodes ~274 bytes (header + 256-byte sector), so the I/O buffer uses 320 bytes
 ; at PWS+0 until responses are streamed or split.
 FUJI_PWS_PACKET_OFFSET = 0
-FUJI_PWS_PACKET_SIZE = 320
-FUJI_PWS_STRINGS_OFFSET = 320   ; start of reserved region (192 bytes left in 512-byte PWS)
+FUJI_PWS_PACKET_SIZE = 280
+FUJI_PWS_STRINGS_OFFSET = 280   ; start of reserved region (192 bytes left in 512-byte PWS)
 FN_MAX_PACKET_SIZE = FUJI_PWS_PACKET_SIZE
 FN_PROTOCOL_VERSION = $01
 

@@ -698,8 +698,10 @@ cmp_ptr_ext:
 
 check_channel_yhndl_exyintch:
         jsr     conv_yhndl_intch_exyintch
-        jsr     is_hndlin_use_yintch
+        jsr     is_hndlin_use_yintch                    ; returns C=0 means already in use
         bcc     check_channel_yhndl_exyintch_exit
+
+        ; y_intch is not used
         jsr     clear_exec_spool_file_handle
         rts
 
@@ -711,16 +713,18 @@ conv_yhndl_intch_exyintch:
         ; Based on MMFS conv_Yhndl_intch_exYintch (line 5083)
         pha                             ; Save A
         tya
-; label not actively used
+
 conv_hndl_x_entry:
         cmp     #filehndl
-        bcc     conv_hndl10
+        bcc     conv_hndl10             ; if Y is < $10, then we exit early
         cmp     #filehndl + 8
         bcc     conv_hndl18
 conv_hndl10:
-        lda     #$08                    ; exit with C=1,A=0; intch=0
+        lda     #$08                    ; exit with C=1,A=0; intch=0, as $08 will ROL into C and leave A with 0
 conv_hndl18:
-        jsr     a_rolx5                 ; if Y<$10 or >$18
+        ; if Y is between $11 and $17 then we will convert to high 3 bits from Y's low 3 bits, set C=0, and set bit 1 to 0 (this is disgarded later by masking with E0)
+        ; i.e. (0) 000a 0bcd -> (0) bcd0 000a, where the brackets is the Carry flag, and as starting bit 3 is "0", C becomes 0 when value is $11-$17, but $08 manufactures an error Carry.
+        jsr     a_rolx5
         tay                             ; ch0=$00, ch1=$20, ch2=$40
         pla                             ; ch3=$60...ch7=$E0
         rts                             ; c=1 if not valid
@@ -731,21 +735,30 @@ is_hndlin_use_yintch:
         pha                             ; Save A
         stx     fuji_saved_x            ; Save X to fuji_saved_x
         tya
-        and     #$E0
-        sta     fuji_intch              ; Save intch
-        beq     hndlinuse_notused_c1
-        jsr     a_rorx5                 ; ch.1-7
-        tay                             ; create bit mask
+        and     #$E0                    ; mask highest 3 bits (%1110 0000)
+        sta     fuji_intch              ; Save the masked intch so we can restore it later, and rely on it
+        beq     hndlinuse_notused_c1    ; channel 0 is always not used according to this.
+
+        jsr     a_rorx5                 ; move 3 high bits down to range 1-7 for the channel number
+        tay                             ; Y in range 1 to 7
+        ; create bit mask in A by rotating Carry flag Y times across A
         lda     #$00                    ; 1=10000000
         sec                             ; 2=01000000 etc
-hndlinuse_loop:
+@hndlinuse_loop:
         ror     a
         dey
-        bne     hndlinuse_loop
-        ; Carry = 0
-        ldy     fuji_intch              ; Y=intch
-        bit     fuji_open_channels      ; Test if open
-        bne     hndlinuse_used_c0
+        bne     @hndlinuse_loop
+
+        ; The carry is currently clear, which is our "used" flag (c=1 indicates NOT used)
+
+        ; set Y to the intch (still in high 3 bits position)
+        ldy     fuji_intch
+
+        ; Now, test if it is open, bits 7,6 of fuji_open_channels move to N/V. These 2 are not important here.
+        ; we only need to know if the AND between current A (our mask for the specified channel) and the memory location fuji_open_channels was set
+        ; if it was, then the channel was already open
+        bit     fuji_open_channels
+        bne     hndlinuse_used_c0       ; this is not-zero if the mask matched an already open channel.
 hndlinuse_notused_c1:
         sec
 hndlinuse_used_c0:

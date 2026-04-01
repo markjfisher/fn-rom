@@ -28,7 +28,6 @@
 
         .import __WORKSP_START__
         .import __WORKSP_SIZE__
-        .import zerobss
         .importzp c_sp
 
 .ifdef FUJINET_INTERFACE_DUMMY
@@ -52,6 +51,8 @@ boot_options:
         .segment "CODE"
 
 init_csp:
+        ; TODO: this should be driven from the PWS locations
+        ; TODO: ... or completely removed when we stop using C functions via cc65
         lda     #<(__WORKSP_START__ + __WORKSP_SIZE__)
         sta     c_sp
         lda     #>(__WORKSP_START__ + __WORKSP_SIZE__)
@@ -99,9 +100,6 @@ init_fuji:
         ; initialise c_sp for cc65 to the end of WORKSP segment, this resets CC65 stack
         jsr     init_csp
 
-        ; init to 00 any cc65 variables - this trashes X/Y, do we need them?
-        ; jsr     zerobss
-
         ; Register as new Filing System
         lda     #$06
         jsr     go_fscv
@@ -135,7 +133,7 @@ init_fuji:
         bne     @extendedvec_loop
 
         ; X=0, Y=$30
-        sty     current_cat             ; curdrvcat<>0
+        sty     current_cat             ; set to "0" in ascii
         sty     current_cat+1           ; this has the comment "?" in MMFS src... who knows why?
         stx     current_drv             ; curdrv=0
         stx     fuji_current_dir_path
@@ -215,10 +213,6 @@ setdefaults:
         jsr     print_string
         .byte   "defs", $0D
 .endif
-        lda     #' '
-        sta     fuji_unknown_11C0
-        sta     fuji_unknown_11D0
-
         lda     #'$'
         sta     fuji_default_dir
         sta     fuji_lib_dir
@@ -254,7 +248,9 @@ initdfs_noreset:
         jsr     osbyte_X0YFF            ; X=0 soft break, X=1 power up reset, X=2 hard break
         cpx     #$00
         beq     skip_autoload
-        jsr     fuji_cmd_autoload
+
+        ; TODO: if we want to autoboot a "BOOT.SSD" file, then we would implement it here.
+        ; jsr     fuji_load_boot_disk
 
 skip_autoload:
         pla                             ; reload A from the very start of file
@@ -268,19 +264,16 @@ skip_autoload:
 initdfs_exit:
         rts
 
-; Assumes cmd strings all in same page!
 not_opt0:
-        ldy     #>(boot_options)        ; boot file?
+        ldy     #>(boot_options)        ; boot file? the high byte is same for all the strings by design, so only have to adjust X
         ldx     #<(boot_options)        ; ->L.!BOOT
         cmp     #$02
         bcc     @jmp_oscli              ; branch if opt 1
         beq     @oscli_opt2             ; branch if opt 2
 
-        ; ldy     #>(boot_options+8)    ; they are in the same page, so don't need to redo the hi byte
         ldx     #<(boot_options+8)      ; ->E.!BOOT
         bne     @jmp_oscli              ; always
 @oscli_opt2:
-        ; ldy     #>(boot_options+10)   ; as above, same page
         ldx     #<(boot_options+10)     ; ->!BOOT
 @jmp_oscli:
         jmp     OSCLI
@@ -293,7 +286,7 @@ set_private_workspace_pointer_b0:
         sta     aws_tmp00
         ldx     paged_ram_copy
         lda     paged_rom_priv_ws, x
-        and     #$3F                            ; not master. TODO: fix if we have a master
+        and     #$3F                            ; not master. TODO: fix when we do multiple machine types
         sta     aws_tmp01
         rts
 
@@ -311,22 +304,9 @@ claim_static_workspace:
         sta     (aws_tmp00),y                   ; Set pws is "empty"
         rts
 
-; vid_reset:
-;         ldy     #<(CHECK_CRC7 - VID - 1)
-;         lda     #$00
-; @loop:
-;         sta     VID,y
-;         dey
-;         bpl     @loop
-;         lda     #$01
-;         sta     CHECK_CRC7
-;         rts
 
-; mmc_begin2:
-;         ; TODO: Implement MMC begin
+; fuji_load_boot_disk:
+;         ; TODO: Implement autoload of BOOT.{SSD,DSD} into drive 0 at boot
+;         ; Do we want this behaviour?
 ;         rts
-
-fuji_cmd_autoload:
-        ; TODO: Implement autoload
-        rts
 

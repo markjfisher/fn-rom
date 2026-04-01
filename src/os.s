@@ -43,7 +43,7 @@
         .export  fuji_channel_flag_bit
         .export  fuji_intch
         .export  fuji_cat_file_offset
-        .export  fuji_channel_block_size
+        .export  fuji_channel_scratch
         .export  fuji_saved_x
         .export  fuji_saved_i
         .export  fuji_fs_messages_on
@@ -139,9 +139,6 @@
         .export  fuji_ch_1118
         .export  fuji_ch_1119
         .export  fuji_ch_111A
-
-        .export  fuji_unknown_11C0
-        .export  fuji_unknown_11D0
 
         .export  fuji_ax_save
         .export  fuji_current_host_uri
@@ -436,25 +433,28 @@ fuji_gbpbv_tube_op      = $107F  ; used in gbpb_gosub
 gbpb_tube               = $1081
 
 current_cat             = $1082
+; in initialising, both current_cat and current_cat+1 are set to ascii "0"
 
 ; $10D7/10D8 copied from GBPBV_TABLE indexed by command, but in fujinet it's fuji_param_block_lo
 
-; 1090 seems to be a copy of BC to CB, restoring it in MMC_END
+; 1090 seems to be a copy of BC to CB, restoring it in MMC_END / transaction_end
 
 ; 1090-109F
 fuji_buf_ws_tmp_buf     = $1090
 
-; workspace_utils.s references 10C0-10EF and 1100-11BF as static workspace
+; workspace_utils.s references 10C0-10FF and 1100-11BF as static workspace
+; this is essentially channels/files information for a filing system
+; allowing 
 
 ; FujiNet workspace variables (matching MMFS layout)
 fuji_static_workspace   = fuji_workspace + $C0
 
 ; A few locations are kept in same place as the DFS equivalents
-fuji_open_channels      = fuji_static_workspace + $00  ; Open channels flag byte
+fuji_open_channels      = fuji_static_workspace + $00  ; Open channels flag byte, each bit represents a channel, 1 is open, 0 is closed
 fuji_channel_flag_bit   = fuji_static_workspace + $01  ; Channel flag bit
-fuji_intch              = fuji_static_workspace + $02  ; Internal channel handle
+fuji_intch              = fuji_static_workspace + $02  ; Internal channel handle (high 3 bits)
 fuji_cat_file_offset    = fuji_static_workspace + $03  ; Catalog file offset
-fuji_channel_block_size = fuji_static_workspace + $04  ; Channel block size
+fuji_channel_scratch    = fuji_static_workspace + $04  ; General purpose scratch byte
 fuji_saved_x            = fuji_static_workspace + $05  ; Saved X register
 fuji_fs_messages_on     = fuji_static_workspace + $06  ; FS messages on flag (on if 0)
 fuji_disk_table_index   = fuji_static_workspace + $07  ; Disk table index, used to store the current fujinet Mount slot. 2nd byte unused
@@ -507,18 +507,28 @@ fuji_filename_len       = fuji_static_workspace + $2F  ; the filename part of th
 fuji_force_reset        = fuji_static_workspace + $30  ; Force reset flag
 fuji_own_sws_indicator  = fuji_static_workspace + $31  ; Used to check if we currently own the SWS
 
+; END OF STATE WE WILL SAVE TO PWS WHEN FILE SYSTEMS SWAP
 
 ; Saved IRQ-disable state for temporarily enabling IRQs during FujiBus I/O.
 ; 0 = IRQs were enabled on entry, nonzero = IRQs were disabled on entry.
 ; Must not overlap with any MMFS-mapped fields; kept outside the MMFS copy range.
 fuji_saved_i            = fuji_static_workspace + $32
 
+; 2 byte buffer for stashing AX registers for saving result while restoring state.
+fuji_ax_save            = fuji_static_workspace + $33   ; 2 bytes, don't need to save it
+
+; FINAL LOCATION CAN BE + $3F
+
 ; LAST location for the copy state in workspace_utils.s function to understand
-fuji_last_state_loc     = fuji_static_workspace + $32  ; effectively $10F2
+; Note this does not have to be all the values above, we have 10F2 to 10FF for general variables
+fuji_last_state_loc     = fuji_static_workspace + $31  ; effectively $10F1
 
 
 ; Advanced disk guide describes how 1200-12FF is for open file 1
 ; 1300-13FF for open file 2, ...etc up to 1600-16FF for open file 5
+; in MMFS the channel can go from 1-7, so into 1800-18FF.
+; This doesn't seem right, as the PAGE in MMFS is 1900, with 2 pages allocated for private workspace (1700 to 1900)
+; which suggests only 5 files can be open.
 
 
 ; see SetupChannelInfoBlock_Yintch
@@ -540,18 +550,18 @@ fuji_ch_110A            = fuji_channel_start + $0A ; name byte 6
 fuji_ch_110B            = fuji_channel_start + $0B ; size byte 2
 fuji_ch_name7           = fuji_channel_start + $0C ; name byte 7
 fuji_ch_op              = fuji_channel_start + $0D ; "op" mixed byte
-fuji_ch_dir             = fuji_channel_start + $0E ; directory
+fuji_ch_dir             = fuji_channel_start + $0E ; directory -> directory_param when setting drive from current channel info
 fuji_ch_sec_start       = fuji_channel_start + $0F ; start sector
 
 ; Channel workspace variables (mapped from MMFS $1110-$111F)
 fuji_ch_bptr_low        = fuji_channel_start + $10  ; PTR low byte
 fuji_ch_bptr_mid        = fuji_channel_start + $11  ; PTR mid byte  
 fuji_ch_bptr_hi         = fuji_channel_start + $12  ; PTR high byte
-fuji_ch_buf_page        = fuji_channel_start + $13  ; Buffer page ?? IS THIS CORRECT?
+fuji_ch_buf_page        = fuji_channel_start + $13  ; Buffer page, i.e. $12 to $18 (see setup_channel_info_block_yintch), oh wow taking us up to most of allocated memory under PAGE - this is what uses it all
 fuji_ch_ext_low         = fuji_channel_start + $14  ; EXT low byte
 fuji_ch_ext_mid         = fuji_channel_start + $15  ; EXT mid byte
 fuji_ch_ext_hi          = fuji_channel_start + $16  ; EXT high byte
-fuji_ch_flg             = fuji_channel_start + $17  ; Channel flags - EOF usage here
+fuji_ch_flg             = fuji_channel_start + $17  ; Channel flags; see below for breakdown
 fuji_ch_1118            = fuji_channel_start + $18  ; ???
 fuji_ch_1119            = fuji_channel_start + $19  ; ??? - sector count
 fuji_ch_111A            = fuji_channel_start + $1A  ; ??? - len 2
@@ -560,15 +570,30 @@ fuji_ch_sect_lo         = fuji_channel_start + $1C  ; buffer sector low
 fuji_ch_sect_hi         = fuji_channel_start + $1D  ; buffer sector high
 
 
+; Breakdown of fuji_ch_flg
+; bit 0-1 = Drive number (0-3)
+; bit   2 = (unused?)
+; bit   3 = (unused?)
+; bit   4 = at EOF
+; bit   5 = update cat file len when channel closed. if not set then there is no change in file size to write
+; bit   6 = write buffer if set
+; bit   7 = (-ve) used for "if buffer ok"
+
+
+; The channels are stored in blocks of $20 bytes.
+; I believe there are only 5 channels available, and then above that the memory is free for use (11C0-11FF)
+; 0=1100, 1=1120, 2=1140, 3=1160, 4=1180, 5=11A0, [6=11C0, 7=11E0]
+; The offsets from 1100 are also the YINTCH value! A0 = [101]0 0000, high 3 bits = 5, with matches the index value.
+
+; so we have FREE MEMORY of 64 bytes we can use later
+; Confirmed in is_file_open_yoffset which starts looking for channels from A0 down
+
 ; used in initdfs_reset, initialise static workspace
 ; In mmfs100.asm "Reset the *DDRIVE table (MMFS2)"
-fuji_unknown_11C0       = fuji_workspace + $01C0
-fuji_unknown_11D0       = fuji_workspace + $01D0
+; in MM32.asm, 11C0-11DF is marked as "drive table", so I'm guessing 11C0-11FF is spare memory
+; fuji_unknown_11C0       = fuji_workspace + $01C0 ; this is channel 6 start block? If only 5 allowed, this is additional area I don't yet understand
+; fuji_unknown_11D0       = fuji_workspace + $01D0 ; above + $10, seems like fuji_ch_bptr_low if this is a buffer, but could be part of the 11C0-11FF being for general usage...
 
-; ASSUME THE CHANNEL DATA DOES NOT GO BEYOND $1130
-
-; 2 byte buffer for stashing AX registers for saving result while restoring state.
-fuji_ax_save            = fuji_workspace + $01AE
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; BUFFERS - NEED TO REVIEW THEIR USAGE
