@@ -434,22 +434,24 @@ DEF FNsend_request_expect(command%, payload_len%)
 LOCAL tx_len%, rx_len%
 tx_len%=FNbuild_fujibus_packet(FUJI_DEVICE_NETWORK, command%, payload_len%)
 rx_len%=FNtransaction(tx_len%)
-IF rx_len%=0 THEN =FALSE
-IF rxPacket?0<>FUJI_DEVICE_NETWORK THEN =FALSE
-IF rxPacket?1<>command% THEN =FALSE
-IF FNpacket_checksum_ok=FALSE THEN =FALSE
-=TRUE
+IF rx_len%=0 THEN result%=FALSE:GOTO 2000
+IF rxPacket?0<>FUJI_DEVICE_NETWORK THEN result%=FALSE:GOTO 2000
+IF rxPacket?1<>command% THEN result%=FALSE:GOTO 2000
+IF FNpacket_checksum_ok=FALSE THEN result%=FALSE:GOTO 2000
+result%=TRUE
+2000 =result%
 
 DEF FNsend_request_retry(command%, payload_len%, retries%)
-LOCAL tries%, status%
+LOCAL tries%, status%, result%
 FOR tries%=1 TO retries%
-  IF FNsend_request_expect(command%, payload_len%)=FALSE THEN =FALSE
+  IF FNsend_request_expect(command%, payload_len%)=FALSE THEN result%=FALSE:GOTO 4000
   status%=FNpacket_status
-  IF status%=NET_STATUS_DEVICE_BUSY OR status%=NET_STATUS_NOT_READY THEN GOTO 1000
-  =TRUE
-  1000 REM retry
+  IF status%=NET_STATUS_DEVICE_BUSY OR status%=NET_STATUS_NOT_READY THEN GOTO 3000
+  result%=TRUE:GOTO 4000
+  3000 REM retry
 NEXT tries%
-=TRUE
+result%=FALSE
+4000 =result%
 
 DEF FNbuild_open_payload(method%, flags%, url$, body_len_hint%)
 LOCAL offset%, url_len%
@@ -540,21 +542,23 @@ IF FNopen_accepted=FALSE THEN =-1
 =FNopen_handle_from_response
 
 DEF PROCnetwork_info(handle%)
-LOCAL payload_len%, header_len%
+LOCAL payload_len%, header_len%, ok%
 payload_len%=FNbuild_info_payload(handle%)
-IF FNsend_request_retry(NET_CMD_INFO, payload_len%, 100)=FALSE THEN PRINT "INFO failed":ENDPROC
-IF FNpacket_status<>NET_STATUS_OK THEN PRINT "INFO status: ";FNpacket_status:ENDPROC
+ok%=FNsend_request_retry(NET_CMD_INFO, payload_len%, 100)
+IF ok%=FALSE THEN PRINT "INFO failed":GOTO 6000
+IF FNpacket_status<>NET_STATUS_OK THEN PRINT "INFO status: ";FNpacket_status:GOTO 6000
 PRINT "Info handle:       ";FNget_u16le(rxPacket, 11)
 PRINT "Info http status:  ";FNinfo_http_status
 header_len%=FNinfo_header_len
 PRINT "Info header bytes: ";header_len%
 IF header_len%>0 THEN PROCprint_ascii_from_payload(25, header_len%)
-ENDPROC
+6000 ENDPROC
 
 DEF PROCnetwork_close(handle%)
-LOCAL payload_len%
+LOCAL payload_len%, ok%
 payload_len%=FNbuild_close_payload(handle%)
-IF FNsend_request_retry(NET_CMD_CLOSE, payload_len%, 100)=FALSE THEN PRINT "CLOSE failed":ENDPROC
+ok%=FNsend_request_retry(NET_CMD_CLOSE, payload_len%, 100)
+IF ok%=FALSE THEN PRINT "CLOSE failed":ENDPROC
 IF FNpacket_status<>NET_STATUS_OK THEN PRINT "CLOSE status: ";FNpacket_status
 ENDPROC
 
@@ -566,12 +570,13 @@ IF FNpacket_status<>NET_STATUS_OK THEN =-1
 =FNwrite_bytes_written
 
 DEF PROCnetwork_read_all(handle%)
-LOCAL offset32%, payload_len%, data_len%, eof%, echo_offset%
+LOCAL offset32%, payload_len%, data_len%, eof%, echo_offset%, ok%
 offset32%=0
 REPEAT
   payload_len%=FNbuild_read_payload(handle%, offset32%, 256)
-  IF FNsend_request_retry(NET_CMD_READ, payload_len%, 500)=FALSE THEN PRINT "READ failed":ENDPROC
-  IF FNpacket_status<>NET_STATUS_OK THEN PRINT "READ status: ";FNpacket_status:ENDPROC
+  ok%=FNsend_request_retry(NET_CMD_READ, payload_len%, 500)
+  IF ok%=FALSE THEN PRINT "READ failed":GOTO 8000
+  IF FNpacket_status<>NET_STATUS_OK THEN PRINT "READ status: ";FNpacket_status:GOTO 8000
   echo_offset%=FNread_response_offset
   data_len%=FNread_response_data_len
   eof%=FNread_response_eof
@@ -579,19 +584,19 @@ REPEAT
   IF data_len%>0 THEN PROCprint_ascii_from_payload(19, data_len%)
   offset32%=offset32%+data_len%
 UNTIL eof%
-ENDPROC
+8000 ENDPROC
 
 DEF PROChttp_get_example
 LOCAL handle%, url$
 url$="http://192.168.1.101:8080/get"
 PRINT "Opening: ";url$
 handle%=FNnetwork_open(NET_METHOD_GET, NET_FLAG_ALLOW_EVICT, url$, 0)
-IF handle%<0 THEN PRINT "OPEN failed":ENDPROC
+IF handle%<0 THEN PRINT "OPEN failed":GOTO 10000
 PRINT "Handle: ";handle%
 PROCnetwork_info(handle%)
 PROCnetwork_read_all(handle%)
 PROCnetwork_close(handle%)
-ENDPROC
+10000 ENDPROC
 
 DEF PROCtcp_halfclose(handle%, offset32%)
 LOCAL written%
@@ -605,14 +610,14 @@ url$="tcp://192.168.1.101:7777?halfclose=1"
 data$="hello world"
 PRINT "Opening: ";url$
 handle%=FNnetwork_open(NET_METHOD_GET, NET_FLAG_ALLOW_EVICT, url$, 0)
-IF handle%<0 THEN PRINT "OPEN failed":ENDPROC
+IF handle%<0 THEN PRINT "OPEN failed":GOTO 12000
 PRINT "Handle: ";handle%
 PRINT "Writing: ";data$
 written%=FNnetwork_write(handle%, 0, data$, LEN(data$))
-IF written%<0 THEN PRINT "WRITE failed":PROCnetwork_close(handle%):ENDPROC
+IF written%<0 THEN PRINT "WRITE failed":PROCnetwork_close(handle%):GOTO 12000
 PRINT "Written: ";written%
 PROCtcp_halfclose(handle%, written%)
 PROCnetwork_info(handle%)
 PROCnetwork_read_all(handle%)
 PROCnetwork_close(handle%)
-ENDPROC
+12000 ENDPROC
