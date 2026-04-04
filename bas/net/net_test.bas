@@ -1,12 +1,9 @@
 REM filename: NETEST
-REM FujiNet network connectivity test using ROM-style RS423 access
+REM FujiNet network connectivity test using single asm send/receive transaction
 
 DIM asmOSBYTE 32
 DIM asmOSWRCH 8
-DIM asmSerialSetup 64
-DIM asmSerialRestore 32
-DIM asmCheckRS423 24
-DIM asmReadRS423 32
+DIM asmTransaction 512
 
 DIM txPacket 512
 DIM rxPacket 512
@@ -83,8 +80,9 @@ FOR I%=0 TO 2 STEP 2:P%=asmOSWRCH
   ]
 NEXT I%
 
-FOR I%=0 TO 2 STEP 2:P%=asmSerialSetup
+FOR I%=0 TO 2 STEP 2:P%=asmTransaction
   [OPT I%
+   .setup_serial
    LDX #&08
    LDY #&00
    LDA #&07
@@ -101,16 +99,16 @@ FOR I%=0 TO 2 STEP 2:P%=asmSerialSetup
    LDY #&00
    LDA #&03
    JSR OSBYTE
+   RTS
+
+   .flush_serial
    LDX #&01
    LDY #&00
    LDA #&15
    JSR OSBYTE
    RTS
-  ]
-NEXT I%
 
-FOR I%=0 TO 2 STEP 2:P%=asmSerialRestore
-  [OPT I%
+   .restore_screen
    LDX #&00
    LDY #&00
    LDA #&03
@@ -120,76 +118,235 @@ FOR I%=0 TO 2 STEP 2:P%=asmSerialRestore
    LDA #&02
    JSR OSBYTE
    RTS
-  ]
-NEXT I%
 
-FOR I%=0 TO 2 STEP 2:P%=asmCheckRS423
-  [OPT I%
+   .check_rs423
    LDA #&80
    LDX #&FE
    LDY #&FF
    JSR OSBYTE
-   STX &70
+   TXA
    RTS
-  ]
-NEXT I%
 
-FOR I%=0 TO 2 STEP 2:P%=asmReadRS423
-  [OPT I%
+   .read_rs423
    LDA #&91
    LDX #&01
    LDY #&00
    JSR OSBYTE
-   BCS nochar
-   STY &70
-   LDA #&01
-   STA &71
+   BCS read_fail
+   TYA
+   LDX #&01
    RTS
-   .nochar
+   .read_fail
+   LDX #&00
+   RTS
+
+   .send_slip_byte
+   CMP #SLIP_END
+   BEQ send_esc_end
+   CMP #SLIP_ESCAPE
+   BEQ send_esc_esc
+   JSR OSWRCH
+   RTS
+   .send_esc_end
+   PHA
+   LDA #SLIP_ESCAPE
+   JSR OSWRCH
+   LDA #SLIP_ESC_END
+   JSR OSWRCH
+   PLA
+   RTS
+   .send_esc_esc
+   PHA
+   LDA #SLIP_ESCAPE
+   JSR OSWRCH
+   LDA #SLIP_ESC_ESC
+   JSR OSWRCH
+   PLA
+   RTS
+
+   .entry
+   JSR setup_serial
+   JSR flush_serial
+
+   LDA #SLIP_END
+   JSR OSWRCH
+
+   LDY #&00
+   STY &7E
+   STY &7F
+
+   .send_loop
+   LDA &7E
+   CMP &74
+   BNE send_more
+   LDA &7F
+   CMP &75
+   BEQ send_done
+   .send_more
+   LDA &76
+   CLC
+   ADC &7E
+   STA &7A
+   LDA &77
+   ADC &7F
+   STA &7B
+   LDA (&7A),Y
+   JSR send_slip_byte
+   INC &7E
+   BNE send_loop
+   INC &7F
+   JMP send_loop
+
+   .send_done
+   LDA #SLIP_END
+   JSR OSWRCH
+
+   LDY #&00
+   STY &7E
+   STY &7F
+   STY &78
+
+   LDA #0
+   STA &7C
+   LDA #&4F   \ 20k attempts
+   STA &7D
+
+   .wait_start
+   JSR check_rs423
+   BNE have_start_char
+   LDA &7C
+   BNE wait_start_dec
+   DEC &7D
+   .wait_start_dec
+   DEC &7C
+   LDA &7C
+   ORA &7D
+   BNE wait_start
+   JMP trans_fail
+
+   .have_start_char
+   JSR read_rs423
+   CPX #&01
+   BEQ have_start_ok
+   JMP trans_fail
+   .have_start_ok
+   CMP #SLIP_END
+   BNE wait_start
+
+   LDA #0
+   STA &7C
+   LDA #&08     \ 2048 attempts after initial
+   STA &7D
+
+   .frame_loop
+   JSR check_rs423
+   BNE have_frame_char
+   LDA &7C
+   BNE wait_frame_dec
+   DEC &7D
+   .wait_frame_dec
+   DEC &7C
+   LDA &7C
+   ORA &7D
+   BNE frame_loop
+   JMP trans_fail
+
+   .have_frame_char
+   JSR read_rs423
+   CPX #&01
+   BEQ have_frame_ok
+   JMP trans_fail
+   .have_frame_ok
+   STA &79
+
+   LDA #0
+   STA &7C
+   LDA #&02     \ 256
+   STA &7D
+
+   LDA &78
+   BNE escaped_char
+
+   LDA &79
+   CMP #SLIP_END
+   BEQ handle_end
+   CMP #SLIP_ESCAPE
+   BEQ set_escape
+   JMP store_char
+
+   .escaped_char
    LDA #&00
-   STA &71
+   STA &78
+   LDA &79
+   CMP #SLIP_ESC_END
+   BEQ unesc_end
+   CMP #SLIP_ESC_ESC
+   BEQ unesc_esc
+   JMP trans_fail
+   .unesc_end
+   LDA #SLIP_END
+   JMP store_a
+   .unesc_esc
+   LDA #SLIP_ESCAPE
+   JMP store_a
+
+   .set_escape
+   LDA #&01
+   STA &78
+   JMP frame_loop
+
+   .handle_end
+   LDA &7E
+   ORA &7F
+   BEQ frame_loop
+   JMP trans_ok
+
+   .store_char
+   LDA &79
+   .store_a
+   STA store_value+1
+   LDA &7E
+   CMP &72
+   BNE store_space
+   LDA &7F
+   CMP &73
+   BEQ store_fail
+   .store_space
+   LDA &70
+   CLC
+   ADC &7E
+   STA &7A
+   LDA &71
+   ADC &7F
+   STA &7B
+   .store_value
+   LDA #&00
+   STA (&7A),Y
+   INC &7E
+   BNE no_inc
+   INC &7F
+   .no_inc
+   JMP frame_loop
+   .store_fail
+   JMP trans_fail
+
+   .trans_ok
+   JSR restore_screen
+   LDA &7E
+   STA &72
+   LDA &7F
+   STA &73
+   RTS
+
+   .trans_fail
+   JSR restore_screen
+   LDA #&00
+   STA &72
+   STA &73
    RTS
   ]
 NEXT I%
 ENDPROC
-
-DEF PROCcallOSWRCH(c%)
-?&70=c%
-CALL asmOSWRCH
-ENDPROC
-
-DEF PROCserial_setup
-CALL asmSerialSetup
-ENDPROC
-
-DEF PROCserial_restore
-CALL asmSerialRestore
-ENDPROC
-
-DEF FNcheck_rs423_count
-CALL asmCheckRS423
-=?&70
-
-DEF FNread_rs423_byte
-CALL asmReadRS423
-IF ?&71=0 THEN =-1
-=?&70
-
-DEF FNwait_rs423_byte(limit%)
-LOCAL tries%, count%, byte%
-FOR tries%=1 TO limit%
-  count%=FNcheck_rs423_count
-  IF count%>0 THEN byte%=FNread_rs423_byte:IF byte%>=0 THEN =byte%
-NEXT tries%
-=-1
-
-DEF FNchecksum(buf, len%)
-LOCAL chk%, I%
-chk%=0
-FOR I%=0 TO len%-1
-  chk%=((chk% + buf?I%) DIV 256) + ((chk% + buf?I%) AND 255)
-NEXT I%
-=chk% AND &FF
 
 DEF PROCput_u16le(buf, offset%, value%)
 buf?offset%=value% AND &FF
@@ -223,6 +380,14 @@ FOR I%=0 TO count%-1
 NEXT I%
 ENDPROC
 
+DEF FNchecksum(buf, len%)
+LOCAL chk%, I%
+chk%=0
+FOR I%=0 TO len%-1
+  chk%=((chk% + buf?I%) DIV 256) + ((chk% + buf?I%) AND 255)
+NEXT I%
+=chk% AND &FF
+
 DEF FNbuild_fujibus_packet(device%, command%, payload_len%)
 LOCAL total_len%
 total_len%=6+payload_len%
@@ -235,48 +400,17 @@ IF payload_len%>0 THEN PROCcopy_block(payload, 0, txPacket, 6, payload_len%)
 txPacket?4=FNchecksum(txPacket, total_len%)
 =total_len%
 
-DEF PROCsend_slip_byte(byte%)
-IF byte%=SLIP_END THEN PROCcallOSWRCH(SLIP_ESCAPE):PROCcallOSWRCH(SLIP_ESC_END):ENDPROC
-IF byte%=SLIP_ESCAPE THEN PROCcallOSWRCH(SLIP_ESCAPE):PROCcallOSWRCH(SLIP_ESC_ESC):ENDPROC
-PROCcallOSWRCH(byte%)
-ENDPROC
-
-DEF PROCsend_slip_frame(buf, len%)
-LOCAL I%
-PROCserial_setup
-PROCcallOSWRCH(SLIP_END)
-FOR I%=0 TO len%-1
-  PROCsend_slip_byte(buf?I%)
-NEXT I%
-PROCcallOSWRCH(SLIP_END)
-PROCserial_restore
-ENDPROC
-
-DEF FNread_slip_frame
-LOCAL rx_len%, in_frame%, escape%, byte%
-rx_len%=0
-in_frame%=FALSE
-escape%=FALSE
-PROCserial_setup
-REPEAT
-  IF in_frame%=FALSE THEN byte%=FNwait_rs423_byte(65000) ELSE byte%=FNwait_rs423_byte(2000)
-  IF byte%<0 THEN PROCserial_restore:=0
-  IF in_frame%=FALSE THEN IF byte%=SLIP_END THEN in_frame%=TRUE:GOTO 800
-  IF in_frame%=FALSE THEN GOTO 800
-  IF escape%=TRUE THEN GOTO 900
-  IF byte%=SLIP_END THEN IF rx_len%>0 THEN PROCserial_restore:=rx_len% ELSE GOTO 800
-  IF byte%=SLIP_ESCAPE THEN escape%=TRUE:GOTO 800
-  IF rx_len%>=512 THEN PROCserial_restore:=0
-  rxPacket?rx_len%=byte%
-  rx_len%=rx_len%+1
-  800 REM loop
-UNTIL FALSE
-900 IF byte%=SLIP_ESC_END THEN byte%=SLIP_END ELSE IF byte%=SLIP_ESC_ESC THEN byte%=SLIP_ESCAPE ELSE PROCserial_restore:=0
-escape%=FALSE
-IF rx_len%>=512 THEN PROCserial_restore:=0
-rxPacket?rx_len%=byte%
-rx_len%=rx_len%+1
-GOTO 800
+DEF FNtransaction(tx_len%)
+?&70=rxPacket MOD 256
+?&71=rxPacket DIV 256
+?&72=512 MOD 256
+?&73=512 DIV 256
+?&74=tx_len% MOD 256
+?&75=tx_len% DIV 256
+?&76=txPacket MOD 256
+?&77=txPacket DIV 256
+CALL asmTransaction+entry-asmTransaction
+=?&72 + 256*?&73
 
 DEF FNpacket_total_len
 =FNget_u16le(rxPacket, 2)
@@ -297,8 +431,7 @@ IF rxPacket?5<>1 THEN =-1
 DEF FNsend_request_expect(command%, payload_len%)
 LOCAL tx_len%, rx_len%
 tx_len%=FNbuild_fujibus_packet(FUJI_DEVICE_NETWORK, command%, payload_len%)
-PROCsend_slip_frame(txPacket, tx_len%)
-rx_len%=FNread_slip_frame
+rx_len%=FNtransaction(tx_len%)
 IF rx_len%=0 THEN =FALSE
 IF rxPacket?0<>FUJI_DEVICE_NETWORK THEN =FALSE
 IF rxPacket?1<>command% THEN =FALSE
