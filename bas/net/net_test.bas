@@ -1,17 +1,17 @@
-REM filename: NET_TEST
+REM filename: NETEST
 REM FujiNet network connectivity test via RS423 using FujiBus packets
 
 DIM asmOSBYTE 25
 DIM asmOSWRCH 8
 DIM asmReadChar 30
-DIM txPacket 768
-DIM rxPacket 768
-DIM payload 768
+DIM txPacket 512
+DIM rxPacket 512
+DIM payload 512
 
 OSBYTE=&FFF4
 OSWRCH=&FFEE
 
-FN_DEVICE_NETWORK=&FD
+FUJI_DEVICE_NETWORK=&FD
 
 NETPROTO_VERSION=&01
 
@@ -31,6 +31,7 @@ NET_FLAG_ALLOW_EVICT=&08
 NET_STATUS_OK=0
 NET_STATUS_DEVICE_BUSY=3
 NET_STATUS_NOT_READY=4
+DEBUG%=TRUE
 
 SLIP_END=&C0
 SLIP_ESCAPE=&DB
@@ -118,6 +119,12 @@ DEF FNcallReadChar
 CALL asmReadChar
 =?&71
 
+DEF FNread_serial_byte
+LOCAL status%
+status%=FNcallReadChar
+IF status%=0 THEN =-1
+=?&70
+
 DEF PROCsetup_serial_ports
 PROCcallOSBYTE(7, 8, 0)
 PROCcallOSBYTE(8, 8, 0)
@@ -132,9 +139,31 @@ PROCcallOSBYTE(3, 0, 0)
 PROCcallOSBYTE(2, 0, 0)
 ENDPROC
 
+DEF PROCdebug(msg$)
+IF DEBUG%=FALSE THEN ENDPROC
+PROCreset_serial_to_screen
+PRINT msg$
+ENDPROC
+
+DEF PROCdebug_num(label$, value%)
+IF DEBUG%=FALSE THEN ENDPROC
+PROCreset_serial_to_screen
+PRINT label$;value%
+ENDPROC
+
+DEF PROCdebug_hex(label$, value%)
+IF DEBUG%=FALSE THEN ENDPROC
+PROCreset_serial_to_screen
+PRINT label$;~value%
+ENDPROC
+
 DEF FNcheck_rs423_buffer
 PROCcallOSBYTE(&80, &FE, &FF)
 =?&71
+
+DEF FNcheck_rs423_buffer_y
+PROCcallOSBYTE(&80, &FE, &FF)
+=?&72
 
 DEF FNchecksum(buf, len%)
 LOCAL chk%, I%
@@ -206,33 +235,42 @@ PROCreset_serial_to_screen
 ENDPROC
 
 DEF FNwait_for_serial_byte(limit%)
-LOCAL tries%, count%
+LOCAL tries%, count%, county%, byte%
 FOR tries%=1 TO limit%
   count%=FNcheck_rs423_buffer
-  IF count%>0 THEN =FNcallReadChar
+  county%=FNcheck_rs423_buffer_y
+  IF DEBUG%=TRUE AND (count%<>0 OR county%<>0) THEN PROCdebug_num("buf x=", count%):PROCdebug_num("buf y=", county%)
+  IF count%>0 THEN byte%=FNread_serial_byte:IF byte%>=0 THEN =byte%
 NEXT tries%
-=0
+=-1
+
+DEF FNwait_for_serial_byte_debug(limit%, tag$)
+LOCAL byte%
+byte%=FNwait_for_serial_byte(limit%)
+IF DEBUG%=TRUE THEN IF byte%<0 THEN PROCdebug(tag$+" timeout") ELSE PROCdebug_hex(tag$+" byte=", byte%)
+=byte%
 
 DEF FNread_slip_frame
-LOCAL rx_len%, in_frame%, escape%, status%, byte%
+LOCAL rx_len%, in_frame%, escape%, byte%
 rx_len%=0
 in_frame%=FALSE
 escape%=FALSE
 PROCsetup_serial_ports
+PROCdebug("Waiting for SLIP frame")
 REPEAT
-  IF in_frame%=FALSE THEN status%=FNwait_for_serial_byte(65000) ELSE status%=FNwait_for_serial_byte(2000)
-  IF status%=0 THEN PROCreset_serial_to_screen:=0
-  byte%=?&70
-  IF in_frame%=FALSE THEN IF byte%=SLIP_END THEN in_frame%=TRUE:GOTO 400
+  IF in_frame%=FALSE THEN byte%=FNwait_for_serial_byte_debug(65000, "pre") ELSE byte%=FNwait_for_serial_byte_debug(2000, "frm")
+  IF byte%<0 THEN PROCreset_serial_to_screen:=0
+  IF in_frame%=FALSE THEN IF byte%=SLIP_END THEN in_frame%=TRUE:PROCdebug("Saw SLIP start"):GOTO 400
   IF in_frame%=FALSE THEN GOTO 400
   IF escape%=TRUE THEN GOTO 500
-  IF byte%=SLIP_END THEN IF rx_len%>0 THEN PROCreset_serial_to_screen:=rx_len% ELSE GOTO 400
-  IF byte%=SLIP_ESCAPE THEN escape%=TRUE:GOTO 400
+  IF byte%=SLIP_END THEN IF rx_len%>0 THEN PROCdebug_num("Frame length=", rx_len%):PROCreset_serial_to_screen:=rx_len% ELSE PROCdebug("Ignoring empty END"):GOTO 400
+  IF byte%=SLIP_ESCAPE THEN escape%=TRUE:PROCdebug("Saw ESC"):GOTO 400
+  IF rx_len%>=512 THEN PROCdebug("RX buffer full"):PROCreset_serial_to_screen:=0
   rxPacket?rx_len%=byte%
   rx_len%=rx_len%+1
   400 REM loop
 UNTIL FALSE
-500 IF byte%=SLIP_ESC_END THEN byte%=SLIP_END ELSE IF byte%=SLIP_ESC_ESC THEN byte%=SLIP_ESCAPE ELSE PROCreset_serial_to_screen:=0
+500 IF byte%=SLIP_ESC_END THEN byte%=SLIP_END ELSE IF byte%=SLIP_ESC_ESC THEN byte%=SLIP_ESCAPE ELSE PROCdebug("Bad escape"):PROCreset_serial_to_screen:=0
 escape%=FALSE
 rxPacket?rx_len%=byte%
 rx_len%=rx_len%+1
@@ -279,11 +317,19 @@ ENDPROC
 
 DEF FNsend_request_expect(command%, payload_len%)
 LOCAL tx_len%, rx_len%
-tx_len%=FNbuild_fujibus_packet(FN_DEVICE_NETWORK, command%, payload_len%)
+tx_len%=FNbuild_fujibus_packet(FUJI_DEVICE_NETWORK, command%, payload_len%)
+PROCdebug_hex("TX cmd=", command%)
+PROCdebug_num("TX payload len=", payload_len%)
+PROCdebug_num("TX packet len=", tx_len%)
 PROCsend_slip_frame(txPacket, tx_len%)
+PROCdebug("Frame sent")
 rx_len%=FNread_slip_frame
+PROCdebug_num("RX frame len=", rx_len%)
 IF rx_len%=0 THEN =FALSE
-IF rxPacket?0<>FN_DEVICE_NETWORK THEN =FALSE
+PROCdebug_hex("RX dev=", rxPacket?0)
+PROCdebug_hex("RX cmd=", rxPacket?1)
+PROCdebug_num("RX total len=", FNpacket_total_len)
+IF rxPacket?0<>FUJI_DEVICE_NETWORK THEN =FALSE
 IF rxPacket?1<>command% THEN =FALSE
 IF FNpacket_checksum_ok=FALSE THEN =FALSE
 =TRUE
@@ -391,7 +437,9 @@ ENDPROC
 DEF FNnetwork_open(method%, flags%, url$, body_len_hint%)
 LOCAL payload_len%
 payload_len%=FNbuild_open_payload(method%, flags%, url$, body_len_hint%)
+PROCdebug_num("OPEN payload len=", payload_len%)
 IF FNsend_request_retry(NET_CMD_OPEN, payload_len%, 100)=FALSE THEN =-1
+PROCdebug_num("OPEN status=", FNpacket_status)
 IF FNpacket_status<>NET_STATUS_OK THEN =-1
 IF FNopen_accepted=FALSE THEN =-1
 =FNopen_handle_from_response
