@@ -442,16 +442,22 @@ result%=TRUE
 2000 =result%
 
 DEF FNsend_request_retry(command%, payload_len%, retries%)
-LOCAL tries%, status%, result%
-FOR tries%=1 TO retries%
-  IF FNsend_request_expect(command%, payload_len%)=FALSE THEN result%=FALSE:GOTO 4000
-  status%=FNpacket_status
-  IF status%=NET_STATUS_DEVICE_BUSY OR status%=NET_STATUS_NOT_READY THEN GOTO 3000
-  result%=TRUE:GOTO 4000
-  3000 REM retry
-NEXT tries%
+LOCAL tries%, status%, result%, done%
+tries%=1
+done%=FALSE
 result%=FALSE
-4000 =result%
+REPEAT
+  IF FNsend_request_expect(command%, payload_len%)=FALSE THEN done%=TRUE:GOTO 4100
+  status%=FNpacket_status
+  IF status%=NET_STATUS_DEVICE_BUSY OR status%=NET_STATUS_NOT_READY THEN GOTO 4050
+  result%=TRUE
+  done%=TRUE
+  GOTO 4100
+  4050 tries%=tries%+1
+  IF tries%>retries% THEN done%=TRUE
+  4100 REM continue or finish
+UNTIL done%
+=result%
 
 DEF FNbuild_open_payload(method%, flags%, url$, body_len_hint%)
 LOCAL offset%, url_len%
