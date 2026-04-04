@@ -285,10 +285,10 @@ FOR I%=0 TO 2 STEP 2:P%=asmTransaction
    JMP trans_fail
    .unesc_end
    LDA #SLIP_END
-   JMP store_a
+   BNE store_char   \ always, and is fewer bytes than JMP
    .unesc_esc
    LDA #SLIP_ESCAPE
-   JMP store_a
+   BNE store_char   \ always, and is fewer bytes than JMP
 
    .set_escape
    LDA #&01
@@ -302,9 +302,11 @@ FOR I%=0 TO 2 STEP 2:P%=asmTransaction
    JMP trans_ok
 
    .store_char
-   LDA &79
-   .store_a
-   STA store_value+1
+   \ &79 holds the decoded byte to write into the rx buffer.
+   \ &70/&71 = rx buffer base pointer
+   \ &72/&73 = rx buffer capacity
+   \ &7E/&7F = current decoded length / write offset
+   \ &7A/&7B = computed write pointer = base + offset
    LDA &7E
    CMP &72
    BNE store_space
@@ -319,8 +321,8 @@ FOR I%=0 TO 2 STEP 2:P%=asmTransaction
    LDA &71
    ADC &7F
    STA &7B
-   .store_value
-   LDA #&00
+   LDY #&00
+   LDA &79
    STA (&7A),Y
    INC &7E
    BNE no_inc
