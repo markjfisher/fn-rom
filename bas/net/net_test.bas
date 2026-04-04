@@ -1,15 +1,9 @@
 REM filename: NETEST
-REM FujiNet network connectivity test via RS423 using FujiBus packets
+REM FujiNet network connectivity test using direct ACIA serial I/O
 
-DIM asmOSBYTE 25
-DIM asmOSWRCH 8
-DIM asmReadChar 30
 DIM txPacket 512
 DIM rxPacket 512
 DIM payload 512
-
-OSBYTE=&FFF4
-OSWRCH=&FFEE
 
 FUJI_DEVICE_NETWORK=&FD
 
@@ -23,22 +17,18 @@ NET_CMD_INFO=&05
 
 NET_METHOD_GET=&01
 
-NET_FLAG_TLS=&01
-NET_FLAG_FOLLOW_REDIRECTS=&02
-NET_FLAG_BODY_IS_CHUNKED_OR_UNKNOWN=&04
 NET_FLAG_ALLOW_EVICT=&08
 
 NET_STATUS_OK=0
 NET_STATUS_DEVICE_BUSY=3
 NET_STATUS_NOT_READY=4
-DEBUG%=TRUE
 
 SLIP_END=&C0
 SLIP_ESCAPE=&DB
 SLIP_ESC_END=&DC
 SLIP_ESC_ESC=&DD
 
-PROCasmInit
+PROCinit_serial
 
 PRINT "FujiNet Network Connectivity Test"
 PRINT "================================"
@@ -61,109 +51,36 @@ REM ============================================
 REM PROCEDURE AND FUNCTION DEFINITIONS
 REM ============================================
 
-DEF PROCasmInit
-FOR I%=0 TO 2 STEP 2:P%=asmOSBYTE
-  [OPT I%
-   LDA &70
-   LDX &71
-   LDY &72
-   JSR OSBYTE
-   STA &70
-   STX &71
-   STY &72
-   RTS
-  ]
-NEXT I%
-
-FOR I%=0 TO 2 STEP 2:P%=asmOSWRCH
-  [OPT I%
-   LDA &70
-   JSR OSWRCH
-   RTS
-  ]
-NEXT I%
-
-FOR I%=0 TO 2 STEP 2:P%=asmReadChar
-  [OPT I%
-   LDA #&91
-   LDX #&01
-   LDY #&00
-   JSR OSBYTE
-   BCS no_char
-   STY &70
-   LDX #&01
-   BNE exit
-   .no_char
-   LDX #&00
-   STX &70
-   .exit
-   STX &71
-   RTS
-  ]
-NEXT I%
+DEF PROCinit_serial
+?&FE10=&00
+?&FE08=&03
+?&FE08=&15
 ENDPROC
 
-DEF PROCcallOSBYTE(op%, r1%, r2%)
-?&70=op%
-?&71=r1%
-?&72=r2%
-CALL asmOSBYTE
+DEF PROCflush_serial_input
+LOCAL byte%, limit%
+limit%=1024
+FOR byte%=1 TO limit%
+  IF (?&FE08 AND &01)=0 THEN ENDPROC
+  byte%=?&FE09
+NEXT byte%
 ENDPROC
 
-DEF PROCcallOSWRCH(c%)
-?&70=c%
-CALL asmOSWRCH
+DEF PROCwait_tx_ready
+REPEAT UNTIL (?&FE08 AND &02)<>0
 ENDPROC
 
-DEF FNcallReadChar
-CALL asmReadChar
-=?&71
+DEF FNread_acia_byte
+IF (?&FE08 AND &01)=0 THEN =-1
+=?&FE09
 
-DEF FNread_serial_byte
-LOCAL status%
-status%=FNcallReadChar
-IF status%=0 THEN =-1
-=?&70
-
-DEF PROCsetup_serial_ports
-PROCcallOSBYTE(7, 8, 0)
-PROCcallOSBYTE(8, 8, 0)
-PROCcallOSBYTE(3, 3, 0)
-PROCcallOSBYTE(2, 1, 0)
-PROCcallOSBYTE(21, 0, 0)
-PROCcallOSBYTE(21, 1, 0)
-ENDPROC
-
-DEF PROCreset_serial_to_screen
-PROCcallOSBYTE(3, 0, 0)
-PROCcallOSBYTE(2, 0, 0)
-ENDPROC
-
-DEF PROCdebug(msg$)
-IF DEBUG%=FALSE THEN ENDPROC
-PROCreset_serial_to_screen
-PRINT msg$
-ENDPROC
-
-DEF PROCdebug_num(label$, value%)
-IF DEBUG%=FALSE THEN ENDPROC
-PROCreset_serial_to_screen
-PRINT label$;value%
-ENDPROC
-
-DEF PROCdebug_hex(label$, value%)
-IF DEBUG%=FALSE THEN ENDPROC
-PROCreset_serial_to_screen
-PRINT label$;~value%
-ENDPROC
-
-DEF FNcheck_rs423_buffer
-PROCcallOSBYTE(&80, &FE, &FF)
-=?&71
-
-DEF FNcheck_rs423_buffer_y
-PROCcallOSBYTE(&80, &FE, &FF)
-=?&72
+DEF FNwait_acia_byte(limit%)
+LOCAL tries%, byte%
+FOR tries%=1 TO limit%
+  byte%=FNread_acia_byte
+  IF byte%>=0 THEN =byte%
+NEXT tries%
+=-1
 
 DEF FNchecksum(buf, len%)
 LOCAL chk%, I%
@@ -218,69 +135,51 @@ txPacket?4=FNchecksum(txPacket, total_len%)
 =total_len%
 
 DEF PROCsend_slip_byte(byte%)
-IF byte%=SLIP_END THEN PROCcallOSWRCH(SLIP_ESCAPE):PROCcallOSWRCH(SLIP_ESC_END):ENDPROC
-IF byte%=SLIP_ESCAPE THEN PROCcallOSWRCH(SLIP_ESCAPE):PROCcallOSWRCH(SLIP_ESC_ESC):ENDPROC
-PROCcallOSWRCH(byte%)
+IF byte%=SLIP_END THEN PROCwait_tx_ready:?&FE09=SLIP_ESCAPE:PROCwait_tx_ready:?&FE09=SLIP_ESC_END:ENDPROC
+IF byte%=SLIP_ESCAPE THEN PROCwait_tx_ready:?&FE09=SLIP_ESCAPE:PROCwait_tx_ready:?&FE09=SLIP_ESC_ESC:ENDPROC
+PROCwait_tx_ready
+?&FE09=byte%
 ENDPROC
 
 DEF PROCsend_slip_frame(buf, len%)
 LOCAL I%
-PROCsetup_serial_ports
-PROCcallOSWRCH(SLIP_END)
+PROCflush_serial_input
+PROCwait_tx_ready
+?&FE09=SLIP_END
 FOR I%=0 TO len%-1
   PROCsend_slip_byte(buf?I%)
 NEXT I%
-PROCcallOSWRCH(SLIP_END)
-PROCreset_serial_to_screen
+PROCwait_tx_ready
+?&FE09=SLIP_END
 ENDPROC
-
-DEF FNwait_for_serial_byte(limit%)
-LOCAL tries%, count%, county%, byte%
-FOR tries%=1 TO limit%
-  count%=FNcheck_rs423_buffer
-  county%=FNcheck_rs423_buffer_y
-  IF DEBUG%=TRUE AND (count%<>0 OR county%<>0) THEN PROCdebug_num("buf x=", count%):PROCdebug_num("buf y=", county%)
-  IF count%>0 THEN byte%=FNread_serial_byte:IF byte%>=0 THEN =byte%
-NEXT tries%
-=-1
-
-DEF FNwait_for_serial_byte_debug(limit%, tag$)
-LOCAL byte%
-byte%=FNwait_for_serial_byte(limit%)
-IF DEBUG%=TRUE THEN IF byte%<0 THEN PROCdebug(tag$+" timeout") ELSE PROCdebug_hex(tag$+" byte=", byte%)
-=byte%
 
 DEF FNread_slip_frame
 LOCAL rx_len%, in_frame%, escape%, byte%
 rx_len%=0
 in_frame%=FALSE
 escape%=FALSE
-PROCsetup_serial_ports
-PROCdebug("Waiting for SLIP frame")
 REPEAT
-  IF in_frame%=FALSE THEN byte%=FNwait_for_serial_byte_debug(65000, "pre") ELSE byte%=FNwait_for_serial_byte_debug(2000, "frm")
-  IF byte%<0 THEN PROCreset_serial_to_screen:=0
-  IF in_frame%=FALSE THEN IF byte%=SLIP_END THEN in_frame%=TRUE:PROCdebug("Saw SLIP start"):GOTO 400
-  IF in_frame%=FALSE THEN GOTO 400
-  IF escape%=TRUE THEN GOTO 500
-  IF byte%=SLIP_END THEN IF rx_len%>0 THEN PROCdebug_num("Frame length=", rx_len%):PROCreset_serial_to_screen:=rx_len% ELSE PROCdebug("Ignoring empty END"):GOTO 400
-  IF byte%=SLIP_ESCAPE THEN escape%=TRUE:PROCdebug("Saw ESC"):GOTO 400
-  IF rx_len%>=512 THEN PROCdebug("RX buffer full"):PROCreset_serial_to_screen:=0
+  IF in_frame%=FALSE THEN byte%=FNwait_acia_byte(1000) ELSE byte%=FNwait_acia_byte(200)
+  IF byte%<0 THEN =0
+  IF in_frame%=FALSE THEN IF byte%=SLIP_END THEN in_frame%=TRUE:GOTO 800
+  IF in_frame%=FALSE THEN GOTO 800
+  IF escape%=TRUE THEN GOTO 900
+  IF byte%=SLIP_END THEN IF rx_len%>0 THEN =rx_len% ELSE GOTO 800
+  IF byte%=SLIP_ESCAPE THEN escape%=TRUE:GOTO 800
+  IF rx_len%>=512 THEN =0
   rxPacket?rx_len%=byte%
   rx_len%=rx_len%+1
-  400 REM loop
+  800 REM loop
 UNTIL FALSE
-500 IF byte%=SLIP_ESC_END THEN byte%=SLIP_END ELSE IF byte%=SLIP_ESC_ESC THEN byte%=SLIP_ESCAPE ELSE PROCdebug("Bad escape"):PROCreset_serial_to_screen:=0
+900 IF byte%=SLIP_ESC_END THEN byte%=SLIP_END ELSE IF byte%=SLIP_ESC_ESC THEN byte%=SLIP_ESCAPE ELSE =0
 escape%=FALSE
+IF rx_len%>=512 THEN =0
 rxPacket?rx_len%=byte%
 rx_len%=rx_len%+1
-GOTO 400
+GOTO 800
 
 DEF FNpacket_total_len
 =FNget_u16le(rxPacket, 2)
-
-DEF FNpacket_payload_len
-=FNpacket_total_len-6
 
 DEF FNpacket_checksum_ok
 LOCAL pkt_len%, expected%, actual%
@@ -292,43 +191,15 @@ rxPacket?4=expected%
 =actual%=expected%
 
 DEF FNpacket_status
-LOCAL descr%, param_offset%
-descr%=rxPacket?5
-IF descr%<>1 THEN =-1
-param_offset%=6
-=rxPacket?param_offset%
-
-DEF PROCprint_packet_header
-PRINT "Device:   ";~rxPacket?0
-PRINT "Command:  ";~rxPacket?1
-PRINT "Length:   ";FNpacket_total_len
-PRINT "Checksum: ";FNpacket_checksum_ok
-PRINT "Descr:    ";~rxPacket?5
-ENDPROC
-
-DEF PROCprint_ascii_from_payload(offset%, count%)
-LOCAL I%, byte%
-FOR I%=0 TO count%-1
-  byte%=rxPacket?(offset%+I%)
-  IF byte%>=32 AND byte%<127 THEN PRINT CHR$(byte%); ELSE PRINT ".";
-NEXT I%
-PRINT
-ENDPROC
+IF rxPacket?5<>1 THEN =-1
+=rxPacket?6
 
 DEF FNsend_request_expect(command%, payload_len%)
 LOCAL tx_len%, rx_len%
 tx_len%=FNbuild_fujibus_packet(FUJI_DEVICE_NETWORK, command%, payload_len%)
-PROCdebug_hex("TX cmd=", command%)
-PROCdebug_num("TX payload len=", payload_len%)
-PROCdebug_num("TX packet len=", tx_len%)
 PROCsend_slip_frame(txPacket, tx_len%)
-PROCdebug("Frame sent")
 rx_len%=FNread_slip_frame
-PROCdebug_num("RX frame len=", rx_len%)
 IF rx_len%=0 THEN =FALSE
-PROCdebug_hex("RX dev=", rxPacket?0)
-PROCdebug_hex("RX cmd=", rxPacket?1)
-PROCdebug_num("RX total len=", FNpacket_total_len)
 IF rxPacket?0<>FUJI_DEVICE_NETWORK THEN =FALSE
 IF rxPacket?1<>command% THEN =FALSE
 IF FNpacket_checksum_ok=FALSE THEN =FALSE
@@ -339,9 +210,9 @@ LOCAL tries%, status%
 FOR tries%=1 TO retries%
   IF FNsend_request_expect(command%, payload_len%)=FALSE THEN =FALSE
   status%=FNpacket_status
-  IF status%=NET_STATUS_DEVICE_BUSY OR status%=NET_STATUS_NOT_READY THEN GOTO 800
+  IF status%=NET_STATUS_DEVICE_BUSY OR status%=NET_STATUS_NOT_READY THEN GOTO 1000
   =TRUE
-  800 REM retry
+  1000 REM retry
 NEXT tries%
 =TRUE
 
@@ -398,23 +269,11 @@ DEF FNopen_handle_from_response
 DEF FNopen_accepted
 =((rxPacket?8 AND 1)<>0)
 
-DEF FNopen_needs_body_write
-=((rxPacket?8 AND 2)<>0)
-
 DEF FNinfo_http_status
 =FNget_u16le(rxPacket, 13)
 
 DEF FNinfo_header_len
 =FNget_u16le(rxPacket, 23)
-
-DEF PROCprint_info_response
-LOCAL header_len%
-PRINT "Info handle:       ";FNget_u16le(rxPacket, 11)
-PRINT "Info http status:  ";FNinfo_http_status
-header_len%=FNinfo_header_len
-PRINT "Info header bytes: ";header_len%
-IF header_len%>0 THEN PROCprint_ascii_from_payload(25, header_len%)
-ENDPROC
 
 DEF FNwrite_bytes_written
 =FNget_u16le(rxPacket, 17)
@@ -428,28 +287,33 @@ DEF FNread_response_data_len
 DEF FNread_response_eof
 =((rxPacket?8 AND 1)<>0)
 
-DEF PROCprint_read_chunk
-LOCAL data_len%
-data_len%=FNread_response_data_len
-IF data_len%>0 THEN PROCprint_ascii_from_payload(19, data_len%)
+DEF PROCprint_ascii_from_payload(offset%, count%)
+LOCAL I%, byte%
+FOR I%=0 TO count%-1
+  byte%=rxPacket?(offset%+I%)
+  IF byte%>=32 AND byte%<127 THEN PRINT CHR$(byte%); ELSE PRINT ".";
+NEXT I%
+PRINT
 ENDPROC
 
 DEF FNnetwork_open(method%, flags%, url$, body_len_hint%)
 LOCAL payload_len%
 payload_len%=FNbuild_open_payload(method%, flags%, url$, body_len_hint%)
-PROCdebug_num("OPEN payload len=", payload_len%)
 IF FNsend_request_retry(NET_CMD_OPEN, payload_len%, 100)=FALSE THEN =-1
-PROCdebug_num("OPEN status=", FNpacket_status)
 IF FNpacket_status<>NET_STATUS_OK THEN =-1
 IF FNopen_accepted=FALSE THEN =-1
 =FNopen_handle_from_response
 
 DEF PROCnetwork_info(handle%)
-LOCAL payload_len%
+LOCAL payload_len%, header_len%
 payload_len%=FNbuild_info_payload(handle%)
 IF FNsend_request_retry(NET_CMD_INFO, payload_len%, 100)=FALSE THEN PRINT "INFO failed":ENDPROC
 IF FNpacket_status<>NET_STATUS_OK THEN PRINT "INFO status: ";FNpacket_status:ENDPROC
-PROCprint_info_response
+PRINT "Info handle:       ";FNget_u16le(rxPacket, 11)
+PRINT "Info http status:  ";FNinfo_http_status
+header_len%=FNinfo_header_len
+PRINT "Info header bytes: ";header_len%
+IF header_len%>0 THEN PROCprint_ascii_from_payload(25, header_len%)
 ENDPROC
 
 DEF PROCnetwork_close(handle%)
@@ -477,7 +341,7 @@ REPEAT
   data_len%=FNread_response_data_len
   eof%=FNread_response_eof
   PRINT "Read offset: ";echo_offset%;" len: ";data_len%;" eof: ";eof%
-  PROCprint_read_chunk
+  IF data_len%>0 THEN PROCprint_ascii_from_payload(19, data_len%)
   offset32%=offset32%+data_len%
 UNTIL eof%
 ENDPROC
