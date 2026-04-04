@@ -120,8 +120,9 @@ FN_PARAMS_OFFSET = 4
 ; at PWS+0 until responses are streamed or split.
 FUJI_PWS_PACKET_OFFSET = 0
 FUJI_PWS_PACKET_SIZE = 280
-FUJI_PWS_STRINGS_OFFSET = 280   ; start of reserved region ( bytes left in 512-byte PWS)
+FUJI_FS_URI_OFFSET = 280
 FN_MAX_PACKET_SIZE = FUJI_PWS_PACKET_SIZE
+
 FN_PROTOCOL_VERSION = $01
 
 .endif

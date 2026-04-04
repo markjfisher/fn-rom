@@ -491,7 +491,7 @@ fuji_block_size         = fuji_static_workspace + $23  ; Block size (2 bytes)
 fuji_current_sector     = fuji_static_workspace + $25  ; Current sector being accessed (2 bytes)
 
 ; Current filesystem selection state for URI-based commands
-fuji_current_fs_len     = fuji_static_workspace + $27  ; Current filesystem URI length
+fuji_current_fs_len     = fuji_static_workspace + $27  ; Current filesystem URI length (host + path)
 fuji_current_dir_len    = fuji_static_workspace + $28  ; Current directory length
 ; this doesn't look like it's used: is it a dupe of fuji_disk_slot?
 fuji_current_mount_slot = fuji_static_workspace + $29  ; Current FujiNet persisted mount slot (0-based)
@@ -601,6 +601,7 @@ fuji_ch_sect_hi         = fuji_channel_start + $1D  ; buffer sector high
 
 ; these should be the claimed pages from PWS (usually 1700-18FF)
 
+; THIS IS BEING REMOVED, ONLY KEEPING FS_URI AND A LENGTH OF THE PATH PART
 ; 80 byte buffer for current HOST string.
 ; Keep this aligned with [`FUJI_CURRENT_HOST_URI`](src/fujibus_c.h:26) used by the C path.
 fuji_current_host_uri  = fuji_workspace + $01B0

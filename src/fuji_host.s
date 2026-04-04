@@ -119,14 +119,14 @@ fuji_get_host_data:
 ; Serial interface - call C implementation
         .import _fujibus_resolve_path
 
+; For serial, set host is the same as resolve path (validates and stores)
 fuji_resolve_path_data:
-        jmp     _fujibus_resolve_path
-
 fuji_set_host_data:
-        ; For serial, set host is the same as resolve path (validates and stores)
         jmp     _fujibus_resolve_path
 
 fuji_get_host_data:
+        ; TODO: do we need to do anything here when change to a single string and offsets for path?
+        ; I don't see the need for host_uri anymore
         ; For serial, the host is stored locally in BBC memory (FUJI_CURRENT_HOST_URI/LEN)
         ; No FujiNet command needed - just return success
         lda     #$01

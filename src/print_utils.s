@@ -192,7 +192,7 @@ print_nibble_print_string:
         ; ... fall into print_string
 
 ; Print a string terminated by bit 7 set (MMFS style)
-; String address is on stack, uses ZP $AE $AF $B3
+; String address is on stack, uses ZP $AE $AF $B3 (cws_tmp7, cws_tmp8, aws_tmp_03)
 ; Exit: AXY preserved, C=0
 print_string:
         sta     aws_tmp03               ; Save A

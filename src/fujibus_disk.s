@@ -343,81 +343,97 @@ _fujibus_disk_read_sector:
 ; Packet is built in buffer: 14-byte header then 256 bytes from (data_ptr).
 ; Checksum and SLIP are computed over the full 270 bytes without copying the sector into RAM.
 
+; header bytes are:
+; FC (disk) 04 (write sector), length 0E 01, 00, 00, 01 (protocol version), disk_slot+1, 
+
 _fujibus_disk_write_sector:
         lda     #FN_DEVICE_DISK
         ldy     #$00
         sta     (buffer_ptr),y
 
         lda     #DISK_CMD_WRITE_SECTOR
-        ldy     #$01
+        iny                                     ; Y = 1
         sta     (buffer_ptr),y
 
-        lda     #$0E                    ; 270 = $010E
-        ldy     #$02
+        ; length
+        lda     #$0E                            ; 270 = $010E
+        iny                                     ; Y = 2
         sta     (buffer_ptr),y
+        ; while A is 0E, store it in tmp02 for first checksum
+        sta     aws_tmp02
+
         lda     #$01
-        ldy     #$03
+        iny                                     ; Y = 3
         sta     (buffer_ptr),y
 
+        ; 
         lda     #$00
-        ldy     #$04
+        iny                                     ; Y = 4
         sta     (buffer_ptr),y
-        ldy     #$05
+        iny                                     ; Y = 5
         sta     (buffer_ptr),y
 
         lda     #FN_PROTOCOL_VERSION
-        ldy     #$06
+        iny                                     ; Y = 6
         sta     (buffer_ptr),y
 
         lda     fuji_disk_slot
         clc
         adc     #$01
-        ldy     #$07
+        iny                                     ; Y = 7
         sta     (buffer_ptr),y
 
         lda     fuji_current_sector
-        ldy     #$08
+        iny                                     ; Y = 8
         sta     (buffer_ptr),y
 
         lda     fuji_current_sector+1
-        ldy     #$09
+        iny                                     ; Y = 9
         sta     (buffer_ptr),y
 
+        ; I don't think it's worth putting this into the previous section where A=00, as we'd end up doing multiple ldy commands so we lose clarity and don't save any bytes
         lda     #$00
-        ldy     #$0A
+        iny                                     ; Y = 10
         sta     (buffer_ptr),y
-        ldy     #$0B
+        iny                                     ; Y = 11
         sta     (buffer_ptr),y
-        ldy     #$0C
+        iny                                     ; Y = 12
         sta     (buffer_ptr),y
+
+        ; whilc A = 0, write tmp03 for the hi byte of the checksum length, so save a few bytes
+        sta     aws_tmp03
 
         lda     #$01
-        ldy     #$0D
+        iny                                     ; Y = 13
         sta     (buffer_ptr),y
 
-        ; Checksum over 14 header bytes then 256 from (data_ptr)
+        ; Checksum over 14 header bytes from (buffer_ptr) then 256 from (data_ptr)
         lda     buffer_ptr
         sta     aws_tmp00
         lda     buffer_ptr+1
         sta     aws_tmp01
-        lda     #$0E
-        sta     aws_tmp02
-        lda     #$00
-        sta     aws_tmp03
+
+        ; already set above for both these bytes
+        ; lda     #$0E
+        ; sta     aws_tmp02
+        ; lda     #$00
+        ; sta     aws_tmp03
         jsr     calc_checksum
 
         lda     data_ptr
         sta     aws_tmp00
         lda     data_ptr+1
         sta     aws_tmp01
-        lda     #$00
-        sta     aws_tmp02
-        lda     #$01
-        sta     aws_tmp03
+
+        ; tmp02/03 are both currently 00 from the previous checksum calculation
+        ; so just inc aws_tmp03 to 1, so we have 256 in 02/03
+        inc     aws_tmp03
         jsr     calc_checksum_continue
 
+        ; write checksum to byte 4
         ldy     #$04
         sta     (buffer_ptr),y
+
 
         lda     buffer_ptr
         sta     aws_tmp00
@@ -447,7 +463,8 @@ _fujibus_disk_write_sector:
 
         cmp     #$07
         bcc     @ws_fail
-        bcs     @ws_check_status
+        ; fall through to status check
+        ; bcs     @ws_check_status
 
 @ws_check_minlen:
 @ws_check_status:
@@ -455,28 +472,29 @@ _fujibus_disk_write_sector:
         lda     (buffer_ptr),y
         bne     @ws_fail
 
-        lda     #$01
         ldx     #$00
+        lda     #$01
         rts
 
 @ws_fail:
-        lda     #$00
         ldx     #$00
+        txa
         rts
 
 ; bool fujibus_resolve_path(void)
 
 _fujibus_resolve_path:
-        lda     fuji_current_host_len
-        ldy     #$07
-        sta     (buffer_ptr),y
 
         lda     #FN_PROTOCOL_VERSION
         ldy     #$06
         sta     (buffer_ptr),y
 
+        lda     fuji_current_host_len
+        iny                                     ; y = 7
+        sta     (buffer_ptr),y
+
         lda     #$00
-        ldy     #$08
+        iny                                     ; y = 8
         sta     (buffer_ptr),y
 
         lda     buffer_ptr
@@ -596,12 +614,14 @@ _fujibus_resolve_path:
         inx
         bne     @copy_dir_path
 
+; this function isn't called by C, so don't need to worry about X value
+
 @rp_success:
         lda     #$01
-        ldx     #$00
+        ; ldx     #$00
         rts
 
 @rp_fail:
         lda     #$00
-        ldx     #$00
+        ; ldx     #$00
         rts

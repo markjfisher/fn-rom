@@ -1,6 +1,7 @@
 ; Workspace utility functions
         .export save_static_to_private_workspace
         .export set_fuji_data_buffer_ptr
+        .export set_fuji_fs_uri_ptr
         .export _fuji_data_buffer_ptr
 
         .import  remember_axy
@@ -14,22 +15,32 @@
 
         .segment "CODE"
 
-; Set buffer_ptr to PWS + FUJI_PWS_PACKET_OFFSET (FujiBus RX/TX packet buffer).
+; Set buffer_ptr to PWS (FujiBus RX/TX packet buffer is at location 0).
 set_fuji_data_buffer_ptr:
         jsr     set_private_workspace_pointer_b0
         lda     aws_tmp00
-        clc
-        adc     #<FUJI_PWS_PACKET_OFFSET
         sta     buffer_ptr
         lda     aws_tmp01
-        adc     #>FUJI_PWS_PACKET_OFFSET
         sta     buffer_ptr+1
         rts
 
+; Set buffer_ptr to PWS + FUJI_PWS_PACKET_OFFSET (FujiBus RX/TX packet buffer).
+; THIS IS OPTIMIZED TO USE THE FACT THE WHOLE BUFFER STARTS ON A PAGE BOUNDARY
+set_fuji_fs_uri_ptr:
+        jsr     set_fuji_data_buffer_ptr
 
+        ; directly add 280, the FUJI_PWS_PACKET_SIZE, just inc the high byte, then add 280-256 = 24
+        ; and use the fact we know buffer_ptr lower byte is 0 from being on a boundary, so just need to set it rather than add
+        inc     buffer_ptr+1
+        lda     #24
+        sta     buffer_ptr
+        rts
 
 ; uint8_t *fuji_data_buffer_ptr(void);  return in A/X
+; used by C functions to get the buffer_ptr
 _fuji_data_buffer_ptr:
+        ; ensure it's set correctly first
+        jsr     set_fuji_data_buffer_ptr
         lda     buffer_ptr
         ldx     buffer_ptr+1
         rts

@@ -83,7 +83,7 @@ disk_trap_option:
 
         dbg_string_axy "OPT: Disk trap, check Y: "
 
-        tya                            ; A = Y (*OPT 5,Y value)
+        tya                            ; A = Y (*OPT 5,Y value), sets Z if Y was 0
         php                            ; Save Y=0 flag
         ldx     paged_ram_copy         ; Get current ROM number
         lda     paged_rom_priv_ws,x    ; Get current flags
