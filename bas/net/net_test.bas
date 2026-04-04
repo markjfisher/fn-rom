@@ -1,9 +1,19 @@
 REM filename: NETEST
-REM FujiNet network connectivity test using direct ACIA serial I/O
+REM FujiNet network connectivity test using ROM-style RS423 access
+
+DIM asmOSBYTE 32
+DIM asmOSWRCH 8
+DIM asmSerialSetup 64
+DIM asmSerialRestore 32
+DIM asmCheckRS423 24
+DIM asmReadRS423 32
 
 DIM txPacket 512
 DIM rxPacket 512
 DIM payload 512
+
+OSBYTE=&FFF4
+OSWRCH=&FFEE
 
 FUJI_DEVICE_NETWORK=&FD
 
@@ -28,7 +38,7 @@ SLIP_ESCAPE=&DB
 SLIP_ESC_END=&DC
 SLIP_ESC_ESC=&DD
 
-PROCinit_serial
+PROCasmInit
 
 PRINT "FujiNet Network Connectivity Test"
 PRINT "================================"
@@ -51,34 +61,125 @@ REM ============================================
 REM PROCEDURE AND FUNCTION DEFINITIONS
 REM ============================================
 
-DEF PROCinit_serial
-?&FE10=&00
-?&FE08=&03
-?&FE08=&15
+DEF PROCasmInit
+FOR I%=0 TO 2 STEP 2:P%=asmOSBYTE
+  [OPT I%
+   LDA &70
+   LDX &71
+   LDY &72
+   JSR OSBYTE
+   STA &70
+   STX &71
+   STY &72
+   RTS
+  ]
+NEXT I%
+
+FOR I%=0 TO 2 STEP 2:P%=asmOSWRCH
+  [OPT I%
+   LDA &70
+   JSR OSWRCH
+   RTS
+  ]
+NEXT I%
+
+FOR I%=0 TO 2 STEP 2:P%=asmSerialSetup
+  [OPT I%
+   LDX #&08
+   LDY #&00
+   LDA #&07
+   JSR OSBYTE
+   LDX #&08
+   LDY #&00
+   LDA #&08
+   JSR OSBYTE
+   LDX #&01
+   LDY #&00
+   LDA #&02
+   JSR OSBYTE
+   LDX #&03
+   LDY #&00
+   LDA #&03
+   JSR OSBYTE
+   LDX #&01
+   LDY #&00
+   LDA #&15
+   JSR OSBYTE
+   RTS
+  ]
+NEXT I%
+
+FOR I%=0 TO 2 STEP 2:P%=asmSerialRestore
+  [OPT I%
+   LDX #&00
+   LDY #&00
+   LDA #&03
+   JSR OSBYTE
+   LDX #&00
+   LDY #&00
+   LDA #&02
+   JSR OSBYTE
+   RTS
+  ]
+NEXT I%
+
+FOR I%=0 TO 2 STEP 2:P%=asmCheckRS423
+  [OPT I%
+   LDA #&80
+   LDX #&FE
+   LDY #&FF
+   JSR OSBYTE
+   STX &70
+   RTS
+  ]
+NEXT I%
+
+FOR I%=0 TO 2 STEP 2:P%=asmReadRS423
+  [OPT I%
+   LDA #&91
+   LDX #&01
+   LDY #&00
+   JSR OSBYTE
+   BCS nochar
+   STY &70
+   LDA #&01
+   STA &71
+   RTS
+   .nochar
+   LDA #&00
+   STA &71
+   RTS
+  ]
+NEXT I%
 ENDPROC
 
-DEF PROCflush_serial_input
-LOCAL byte%, limit%
-limit%=1024
-FOR byte%=1 TO limit%
-  IF (?&FE08 AND &01)=0 THEN ENDPROC
-  byte%=?&FE09
-NEXT byte%
+DEF PROCcallOSWRCH(c%)
+?&70=c%
+CALL asmOSWRCH
 ENDPROC
 
-DEF PROCwait_tx_ready
-REPEAT UNTIL (?&FE08 AND &02)<>0
+DEF PROCserial_setup
+CALL asmSerialSetup
 ENDPROC
 
-DEF FNread_acia_byte
-IF (?&FE08 AND &01)=0 THEN =-1
-=?&FE09
+DEF PROCserial_restore
+CALL asmSerialRestore
+ENDPROC
 
-DEF FNwait_acia_byte(limit%)
-LOCAL tries%, byte%
+DEF FNcheck_rs423_count
+CALL asmCheckRS423
+=?&70
+
+DEF FNread_rs423_byte
+CALL asmReadRS423
+IF ?&71=0 THEN =-1
+=?&70
+
+DEF FNwait_rs423_byte(limit%)
+LOCAL tries%, count%, byte%
 FOR tries%=1 TO limit%
-  byte%=FNread_acia_byte
-  IF byte%>=0 THEN =byte%
+  count%=FNcheck_rs423_count
+  IF count%>0 THEN byte%=FNread_rs423_byte:IF byte%>=0 THEN =byte%
 NEXT tries%
 =-1
 
@@ -135,22 +236,20 @@ txPacket?4=FNchecksum(txPacket, total_len%)
 =total_len%
 
 DEF PROCsend_slip_byte(byte%)
-IF byte%=SLIP_END THEN PROCwait_tx_ready:?&FE09=SLIP_ESCAPE:PROCwait_tx_ready:?&FE09=SLIP_ESC_END:ENDPROC
-IF byte%=SLIP_ESCAPE THEN PROCwait_tx_ready:?&FE09=SLIP_ESCAPE:PROCwait_tx_ready:?&FE09=SLIP_ESC_ESC:ENDPROC
-PROCwait_tx_ready
-?&FE09=byte%
+IF byte%=SLIP_END THEN PROCcallOSWRCH(SLIP_ESCAPE):PROCcallOSWRCH(SLIP_ESC_END):ENDPROC
+IF byte%=SLIP_ESCAPE THEN PROCcallOSWRCH(SLIP_ESCAPE):PROCcallOSWRCH(SLIP_ESC_ESC):ENDPROC
+PROCcallOSWRCH(byte%)
 ENDPROC
 
 DEF PROCsend_slip_frame(buf, len%)
 LOCAL I%
-PROCflush_serial_input
-PROCwait_tx_ready
-?&FE09=SLIP_END
+PROCserial_setup
+PROCcallOSWRCH(SLIP_END)
 FOR I%=0 TO len%-1
   PROCsend_slip_byte(buf?I%)
 NEXT I%
-PROCwait_tx_ready
-?&FE09=SLIP_END
+PROCcallOSWRCH(SLIP_END)
+PROCserial_restore
 ENDPROC
 
 DEF FNread_slip_frame
@@ -158,22 +257,23 @@ LOCAL rx_len%, in_frame%, escape%, byte%
 rx_len%=0
 in_frame%=FALSE
 escape%=FALSE
+PROCserial_setup
 REPEAT
-  IF in_frame%=FALSE THEN byte%=FNwait_acia_byte(1000) ELSE byte%=FNwait_acia_byte(200)
-  IF byte%<0 THEN =0
+  IF in_frame%=FALSE THEN byte%=FNwait_rs423_byte(65000) ELSE byte%=FNwait_rs423_byte(2000)
+  IF byte%<0 THEN PROCserial_restore:=0
   IF in_frame%=FALSE THEN IF byte%=SLIP_END THEN in_frame%=TRUE:GOTO 800
   IF in_frame%=FALSE THEN GOTO 800
   IF escape%=TRUE THEN GOTO 900
-  IF byte%=SLIP_END THEN IF rx_len%>0 THEN =rx_len% ELSE GOTO 800
+  IF byte%=SLIP_END THEN IF rx_len%>0 THEN PROCserial_restore:=rx_len% ELSE GOTO 800
   IF byte%=SLIP_ESCAPE THEN escape%=TRUE:GOTO 800
-  IF rx_len%>=512 THEN =0
+  IF rx_len%>=512 THEN PROCserial_restore:=0
   rxPacket?rx_len%=byte%
   rx_len%=rx_len%+1
   800 REM loop
 UNTIL FALSE
-900 IF byte%=SLIP_ESC_END THEN byte%=SLIP_END ELSE IF byte%=SLIP_ESC_ESC THEN byte%=SLIP_ESCAPE ELSE =0
+900 IF byte%=SLIP_ESC_END THEN byte%=SLIP_END ELSE IF byte%=SLIP_ESC_ESC THEN byte%=SLIP_ESCAPE ELSE PROCserial_restore:=0
 escape%=FALSE
-IF rx_len%>=512 THEN =0
+IF rx_len%>=512 THEN PROCserial_restore:=0
 rxPacket?rx_len%=byte%
 rx_len%=rx_len%+1
 GOTO 800
