@@ -1,9 +1,9 @@
 REM filename: NETEST
 REM FujiNet network connectivity test using single asm send/receive transaction
 
-DIM asmOSBYTE 32
+DIM asmOSBYTE 20
 DIM asmOSWRCH 8
-DIM asmTransaction 420
+DIM asmTransaction 396
 
 TX_BUFFER_SIZE%=160
 RX_BUFFER_SIZE%=160
@@ -195,6 +195,10 @@ FOR I%=0 TO 2 STEP 2:P%=asmTransaction
    LDY #&00
    STY &7E
    STY &7F
+   LDA &76
+   STA &7A
+   LDA &77
+   STA &7B
 
    .send_loop
    LDA &7E
@@ -204,15 +208,12 @@ FOR I%=0 TO 2 STEP 2:P%=asmTransaction
    CMP &75
    BEQ send_done
    .send_more
-   LDA &76
-   CLC
-   ADC &7E
-   STA &7A
-   LDA &77
-   ADC &7F
-   STA &7B
    LDA (&7A),Y
    JSR send_slip_byte
+   INC &7A
+   BNE send_ptr_ok
+   INC &7B
+   .send_ptr_ok
    INC &7E
    BNE send_loop
    INC &7F
@@ -226,37 +227,41 @@ FOR I%=0 TO 2 STEP 2:P%=asmTransaction
    STY &7E
    STY &7F
    STY &78
+   LDA &70
+   STA &7A
+   LDA &71
+   STA &7B
 
    LDA #0
    STA &7C
-   LDA #&4F   \ 20k attempts
+   LDA #&4F   \ timeout: 20k
    STA &7D
 
    .wait_start
    JSR wait_for_char
    CPX #&01
    BEQ have_start_ok
-   JMP trans_fail
+   BNE trans_fail
    .have_start_ok
    CMP #SLIP_END
    BNE wait_start
 
    LDA #0
    STA &7C
-   LDA #&08     \ 2048 attempts after initial
+   LDA #&08     \ timeout: 2k
    STA &7D
 
    .frame_loop
    JSR wait_for_char
    CPX #&01
    BEQ have_frame_ok
-   JMP trans_fail
+   BNE trans_fail
    .have_frame_ok
    STA &79
 
    LDA #0
    STA &7C
-   LDA #&02     \ 256
+   LDA #&02     \ timeout: 256
    STA &7D
 
    LDA &78
@@ -267,7 +272,14 @@ FOR I%=0 TO 2 STEP 2:P%=asmTransaction
    BEQ handle_end
    CMP #SLIP_ESCAPE
    BEQ set_escape
-   JMP store_char
+   BNE store_char
+
+   .trans_fail
+   JSR restore_screen
+   LDA #&00
+   STA &72
+   STA &73
+   RTS
 
    .escaped_char
    LDA #&00
@@ -277,55 +289,49 @@ FOR I%=0 TO 2 STEP 2:P%=asmTransaction
    BEQ unesc_end
    CMP #SLIP_ESC_ESC
    BEQ unesc_esc
-   JMP trans_fail
+   BNE trans_fail
    .unesc_end
    LDA #SLIP_END
-   BNE store_char   \ always, and is fewer bytes than JMP
+   BNE store_char
    .unesc_esc
    LDA #SLIP_ESCAPE
-   BNE store_char   \ always, and is fewer bytes than JMP
+   BNE store_char
 
    .set_escape
    LDA #&01
    STA &78
-   JMP frame_loop
+   BNE frame_loop
 
    .handle_end
    LDA &7E
    ORA &7F
    BEQ frame_loop
-   JMP trans_ok
+   BNE trans_ok
 
    .store_char
-   \ &79 holds the decoded byte to write into the rx buffer.
-   \ &70/&71 = rx buffer base pointer
-   \ &72/&73 = rx buffer capacity
-   \ &7E/&7F = current decoded length / write offset
-   \ &7A/&7B = computed write pointer = base + offset
-   LDA &7E
-   CMP &72
-   BNE store_space
-   LDA &7F
-   CMP &73
-   BEQ store_fail
-   .store_space
-   LDA &70
-   CLC
-   ADC &7E
-   STA &7A
-   LDA &71
-   ADC &7F
-   STA &7B
-   LDY #&00
-   LDA &79
-   STA (&7A),Y
-   INC &7E
-   BNE no_inc
-   INC &7F
+    \ &79 holds the decoded byte to write into the rx buffer.
+    \ &72/&73 = rx buffer capacity
+    \ &7E/&7F = current decoded length / write offset
+    \ &7A/&7B = current write pointer in rx buffer
+    LDA &7E
+    CMP &72
+    BNE store_space
+    LDA &7F
+    CMP &73
+    BEQ trans_fail
+    .store_space
+    LDY #&00
+    LDA &79
+    STA (&7A),Y
+    INC &7A
+    BNE store_ptr_ok
+    INC &7B
+    .store_ptr_ok
+    INC &7E
+    BNE no_inc
+    INC &7F
    .no_inc
    JMP frame_loop
-   .store_fail
-   JMP trans_fail
 
    .trans_ok
    JSR restore_screen
@@ -335,12 +341,6 @@ FOR I%=0 TO 2 STEP 2:P%=asmTransaction
    STA &73
    RTS
 
-   .trans_fail
-   JSR restore_screen
-   LDA #&00
-   STA &72
-   STA &73
-   RTS
   ]
 NEXT I%
 ENDPROC
