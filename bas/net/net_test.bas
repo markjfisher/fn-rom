@@ -5,8 +5,12 @@ DIM asmOSBYTE 32
 DIM asmOSWRCH 8
 DIM asmTransaction 512
 
-DIM txPacket 160
-DIM rxPacket 160
+TX_BUFFER_SIZE%=160
+RX_BUFFER_SIZE%=160
+NET_READ_SIZE%=128
+
+DIM txPacket TX_BUFFER_SIZE%
+DIM rxPacket RX_BUFFER_SIZE%
 
 OSBYTE=&FFF4
 OSWRCH=&FFEE
@@ -410,8 +414,8 @@ ENDPROC
 DEF FNtransaction(tx_len%)
 ?&70=rxPacket MOD 256
 ?&71=rxPacket DIV 256
-?&72=160 MOD 256
-?&73=160 DIV 256
+?&72=RX_BUFFER_SIZE% MOD 256
+?&73=RX_BUFFER_SIZE% DIV 256
 ?&74=tx_len% MOD 256
 ?&75=tx_len% DIV 256
 ?&76=txPacket MOD 256
@@ -583,7 +587,7 @@ DEF PROCnetwork_read_all(handle%)
 LOCAL offset32%, payload_len%, data_len%, eof%, echo_offset%, ok%
 offset32%=0
 REPEAT
-  payload_len%=FNbuild_read_payload(handle%, offset32%, 64)
+  payload_len%=FNbuild_read_payload(handle%, offset32%, NET_READ_SIZE%)
   ok%=FNsend_request_retry(NET_CMD_READ, payload_len%, 500)
   IF ok%=FALSE THEN PRINT "READ failed":ENDPROC
   IF FNpacket_status<>NET_STATUS_OK THEN PRINT "READ status: ";FNpacket_status:ENDPROC
