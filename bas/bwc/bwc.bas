@@ -1,22 +1,21 @@
 REM filename: BWC
 REM Bounce World Client proof of concept for BBC BASIC and FujiNet
 
-DIM asmOSBYTE 20
-DIM asmOSWRCH 8
 DIM asmTransaction 396
 
-TX_BUFFER_SIZE%=320
-RX_BUFFER_SIZE%=640
-TCP_READ_CHUNK%=256
-MAX_SHAPES%=50
-SHAPE_DATA_BUFFER_SIZE%=512
+TX_BUFFER_SIZE%=128
+RX_BUFFER_SIZE%=256
+RESPONSE_BUFFER_SIZE%=256
+TCP_READ_CHUNK%=240
+MAX_SHAPES%=20
+SHAPE_DATA_BUFFER_SIZE%=400
 SCREEN_WIDTH%=40
 SCREEN_HEIGHT%=25
 RD_RETRY_LIMIT%=500
 
 DIM txPacket TX_BUFFER_SIZE%
 DIM rxPacket RX_BUFFER_SIZE%
-DIM responseBuffer RX_BUFFER_SIZE%
+DIM responseBuffer RESPONSE_BUFFER_SIZE%
 DIM shapeDataBuffer SHAPE_DATA_BUFFER_SIZE%
 DIM shapeId%(MAX_SHAPES%)
 DIM shapeWidth%(MAX_SHAPES%)
@@ -74,7 +73,7 @@ IF shapeCount%>MAX_SHAPES% THEN PRINT "Too many shapes for buffers":PROCnetwork_
 
 PROCfetch_shapes(handle%, shapeCount%)
 
-PRINT
+MODE 7
 PRINT "Fetched shapes"
 PRINT "--------------"
 PROCprint_shapes_grid(shapeCount%)
@@ -96,10 +95,10 @@ ENDPROC
 
 DEF PROCget_user_input
 LOCAL in$
-PRINT "Host [";host$;"]";
+PRINT "Host (";host$;")";
 INPUT LINE in$
 IF LEN(in$)>0 THEN host$=in$
-PRINT "Name [";name$;"]";
+PRINT "Name (";name$;")";
 INPUT LINE in$
 IF LEN(in$)>0 THEN name$=LEFT$(in$,8)
 PRINT "Using host: ";host$
@@ -125,16 +124,48 @@ IF read%<>1 THEN =-1
 =responseBuffer?0
 
 DEF PROCfetch_shapes(handle%, shapeCount%)
-LOCAL cmd$, written%, read%, shapeIndex%, pos%, width%, dataLen%
+LOCAL cmd$, written%, read%, totalRead%, tries%
 shapeBytesUsed%=0
 cmd$="x-shape-data"
 written%=FNsend_tcp_command(handle%, cmd$)
 IF written%<>LEN(cmd$) THEN PRINT "WRITE failed":ENDPROC
-read%=FNtcp_read_available(handle%, responseBuffer, 0, RX_BUFFER_SIZE%)
-IF read%<=0 THEN PRINT "No shape payload":ENDPROC
+PRINT "Shape data request sent"
+totalRead%=FNtcp_read_min(handle%, responseBuffer, 0, 1, RX_BUFFER_SIZE%, RD_RETRY_LIMIT%)
+IF totalRead%<=0 THEN PRINT "No shape payload":ENDPROC
+PRINT "Received data, checking payload"
+tries%=0
+REPEAT
+  IF FNhave_complete_shape_payload(shapeCount%, totalRead%) THEN tries%=RD_RETRY_LIMIT%
+  IF FNhave_complete_shape_payload(shapeCount%, totalRead%)=FALSE THEN read%=FNtcp_read_min(handle%, responseBuffer, totalRead%, 1, RX_BUFFER_SIZE%-totalRead%, 10)
+  IF FNhave_complete_shape_payload(shapeCount%, totalRead%)=FALSE THEN IF read%>0 THEN totalRead%=totalRead%+read% ELSE tries%=tries%+1
+UNTIL tries%>=RD_RETRY_LIMIT% OR totalRead%>=RX_BUFFER_SIZE% OR FNhave_complete_shape_payload(shapeCount%, totalRead%)
+IF FNhave_complete_shape_payload(shapeCount%, totalRead%)=FALSE THEN PRINT "Short shape payload":ENDPROC
+PRINT "Received data, parsing"
+PROCparse_shapes_from_buffer(shapeCount%, totalRead%)
+PRINT "Shape bytes used: ";shapeBytesUsed%
+PRINT "Finished parsing, press a key"
+dummy%=GET
+ENDPROC
+
+DEF FNhave_complete_shape_payload(shapeCount%, totalRead%)
+LOCAL shapeIndex%, pos%, width%, dataLen%
 pos%=0
 FOR shapeIndex%=0 TO shapeCount%-1
-  IF pos%+2>read% THEN PRINT "Short shape header at ";shapeIndex%:ENDPROC
+  IF pos%+2>totalRead% THEN =FALSE
+  pos%=pos%+1
+  width%=responseBuffer?pos%
+  pos%=pos%+1
+  dataLen%=width%*width%
+  IF pos%+dataLen%>totalRead% THEN =FALSE
+  pos%=pos%+dataLen%
+NEXT
+=TRUE
+
+DEF PROCparse_shapes_from_buffer(shapeCount%, totalRead%)
+LOCAL shapeIndex%, pos%, width%, dataLen%, srcOffset%, dstOffset%, I%, ch%
+pos%=0
+shapeBytesUsed%=0
+FOR shapeIndex%=0 TO shapeCount%-1
   shapeId%(shapeIndex%)=responseBuffer?pos%
   pos%=pos%+1
   width%=responseBuffer?pos%
@@ -142,54 +173,44 @@ FOR shapeIndex%=0 TO shapeCount%-1
   shapeWidth%(shapeIndex%)=width%
   dataLen%=width%*width%
   shapeOffset%(shapeIndex%)=shapeBytesUsed%
-  IF pos%+dataLen%>read% THEN PRINT "Short shape data at ";shapeIndex%:ENDPROC
+  IF pos%+dataLen%>totalRead% THEN PRINT "Short shape data at ";shapeIndex%:ENDPROC
   IF shapeBytesUsed%+dataLen%>SHAPE_DATA_BUFFER_SIZE% THEN PRINT "Shape buffer overflow":ENDPROC
-  PROCcopy_block(responseBuffer, pos%, shapeDataBuffer, shapeBytesUsed%, dataLen%)
-  PROCconvert_shape_chars(shapeDataBuffer, shapeBytesUsed%, dataLen%)
+  srcOffset%=pos%
+  dstOffset%=shapeBytesUsed%
+  FOR I%=0 TO dataLen%-1
+    ch%=responseBuffer?(srcOffset%+I%)
+    IF ch%=114 OR ch%=41 OR ch%=76 OR ch%=33 OR ch%=74 OR ch%=116 OR ch%=84 OR ch%=50 OR ch%=43 THEN ch%=ASC("+")
+    IF ch%=97 OR ch%=98 OR ch%=99 OR ch%=100 OR ch%=105 OR ch%=106 OR ch%=107 OR ch%=108 OR ch%=109 THEN ch%=ASC("#")
+    IF ch%=101 OR ch%=102 OR ch%=103 OR ch%=104 THEN ch%=ASC(".")
+    shapeDataBuffer?(dstOffset%+I%)=ch%
+  NEXT
   shapeBytesUsed%=shapeBytesUsed%+dataLen%
   pos%=pos%+dataLen%
 NEXT
-PRINT "Shape bytes used: ";shapeBytesUsed%
 ENDPROC
 
 DEF PROCprint_shapes_grid(shapeCount%)
 LOCAL index%, baseX%, baseY%
 FOR index%=0 TO shapeCount%-1
-  baseX%=(index% MOD 4)*9
-  baseY%=(index% DIV 4)*8+2
+  baseX%=(index% MOD 6)*6
+  baseY%=(index% DIV 6)*6+2
   IF baseY%<22 THEN PROCprint_one_shape(index%, baseX%, baseY%)
 NEXT
 ENDPROC
 
 DEF PROCprint_one_shape(index%, x%, y%)
-LOCAL width%, row%, col%, dataOffset%, ch%, line$
+LOCAL width%, row%, col%, dataOffset%, ch%
 width%=shapeWidth%(index%)
 dataOffset%=shapeOffset%(index%)
 PRINT TAB(x%,y%-1);"ID ";shapeId%(index%);" W ";width%
 FOR row%=0 TO width%-1
-  line$=""
+  PRINT TAB(x%,y%+row%);
   FOR col%=0 TO width%-1
     ch%=shapeDataBuffer?(dataOffset% + row%*width% + col%)
-    line$=line$+FNmap_shape_char$(ch%)
+    PRINT CHR$(ch%);
   NEXT
-  PRINT TAB(x%,y%+row%);line$
 NEXT
 ENDPROC
-
-DEF PROCconvert_shape_chars(buf, offset%, count%)
-LOCAL i%, ch%
-FOR i%=0 TO count%-1
-  ch%=buf?(offset%+i%)
-  IF ch%=114 OR ch%=41 OR ch%=76 OR ch%=33 OR ch%=74 OR ch%=116 OR ch%=84 OR ch%=50 OR ch%=43 THEN buf?(offset%+i%)=ASC("+")
-  IF ch%=97 OR ch%=98 OR ch%=99 OR ch%=100 OR ch%=105 OR ch%=106 OR ch%=107 OR ch%=108 OR ch%=109 THEN buf?(offset%+i%)=ASC("#")
-  IF ch%=101 OR ch%=102 OR ch%=103 OR ch%=104 THEN buf?(offset%+i%)=ASC(".")
-NEXT
-ENDPROC
-
-DEF FNmap_shape_char$(ch%)
-LOCAL out$
-IF ch%>=32 AND ch%<127 THEN out$=CHR$(ch%) ELSE out$="?"
-=out$
 
 DEF FNsend_tcp_command(handle%, cmd$)
 LOCAL written%
@@ -236,6 +257,18 @@ readCursor%=readCursor%+dataLen%
 IF dataLen%=0 AND eof%=1 THEN =0
 =dataLen%
 
+DEF FNtcp_read_min(handle%, dst_buf, dst_offset%, min_len%, max_len%, retries%)
+LOCAL total%, got%, tries%
+total%=0
+tries%=0
+REPEAT
+  got%=FNtcp_read_available(handle%, dst_buf, dst_offset%+total%, max_len%-total%)
+  IF got%<0 THEN =got%
+  IF got%=0 THEN tries%=tries%+1:IF tries%<retries% THEN PROCpause
+  IF got%>0 THEN total%=total%+got%:tries%=0
+UNTIL total%>=min_len% OR tries%>=retries% OR total%>=max_len%
+=total%
+
 DEF FNnetwork_read_chunk(handle%, offset32%, max_bytes%)
 LOCAL payload_len%, ok%, status%
 payload_len%=FNbuild_read_payload(handle%, offset32%, max_bytes%)
@@ -249,7 +282,7 @@ IF status%=NET_STATUS_DEVICE_BUSY THEN =NET_STATUS_NOT_READY
 
 DEF PROCpause
 LOCAL t%
-FOR t%=1 TO 200:NEXT
+FOR t%=1 TO 20:NEXT
 ENDPROC
 
 DEF PROCput_u16le(buf, offset%, value%)
@@ -275,6 +308,7 @@ LOCAL I%
 FOR I%=1 TO LEN(text$)
   buf?(offset%+I%-1)=ASC(MID$(text$, I%, 1))
 NEXT I%
+
 ENDPROC
 
 DEF PROCcopy_block(src, src_offset%, dst, dst_offset%, count%)
@@ -443,27 +477,6 @@ CALL asmTransaction+entry-asmTransaction
 =?&72 + 256*?&73
 
 DEF PROCasmInit
-FOR I%=0 TO 2 STEP 2:P%=asmOSBYTE
-  [OPT I%
-   LDA &70
-   LDX &71
-   LDY &72
-   JSR OSBYTE
-   STA &70
-   STX &71
-   STY &72
-   RTS
-  ]
-NEXT I%
-
-FOR I%=0 TO 2 STEP 2:P%=asmOSWRCH
-  [OPT I%
-   LDA &70
-   JSR OSWRCH
-   RTS
-  ]
-NEXT I%
-
 FOR I%=0 TO 2 STEP 2:P%=asmTransaction
   [OPT I%
    .setup_serial
