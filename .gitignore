@@ -6,6 +6,8 @@ test/
 *.dsd
 /*.hex
 
+/scratch/
+
 trace_*.txt
 debug_*.txt
 

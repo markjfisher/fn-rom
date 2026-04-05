@@ -24,6 +24,7 @@ NET_CMD_READ=&02
 NET_CMD_WRITE=&03
 NET_CMD_CLOSE=&04
 NET_CMD_INFO=&05
+NET_CMD_INFO_READ=&06
 
 NET_METHOD_GET=&01
 
@@ -520,7 +521,16 @@ DEF FNinfo_http_status
 =FNget_u16le(rxPacket, 13)
 
 DEF FNinfo_header_len
-=FNget_u16le(rxPacket, 23)
+=FNget_u32le(rxPacket, 23)
+
+DEF FNinfo_read_offset
+=FNget_u32le(rxPacket, 13)
+
+DEF FNinfo_read_data_len
+=FNget_u16le(rxPacket, 17)
+
+DEF FNinfo_read_eof
+=((rxPacket?8 AND 1)<>0)
 
 DEF FNwrite_bytes_written
 =FNget_u16le(rxPacket, 17)
@@ -554,7 +564,7 @@ result%=FNopen_handle_from_response
 =result%
 
 DEF PROCnetwork_info(handle%)
-LOCAL payload_len%, header_len%, ok%
+LOCAL payload_len%, header_len%, ok%, offset32%, chunk_len%, eof%, echo_offset%
 payload_len%=FNbuild_info_payload(handle%)
 ok%=FNsend_request_retry(NET_CMD_INFO, payload_len%, 100)
 IF ok%=FALSE THEN PRINT "INFO failed":ENDPROC
@@ -563,8 +573,28 @@ PRINT "Info handle:       ";FNget_u16le(rxPacket, 11)
 PRINT "Info http status:  ";FNinfo_http_status
 header_len%=FNinfo_header_len
 PRINT "Info header bytes: ";header_len%
-IF header_len%>0 THEN PROCprint_ascii_from_payload(25, header_len%)
+offset32%=0
+IF header_len%=0 THEN ENDPROC
+REPEAT
+  payload_len%=FNbuild_info_read_payload(handle%, offset32%, NET_READ_SIZE%)
+  ok%=FNsend_request_retry(NET_CMD_INFO_READ, payload_len%, 100)
+  IF ok%=FALSE THEN PRINT "INFO_READ failed":ENDPROC
+  IF FNpacket_status<>NET_STATUS_OK THEN PRINT "INFO_READ status: ";FNpacket_status:ENDPROC
+  echo_offset%=FNinfo_read_offset
+  chunk_len%=FNinfo_read_data_len
+  eof%=FNinfo_read_eof
+  IF echo_offset%<>offset32% THEN PRINT "INFO_READ offset mismatch":ENDPROC
+  IF chunk_len%>0 THEN PROCprint_ascii_from_payload(19, chunk_len%)
+  offset32%=offset32%+chunk_len%
+UNTIL eof%
 ENDPROC
+
+DEF FNbuild_info_read_payload(handle%, offset32%, max_bytes%)
+txPacket?6=NETPROTO_VERSION
+PROCput_u16le(txPacket, 7, handle%)
+PROCput_u32le(txPacket, 9, offset32%)
+PROCput_u16le(txPacket, 13, max_bytes%)
+=9
 
 DEF PROCnetwork_close(handle%)
 LOCAL payload_len%, ok%
