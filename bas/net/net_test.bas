@@ -5,9 +5,8 @@ DIM asmOSBYTE 32
 DIM asmOSWRCH 8
 DIM asmTransaction 512
 
-DIM txPacket 512
-DIM rxPacket 512
-DIM payload 512
+DIM txPacket 160
+DIM rxPacket 160
 
 OSBYTE=&FFF4
 OSWRCH=&FFEE
@@ -398,15 +397,21 @@ txPacket?1=command%
 PROCput_u16le(txPacket, 2, total_len%)
 txPacket?4=0
 txPacket?5=0
-IF payload_len%>0 THEN PROCcopy_block(payload, 0, txPacket, 6, payload_len%)
 txPacket?4=FNchecksum(txPacket, total_len%)
 =total_len%
+
+DEF PROCclear_tx_payload(count%)
+LOCAL I%
+FOR I%=0 TO count%-1
+  txPacket?(6+I%)=0
+NEXT I%
+ENDPROC
 
 DEF FNtransaction(tx_len%)
 ?&70=rxPacket MOD 256
 ?&71=rxPacket DIV 256
-?&72=512 MOD 256
-?&73=512 DIV 256
+?&72=160 MOD 256
+?&73=160 DIV 256
 ?&74=tx_len% MOD 256
 ?&75=tx_len% DIV 256
 ?&76=txPacket MOD 256
@@ -431,15 +436,15 @@ IF rxPacket?5<>1 THEN =-1
 =rxPacket?6
 
 DEF FNsend_request_expect(command%, payload_len%)
-LOCAL tx_len%, rx_len%
+LOCAL tx_len%, rx_len%, result%
 tx_len%=FNbuild_fujibus_packet(FUJI_DEVICE_NETWORK, command%, payload_len%)
 rx_len%=FNtransaction(tx_len%)
-IF rx_len%=0 THEN result%=FALSE:GOTO 2000
-IF rxPacket?0<>FUJI_DEVICE_NETWORK THEN result%=FALSE:GOTO 2000
-IF rxPacket?1<>command% THEN result%=FALSE:GOTO 2000
-IF FNpacket_checksum_ok=FALSE THEN result%=FALSE:GOTO 2000
 result%=TRUE
-2000 =result%
+IF rx_len%=0 THEN result%=FALSE
+IF rxPacket?0<>FUJI_DEVICE_NETWORK THEN result%=FALSE
+IF rxPacket?1<>command% THEN result%=FALSE
+IF FNpacket_checksum_ok=FALSE THEN result%=FALSE
+=result%
 
 DEF FNsend_request_retry(command%, payload_len%, retries%)
 LOCAL tries%, status%, result%, done%
@@ -447,63 +452,58 @@ tries%=1
 done%=FALSE
 result%=FALSE
 REPEAT
-  IF FNsend_request_expect(command%, payload_len%)=FALSE THEN done%=TRUE:GOTO 4100
+  IF FNsend_request_expect(command%, payload_len%)=FALSE THEN done%=TRUE
   status%=FNpacket_status
-  IF status%=NET_STATUS_DEVICE_BUSY OR status%=NET_STATUS_NOT_READY THEN GOTO 4050
-  result%=TRUE
-  done%=TRUE
-  GOTO 4100
-  4050 tries%=tries%+1
+  IF done%=FALSE THEN IF status%=NET_STATUS_DEVICE_BUSY OR status%=NET_STATUS_NOT_READY THEN tries%=tries%+1 ELSE result%=TRUE:done%=TRUE
   IF tries%>retries% THEN done%=TRUE
-  4100 REM continue or finish
 UNTIL done%
 =result%
 
 DEF FNbuild_open_payload(method%, flags%, url$, body_len_hint%)
 LOCAL offset%, url_len%
 offset%=0
-payload?offset%=NETPROTO_VERSION
+txPacket?(6+offset%)=NETPROTO_VERSION
 offset%=offset%+1
-payload?offset%=method%
+txPacket?(6+offset%)=method%
 offset%=offset%+1
-payload?offset%=flags%
+txPacket?(6+offset%)=flags%
 offset%=offset%+1
 url_len%=LEN(url$)
-PROCput_u16le(payload, offset%, url_len%)
+PROCput_u16le(txPacket, 6+offset%, url_len%)
 offset%=offset%+2
-PROCcopy_string_to_buffer(payload, offset%, url$)
+PROCcopy_string_to_buffer(txPacket, 6+offset%, url$)
 offset%=offset%+url_len%
-PROCput_u16le(payload, offset%, 0)
+PROCput_u16le(txPacket, 6+offset%, 0)
 offset%=offset%+2
-PROCput_u32le(payload, offset%, body_len_hint%)
+PROCput_u32le(txPacket, 6+offset%, body_len_hint%)
 offset%=offset%+4
-PROCput_u16le(payload, offset%, 0)
+PROCput_u16le(txPacket, 6+offset%, 0)
 offset%=offset%+2
 =offset%
 
 DEF FNbuild_info_payload(handle%)
-payload?0=NETPROTO_VERSION
-PROCput_u16le(payload, 1, handle%)
+txPacket?6=NETPROTO_VERSION
+PROCput_u16le(txPacket, 7, handle%)
 =3
 
 DEF FNbuild_close_payload(handle%)
-payload?0=NETPROTO_VERSION
-PROCput_u16le(payload, 1, handle%)
+txPacket?6=NETPROTO_VERSION
+PROCput_u16le(txPacket, 7, handle%)
 =3
 
 DEF FNbuild_read_payload(handle%, offset32%, max_bytes%)
-payload?0=NETPROTO_VERSION
-PROCput_u16le(payload, 1, handle%)
-PROCput_u32le(payload, 3, offset32%)
-PROCput_u16le(payload, 7, max_bytes%)
+txPacket?6=NETPROTO_VERSION
+PROCput_u16le(txPacket, 7, handle%)
+PROCput_u32le(txPacket, 9, offset32%)
+PROCput_u16le(txPacket, 13, max_bytes%)
 =9
 
 DEF FNbuild_write_payload(handle%, offset32%, data$, data_len%)
-payload?0=NETPROTO_VERSION
-PROCput_u16le(payload, 1, handle%)
-PROCput_u32le(payload, 3, offset32%)
-PROCput_u16le(payload, 7, data_len%)
-IF data_len%>0 THEN PROCcopy_string_to_buffer(payload, 9, data$)
+txPacket?6=NETPROTO_VERSION
+PROCput_u16le(txPacket, 7, handle%)
+PROCput_u32le(txPacket, 9, offset32%)
+PROCput_u16le(txPacket, 13, data_len%)
+IF data_len%>0 THEN PROCcopy_string_to_buffer(txPacket, 15, data$)
 =9+data_len%
 
 DEF FNopen_handle_from_response
@@ -540,25 +540,27 @@ PRINT
 ENDPROC
 
 DEF FNnetwork_open(method%, flags%, url$, body_len_hint%)
-LOCAL payload_len%
+LOCAL payload_len%, result%
 payload_len%=FNbuild_open_payload(method%, flags%, url$, body_len_hint%)
+result%=-1
 IF FNsend_request_retry(NET_CMD_OPEN, payload_len%, 100)=FALSE THEN =-1
 IF FNpacket_status<>NET_STATUS_OK THEN =-1
 IF FNopen_accepted=FALSE THEN =-1
-=FNopen_handle_from_response
+result%=FNopen_handle_from_response
+=result%
 
 DEF PROCnetwork_info(handle%)
 LOCAL payload_len%, header_len%, ok%
 payload_len%=FNbuild_info_payload(handle%)
 ok%=FNsend_request_retry(NET_CMD_INFO, payload_len%, 100)
-IF ok%=FALSE THEN PRINT "INFO failed":GOTO 6000
-IF FNpacket_status<>NET_STATUS_OK THEN PRINT "INFO status: ";FNpacket_status:GOTO 6000
+IF ok%=FALSE THEN PRINT "INFO failed":ENDPROC
+IF FNpacket_status<>NET_STATUS_OK THEN PRINT "INFO status: ";FNpacket_status:ENDPROC
 PRINT "Info handle:       ";FNget_u16le(rxPacket, 11)
 PRINT "Info http status:  ";FNinfo_http_status
 header_len%=FNinfo_header_len
 PRINT "Info header bytes: ";header_len%
 IF header_len%>0 THEN PROCprint_ascii_from_payload(25, header_len%)
-6000 ENDPROC
+ENDPROC
 
 DEF PROCnetwork_close(handle%)
 LOCAL payload_len%, ok%
@@ -569,20 +571,22 @@ IF FNpacket_status<>NET_STATUS_OK THEN PRINT "CLOSE status: ";FNpacket_status
 ENDPROC
 
 DEF FNnetwork_write(handle%, offset32%, data$, data_len%)
-LOCAL payload_len%
+LOCAL payload_len%, result%
 payload_len%=FNbuild_write_payload(handle%, offset32%, data$, data_len%)
+result%=-1
 IF FNsend_request_retry(NET_CMD_WRITE, payload_len%, 200)=FALSE THEN =-1
 IF FNpacket_status<>NET_STATUS_OK THEN =-1
-=FNwrite_bytes_written
+result%=FNwrite_bytes_written
+=result%
 
 DEF PROCnetwork_read_all(handle%)
 LOCAL offset32%, payload_len%, data_len%, eof%, echo_offset%, ok%
 offset32%=0
 REPEAT
-  payload_len%=FNbuild_read_payload(handle%, offset32%, 256)
+  payload_len%=FNbuild_read_payload(handle%, offset32%, 64)
   ok%=FNsend_request_retry(NET_CMD_READ, payload_len%, 500)
-  IF ok%=FALSE THEN PRINT "READ failed":GOTO 8000
-  IF FNpacket_status<>NET_STATUS_OK THEN PRINT "READ status: ";FNpacket_status:GOTO 8000
+  IF ok%=FALSE THEN PRINT "READ failed":ENDPROC
+  IF FNpacket_status<>NET_STATUS_OK THEN PRINT "READ status: ";FNpacket_status:ENDPROC
   echo_offset%=FNread_response_offset
   data_len%=FNread_response_data_len
   eof%=FNread_response_eof
@@ -590,19 +594,19 @@ REPEAT
   IF data_len%>0 THEN PROCprint_ascii_from_payload(19, data_len%)
   offset32%=offset32%+data_len%
 UNTIL eof%
-8000 ENDPROC
+ENDPROC
 
 DEF PROChttp_get_example
 LOCAL handle%, url$
 url$="http://192.168.1.101:8080/get"
 PRINT "Opening: ";url$
 handle%=FNnetwork_open(NET_METHOD_GET, NET_FLAG_ALLOW_EVICT, url$, 0)
-IF handle%<0 THEN PRINT "OPEN failed":GOTO 10000
+IF handle%<0 THEN PRINT "OPEN failed":ENDPROC
 PRINT "Handle: ";handle%
 PROCnetwork_info(handle%)
 PROCnetwork_read_all(handle%)
 PROCnetwork_close(handle%)
-10000 ENDPROC
+ENDPROC
 
 DEF PROCtcp_halfclose(handle%, offset32%)
 LOCAL written%
@@ -616,14 +620,14 @@ url$="tcp://192.168.1.101:7777?halfclose=1"
 data$="hello world"
 PRINT "Opening: ";url$
 handle%=FNnetwork_open(NET_METHOD_GET, NET_FLAG_ALLOW_EVICT, url$, 0)
-IF handle%<0 THEN PRINT "OPEN failed":GOTO 12000
+IF handle%<0 THEN PRINT "OPEN failed":ENDPROC
 PRINT "Handle: ";handle%
 PRINT "Writing: ";data$
 written%=FNnetwork_write(handle%, 0, data$, LEN(data$))
-IF written%<0 THEN PRINT "WRITE failed":PROCnetwork_close(handle%):GOTO 12000
+IF written%<0 THEN PRINT "WRITE failed":PROCnetwork_close(handle%):ENDPROC
 PRINT "Written: ";written%
 PROCtcp_halfclose(handle%, written%)
 PROCnetwork_info(handle%)
 PROCnetwork_read_all(handle%)
 PROCnetwork_close(handle%)
-12000 ENDPROC
+ENDPROC
