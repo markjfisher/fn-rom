@@ -3,7 +3,7 @@ REM FujiNet network connectivity test using single asm send/receive transaction
 
 DIM asmOSBYTE 32
 DIM asmOSWRCH 8
-DIM asmTransaction 512
+DIM asmTransaction 420
 
 TX_BUFFER_SIZE%=160
 RX_BUFFER_SIZE%=160
@@ -144,6 +144,23 @@ FOR I%=0 TO 2 STEP 2:P%=asmTransaction
    LDX #&00
    RTS
 
+   .wait_for_char
+   JSR check_rs423
+   BNE wait_have_char
+   LDA &7C
+   BNE wait_dec_low
+   DEC &7D
+   .wait_dec_low
+   DEC &7C
+   LDA &7C
+   ORA &7D
+   BNE wait_for_char
+   LDX #&00
+   RTS
+   .wait_have_char
+   JSR read_rs423
+   RTS
+
    .send_slip_byte
    CMP #SLIP_END
    BEQ send_esc_end
@@ -216,20 +233,7 @@ FOR I%=0 TO 2 STEP 2:P%=asmTransaction
    STA &7D
 
    .wait_start
-   JSR check_rs423
-   BNE have_start_char
-   LDA &7C
-   BNE wait_start_dec
-   DEC &7D
-   .wait_start_dec
-   DEC &7C
-   LDA &7C
-   ORA &7D
-   BNE wait_start
-   JMP trans_fail
-
-   .have_start_char
-   JSR read_rs423
+   JSR wait_for_char
    CPX #&01
    BEQ have_start_ok
    JMP trans_fail
@@ -243,20 +247,7 @@ FOR I%=0 TO 2 STEP 2:P%=asmTransaction
    STA &7D
 
    .frame_loop
-   JSR check_rs423
-   BNE have_frame_char
-   LDA &7C
-   BNE wait_frame_dec
-   DEC &7D
-   .wait_frame_dec
-   DEC &7C
-   LDA &7C
-   ORA &7D
-   BNE frame_loop
-   JMP trans_fail
-
-   .have_frame_char
-   JSR read_rs423
+   JSR wait_for_char
    CPX #&01
    BEQ have_frame_ok
    JMP trans_fail
