@@ -5,17 +5,15 @@ DIM asmTransaction 396
 
 TX_BUFFER_SIZE%=128
 RX_BUFFER_SIZE%=256
-RESPONSE_BUFFER_SIZE%=256
 TCP_READ_CHUNK%=240
 MAX_SHAPES%=20
-SHAPE_DATA_BUFFER_SIZE%=400
+SHAPE_DATA_BUFFER_SIZE%=155
 SCREEN_WIDTH%=40
 SCREEN_HEIGHT%=25
-RD_RETRY_LIMIT%=500
+RD_RETRY_LIMIT%=50
 
 DIM txPacket TX_BUFFER_SIZE%
 DIM rxPacket RX_BUFFER_SIZE%
-DIM responseBuffer RESPONSE_BUFFER_SIZE%
 DIM shapeDataBuffer SHAPE_DATA_BUFFER_SIZE%
 DIM shapeId%(MAX_SHAPES%)
 DIM shapeWidth%(MAX_SHAPES%)
@@ -55,6 +53,8 @@ PRINT "======================="
 PRINT
 
 PROCget_user_input
+PROCload_shape_data
+PRINT "Loaded shape data: ";shapeCount%;" shapes, bytes: ";shapeBytesUsed%
 PRINT
 PRINT "Opening TCP connection..."
 handle%=FNnetwork_open(NET_METHOD_GET, NET_FLAG_ALLOW_EVICT, host$, 0)
@@ -65,15 +65,7 @@ clientId%=FNregister_client(handle%, name$)
 IF clientId%<=0 THEN PRINT "ADD-CLIENT failed":PROCnetwork_close(handle%):END
 PRINT "Client ID: ";clientId%
 
-shapeCount%=FNfetch_shape_count(handle%)
-IF shapeCount%<0 THEN PRINT "SHAPE-COUNT failed":PROCnetwork_close(handle%):END
-PRINT "Shape count: ";shapeCount%
-
-IF shapeCount%>MAX_SHAPES% THEN PRINT "Too many shapes for buffers":PROCnetwork_close(handle%):END
-
-PROCfetch_shapes(handle%, shapeCount%)
-
-MODE 7
+CLS
 PRINT "Fetched shapes"
 PRINT "--------------"
 PROCprint_shapes_grid(shapeCount%)
@@ -93,6 +85,25 @@ writeCursor%=0
 readCursor%=0
 ENDPROC
 
+DEF PROCload_shape_data
+LOCAL shapeIndex%, width%, dataLen%, shape$, I%
+RESTORE 30000
+READ shapeCount%
+IF shapeCount%>MAX_SHAPES% THEN PRINT "Too many shapes in DATA":END
+shapeBytesUsed%=0
+FOR shapeIndex%=0 TO shapeCount%-1
+  READ shapeId%(shapeIndex%), width%, dataLen%, shape$
+  shapeWidth%(shapeIndex%)=width%
+  shapeOffset%(shapeIndex%)=shapeBytesUsed%
+  IF dataLen%<>LEN(shape$) THEN PRINT "Bad shape DATA len at ";shapeIndex%:END
+  IF shapeBytesUsed%+dataLen%>SHAPE_DATA_BUFFER_SIZE% THEN PRINT "Shape buffer overflow":END
+  FOR I%=1 TO dataLen%
+    shapeDataBuffer?(shapeBytesUsed%+I%-1)=ASC(MID$(shape$, I%, 1))
+  NEXT
+  shapeBytesUsed%=shapeBytesUsed%+dataLen%
+NEXT
+ENDPROC
+
 DEF PROCget_user_input
 LOCAL in$
 PRINT "Host (";host$;")";
@@ -110,84 +121,9 @@ LOCAL cmd$, written%, read%
 cmd$="x-add-client "+name$+",2,"+STR$(SCREEN_WIDTH%)+","+STR$(SCREEN_HEIGHT%)
 written%=FNsend_tcp_command(handle%, cmd$)
 IF written%<>LEN(cmd$) THEN =-1
-read%=FNtcp_read_exact(handle%, responseBuffer, 0, 1, RD_RETRY_LIMIT%)
+read%=FNtcp_read_exact(handle%, rxPacket, 0, 1, RD_RETRY_LIMIT%)
 IF read%<>1 THEN =-1
-=responseBuffer?0
-
-DEF FNfetch_shape_count(handle%)
-LOCAL cmd$, written%, read%
-cmd$="x-shape-count"
-written%=FNsend_tcp_command(handle%, cmd$)
-IF written%<>LEN(cmd$) THEN =-1
-read%=FNtcp_read_exact(handle%, responseBuffer, 0, 1, RD_RETRY_LIMIT%)
-IF read%<>1 THEN =-1
-=responseBuffer?0
-
-DEF PROCfetch_shapes(handle%, shapeCount%)
-LOCAL cmd$, written%, read%, totalRead%, tries%
-shapeBytesUsed%=0
-cmd$="x-shape-data"
-written%=FNsend_tcp_command(handle%, cmd$)
-IF written%<>LEN(cmd$) THEN PRINT "WRITE failed":ENDPROC
-PRINT "Shape data request sent"
-totalRead%=FNtcp_read_min(handle%, responseBuffer, 0, 1, RX_BUFFER_SIZE%, RD_RETRY_LIMIT%)
-IF totalRead%<=0 THEN PRINT "No shape payload":ENDPROC
-PRINT "Received data, checking payload"
-tries%=0
-REPEAT
-  IF FNhave_complete_shape_payload(shapeCount%, totalRead%) THEN tries%=RD_RETRY_LIMIT%
-  IF FNhave_complete_shape_payload(shapeCount%, totalRead%)=FALSE THEN read%=FNtcp_read_min(handle%, responseBuffer, totalRead%, 1, RX_BUFFER_SIZE%-totalRead%, 10)
-  IF FNhave_complete_shape_payload(shapeCount%, totalRead%)=FALSE THEN IF read%>0 THEN totalRead%=totalRead%+read% ELSE tries%=tries%+1
-UNTIL tries%>=RD_RETRY_LIMIT% OR totalRead%>=RX_BUFFER_SIZE% OR FNhave_complete_shape_payload(shapeCount%, totalRead%)
-IF FNhave_complete_shape_payload(shapeCount%, totalRead%)=FALSE THEN PRINT "Short shape payload":ENDPROC
-PRINT "Received data, parsing"
-PROCparse_shapes_from_buffer(shapeCount%, totalRead%)
-PRINT "Shape bytes used: ";shapeBytesUsed%
-PRINT "Finished parsing, press a key"
-dummy%=GET
-ENDPROC
-
-DEF FNhave_complete_shape_payload(shapeCount%, totalRead%)
-LOCAL shapeIndex%, pos%, width%, dataLen%
-pos%=0
-FOR shapeIndex%=0 TO shapeCount%-1
-  IF pos%+2>totalRead% THEN =FALSE
-  pos%=pos%+1
-  width%=responseBuffer?pos%
-  pos%=pos%+1
-  dataLen%=width%*width%
-  IF pos%+dataLen%>totalRead% THEN =FALSE
-  pos%=pos%+dataLen%
-NEXT
-=TRUE
-
-DEF PROCparse_shapes_from_buffer(shapeCount%, totalRead%)
-LOCAL shapeIndex%, pos%, width%, dataLen%, srcOffset%, dstOffset%, I%, ch%
-pos%=0
-shapeBytesUsed%=0
-FOR shapeIndex%=0 TO shapeCount%-1
-  shapeId%(shapeIndex%)=responseBuffer?pos%
-  pos%=pos%+1
-  width%=responseBuffer?pos%
-  pos%=pos%+1
-  shapeWidth%(shapeIndex%)=width%
-  dataLen%=width%*width%
-  shapeOffset%(shapeIndex%)=shapeBytesUsed%
-  IF pos%+dataLen%>totalRead% THEN PRINT "Short shape data at ";shapeIndex%:ENDPROC
-  IF shapeBytesUsed%+dataLen%>SHAPE_DATA_BUFFER_SIZE% THEN PRINT "Shape buffer overflow":ENDPROC
-  srcOffset%=pos%
-  dstOffset%=shapeBytesUsed%
-  FOR I%=0 TO dataLen%-1
-    ch%=responseBuffer?(srcOffset%+I%)
-    IF ch%=114 OR ch%=41 OR ch%=76 OR ch%=33 OR ch%=74 OR ch%=116 OR ch%=84 OR ch%=50 OR ch%=43 THEN ch%=ASC("+")
-    IF ch%=97 OR ch%=98 OR ch%=99 OR ch%=100 OR ch%=105 OR ch%=106 OR ch%=107 OR ch%=108 OR ch%=109 THEN ch%=ASC("#")
-    IF ch%=101 OR ch%=102 OR ch%=103 OR ch%=104 THEN ch%=ASC(".")
-    shapeDataBuffer?(dstOffset%+I%)=ch%
-  NEXT
-  shapeBytesUsed%=shapeBytesUsed%+dataLen%
-  pos%=pos%+dataLen%
-NEXT
-ENDPROC
+=rxPacket?0
 
 DEF PROCprint_shapes_grid(shapeCount%)
 LOCAL index%, baseX%, baseY%
@@ -202,7 +138,7 @@ DEF PROCprint_one_shape(index%, x%, y%)
 LOCAL width%, row%, col%, dataOffset%, ch%
 width%=shapeWidth%(index%)
 dataOffset%=shapeOffset%(index%)
-PRINT TAB(x%,y%-1);"ID ";shapeId%(index%);" W ";width%
+PRINT TAB(x%,y%-1);"ID ";shapeId%(index%);"  ";
 FOR row%=0 TO width%-1
   PRINT TAB(x%,y%+row%);
   FOR col%=0 TO width%-1
@@ -733,3 +669,26 @@ FOR I%=0 TO 2 STEP 2:P%=asmTransaction
   ]
 NEXT I%
 ENDPROC
+
+
+30000 REM Shapes Data
+DATA 19
+DATA 0,5,25,"  ++ +-+++++ ++ ++|   ++ "
+DATA 1,5,25," ++  ++++ ++ ++ | ++ +-+ "
+DATA 2,4,16," ++ ++++++++ ++ "
+DATA 3,4,16," ++ ++++|++|++++"
+DATA 4,4,16," \/ \/\//\/\ /\ "
+DATA 5,3,9," * *** * "
+DATA 6,3,9," . . . . "
+DATA 7,3,9," +++++++ "
+DATA 8,3,9,"++ +++ ++"
+DATA 9,2,4,"/\\/"
+DATA 10,2,4,"WWMM"
+DATA 11,2,4,"####"
+DATA 12,1,1,"*"
+DATA 13,1,1,"O"
+DATA 14,1,1,"#"
+DATA 15,1,1,"X"
+DATA 16,1,1,"@"
+DATA 17,1,1,"V"
+DATA 18,1,1,"^"
