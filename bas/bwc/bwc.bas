@@ -4,8 +4,8 @@ REM Bounce World Client proof of concept for BBC BASIC and FujiNet
 DIM asmTransaction 396
 
 TX_BUFFER_SIZE%=128
-RX_BUFFER_SIZE%=256
-TCP_READ_CHUNK%=240
+RX_BUFFER_SIZE%=320
+TCP_READ_CHUNK%=280
 MAX_SHAPES%=20
 SHAPE_DATA_BUFFER_SIZE%=155
 SCREEN_WIDTH%=40
@@ -65,13 +65,20 @@ clientId%=FNregister_client(handle%, name$)
 IF clientId%<=0 THEN PRINT "ADD-CLIENT failed":PROCnetwork_close(handle%):END
 PRINT "Client ID: ";clientId%
 
+REM CLS
+REM PRINT "Fetched shapes"
+REM PRINT "--------------"
+REM PROCprint_shapes_grid(shapeCount%)
+
+REM PRINT
+REM PRINT "Press a key to start main loop"
+REM dummy%=GET
+
 CLS
-PRINT "Fetched shapes"
-PRINT "--------------"
-PROCprint_shapes_grid(shapeCount%)
+PROCrun_main_loop(handle%, clientId%)
 
 PRINT
-PRINT "Closing connection"
+PRINT TAB(0,22);"Closing connection"
 PROCnetwork_close(handle%)
 END
 
@@ -83,6 +90,7 @@ shapeCount%=0
 shapeBytesUsed%=0
 writeCursor%=0
 readCursor%=0
+frameCount%=0
 ENDPROC
 
 DEF PROCload_shape_data
@@ -121,18 +129,76 @@ LOCAL cmd$, written%, read%
 cmd$="x-add-client "+name$+",2,"+STR$(SCREEN_WIDTH%)+","+STR$(SCREEN_HEIGHT%)
 written%=FNsend_tcp_command(handle%, cmd$)
 IF written%<>LEN(cmd$) THEN =-1
-read%=FNtcp_read_exact(handle%, rxPacket, 0, 1, RD_RETRY_LIMIT%)
+read%=FNtcp_read_exact_payload(handle%, 1, RD_RETRY_LIMIT%)
 IF read%<>1 THEN =-1
-=rxPacket?0
+=FNpayload_byte(0)
 
-DEF PROCprint_shapes_grid(shapeCount%)
-LOCAL index%, baseX%, baseY%
-FOR index%=0 TO shapeCount%-1
-  baseX%=(index% MOD 6)*6
-  baseY%=(index% DIV 6)*6+2
-  IF baseY%<22 THEN PROCprint_one_shape(index%, baseX%, baseY%)
+REM DEF PROCprint_shapes_grid(shapeCount%)
+REM LOCAL index%, baseX%, baseY%
+REM FOR index%=0 TO shapeCount%-1
+REM   baseX%=(index% MOD 6)*6
+REM   baseY%=(index% DIV 6)*6+2
+REM   IF baseY%<22 THEN PROCprint_one_shape(index%, baseX%, baseY%)
+REM NEXT
+REM ENDPROC
+
+DEF PROCrun_main_loop(handle%, clientId%)
+LOCAL loop%, read%, step%, status%, count%, index%, pos%, xRaw%, yRaw%
+REPEAT
+  read%=FNfetch_client_state(handle%, clientId%)
+  IF read%>0 THEN PROCprocess_world_packet(read%)
+UNTIL FALSE
+ENDPROC
+
+DEF PROCprocess_world_packet(read%)
+LOCAL step%, status%, count%, index%, pos%, shapeId%, xRaw%, yRaw%
+CLS
+step%=FNpayload_byte(0)
+status%=FNpayload_byte(1)
+count%=FNpayload_byte(2)
+frameCount%=frameCount%+count%
+pos%=3
+FOR index%=0 TO count%-1
+  shapeId%=FNpayload_byte(pos%)
+  xRaw%=FNpayload_byte(pos%+1)
+  yRaw%=FNpayload_byte(pos%+2)
+  IF xRaw%>127 THEN xRaw%=xRaw%-256
+  IF yRaw%>127 THEN yRaw%=yRaw%-256
+  PROCshow_shape(shapeId%, xRaw%, yRaw%)
+  pos%=pos%+3
+NEXT
+REM PRINT TAB(0,0);"Step ";step%;" status ";status%;" count ";count%;"    ";
+ENDPROC
+
+DEF PROCshow_shape(shapeId%, centerX%, centerY%)
+LOCAL width%, dataOffset%, startX%, startY%, row%, col%, screenX%, screenY%, ch%
+width%=shapeWidth%(shapeId%)
+dataOffset%=shapeOffset%(shapeId%)
+startX%=centerX%-(width% DIV 2)-1
+startY%=centerY%-(width% DIV 2)-1
+IF (width% AND 1)=0 THEN startX%=startX%+1:startY%=startY%+1
+FOR row%=0 TO width%-1
+  screenY%=startY%+row%
+  IF screenY%<1 THEN GOTO 1860
+  IF screenY%>=SCREEN_HEIGHT% THEN GOTO 1860
+    FOR col%=0 TO width%-1
+      screenX%=startX%+col%
+      IF screenX%<0 THEN GOTO 1850
+      IF screenX%>=SCREEN_WIDTH% THEN GOTO 1850
+      ch%=shapeDataBuffer?(dataOffset% + row%*width% + col%)
+      IF ch%<>32 THEN PRINT TAB(screenX%,screenY%);CHR$(ch%);
+1850 REM screenX out of bounds
+    NEXT
+1860 REM screenY out of bounds
 NEXT
 ENDPROC
+
+DEF FNfetch_client_state(handle%, clientId%)
+LOCAL cmd$, read%
+cmd$="x-w "+STR$(clientId%)
+IF FNsend_tcp_command(handle%, cmd$)<>LEN(cmd$) THEN =-1
+read%=FNtcp_read_min_payload(handle%, 1, RD_RETRY_LIMIT%)
+=read%
 
 DEF PROCprint_one_shape(index%, x%, y%)
 LOCAL width%, row%, col%, dataOffset%, ch%
@@ -154,7 +220,7 @@ written%=FNnetwork_write(handle%, writeCursor%, cmd$, LEN(cmd$))
 IF written%>0 THEN writeCursor%=writeCursor%+written%
 =written%
 
-DEF FNtcp_read_exact(handle%, dst_buf, dst_offset%, total_len%, retries%)
+DEF FNtcp_read_exact_payload(handle%, total_len%, retries%)
 LOCAL totalRead%, chunkLen%, state%, dataLen%, eof%, echoOffset%, tries%
 totalRead%=0
 tries%=0
@@ -172,15 +238,15 @@ REPEAT
   IF state%=NET_STATUS_OK THEN IF echoOffset%<>readCursor% THEN PRINT "READ offset mismatch":=totalRead%
   IF state%=NET_STATUS_OK THEN IF dataLen%=0 AND eof%=0 THEN =totalRead%
   IF state%=NET_STATUS_OK THEN IF totalRead%+dataLen%>total_len% THEN dataLen%=total_len%-totalRead%
-  IF state%=NET_STATUS_OK THEN IF dataLen%>0 THEN PROCcopy_block(rxPacket, 19, dst_buf, dst_offset%+totalRead%, dataLen%)
   IF state%=NET_STATUS_OK THEN totalRead%=totalRead%+dataLen%
   IF state%=NET_STATUS_OK THEN readCursor%=readCursor%+dataLen%
   IF state%=NET_STATUS_OK THEN IF eof% AND totalRead%<total_len% THEN =totalRead%
 UNTIL totalRead%>=total_len%
 =totalRead%
 
-DEF FNtcp_read_available(handle%, dst_buf, dst_offset%, max_len%)
+DEF FNtcp_read_available_payload(handle%, max_len%)
 LOCAL state%, dataLen%, eof%, echoOffset%
+IF max_len%<=0 THEN =0
 state%=FNnetwork_read_chunk(handle%, readCursor%, max_len%)
 IF state%=NET_STATUS_NOT_READY THEN =0
 IF state%<0 THEN =-1
@@ -188,22 +254,26 @@ dataLen%=FNread_response_data_len
 eof%=FNread_response_eof
 echoOffset%=FNread_response_offset
 IF echoOffset%<>readCursor% THEN PRINT "READ offset mismatch":=-1
-IF dataLen%>0 THEN PROCcopy_block(rxPacket, 19, dst_buf, dst_offset%, dataLen%)
 readCursor%=readCursor%+dataLen%
 IF dataLen%=0 AND eof%=1 THEN =0
 =dataLen%
 
-DEF FNtcp_read_min(handle%, dst_buf, dst_offset%, min_len%, max_len%, retries%)
-LOCAL total%, got%, tries%
+DEF FNtcp_read_min_payload(handle%, min_len%, retries%)
+LOCAL total%, got%, tries%, max_len%
+max_len%=RX_BUFFER_SIZE%-19
 total%=0
 tries%=0
 REPEAT
-  got%=FNtcp_read_available(handle%, dst_buf, dst_offset%+total%, max_len%-total%)
-  IF got%<0 THEN =got%
+  IF total%>=min_len% THEN tries%=retries%
+  got%=FNtcp_read_available_payload(handle%, max_len%-total%)
+  IF got%<0 THEN total%=got%:tries%=retries%
   IF got%=0 THEN tries%=tries%+1:IF tries%<retries% THEN PROCpause
   IF got%>0 THEN total%=total%+got%:tries%=0
 UNTIL total%>=min_len% OR tries%>=retries% OR total%>=max_len%
 =total%
+
+DEF FNpayload_byte(offset%)
+=rxPacket?(19+offset%)
 
 DEF FNnetwork_read_chunk(handle%, offset32%, max_bytes%)
 LOCAL payload_len%, ok%, status%
