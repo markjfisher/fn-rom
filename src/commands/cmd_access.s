@@ -71,4 +71,3 @@ err_bad_attribute:
         jsr     err_bad
         .byte   $CF
         .byte   "attribute", 0
-

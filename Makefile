@@ -106,7 +106,7 @@ $(PROGRAM_TGT): $(BUILD_DIR)/$(PROGRAM_TGT) | $(BUILD_DIR)
 ssd: $(PROGRAM_TGT) $(BUILD_DIR)
 	mkdir -p $(BUILD_DIR)/ssd
 	cp $(BUILD_DIR)/$(PROGRAM_TGT) $(BUILD_DIR)/ssd/
-	./bin/create_ssd.py -i $(BUILD_DIR)/ssd -o fujinet.ssd
+	./bin/create_ssd.py -i $(BUILD_DIR)/ssd -o fujinet.ssd -a 0x8000
 
 
 # Use "./" in front of all dirs being removed as a simple safety guard to

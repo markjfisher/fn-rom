@@ -1,0 +1,11 @@
+REM filename: SERIAL
+REM Simple serial output
+
+*FX 7,8
+*FX 8,8
+*FX 3,1
+
+REPEAT
+VDU 65,13
+FOR I%=0 TO 200: NEXT
+UNTIL FALSE
