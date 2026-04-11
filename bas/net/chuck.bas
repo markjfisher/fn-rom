@@ -21,8 +21,8 @@ category$(10)="sport"
 category$(11)="travel"
 
 TX_BUFFER_SIZE%=160
-RX_BUFFER_SIZE%=360
-NET_READ_SIZE%=340
+RX_BUFFER_SIZE%=420
+NET_READ_SIZE%=400
 FULL_PAYLOAD%=512
 JSON_VALUE_SIZE%=256
 
@@ -84,7 +84,7 @@ REPEAT
 UNTIL FALSE
 END
 
-REM #################################################################################
+REM ###
 
 DEF PROCasmInit
 FOR I%=0 TO 2 STEP 2:P%=asmTransaction
@@ -135,7 +135,6 @@ FOR I%=0 TO 2 STEP 2:P%=asmTransaction
    RTS
 
    .read_rs423
-   \ OSBYTE &91 - get character from buffer
    LDA #&91
    LDX #&01
    LDY #&00
@@ -238,8 +237,8 @@ FOR I%=0 TO 2 STEP 2:P%=asmTransaction
 
    LDA #0
    STA &7C
-   \ number of iterations*256 to try before timing out (initial connect)
-   LDA #&30
+   \ timeout initial
+   LDA #&B0
    STA &7D
 
    .wait_start
@@ -253,8 +252,8 @@ FOR I%=0 TO 2 STEP 2:P%=asmTransaction
 
    LDA #0
    STA &7C
-   \ number of iterations*256 to try before timing out (after initial connection done)
-   LDA #&08
+   \ timeout data
+   LDA #&10
    STA &7D
 
    .frame_loop
@@ -264,11 +263,6 @@ FOR I%=0 TO 2 STEP 2:P%=asmTransaction
    BNE trans_fail
    .have_frame_ok
    STA &79
-
-   LDA #0
-   STA &7C
-   LDA #&02
-   STA &7D
 
    LDA &78
    BNE escaped_char
@@ -350,24 +344,18 @@ FOR I%=0 TO 2 STEP 2:P%=asmTransaction
   ]
 NEXT I%
 
-REM ==========================================================
 REM Generic JSON field finder
-REM
 REM INPUT:
 REM   &80/&81 = payload length
 REM   &82/&83 = pattern address
 REM   &84/&85 = pattern length
 REM   &86/&87 = payload address
-REM
 REM OUTPUT:
 REM   &70/&71 = offset of value start within payload
 REM   &72/&73 = value length
-REM
 REM NOT FOUND:
 REM   &70/&71 = &FFFF
 REM   &72/&73 = 0
-REM ==========================================================
-
 
 FOR I%=0 TO 2 STEP 2:P%=asmJsonParse
 [OPT I%
