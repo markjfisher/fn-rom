@@ -4,6 +4,8 @@ REM Chuck Norris Jokes Fetcher
 url$="https://api.chucknorris.io/jokes/random"
 
 DIM asmTransaction 396
+DIM asmJsonParse 350
+DIM patBuf 10
 
 TX_BUFFER_SIZE%=160
 RX_BUFFER_SIZE%=512
@@ -56,9 +58,7 @@ PRINT "==================="
 PRINT
 
 PROCfetch_joke(url$)
-PRINT "pringing..."
 PROCprint_value_line
-PRINT "Done"
 
 END
 
@@ -327,6 +327,296 @@ FOR I%=0 TO 2 STEP 2:P%=asmTransaction
 
   ]
 NEXT I%
+
+REM ==========================================================
+REM Generic JSON field finder
+REM
+REM INPUT:
+REM   &80/&81 = payload length
+REM   &82/&83 = pattern address
+REM   &84/&85 = pattern length
+REM   &86/&87 = payload address
+REM
+REM OUTPUT:
+REM   &70/&71 = offset of value start within payload
+REM   &72/&73 = value length
+REM
+REM NOT FOUND:
+REM   &70/&71 = &FFFF
+REM   &72/&73 = 0
+REM ==========================================================
+
+
+FOR I%=0 TO 2 STEP 2:P%=asmJsonParse
+[OPT I%
+
+.findJsonField
+
+  \ Default return = not found
+  LDA #&FF
+  STA &70
+  STA &71
+  LDA #0
+  STA &72
+  STA &73
+
+  \ payload ptr = input payload address
+  LDA &86
+  STA &74
+  LDA &87
+  STA &75
+
+  \ search offset = 0
+  LDA #0
+  STA &76
+  STA &77
+
+  \ remaining payload bytes
+  LDA &80
+  STA &78
+  LDA &81
+  STA &79
+
+.searchLoop
+
+  \ if remaining < pattern length => fail
+  LDA &79
+  CMP &85
+  BCS over1
+  JMP notFound
+
+.over1
+  BNE enoughLeft
+  LDA &78
+  CMP &84
+  BCS enoughLeft
+  JMP notFound
+
+.enoughLeft
+  JSR matchPattern
+  BCS foundPattern
+
+  JSR advanceSearch1
+  JMP searchLoop
+
+.foundPattern
+  \ Result offset = search offset + pattern length
+  CLC
+  LDA &76
+  ADC &84
+  STA &70
+  LDA &77
+  ADC &85
+  STA &71
+
+  \ Advance payload ptr by pattern length
+  LDA &84
+  STA &8A
+  LDA &85
+  STA &8B
+.advanceByPatternLoop
+  LDA &8A
+  ORA &8B
+  BEQ startValueScan
+  JSR advancePayloadOnly1
+  SEC
+  LDA &8A
+  SBC #1
+  STA &8A
+  LDA &8B
+  SBC #0
+  STA &8B
+  JMP advanceByPatternLoop
+
+.startValueScan
+  \ length = 0
+  LDA #0
+  STA &72
+  STA &73
+
+  \ backslash parity = 0
+  STA &88
+
+.valueLoop
+  \ Out of bytes => fail
+  LDA &78
+  ORA &79
+  BEQ notFound
+
+  LDY #0
+  LDA (&74),Y
+
+  CMP #34
+  BEQ maybeEndQuote
+
+  CMP #92
+  BEQ sawBackslash
+
+  \ ordinary char
+  LDA #0
+  STA &88
+  JSR incLenAndAdvance1
+  JMP valueLoop
+
+.sawBackslash
+  LDA &88
+  EOR #1
+  STA &88
+  JSR incLenAndAdvance1
+  JMP valueLoop
+
+.maybeEndQuote
+  \ if backslash parity = 0 then quote ends string
+  LDA &88
+  BEQ done
+
+  \ escaped quote, include it in length
+  LDA #0
+  STA &88
+  JSR incLenAndAdvance1
+  JMP valueLoop
+
+.done
+  RTS
+
+.notFound
+  LDA #&FF
+  STA &70
+  STA &71
+  LDA #0
+  STA &72
+  STA &73
+  RTS
+
+.matchPattern
+  \ Compare payload at &74/&75 against pattern at &82/&83 for &84/&85 bytes
+  \ Carry set if match, clear if no match
+
+  \ temp payload ptr = current payload ptr
+  LDA &74
+  STA &7C
+  LDA &75
+  STA &7D
+
+  \ temp pattern ptr = pattern ptr
+  LDA &82
+  STA &7E
+  LDA &83
+  STA &7F
+
+  \ remaining pattern bytes
+  LDA &84
+  STA &8A
+  LDA &85
+  STA &8B
+
+.matchLoop
+  LDA &8A
+  ORA &8B
+  BEQ matchYes
+
+  LDY #0
+  LDA (&7C),Y
+  CMP (&7E),Y
+  BNE matchNo
+
+  \ temp payload ptr++
+  INC &7C
+  BNE noCarryMP1
+  INC &7D
+.noCarryMP1
+
+  \ temp pattern ptr++
+  INC &7E
+  BNE noCarryMP2
+  INC &7F
+.noCarryMP2
+
+  \ remaining pattern bytes--
+  SEC
+  LDA &8A
+  SBC #1
+  STA &8A
+  LDA &8B
+  SBC #0
+  STA &8B
+
+  JMP matchLoop
+
+.matchYes
+  SEC
+  RTS
+
+.matchNo
+  CLC
+  RTS
+
+.advanceSearch1
+  \ payload ptr++
+  INC &74
+  BNE noCarryAS1
+  INC &75
+.noCarryAS1
+
+  \ offset++
+  INC &76
+  BNE noCarryAS2
+  INC &77
+.noCarryAS2
+
+  \ remaining--
+  SEC
+  LDA &78
+  SBC #1
+  STA &78
+  LDA &79
+  SBC #0
+  STA &79
+  RTS
+
+.advancePayloadOnly1
+  \ payload ptr++
+  INC &74
+  BNE noCarryAP1
+  INC &75
+.noCarryAP1
+
+  \ remaining--
+  SEC
+  LDA &78
+  SBC #1
+  STA &78
+  LDA &79
+  SBC #0
+  STA &79
+  RTS
+
+.incLenAndAdvance1
+  \ length++
+  INC &72
+  BNE lenNoCarry
+  INC &73
+.lenNoCarry
+
+  \ payload ptr++
+  INC &74
+  BNE noCarryLA1
+  INC &75
+.noCarryLA1
+
+  \ remaining--
+  SEC
+  LDA &78
+  SBC #1
+  STA &78
+  LDA &79
+  SBC #0
+  STA &79
+  RTS
+
+]
+NEXT I%
+
 ENDPROC
 
 DEF PROCput_u16le(buf, offset%, value%)
@@ -481,16 +771,6 @@ FOR jj%=0 TO jsonValueLen%-1
 NEXT jj%
 ENDPROC
 
-REM From start% (first char of JSON string value), find closing quote; set jsonValueLen%/jsonValue.
-DEF PROCtry_extract_value_at(start%)
-LOCAL k%, n%
-jsonValueLen%=0
-IF start%>=full_len% THEN ENDPROC
-FOR k%=start% TO full_len%-1
-  IF fullPayload?k%=34 THEN n%=k%-start%:PROCcopy_value_bytes(start%, n%):ENDPROC
-NEXT k%
-ENDPROC
-
 REM Scan fullPayload for "key":"..." and extract string value into jsonValue? (no full json$).
 DEF PROCparse_json_string_value_from_buffer(key$)
 LOCAL pat$, pat_len%, i%, j%, match%
@@ -498,14 +778,30 @@ jsonValueLen%=0
 pat$=CHR$(34)+key$+CHR$(34)+":"+CHR$(34)
 pat_len%=LEN(pat$)
 IF full_len%<pat_len% THEN ENDPROC
-FOR i%=0 TO full_len%-pat_len%
-  match%=TRUE
-  FOR j%=1 TO pat_len%
-    IF match% THEN IF fullPayload?(i%+j%-1)<>ASC(MID$(pat$, j%, 1)) THEN match%=FALSE
-  NEXT j%
-  IF match% THEN PROCtry_extract_value_at(i%+pat_len%)
-  IF jsonValueLen%>0 THEN ENDPROC
-NEXT i%
+
+FOR I%=1 TO pat_len%
+  ?(patBuf+I%-1)=ASC(MID$(pat$,I%,1))
+NEXT
+
+?&80 = full_len% MOD 256
+?&81 = full_len% DIV 256
+
+?&82 = patBuf MOD 256
+?&83 = patBuf DIV 256
+
+?&84 = pat_len% MOD 256
+?&85 = pat_len% DIV 256
+
+?&86 = fullPayload MOD 256
+?&87 = fullPayload DIV 256
+
+CALL findJsonField
+
+pos% = ?&70 + 256*?&71
+len% = ?&72 + 256*?&73
+
+IF len%=0 PRINT "Not Found":ENDPROC
+PROCcopy_value_bytes(pos%, len%)
 ENDPROC
 
 REM Print value from jsonValue? (avoids string length limit).
@@ -573,10 +869,7 @@ handle%=FNnetwork_open(NET_METHOD_GET, NET_FLAG_ALLOW_EVICT, url$, 0)
 IF handle%<0 THEN PRINT "OPEN failed":ENDPROC
 PRINT "reading..."
 PROCnetwork_read_all(handle%)
-PRINT "closing..."
 PROCnetwork_close(handle%)
 IF full_len%<=0 THEN PRINT "Empty response":ENDPROC
-PRINT "parsing..."
 PROCparse_json_string_value_from_buffer("value")
-PRINT "finished fetch."
 ENDPROC
