@@ -1,25 +1,45 @@
 REM filename: CHUCK
 REM Chuck Norris Jokes Fetcher
 
-url$="https://api.chucknorris.io/jokes/random"
-
 DIM asmTransaction 396
 DIM asmJsonParse 350
 DIM patBuf 10
 
+DIM category$(11)
+
+category$(0)="animal"
+category$(1)="career"
+category$(2)="celebrity"
+category$(3)="dev"
+category$(4)="fashion"
+category$(5)="food"
+category$(6)="history"
+category$(7)="movie"
+category$(8)="music"
+category$(9)="science"
+category$(10)="sport"
+category$(11)="travel"
+
 TX_BUFFER_SIZE%=160
-RX_BUFFER_SIZE%=512
-NET_READ_SIZE%=480
-FULL_PAYLOAD%=1024
-JSON_VALUE_SIZE%=512
+RX_BUFFER_SIZE%=360
+NET_READ_SIZE%=340
+FULL_PAYLOAD%=512
+JSON_VALUE_SIZE%=256
 
 DIM txPacket    TX_BUFFER_SIZE%
 DIM rxPacket    RX_BUFFER_SIZE%
 DIM fullPayload FULL_PAYLOAD%
 DIM jsonValue   JSON_VALUE_SIZE%
 
-REM full_len% = bytes accumulated into fullPayload after a read; jsonValueLen% = bytes in jsonValue
-REM net_chunk_err% = 1 if PROCnetwork_append_read_chunk stopped on overflow (caller should ENDPROC)
+ttRow%=0
+ttCol%=0
+ttWord$=""
+ttWordLen%=0
+ttMaxRows%=13
+ttOverflow%=FALSE
+
+status%=0
+
 full_len%=0
 jsonValueLen%=0
 net_chunk_err%=0
@@ -53,21 +73,20 @@ SLIP_ESC_ESC=&DD
 
 PROCasmInit
 
-PRINT "Chuck Norris Random"
-PRINT "==================="
-PRINT
+REPEAT
+  cat%=RND(12)-1
+  url$="https://api.chucknorris.io/jokes/random?category="+category$(cat%)
+  PROCfetch_joke(url$)
+  PROCshow_joke_page
 
-PROCfetch_joke(url$)
-PROCprint_value_line
-
+  TIME=0
+  REPEAT UNTIL TIME>=500
+UNTIL FALSE
 END
 
-REM ============================================
-REM PROCEDURE AND FUNCTION DEFINITIONS
-REM ============================================
+REM #################################################################################
 
 DEF PROCasmInit
-
 FOR I%=0 TO 2 STEP 2:P%=asmTransaction
   [OPT I%
    .setup_serial
@@ -116,6 +135,7 @@ FOR I%=0 TO 2 STEP 2:P%=asmTransaction
    RTS
 
    .read_rs423
+   \ OSBYTE &91 - get character from buffer
    LDA #&91
    LDX #&01
    LDY #&00
@@ -218,7 +238,8 @@ FOR I%=0 TO 2 STEP 2:P%=asmTransaction
 
    LDA #0
    STA &7C
-   LDA #&4F
+   \ number of iterations*256 to try before timing out (initial connect)
+   LDA #&30
    STA &7D
 
    .wait_start
@@ -232,6 +253,7 @@ FOR I%=0 TO 2 STEP 2:P%=asmTransaction
 
    LDA #0
    STA &7C
+   \ number of iterations*256 to try before timing out (after initial connection done)
    LDA #&08
    STA &7D
 
@@ -777,7 +799,7 @@ LOCAL pat$, pat_len%, i%, j%, match%
 jsonValueLen%=0
 pat$=CHR$(34)+key$+CHR$(34)+":"+CHR$(34)
 pat_len%=LEN(pat$)
-IF full_len%<pat_len% THEN ENDPROC
+IF full_len%<pat_len% THEN GOTO 1500
 
 FOR I%=1 TO pat_len%
   ?(patBuf+I%-1)=ASC(MID$(pat$,I%,1))
@@ -800,18 +822,9 @@ CALL findJsonField
 pos% = ?&70 + 256*?&71
 len% = ?&72 + 256*?&73
 
-IF len%=0 PRINT "Not Found":ENDPROC
+IF len%=0 THEN GOTO 1500
 PROCcopy_value_bytes(pos%, len%)
-ENDPROC
-
-REM Print value from jsonValue? (avoids string length limit).
-DEF PROCprint_value_line
-LOCAL j%
-IF jsonValueLen%<=0 THEN PRINT "(no value parsed)":ENDPROC
-FOR j%=0 TO jsonValueLen%-1
-  PRINT CHR$(jsonValue?j%);
-NEXT j%
-PRINT
+1500 REM end proc
 ENDPROC
 
 DEF FNnetwork_open(method%, flags%, url$, body_len_hint%)
@@ -828,20 +841,22 @@ DEF PROCnetwork_close(handle%)
 LOCAL payload_len%, ok%
 payload_len%=FNbuild_close_payload(handle%)
 ok%=FNsend_request_retry(NET_CMD_CLOSE, payload_len%, 20)
-IF ok%=FALSE THEN PRINT "CLOSE failed":ENDPROC
-IF FNpacket_status<>NET_STATUS_OK THEN PRINT "CLOSE status: ";FNpacket_status
+IF ok%=FALSE THEN PRINT "CLOSE failed":GOTO 1700
+status%=FNpacket_status
+1700 REM end proc
 ENDPROC
 
 REM Append one READ chunk from rxPacket into fullPayload (BBC BASIC II: no IF/ENDIF).
 DEF PROCnetwork_append_read_chunk(data_len%)
 LOCAL I%
 net_chunk_err%=0
-IF data_len%<=0 THEN ENDPROC
-IF full_len%+data_len%>FULL_PAYLOAD%+1 THEN PRINT "Payload too large":net_chunk_err%=1:ENDPROC
+IF data_len%<=0 THEN GOTO 1800
+IF full_len%+data_len%>FULL_PAYLOAD%+1 THEN net_chunk_err%=1:GOTO 1800
 FOR I%=0 TO data_len%-1
   fullPayload?(full_len%+I%)=rxPacket?(19+I%)
 NEXT
 full_len%=full_len%+data_len%
+1800 REM endprod
 ENDPROC
 
 DEF PROCnetwork_read_all(handle%)
@@ -851,25 +866,167 @@ full_len%=0
 REPEAT
   payload_len%=FNbuild_read_payload(handle%, offset32%, NET_READ_SIZE%)
   ok%=FNsend_request_retry(NET_CMD_READ, payload_len%, 4)
-  IF ok%=FALSE THEN PRINT "READ failed":ENDPROC
-  IF FNpacket_status<>NET_STATUS_OK THEN PRINT "READ status: ";FNpacket_status:ENDPROC
+  IF ok%=FALSE THEN GOTO 1900
+  status%=FNpacket_status
+  IF status%<>NET_STATUS_OK THEN GOTO 1900
   echo_offset%=FNget_u32le(rxPacket, 13)
   data_len%=FNget_u16le(rxPacket, 17)
   eof%=FNread_response_eof
   PROCnetwork_append_read_chunk(data_len%)
-  IF net_chunk_err%=1 THEN ENDPROC
+  IF net_chunk_err%=1 THEN GOTO 1900
   offset32%=offset32%+data_len%
 UNTIL eof%
+1900 REM exit proc
 ENDPROC
 
 DEF PROCfetch_joke(url$)
 LOCAL handle%
 jsonValueLen%=0
 handle%=FNnetwork_open(NET_METHOD_GET, NET_FLAG_ALLOW_EVICT, url$, 0)
-IF handle%<0 THEN PRINT "OPEN failed":ENDPROC
-PRINT "reading..."
+IF handle%<0 THEN full_len%=0:GOTO 2000
 PROCnetwork_read_all(handle%)
 PROCnetwork_close(handle%)
-IF full_len%<=0 THEN PRINT "Empty response":ENDPROC
+IF full_len%<=0 THEN full_len%=0:GOTO 2000
 PROCparse_json_string_value_from_buffer("value")
+2000 REM exit proc
+ENDPROC
+
+REM ============================================================
+REM Teletext joke page for BBC BASIC II / BBC Micro
+REM Uses:
+REM   jsonValue      buffer containing joke text
+REM   jsonValueLen%  length of joke text
+REM
+REM Call:
+REM   PROCshow_joke_page
+REM ============================================================
+
+
+DEF PROCshow_joke_page
+LOCAL row%, i%, c%
+
+CLS
+VDU 23,1,0;0;0;0;
+PROCtt_header
+PROCtt_top_bar
+PRINT TAB(0,3);CHR$(147);CHR$(238);STRING$(12,CHR$(172)+CHR$(173)+CHR$(174));CHR$(172);CHR$(189);
+FOR row%=0 TO ttMaxRows%-1
+  PRINT TAB(0,4+row%);CHR$(147);CHR$(238);CHR$(135);" ";STRING$(34," ");CHR$(147);CHR$(189);
+NEXT
+PRINT TAB(0,17);CHR$(147);CHR$(238);STRING$(12,CHR$(172)+CHR$(188)+CHR$(236));CHR$(172);CHR$(189);
+
+PROCtt_reset_body
+
+IF jsonValueLen%<=0 THEN PROCtt_print_empty:PROCtt_bottom_bar:PROCtt_footer:GOTO 2200
+
+FOR i%=0 TO jsonValueLen%-1
+  c%=jsonValue?i%
+  PROCtt_feed_char(c%)
+NEXT
+
+PROCtt_flush_word
+
+IF ttOverflow% THEN PROCtt_overflow
+
+PROCtt_bottom_bar
+PROCtt_footer
+
+2200 REM end proc
+ENDPROC
+
+DEF PROCtt_reset_body
+ttRow%=0
+ttCol%=0
+ttWord$=""
+ttWordLen%=0
+ttOverflow%=FALSE
+ttMaxRows%=13
+ENDPROC
+
+DEF PROCtt_header
+PRINT CHR$(132);CHR$(157);CHR$(131);CHR$(141);"FUJITEXT 184/1";CHR$(135);"Chuck Norris JOKE    ";
+PRINT CHR$(132);CHR$(157);CHR$(131);CHR$(141);"FUJITEXT 184/1";CHR$(135);"Chuck Norris JOKE    ";
+ENDPROC
+
+DEF PROCtt_top_bar
+PRINT
+ENDPROC
+
+DEF PROCtt_bottom_bar
+PRINT
+ENDPROC
+
+DEF PROCtt_footer
+PRINT TAB(0,20);
+PRINT CHR$(129);CHR$(157);CHR$(130);STRING$(37, " ");
+PRINT CHR$(129);CHR$(157);CHR$(134);"    Next joke in about 10 seconds    ";
+PRINT CHR$(129);CHR$(157);CHR$(130);"       MODE 7 Teletext display       ";
+PRINT CHR$(129);CHR$(157);CHR$(130);STRING$(37, " ");
+
+ENDPROC
+
+DEF PROCtt_print_empty
+PRINT TAB(3,5);"(no value parsed)";
+ENDPROC
+
+DEF PROCtt_feed_char(c%)
+IF ttOverflow% THEN GOTO 2500
+
+IF c%=13 THEN PROCtt_flush_word:PROCtt_newline:GOTO 2500
+IF c%=10 THEN PROCtt_flush_word:PROCtt_newline:GOTO 2500
+IF c%=9 THEN c%=32
+
+IF c%=32 THEN PROCtt_flush_word:GOTO 2500
+
+ttWord$=ttWord$+CHR$(c%)
+ttWordLen%=ttWordLen%+1
+
+2500 REM end proc
+ENDPROC
+
+DEF PROCtt_flush_word
+LOCAL needed%
+
+IF ttOverflow% THEN GOTO 2700
+IF ttWordLen%=0 THEN GOTO 2700
+
+needed%=ttWordLen%
+IF ttCol%>0 THEN needed%=needed%+1
+
+IF ttCol%+needed%>35 THEN PROCtt_newline
+
+IF ttOverflow% THEN GOTO 2700
+
+IF ttCol%>0 THEN PROCtt_putc(32,ttRow%,ttCol%):ttCol%=ttCol%+1
+
+PROCtt_puts(ttWord$,ttRow%,ttCol%)
+ttCol%=ttCol%+ttWordLen%
+ttWord$=""
+ttWordLen%=0
+2700 REM end proc
+ENDPROC
+
+DEF PROCtt_newline
+ttRow%=ttRow%+1
+ttCol%=0
+IF ttRow%>=ttMaxRows% THEN ttOverflow%=TRUE
+ENDPROC
+
+DEF PROCtt_putc(c%,row%,col%)
+IF row%>13 THEN GOTO 2800
+IF col%>34 THEN GOTO 2800
+PRINT TAB(3+col%,5+row%);CHR$(c%);
+
+2800 REM end proc
+ENDPROC
+
+DEF PROCtt_puts(s$,row%,col%)
+LOCAL k%
+FOR k%=1 TO LEN(s$)
+  PROCtt_putc(ASC(MID$(s$,k%,1)),row%,col%+k%-1)
+NEXT
+ENDPROC
+
+DEF PROCtt_overflow
+PRINT TAB(35,18);"...";
 ENDPROC
