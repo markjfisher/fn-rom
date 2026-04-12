@@ -709,6 +709,11 @@ IF rxPacket?1<>command% THEN result%=FALSE
 IF FNpacket_checksum_ok=FALSE THEN result%=FALSE
 =result%
 
+DEF PROCpause(t%)
+TIME=0
+REPEAT UNTIL TIME>t%
+ENDPROC
+
 DEF FNsend_request_retry(command%, payload_len%, retries%)
 LOCAL tries%, status%, result%, done%
 tries%=1
@@ -719,6 +724,7 @@ REPEAT
   status%=FNpacket_status
   IF done%=FALSE THEN IF status%=NET_STATUS_DEVICE_BUSY OR status%=NET_STATUS_NOT_READY THEN tries%=tries%+1 ELSE result%=TRUE:done%=TRUE
   IF tries%>retries% THEN done%=TRUE
+  IF done%=FALSE THEN PROCpause(20)
 UNTIL done%
 =result%
 
@@ -819,7 +825,7 @@ DEF FNnetwork_open(method%, flags%, url$, body_len_hint%)
 LOCAL payload_len%, result%
 payload_len%=FNbuild_open_payload(method%, flags%, url$, body_len_hint%)
 result%=-1
-IF FNsend_request_retry(NET_CMD_OPEN, payload_len%, 20)=FALSE THEN =-1
+IF FNsend_request_retry(NET_CMD_OPEN, payload_len%, 200)=FALSE THEN =-1
 IF FNpacket_status<>NET_STATUS_OK THEN =-1
 IF FNopen_accepted=FALSE THEN =-1
 result%=FNget_u16le(rxPacket, 11)
@@ -828,7 +834,7 @@ result%=FNget_u16le(rxPacket, 11)
 DEF PROCnetwork_close(handle%)
 LOCAL payload_len%, ok%
 payload_len%=FNbuild_close_payload(handle%)
-ok%=FNsend_request_retry(NET_CMD_CLOSE, payload_len%, 20)
+ok%=FNsend_request_retry(NET_CMD_CLOSE, payload_len%, 200)
 IF ok%=FALSE THEN PRINT "CLOSE failed":GOTO 1700
 status%=FNpacket_status
 1700 REM end proc
@@ -851,10 +857,11 @@ DEF PROCnetwork_read_all(handle%)
 LOCAL offset32%, payload_len%, data_len%, eof%, echo_offset%, ok%
 offset32%=0
 full_len%=0
-PRINT TAB(0,24);"Doing network_read_all";
+PRINT TAB(0,24);"Doing PROC network_read_all";
+
 REPEAT
   payload_len%=FNbuild_read_payload(handle%, offset32%, NET_READ_SIZE%)
-  ok%=FNsend_request_retry(NET_CMD_READ, payload_len%, 4)
+  ok%=FNsend_request_retry(NET_CMD_READ, payload_len%, 500)
   IF ok%=FALSE THEN GOTO 1900
   status%=FNpacket_status
   IF status%<>NET_STATUS_OK THEN GOTO 1900
@@ -866,12 +873,15 @@ REPEAT
   offset32%=offset32%+data_len%
 UNTIL eof%
 1900 REM exit proc
-PRINT TAB(0,24);STRING$(39," ");
+PRINT TAB(0,24);STRING$(38, " ");
 ENDPROC
 
 DEF PROCfetch_joke(url$)
 LOCAL handle%
 jsonValueLen%=0
+
+PRINT TAB(0,24);"Doing PROC fetch_joke";
+
 handle%=FNnetwork_open(NET_METHOD_GET, NET_FLAG_ALLOW_EVICT, url$, 0)
 IF handle%<0 THEN full_len%=0:GOTO 2000
 PROCnetwork_read_all(handle%)
@@ -879,6 +889,13 @@ PROCnetwork_close(handle%)
 IF full_len%<=0 THEN full_len%=0:GOTO 2000
 PROCparse_json_string_value_from_buffer("value")
 2000 REM exit proc
+PRINT TAB(0,24);STRING$(38, " ");
+ENDPROC
+
+DEF PROCemptyResponse
+PROCtt_print_empty
+PROCtt_bottom_bar
+PROCtt_footer
 ENDPROC
 
 REM ============================================================
@@ -890,7 +907,6 @@ REM
 REM Call:
 REM   PROCshow_joke_page
 REM ============================================================
-
 
 DEF PROCshow_joke_page
 LOCAL row%, i%, c%
@@ -907,7 +923,8 @@ PRINT TAB(0,17);CHR$(147);CHR$(238);STRING$(12,CHR$(172)+CHR$(188)+CHR$(236));CH
 
 PROCtt_reset_body
 
-IF jsonValueLen%<=0 THEN PROCtt_print_empty:PROCtt_bottom_bar:PROCtt_footer:GOTO 2200
+IF jsonValueLen%<=0 THEN PROCemptyResponse
+IF jsonValueLen%<=0 THEN GOTO 2200
 
 FOR i%=0 TO jsonValueLen%-1
   c%=jsonValue?i%
@@ -915,9 +932,7 @@ FOR i%=0 TO jsonValueLen%-1
 NEXT
 
 PROCtt_flush_word
-
 IF ttOverflow% THEN PROCtt_overflow
-
 PROCtt_bottom_bar
 PROCtt_footer
 
