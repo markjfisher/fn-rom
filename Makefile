@@ -80,6 +80,9 @@ $(OBJDIR):
 $(BUILD_DIR):
 	@mkdir -p $(BUILD_DIR)
 
+$(BUILD_DIR)/ssd:
+	@mkdir -p $(BUILD_DIR)/ssd
+
 $(DIST_DIR):
 	@mkdir -p $(DIST_DIR)
 
@@ -103,10 +106,10 @@ $(BUILD_DIR)/$(PROGRAM_TGT): $(OBJECTS) $(LIBS) | $(BUILD_DIR)
 	$(CC) -t $(CURRENT_TARGET) $(LDFLAGS) --mapfile $@.map -Ln $@.lbl -o $@ $^
 $(PROGRAM_TGT): $(BUILD_DIR)/$(PROGRAM_TGT) | $(BUILD_DIR)
 
-ssd: $(PROGRAM_TGT) $(BUILD_DIR)
-	mkdir -p $(BUILD_DIR)/ssd
-	cp $(BUILD_DIR)/$(PROGRAM_TGT) $(BUILD_DIR)/ssd/
-	./bin/create_ssd.py -i $(BUILD_DIR)/ssd -o fujinet.ssd -a 0x8000
+ssd: $(PROGRAM_TGT) | $(BUILD_DIR) $(BUILD_DIR)/ssd
+	rm -f $(BUILD_DIR)/ssd/*
+	cp $(BUILD_DIR)/$(PROGRAM_TGT) $(BUILD_DIR)/ssd/FUJIROM
+	./bin/create_ssd.py -i $(BUILD_DIR)/ssd -o $(BUILD_DIR)/fujinet.ssd -a 0x8000
 
 
 # Use "./" in front of all dirs being removed as a simple safety guard to

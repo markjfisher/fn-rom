@@ -851,6 +851,7 @@ DEF PROCnetwork_read_all(handle%)
 LOCAL offset32%, payload_len%, data_len%, eof%, echo_offset%, ok%
 offset32%=0
 full_len%=0
+PRINT TAB(0,24);"Doing network_read_all";
 REPEAT
   payload_len%=FNbuild_read_payload(handle%, offset32%, NET_READ_SIZE%)
   ok%=FNsend_request_retry(NET_CMD_READ, payload_len%, 4)
@@ -865,6 +866,7 @@ REPEAT
   offset32%=offset32%+data_len%
 UNTIL eof%
 1900 REM exit proc
+PRINT TAB(0,24);STRING$(39," ");
 ENDPROC
 
 DEF PROCfetch_joke(url$)
