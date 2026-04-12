@@ -71,20 +71,34 @@ SLIP_ESCAPE=&DB
 SLIP_ESC_END=&DC
 SLIP_ESC_ESC=&DD
 
+CLS
+PRINT "Initialising program..."
 PROCasmInit
+url$="https://api.chucknorris.io/jokes/random?category=celebrity"
+PROCfetch_joke(url$)
 
 REPEAT
   cat%=RND(12)-1
   url$="https://api.chucknorris.io/jokes/random?category="+category$(cat%)
-  PROCfetch_joke(url$)
   PROCshow_joke_page
-
-  TIME=0
-  REPEAT UNTIL TIME>=500
+  PROCfetch_joke(url$)
+  PROCwait_next_or_timeout
 UNTIL FALSE
 END
 
-REM ###
+DEF PROCwait_next_or_timeout
+LOCAL key%, done%
+
+done%=FALSE
+TIME=0
+REPEAT
+  key%=INKEY(1)
+
+  IF key%=ASC("N") THEN done%=TRUE
+  IF key%=ASC("n") THEN done%=TRUE
+  IF TIME>=3000 THEN done%=TRUE
+UNTIL done%
+ENDPROC
 
 DEF PROCasmInit
 FOR I%=0 TO 2 STEP 2:P%=asmTransaction
@@ -724,7 +738,7 @@ REPEAT
   status%=FNpacket_status
   IF done%=FALSE THEN IF status%=NET_STATUS_DEVICE_BUSY OR status%=NET_STATUS_NOT_READY THEN tries%=tries%+1 ELSE result%=TRUE:done%=TRUE
   IF tries%>retries% THEN done%=TRUE
-  IF done%=FALSE THEN PROCpause(20)
+  IF done%=FALSE THEN PROCpause(50)
 UNTIL done%
 =result%
 
@@ -857,11 +871,10 @@ DEF PROCnetwork_read_all(handle%)
 LOCAL offset32%, payload_len%, data_len%, eof%, echo_offset%, ok%
 offset32%=0
 full_len%=0
-PRINT TAB(0,24);"Doing PROC network_read_all";
 
 REPEAT
   payload_len%=FNbuild_read_payload(handle%, offset32%, NET_READ_SIZE%)
-  ok%=FNsend_request_retry(NET_CMD_READ, payload_len%, 500)
+  ok%=FNsend_request_retry(NET_CMD_READ, payload_len%, 2000)
   IF ok%=FALSE THEN GOTO 1900
   status%=FNpacket_status
   IF status%<>NET_STATUS_OK THEN GOTO 1900
@@ -873,15 +886,12 @@ REPEAT
   offset32%=offset32%+data_len%
 UNTIL eof%
 1900 REM exit proc
-PRINT TAB(0,24);STRING$(38, " ");
 ENDPROC
 
 DEF PROCfetch_joke(url$)
 LOCAL handle%
+
 jsonValueLen%=0
-
-PRINT TAB(0,24);"Doing PROC fetch_joke";
-
 handle%=FNnetwork_open(NET_METHOD_GET, NET_FLAG_ALLOW_EVICT, url$, 0)
 IF handle%<0 THEN full_len%=0:GOTO 2000
 PROCnetwork_read_all(handle%)
@@ -889,11 +899,10 @@ PROCnetwork_close(handle%)
 IF full_len%<=0 THEN full_len%=0:GOTO 2000
 PROCparse_json_string_value_from_buffer("value")
 2000 REM exit proc
-PRINT TAB(0,24);STRING$(38, " ");
 ENDPROC
 
 DEF PROCemptyResponse
-PROCtt_print_empty
+PRINT TAB(3,5);"(no value parsed)";
 PROCtt_bottom_bar
 PROCtt_footer
 ENDPROC
@@ -964,14 +973,9 @@ ENDPROC
 DEF PROCtt_footer
 PRINT TAB(0,20);
 PRINT CHR$(129);CHR$(157);CHR$(130);STRING$(37, " ");
-PRINT CHR$(129);CHR$(157);CHR$(134);"    Next joke in about 10 seconds    ";
+PRINT CHR$(129);CHR$(157);CHR$(134);" Press 'N' for next joke, or wait... ";
 PRINT CHR$(129);CHR$(157);CHR$(130);"       MODE 7 Teletext display       ";
 PRINT CHR$(129);CHR$(157);CHR$(130);STRING$(37, " ");
-
-ENDPROC
-
-DEF PROCtt_print_empty
-PRINT TAB(3,5);"(no value parsed)";
 ENDPROC
 
 DEF PROCtt_feed_char(c%)
