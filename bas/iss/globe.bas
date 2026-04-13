@@ -1,4 +1,4 @@
-REM filename: ttx
+REM filename: globe
 REM Teletext picture viewer with fast ASM screen copy
 
 MODE 7
