@@ -1,17 +1,25 @@
 REM filename: iss
-REM Teletext picture viewer with line patch helpers
+REM Teletext ISS tracker test
 
 MODE 7
 SCREEN%=&7C00
 
 REM Hide cursor
-REM VDU 23,1,0;0;0;0;
+VDU 23,1,0;0;0;0;
 CLS
 PRINT "Initialising data..."
 
 DIM BUF% 1001
-DIM PATCH% 10
+DIM PATCH0% 10
+DIM PATCH1% 10
 DIM CODE% 500
+
+REM ISS icon shape bytes (2x2 visible mosaic cells)
+REM Change these four values to test different shapes quickly
+ISS00%=46
+ISS01%=56
+ISS10%=38
+ISS11%=60
 
 PROC_assemble
 
@@ -24,31 +32,15 @@ REM Show background
 CLS
 PROC_show
 
-REM Example ISS test patch
-REM 145 = red graphics
-REM 146 = green graphics
-REM control bytes occupy screen cells too
-PATCH%?0=145
-PATCH%?1=60
-PATCH%?2=255
-PATCH%?3=60
-PATCH%?4=146
-
 OLDX%=-1
 OLDY%=-1
-ISSL%=5
+ISSL%=4
 
-REM Test position
-A%=GET
-PRINT TAB(0,23);"Press a key to move ISS #1             ";
 A%=GET
 PROC_move_iss(18,10)
 
-PRINT TAB(0,23);"Press a key to move ISS #2             ";
 A%=GET
-
-REM Move it once more as a test
-PROC_move_iss(24,10)
+PROC_move_iss(24,22)
 
 A%=GET
 END
@@ -61,33 +53,41 @@ DEF PROC_show
 CALL copy%
 ENDPROC
 
-DEF PROC_build_iss_patch(Y%)
-LOCAL ROWCTL%
-
-ROWCTL%=BUF%?(Y%*40)
-
-PATCH%?0=145
-PATCH%?1=60
-PATCH%?2=255
-PATCH%?3=60
-PATCH%?4=ROWCTL%
-
-ISSL%=5
-ENDPROC
-
-
 DEF PROC_move_iss(NEWX%,NEWY%)
-REM PRINT TAB(0,23);"Moving to "; NEWX%; " "; NEWY%; "    ";
-IF OLDX%>=0 THEN PROC_restore_bg(OLDX%,OLDY%,ISSL%)
-PROC_build_iss_patch(NEWY%)
-PROC_patch_line(PATCH%,NEWX%,NEWY%,ISSL%)
+IF OLDX%>=0 THEN PROC_restore_bg(OLDX%,OLDY%,ISSL%) : PROC_restore_bg(OLDX%,OLDY%+1,ISSL%)
+PROC_build_iss_patch2(NEWY%)
+PROC_patch_line(PATCH0%,NEWX%,NEWY%,ISSL%)
+PROC_patch_line(PATCH1%,NEWX%,NEWY%+1,ISSL%)
 OLDX%=NEWX%
 OLDY%=NEWY%
 ENDPROC
 
+DEF PROC_build_iss_patch2(Y%)
+LOCAL ROWCTL0%,ROWCTL1%
+
+REM Read the row's base graphics colour/state from the background buffer
+ROWCTL0%=BUF%?(Y%*40)
+ROWCTL1%=BUF%?((Y%+1)*40)
+
+REM Top row of ISS:
+REM red graphics, 2 visible cells, restore row state
+PATCH0%?0=145
+PATCH0%?1=ISS00%
+PATCH0%?2=ISS01%
+PATCH0%?3=ROWCTL0%
+
+REM Bottom row of ISS:
+REM red graphics, 2 visible cells, restore row state
+PATCH1%?0=145
+PATCH1%?1=ISS10%
+PATCH1%?2=ISS11%
+PATCH1%?3=ROWCTL1%
+
+ISSL%=4
+ENDPROC
+
 DEF PROC_patch_line(SRC%,X%,Y%,L%)
 DEST%=FN_scr(X%,Y%)
-PRINT TAB(0,24);"Patch "; SRC%; " "; X%; " "; Y%; " "; L%; " "; ~DEST%; "            ";
 FOR I%=0 TO L%-1
   ?(DEST%+I%)=?(SRC%+I%)
 NEXT
@@ -255,15 +255,15 @@ DATA 32,32,32,32,32,96,48,32,32,96
 DATA 112,112,112,96,96,112,48,32,32,32
 
 REM 2 blank lines
-DATA 32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32
-DATA 32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32
+REM DATA 32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32
+REM DATA 32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32
 
-REM Last 2 lines of graphics used for debug text while developing
-REM DATA 23,32,32,32,32,32,32,32,104,112
-REM DATA 112,120,127,32,32,32,32,32,120,124
-REM DATA 124,124,124,126,126,127,127,119,126,127
-REM DATA 127,127,127,127,127,127,127,125,60,32
-REM DATA 23,40,108,127,127,127,127,127,127,127
-REM DATA 127,119,44,32,44,112,126,127,127,127
-REM DATA 127,127,127,127,127,127,127,127,127,127
-REM DATA 127,127,127,127,127,127,127,127,61,32
+REM Graphics version
+DATA 23,32,32,32,32,32,32,32,104,112
+DATA 112,120,127,32,32,32,32,32,120,124
+DATA 124,124,124,126,126,127,127,119,126,127
+DATA 127,127,127,127,127,127,127,125,60,32
+DATA 23,40,108,127,127,127,127,127,127,127
+DATA 127,119,44,32,44,112,126,127,127,127
+DATA 127,127,127,127,127,127,127,127,127,127
+DATA 127,127,127,127,127,127,127,127,61,32

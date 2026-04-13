@@ -234,7 +234,8 @@ FOR I%=0 TO 2 STEP 2:P%=asmTransaction
    INC &7E
    BNE send_loop
    INC &7F
-   JMP send_loop
+   CLC
+   BCC send_loop
 
    .send_done
    LDA #SLIP_END
@@ -323,29 +324,30 @@ FOR I%=0 TO 2 STEP 2:P%=asmTransaction
    BNE trans_ok
 
    .store_char
-    \ &79 holds the decoded byte to write into the rx buffer.
-    \ &72/&73 = rx buffer capacity
-    \ &7E/&7F = current decoded length / write offset
-    \ &7A/&7B = current write pointer in rx buffer
-    LDA &7E
-    CMP &72
-    BNE store_space
-    LDA &7F
-    CMP &73
-    BEQ trans_fail
-    .store_space
-    LDY #&00
-    LDA &79
-    STA (&7A),Y
-    INC &7A
-    BNE store_ptr_ok
-    INC &7B
-    .store_ptr_ok
-    INC &7E
-    BNE no_inc
-    INC &7F
+   \ &79 holds the decoded byte to write into the rx buffer.
+   \ &72/&73 = rx buffer capacity
+   \ &7E/&7F = current decoded length / write offset
+   \ &7A/&7B = current write pointer in rx buffer
+   LDA &7E
+   CMP &72
+   BNE store_space
+   LDA &7F
+   CMP &73
+   BEQ trans_fail
+   .store_space
+   LDY #&00
+   LDA &79
+   STA (&7A),Y
+   INC &7A
+   BNE store_ptr_ok
+   INC &7B
+   .store_ptr_ok
+   INC &7E
+   BNE no_inc
+   INC &7F
    .no_inc
-   JMP frame_loop
+   CLC
+   BCC frame_loop
 
    .trans_ok
    JSR restore_screen
@@ -407,21 +409,31 @@ FOR I%=0 TO 2 STEP 2:P%=asmJsonParse
   LDA &79
   CMP &85
   BCS over1
-  JMP notFound
+  BCC notFound
 
 .over1
   BNE enoughLeft
   LDA &78
   CMP &84
   BCS enoughLeft
-  JMP notFound
+  BCC notFound
 
 .enoughLeft
   JSR matchPattern
   BCS foundPattern
 
   JSR advanceSearch1
-  JMP searchLoop
+  CLC
+  BCC searchLoop
+
+.notFound
+  LDA #&FF
+  STA &70
+  STA &71
+  LDA #0
+  STA &72
+  STA &73
+  RTS
 
 .foundPattern
   \ Result offset = search offset + pattern length
@@ -450,7 +462,8 @@ FOR I%=0 TO 2 STEP 2:P%=asmJsonParse
   LDA &8B
   SBC #0
   STA &8B
-  JMP advanceByPatternLoop
+  CLC
+  BCC advanceByPatternLoop
 
 .startValueScan
   \ length = 0
@@ -480,14 +493,16 @@ FOR I%=0 TO 2 STEP 2:P%=asmJsonParse
   LDA #0
   STA &88
   JSR incLenAndAdvance1
-  JMP valueLoop
+  CLC
+  BCC valueLoop
 
 .sawBackslash
   LDA &88
   EOR #1
   STA &88
   JSR incLenAndAdvance1
-  JMP valueLoop
+  CLC
+  BCC valueLoop
 
 .maybeEndQuote
   \ if backslash parity = 0 then quote ends string
@@ -498,18 +513,10 @@ FOR I%=0 TO 2 STEP 2:P%=asmJsonParse
   LDA #0
   STA &88
   JSR incLenAndAdvance1
-  JMP valueLoop
+  CLC
+  BCC valueLoop
 
 .done
-  RTS
-
-.notFound
-  LDA #&FF
-  STA &70
-  STA &71
-  LDA #0
-  STA &72
-  STA &73
   RTS
 
 .matchPattern
@@ -565,7 +572,8 @@ FOR I%=0 TO 2 STEP 2:P%=asmJsonParse
   SBC #0
   STA &8B
 
-  JMP matchLoop
+  CLC
+  BCC matchLoop
 
 .matchYes
   SEC
