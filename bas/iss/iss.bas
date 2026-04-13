@@ -1,5 +1,9 @@
 REM filename: iss
 REM Teletext ISS tracker test
+REM Using https://api.wheretheiss.at/v1/satellites/25544 to fetch ISS position
+REM In fields:
+REM "latitude": -32.812981235047,
+REM "longitude": -16.19368507439,
 
 MODE 7
 SCREEN%=&7C00

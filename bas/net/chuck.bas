@@ -1,30 +1,30 @@
 REM filename: CHUCK
 REM Chuck Norris Jokes Fetcher
 
-DIM asmTransaction 396
-DIM asmJsonParse 350
+DIM asmTransaction 375
+DIM asmJsonParse 330
 DIM patBuf 10
 
-DIM category$(11)
+DIM c$(11)
 
-category$(0)="animal"
-category$(1)="career"
-category$(2)="celebrity"
-category$(3)="dev"
-category$(4)="fashion"
-category$(5)="food"
-category$(6)="history"
-category$(7)="movie"
-category$(8)="music"
-category$(9)="science"
-category$(10)="sport"
-category$(11)="travel"
+c$(0)="animal"
+c$(1)="career"
+c$(2)="celebrity"
+c$(3)="dev"
+c$(4)="fashion"
+c$(5)="food"
+c$(6)="history"
+c$(7)="movie"
+c$(8)="music"
+c$(9)="science"
+c$(10)="sport"
+c$(11)="travel"
 
 TX_BUFFER_SIZE%=160
-RX_BUFFER_SIZE%=420
-NET_READ_SIZE%=400
-FULL_PAYLOAD%=512
-JSON_VALUE_SIZE%=256
+RX_BUFFER_SIZE%=256
+NET_READ_SIZE%=220
+FULL_PAYLOAD%=800
+JSON_VALUE_SIZE%=400
 
 DIM txPacket    TX_BUFFER_SIZE%
 DIM rxPacket    RX_BUFFER_SIZE%
@@ -66,22 +66,14 @@ NET_STATUS_OK=0
 NET_STATUS_DEVICE_BUSY=3
 NET_STATUS_NOT_READY=4
 
-SLIP_END=&C0
-SLIP_ESCAPE=&DB
-SLIP_ESC_END=&DC
-SLIP_ESC_ESC=&DD
-
 CLS
 PRINT "Initialising program..."
 PROCasmInit
-url$="https://api.chucknorris.io/jokes/random?category=celebrity"
-PROCfetch_joke(url$)
+PROCfetch_data
 
 REPEAT
-  cat%=RND(12)-1
-  url$="https://api.chucknorris.io/jokes/random?category="+category$(cat%)
   PROCshow_joke_page
-  PROCfetch_joke(url$)
+  PROCfetch_data
   PROCwait_next_or_timeout
 UNTIL FALSE
 END
@@ -93,72 +85,52 @@ done%=FALSE
 TIME=0
 REPEAT
   key%=INKEY(1)
-
   IF key%=ASC("N") THEN done%=TRUE
   IF key%=ASC("n") THEN done%=TRUE
   IF TIME>=3000 THEN done%=TRUE
 UNTIL done%
 ENDPROC
 
+DEF PROCfetch_data
+  cat%=RND(12)-1
+  url$="https://api.chucknorris.io/jokes/random?category="+c$(cat%)
+  PROCfetch_joke(url$)
+ENDPROC
+
 DEF PROCasmInit
+
+SLIP_END=&C0
+SLIP_ESCAPE=&DB
+SLIP_ESC_END=&DC
+SLIP_ESC_ESC=&DD
+
 FOR I%=0 TO 2 STEP 2:P%=asmTransaction
   [OPT I%
    .setup_serial
-   LDX #&08
-   LDY #&00
-   LDA #&07
-   JSR OSBYTE
-   LDX #&08
-   LDY #&00
-   LDA #&08
-   JSR OSBYTE
-   LDX #&01
-   LDY #&00
-   LDA #&02
-   JSR OSBYTE
-   LDX #&03
-   LDY #&00
-   LDA #&03
-   JSR OSBYTE
+   LDX #&08:LDY #&00:LDA #&07:JSR OSBYTE
+   LDX #&08:LDY #&00:LDA #&08:JSR OSBYTE
+   LDX #&01:LDY #&00:LDA #&02:JSR OSBYTE
+   LDX #&03:LDY #&00:LDA #&03:JSR OSBYTE
    RTS
 
    .flush_serial
-   LDX #&01
-   LDY #&00
-   LDA #&15
-   JSR OSBYTE
+   LDX #&01:LDY #&00:LDA #&15:JSR OSBYTE
    RTS
 
    .restore_screen
-   LDX #&00
-   LDY #&00
-   LDA #&03
-   JSR OSBYTE
-   LDX #&00
-   LDY #&00
-   LDA #&02
-   JSR OSBYTE
+   LDX #&00:LDY #&00:LDA #&03:JSR OSBYTE
+   LDX #&00:LDY #&00:LDA #&02:JSR OSBYTE
    RTS
 
    .check_rs423
-   LDA #&80
-   LDX #&FE
-   LDY #&FF
-   JSR OSBYTE
+   LDX #&FE:LDY #&FF:LDA #&80:JSR OSBYTE
    TXA
    RTS
 
+   \ 'exits with C=1 for empty buffer (no char). If C=0, A contains the char
    .read_rs423
-   LDA #&91
-   LDX #&01
-   LDY #&00
-   JSR OSBYTE
-   BCS read_fail
+   LDX #&01:LDY #&00:LDA #&91:JSR OSBYTE
    TYA
-   LDX #&01
-   RTS
-   .read_fail
-   LDX #&00
    RTS
 
    .wait_for_char
@@ -172,8 +144,9 @@ FOR I%=0 TO 2 STEP 2:P%=asmTransaction
    LDA &7C
    ORA &7D
    BNE wait_for_char
-   LDX #&00
+   SEC
    RTS
+
    .wait_have_char
    JSR read_rs423
    RTS
@@ -245,37 +218,35 @@ FOR I%=0 TO 2 STEP 2:P%=asmTransaction
    STY &7E
    STY &7F
    STY &78
+   STY &7C
+
    LDA &70
    STA &7A
    LDA &71
    STA &7B
 
-   LDA #0
-   STA &7C
-   \ timeout initial
+   \ Get the response
    LDA #&B0
    STA &7D
 
    .wait_start
    JSR wait_for_char
-   CPX #&01
-   BEQ have_start_ok
-   BNE trans_fail
+   BCC have_start_ok
+   BCS trans_fail
+
    .have_start_ok
    CMP #SLIP_END
    BNE wait_start
 
    LDA #0
    STA &7C
-   \ timeout data
-   LDA #&10
+   LDA #&08
    STA &7D
 
    .frame_loop
    JSR wait_for_char
-   CPX #&01
-   BEQ have_frame_ok
-   BNE trans_fail
+   BCC have_frame_ok
+   BCS trans_fail
    .have_frame_ok
    STA &79
 
@@ -324,10 +295,10 @@ FOR I%=0 TO 2 STEP 2:P%=asmTransaction
    BNE trans_ok
 
    .store_char
-   \ &79 holds the decoded byte to write into the rx buffer.
-   \ &72/&73 = rx buffer capacity
-   \ &7E/&7F = current decoded length / write offset
-   \ &7A/&7B = current write pointer in rx buffer
+   \ &79 holds the decoded byte to write into rx buf
+   \ &72/&73 = rx buf capacity
+   \ &7E/&7F = cur. decoded len / write offset
+   \ &7A/&7B = cur. write ptr in rx buf
    LDA &7E
    CMP &72
    BNE store_space
@@ -360,25 +331,23 @@ FOR I%=0 TO 2 STEP 2:P%=asmTransaction
   ]
 NEXT I%
 
-REM Generic JSON field finder
+REM JSON field finder
 REM INPUT:
-REM   &80/&81 = payload length
-REM   &82/&83 = pattern address
-REM   &84/&85 = pattern length
-REM   &86/&87 = payload address
+REM  &80/&81 = payload len
+REM  &82/&83 = pattern add
+REM  &84/&85 = pattern len
+REM  &86/&87 = payload add
 REM OUTPUT:
-REM   &70/&71 = offset of value start within payload
-REM   &72/&73 = value length
+REM  &70/&71 = offset of value start within payload
+REM  &72/&73 = value length
 REM NOT FOUND:
-REM   &70/&71 = &FFFF
-REM   &72/&73 = 0
+REM  &70/&71 = &FFFF
+REM  &72/&73 = 0
 
 FOR I%=0 TO 2 STEP 2:P%=asmJsonParse
 [OPT I%
-
 .findJsonField
-
-  \ Default return = not found
+  \ Default = not found
   LDA #&FF
   STA &70
   STA &71
@@ -422,7 +391,7 @@ FOR I%=0 TO 2 STEP 2:P%=asmJsonParse
   JSR matchPattern
   BCS foundPattern
 
-  JSR advanceSearch1
+  JSR advSrch1
   CLC
   BCC searchLoop
 
@@ -583,7 +552,7 @@ FOR I%=0 TO 2 STEP 2:P%=asmJsonParse
   CLC
   RTS
 
-.advanceSearch1
+.advSrch1
   \ payload ptr++
   INC &74
   BNE noCarryAS1
