@@ -868,8 +868,6 @@ ENDPROC
 
 DEF PROCemptyResponse
 PRINT TAB(3,5);"(no value parsed)";
-PROCtt_bottom_bar
-PROCtt_footer
 ENDPROC
 
 DEF PROCshowResponse
@@ -881,23 +879,23 @@ NEXT
 
 PROCtt_flush_word
 IF ttOverflow% THEN PROCtt_overflow
-PROCtt_bottom_bar
-PROCtt_footer
 ENDPROC
 
 DEF PROCshow_joke_page
 LOCAL row%
 CLS: VDU 23,1,0;0;0;0;
 PROCtt_header
-PROCtt_top_bar
+
 PRINT TAB(0,3);CHR$(147);CHR$(238);STRING$(12,CHR$(172)+CHR$(173)+CHR$(174));CHR$(172);CHR$(189);
 FOR row%=0 TO ttMaxRows%-1
   PRINT TAB(0,4+row%);CHR$(147);CHR$(238);CHR$(135);" ";STRING$(34," ");CHR$(147);CHR$(189);
 NEXT
 PRINT TAB(0,17);CHR$(147);CHR$(238);STRING$(12,CHR$(172)+CHR$(188)+CHR$(236));CHR$(172);CHR$(189);
 
-PROCtt_reset_body
+PROCtt_footer
 IF jsonValueLen%<=0 THEN PROCemptyResponse ELSE PROCshowResponse
+PROCtt_reset_body
+
 ENDPROC
 
 DEF PROCtt_reset_body
@@ -912,14 +910,6 @@ ENDPROC
 DEF PROCtt_header
 PRINT CHR$(132);CHR$(157);CHR$(131);CHR$(141);"FUJITEXT 184/1";CHR$(135);"Chuck Norris JOKE    ";
 PRINT CHR$(132);CHR$(157);CHR$(131);CHR$(141);"FUJITEXT 184/1";CHR$(135);"Chuck Norris JOKE    ";
-ENDPROC
-
-DEF PROCtt_top_bar
-PRINT
-ENDPROC
-
-DEF PROCtt_bottom_bar
-PRINT
 ENDPROC
 
 DEF PROCtt_footer
