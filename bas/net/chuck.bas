@@ -651,9 +651,9 @@ FOR I%=0 TO len%-1
 NEXT I%
 =chk% AND &FF
 
-DEF FNbuild_fujibus_packet(device%, command%, payload_len%)
+DEF FNbuild_fujibus_packet(device%, command%, paylen%)
 LOCAL total_len%
-total_len%=6+payload_len%
+total_len%=6+paylen%
 txPacket?0=device%
 txPacket?1=command%
 PROCput_u16le(txPacket, 2, total_len%)
@@ -687,9 +687,9 @@ DEF FNpacket_status
 IF rxPacket?5<>1 THEN =-1
 =rxPacket?6
 
-DEF FNsend_request_expect(command%, payload_len%)
+DEF FNsend_request_expect(command%, paylen%)
 LOCAL tx_len%, rx_len%, result%
-tx_len%=FNbuild_fujibus_packet(FUJI_DEVICE_NETWORK, command%, payload_len%)
+tx_len%=FNbuild_fujibus_packet(FUJI_DEVICE_NETWORK, command%, paylen%)
 rx_len%=FNtransaction(tx_len%)
 result%=TRUE
 IF rx_len%=0 THEN result%=FALSE
@@ -703,13 +703,13 @@ TIME=0
 REPEAT UNTIL TIME>t%
 ENDPROC
 
-DEF FNsend_request_retry(command%, payload_len%, retries%)
+DEF FNsend_request_retry(command%, paylen%, retries%)
 LOCAL tries%, status%, result%, done%
 tries%=1
 done%=FALSE
 result%=FALSE
 REPEAT
-  IF FNsend_request_expect(command%, payload_len%)=FALSE THEN done%=TRUE
+  IF FNsend_request_expect(command%, paylen%)=FALSE THEN done%=TRUE
   status%=FNpacket_status
   IF done%=FALSE THEN IF status%=NET_STATUS_DEVICE_BUSY OR status%=NET_STATUS_NOT_READY THEN tries%=tries%+1 ELSE result%=TRUE:done%=TRUE
   IF tries%>retries% THEN done%=TRUE
@@ -806,10 +806,10 @@ IF full_len%>=pat_len% THEN PROCparse_buffer(pat$, pat_len%)
 ENDPROC
 
 DEF FNnetwork_open(method%, flags%, url$, body_len_hint%)
-LOCAL payload_len%, result%, status%, accepted%
-payload_len%=FNbuild_open_payload(method%, flags%, url$, body_len_hint%)
+LOCAL paylen%, result%, status%, accepted%
+paylen%=FNbuild_open_payload(method%, flags%, url$, body_len_hint%)
 
-IF FNsend_request_retry(NET_CMD_OPEN, payload_len%, 200)=FALSE THEN =-1
+IF FNsend_request_retry(NET_CMD_OPEN, paylen%, 200)=FALSE THEN =-1
 
 status%=FNpacket_status
 IF status%<>NET_STATUS_OK THEN =-1
@@ -821,55 +821,50 @@ result%=FNget_u16le(rxPacket, 11)
 =result%
 
 DEF PROCnetwork_close(handle%)
-LOCAL payload_len%,ok%
-payload_len%=FNbuild_close_payload(handle%)
-ok%=FNsend_request_retry(NET_CMD_CLOSE, payload_len%, 200)
+LOCAL paylen%,ok%
+paylen%=FNbuild_close_payload(handle%)
+ok%=FNsend_request_retry(NET_CMD_CLOSE, paylen%, 200)
 ENDPROC
 
-DEF PROCnetwork_append_read_chunk(data_len%)
+DEF FNnetwork_append_read_chunk(dlen%)
 LOCAL I%
-net_chunk_err%=0
-IF data_len%<=0 THEN GOTO 1800
-IF full_len%+data_len%>FULL_PAYLOAD%+1 THEN net_chunk_err%=1:GOTO 1800
-FOR I%=0 TO data_len%-1
+IF dlen%<=0 THEN =TRUE
+IF full_len%+dlen%>FULL_PAYLOAD%+1 THEN =FALSE
+FOR I%=0 TO dlen%-1
   fullPayload?(full_len%+I%)=rxPacket?(19+I%)
 NEXT
-full_len%=full_len%+data_len%
-1800 REM endprod
-ENDPROC
+full_len%=full_len%+dlen%
+=TRUE
 
 DEF PROCnetwork_read_all(handle%)
-LOCAL offset32%, payload_len%, data_len%, eof%, echo_offset%, ok%
+LOCAL offset32%, paylen%, dlen%, eof%, ok%, status%, ch_rd_ok%
 offset32%=0
 full_len%=0
-
 REPEAT
-  payload_len%=FNbuild_read_payload(handle%, offset32%, NET_READ_SIZE%)
-  ok%=FNsend_request_retry(NET_CMD_READ, payload_len%, 2000)
-  IF ok%=FALSE THEN GOTO 1900
-  status%=FNpacket_status
-  IF status%<>NET_STATUS_OK THEN GOTO 1900
-  echo_offset%=FNget_u32le(rxPacket, 13)
-  data_len%=FNget_u16le(rxPacket, 17)
-  eof%=FNread_response_eof
-  PROCnetwork_append_read_chunk(data_len%)
-  IF net_chunk_err%=1 THEN GOTO 1900
-  offset32%=offset32%+data_len%
-UNTIL eof%
-1900 REM exit proc
+  status%=NET_STATUS_NOT_READY
+  eof%=FALSE
+  ch_rd_ok%=FALSE
+  paylen%=FNbuild_read_payload(handle%, offset32%, NET_READ_SIZE%)
+  ok%=FNsend_request_retry(NET_CMD_READ, paylen%, 2000)
+  IF ok%=TRUE THEN status%=FNpacket_status
+  IF status%=NET_STATUS_OK THEN dlen%=FNget_u16le(rxPacket, 17):eof%=FNread_response_eof:ch_rd_ok%=FNnetwork_append_read_chunk(dlen%)
+  IF ch_rd_ok%=TRUE THEN offset32%=offset32%+dlen%
+UNTIL (eof%=TRUE OR ok%=FALSE OR status%<>NET_STATUS_OK)
+ENDPROC
+
+DEF PROCperform_read(handle%)
+
+PROCnetwork_read_all(handle%)
+PROCnetwork_close(handle%)
+IF full_len%<=0 THEN full_len%=0
+IF full_len%<>0 THEN PROCparse_json_string_value_from_buffer("value")
 ENDPROC
 
 DEF PROCfetch_joke(url$)
 LOCAL handle%
-
 jsonValueLen%=0
 handle%=FNnetwork_open(NET_METHOD_GET, NET_FLAG_ALLOW_EVICT, url$, 0)
-IF handle%<0 THEN full_len%=0:GOTO 2000
-PROCnetwork_read_all(handle%)
-PROCnetwork_close(handle%)
-IF full_len%<=0 THEN full_len%=0:GOTO 2000
-PROCparse_json_string_value_from_buffer("value")
-2000 REM exit proc
+IF handle%>=0 THEN PROCperform_read(handle%)
 ENDPROC
 
 DEF PROCemptyResponse
@@ -878,24 +873,8 @@ PROCtt_bottom_bar
 PROCtt_footer
 ENDPROC
 
-DEF PROCshow_joke_page
-LOCAL row%, i%, c%
-
-CLS
-VDU 23,1,0;0;0;0;
-PROCtt_header
-PROCtt_top_bar
-PRINT TAB(0,3);CHR$(147);CHR$(238);STRING$(12,CHR$(172)+CHR$(173)+CHR$(174));CHR$(172);CHR$(189);
-FOR row%=0 TO ttMaxRows%-1
-  PRINT TAB(0,4+row%);CHR$(147);CHR$(238);CHR$(135);" ";STRING$(34," ");CHR$(147);CHR$(189);
-NEXT
-PRINT TAB(0,17);CHR$(147);CHR$(238);STRING$(12,CHR$(172)+CHR$(188)+CHR$(236));CHR$(172);CHR$(189);
-
-PROCtt_reset_body
-
-IF jsonValueLen%<=0 THEN PROCemptyResponse
-IF jsonValueLen%<=0 THEN GOTO 2200
-
+DEF PROCshowResponse
+LOCAL i%, c%
 FOR i%=0 TO jsonValueLen%-1
   c%=jsonValue?i%
   PROCtt_feed_char(c%)
@@ -905,8 +884,21 @@ PROCtt_flush_word
 IF ttOverflow% THEN PROCtt_overflow
 PROCtt_bottom_bar
 PROCtt_footer
+ENDPROC
 
-2200 REM end proc
+DEF PROCshow_joke_page
+LOCAL row%
+CLS: VDU 23,1,0;0;0;0;
+PROCtt_header
+PROCtt_top_bar
+PRINT TAB(0,3);CHR$(147);CHR$(238);STRING$(12,CHR$(172)+CHR$(173)+CHR$(174));CHR$(172);CHR$(189);
+FOR row%=0 TO ttMaxRows%-1
+  PRINT TAB(0,4+row%);CHR$(147);CHR$(238);CHR$(135);" ";STRING$(34," ");CHR$(147);CHR$(189);
+NEXT
+PRINT TAB(0,17);CHR$(147);CHR$(238);STRING$(12,CHR$(172)+CHR$(188)+CHR$(236));CHR$(172);CHR$(189);
+
+PROCtt_reset_body
+IF jsonValueLen%<=0 THEN PROCemptyResponse ELSE PROCshowResponse
 ENDPROC
 
 DEF PROCtt_reset_body
@@ -945,7 +937,6 @@ IF ttOverflow% THEN GOTO 2500
 IF c%=13 THEN PROCtt_flush_word:PROCtt_newline:GOTO 2500
 IF c%=10 THEN PROCtt_flush_word:PROCtt_newline:GOTO 2500
 IF c%=9 THEN c%=32
-
 IF c%=32 THEN PROCtt_flush_word:GOTO 2500
 
 ttWord$=ttWord$+CHR$(c%)
@@ -983,11 +974,7 @@ IF ttRow%>=ttMaxRows% THEN ttOverflow%=TRUE
 ENDPROC
 
 DEF PROCtt_putc(c%,row%,col%)
-IF row%>13 THEN GOTO 2800
-IF col%>34 THEN GOTO 2800
-PRINT TAB(3+col%,5+row%);CHR$(c%);
-
-2800 REM end proc
+IF row%<=13 AND col%<=34 THEN PRINT TAB(3+col%,5+row%);CHR$(c%);
 ENDPROC
 
 DEF PROCtt_puts(s$,row%,col%)

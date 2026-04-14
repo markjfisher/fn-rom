@@ -946,37 +946,30 @@ payload_len%=FNbuild_close_payload(handle%)
 ok%=FNsend_request_retry(NET_CMD_CLOSE, payload_len%, 200)
 ENDPROC
 
-DEF PROCnetwork_append_read_chunk(data_len%)
+DEF FNnetwork_append_read_chunk(dlen%)
 LOCAL I%
-net_chunk_err%=0
-IF data_len%<=0 THEN GOTO 1800
-IF full_len%+data_len%>FULL_PAYLOAD%+1 THEN net_chunk_err%=1:GOTO 1800
-FOR I%=0 TO data_len%-1
+IF dlen%<=0 THEN =TRUE
+IF full_len%+dlen%>FULL_PAYLOAD%+1 THEN =FALSE
+FOR I%=0 TO dlen%-1
   fullPayload?(full_len%+I%)=rxPacket?(19+I%)
 NEXT
-full_len%=full_len%+data_len%
-1800 REM endprod
-ENDPROC
+full_len%=full_len%+dlen%
+=TRUE
 
 DEF PROCnetwork_read_all(handle%)
-LOCAL offset32%, payload_len%, data_len%, eof%, echo_offset%, ok%, status%
+LOCAL offset32%, paylen%, dlen%, eof%, ok%, status%, ch_rd_ok%
 offset32%=0
 full_len%=0
-
 REPEAT
-  payload_len%=FNbuild_read_payload(handle%, offset32%, NET_READ_SIZE%)
-  ok%=FNsend_request_retry(NET_CMD_READ, payload_len%, 2000)
-  IF ok%=FALSE THEN GOTO 1900
-  status%=FNpacket_status
-  IF status%<>NET_STATUS_OK THEN GOTO 1900
-  echo_offset%=FNget_u32le(rxPacket, 13)
-  data_len%=FNget_u16le(rxPacket, 17)
-  eof%=FNread_response_eof
-  PROCnetwork_append_read_chunk(data_len%)
-  IF net_chunk_err%=1 THEN GOTO 1900
-  offset32%=offset32%+data_len%
-UNTIL eof%
-1900 REM exit proc
+  status%=NET_STATUS_NOT_READY
+  eof%=FALSE
+  ch_rd_ok%=FALSE
+  paylen%=FNbuild_read_payload(handle%, offset32%, NET_READ_SIZE%)
+  ok%=FNsend_request_retry(NET_CMD_READ, paylen%, 2000)
+  IF ok%=TRUE THEN status%=FNpacket_status
+  IF status%=NET_STATUS_OK THEN dlen%=FNget_u16le(rxPacket, 17):eof%=FNread_response_eof:ch_rd_ok%=FNnetwork_append_read_chunk(dlen%)
+  IF ch_rd_ok%=TRUE THEN offset32%=offset32%+dlen%
+UNTIL (eof%=TRUE OR ok%=FALSE OR status%<>NET_STATUS_OK)
 ENDPROC
 
 
