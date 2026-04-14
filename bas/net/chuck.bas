@@ -38,8 +38,6 @@ ttWordLen%=0
 ttMaxRows%=13
 ttOverflow%=FALSE
 
-status%=0
-
 full_len%=0
 jsonValueLen%=0
 net_chunk_err%=0
@@ -768,7 +766,6 @@ NEXT I%
 PRINT
 ENDPROC
 
-REM Copy bytes fullPayload?(start% ..) for length n% into jsonValue? (BBC II string max 255 chars).
 DEF PROCcopy_value_bytes(start%, n%)
 LOCAL jj%
 jsonValueLen%=n%
@@ -778,60 +775,57 @@ FOR jj%=0 TO jsonValueLen%-1
 NEXT jj%
 ENDPROC
 
-REM Scan fullPayload for "key":"..." and extract string value into jsonValue? (no full json$).
-DEF PROCparse_json_string_value_from_buffer(key$)
-LOCAL pat$, pat_len%, i%, j%, match%
-jsonValueLen%=0
-pat$=CHR$(34)+key$+CHR$(34)+":"+CHR$(34)
-pat_len%=LEN(pat$)
-IF full_len%<pat_len% THEN GOTO 1500
-
+DEF PROCparse_buffer(pat$, pat_len%)
+LOCAL i%, j%, match%, pos%, len%
 FOR I%=1 TO pat_len%
   ?(patBuf+I%-1)=ASC(MID$(pat$,I%,1))
 NEXT
 
 ?&80 = full_len% MOD 256
 ?&81 = full_len% DIV 256
-
 ?&82 = patBuf MOD 256
 ?&83 = patBuf DIV 256
-
 ?&84 = pat_len% MOD 256
 ?&85 = pat_len% DIV 256
-
 ?&86 = fullPayload MOD 256
 ?&87 = fullPayload DIV 256
 
 CALL findJsonField
-
 pos% = ?&70 + 256*?&71
 len% = ?&72 + 256*?&73
 
-IF len%=0 THEN GOTO 1500
-PROCcopy_value_bytes(pos%, len%)
-1500 REM end proc
+IF len%<>0 THEN PROCcopy_value_bytes(pos%, len%)
+ENDPROC
+
+DEF PROCparse_json_string_value_from_buffer(key$)
+LOCAL pat$, pat_len%, i%, j%, match%
+jsonValueLen%=0
+pat$=CHR$(34)+key$+CHR$(34)+":"+CHR$(34)
+pat_len%=LEN(pat$)
+IF full_len%>=pat_len% THEN PROCparse_buffer(pat$, pat_len%)
 ENDPROC
 
 DEF FNnetwork_open(method%, flags%, url$, body_len_hint%)
-LOCAL payload_len%, result%
+LOCAL payload_len%, result%, status%, accepted%
 payload_len%=FNbuild_open_payload(method%, flags%, url$, body_len_hint%)
-result%=-1
+
 IF FNsend_request_retry(NET_CMD_OPEN, payload_len%, 200)=FALSE THEN =-1
-IF FNpacket_status<>NET_STATUS_OK THEN =-1
-IF FNopen_accepted=FALSE THEN =-1
+
+status%=FNpacket_status
+IF status%<>NET_STATUS_OK THEN =-1
+
+accepted%=FNopen_accepted
+IF accepted%=FALSE THEN =-1
+
 result%=FNget_u16le(rxPacket, 11)
 =result%
 
 DEF PROCnetwork_close(handle%)
-LOCAL payload_len%, ok%
+LOCAL payload_len%,ok%
 payload_len%=FNbuild_close_payload(handle%)
 ok%=FNsend_request_retry(NET_CMD_CLOSE, payload_len%, 200)
-IF ok%=FALSE THEN PRINT "CLOSE failed":GOTO 1700
-status%=FNpacket_status
-1700 REM end proc
 ENDPROC
 
-REM Append one READ chunk from rxPacket into fullPayload (BBC BASIC II: no IF/ENDIF).
 DEF PROCnetwork_append_read_chunk(data_len%)
 LOCAL I%
 net_chunk_err%=0
@@ -883,16 +877,6 @@ PRINT TAB(3,5);"(no value parsed)";
 PROCtt_bottom_bar
 PROCtt_footer
 ENDPROC
-
-REM ============================================================
-REM Teletext joke page for BBC BASIC II / BBC Micro
-REM Uses:
-REM   jsonValue      buffer containing joke text
-REM   jsonValueLen%  length of joke text
-REM
-REM Call:
-REM   PROCshow_joke_page
-REM ============================================================
 
 DEF PROCshow_joke_page
 LOCAL row%, i%, c%
