@@ -738,7 +738,7 @@ FOR I%=0 TO 2 STEP 2:P%=asmChecksum
 
   ]
 NEXT
-
+calc_checksum%=calc_checksum
 
 ENDPROC
 
@@ -767,13 +767,13 @@ FOR I%=1 TO LEN(text$)
 NEXT I%
 ENDPROC
 
-DEF FNchecksum(buf, len%)
-LOCAL chk%, I%
-chk%=0
-FOR I%=0 TO len%-1
-  chk%=((chk% + buf?I%) DIV 256) + ((chk% + buf?I%) AND 255)
-NEXT I%
-=chk% AND &FF
+DEF FNchecksum(buf%, len%)
+?ZP_SRC%=buf% MOD 256
+?(ZP_SRC%+1)=buf% DIV 256
+?ZP_LEN%=len% MOD 256
+?(ZP_LEN%+1)=len% DIV 256
+CALL calc_checksum%
+=ZP_RES%?0
 
 DEF FNbuild_fujibus_packet(device%, command%, payload_len%)
 LOCAL total_len%

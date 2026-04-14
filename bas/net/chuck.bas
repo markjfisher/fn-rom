@@ -4,6 +4,7 @@ REM Chuck Norris Jokes Fetcher
 DIM asmTransaction 375
 DIM asmJsonParse 330
 DIM patBuf 10
+DIM asmChecksum 50
 
 DIM c$(11)
 
@@ -44,6 +45,9 @@ net_chunk_err%=0
 
 OSBYTE=&FFF4
 OSWRCH=&FFEE
+ZP_SRC%=&70
+ZP_LEN%=&72
+ZP_RES%=&74
 
 FUJI_DEVICE_NETWORK=&FD
 
@@ -616,6 +620,49 @@ FOR I%=0 TO 2 STEP 2:P%=asmJsonParse
 ]
 NEXT I%
 
+FOR I%=0 TO 2 STEP 2:P%=asmChecksum
+  [OPT I%
+
+  .calc_checksum
+    LDA #0
+    STA ZP_RES%
+
+    LDA ZP_LEN%
+    ORA ZP_LEN%+1
+    BEQ calc_checksum_done
+
+  .calc_checksum_loop
+    LDY #0
+    LDA (ZP_SRC%),Y
+
+    CLC
+    ADC ZP_RES%
+    ADC #0
+    STA ZP_RES%
+
+    INC ZP_SRC%
+    BNE calc_checksum_src_ok
+    INC ZP_SRC%+1
+  .calc_checksum_src_ok
+
+    LDA ZP_LEN%
+    BNE calc_checksum_dec_lo
+    DEC ZP_LEN%+1
+  .calc_checksum_dec_lo
+    DEC ZP_LEN%
+
+    LDA ZP_LEN%
+    ORA ZP_LEN%+1
+    BNE calc_checksum_loop
+
+  .calc_checksum_done
+    LDA ZP_RES%
+    RTS
+
+  ]
+NEXT
+calc_checksum%=calc_checksum
+
 ENDPROC
 
 DEF PROCput_u16le(buf, offset%, value%)
@@ -643,13 +690,13 @@ FOR I%=1 TO LEN(text$)
 NEXT I%
 ENDPROC
 
-DEF FNchecksum(buf, len%)
-LOCAL chk%, I%
-chk%=0
-FOR I%=0 TO len%-1
-  chk%=((chk% + buf?I%) DIV 256) + ((chk% + buf?I%) AND 255)
-NEXT I%
-=chk% AND &FF
+DEF FNchecksum(buf%, len%)
+?ZP_SRC%=buf% MOD 256
+?(ZP_SRC%+1)=buf% DIV 256
+?ZP_LEN%=len% MOD 256
+?(ZP_LEN%+1)=len% DIV 256
+CALL calc_checksum%
+=ZP_RES%?0
 
 DEF FNbuild_fujibus_packet(device%, command%, paylen%)
 LOCAL total_len%
