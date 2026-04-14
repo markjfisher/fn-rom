@@ -21,11 +21,11 @@ c$(9)="science"
 c$(10)="sport"
 c$(11)="travel"
 
-TX_BUFFER_SIZE%=160
-RX_BUFFER_SIZE%=256
-NET_READ_SIZE%=220
-FULL_PAYLOAD%=800
-JSON_VALUE_SIZE%=400
+TX_BUFFER_SIZE%=80
+RX_BUFFER_SIZE%=200
+NET_READ_SIZE%=180
+FULL_PAYLOAD%=700
+JSON_VALUE_SIZE%=350
 
 DIM txPacket    TX_BUFFER_SIZE%
 DIM rxPacket    RX_BUFFER_SIZE%
@@ -129,7 +129,6 @@ FOR I%=0 TO 2 STEP 2:P%=asmTransaction
    TXA
    RTS
 
-   \ 'exits with C=1 for empty buffer (no char). If C=0, A contains the char
    .read_rs423
    LDX #&01:LDY #&00:LDA #&91:JSR OSBYTE
    TYA
@@ -297,10 +296,6 @@ FOR I%=0 TO 2 STEP 2:P%=asmTransaction
    BNE trans_ok
 
    .store_char
-   \ &79 holds the decoded byte to write into rx buf
-   \ &72/&73 = rx buf capacity
-   \ &7E/&7F = cur. decoded len / write offset
-   \ &7A/&7B = cur. write ptr in rx buf
    LDA &7E
    CMP &72
    BNE store_space
@@ -333,23 +328,9 @@ FOR I%=0 TO 2 STEP 2:P%=asmTransaction
   ]
 NEXT I%
 
-REM JSON field finder
-REM INPUT:
-REM  &80/&81 = payload len
-REM  &82/&83 = pattern add
-REM  &84/&85 = pattern len
-REM  &86/&87 = payload add
-REM OUTPUT:
-REM  &70/&71 = offset of value start within payload
-REM  &72/&73 = value length
-REM NOT FOUND:
-REM  &70/&71 = &FFFF
-REM  &72/&73 = 0
-
 FOR I%=0 TO 2 STEP 2:P%=asmJsonParse
 [OPT I%
 .findJsonField
-  \ Default = not found
   LDA #&FF
   STA &70
   STA &71
@@ -357,18 +338,15 @@ FOR I%=0 TO 2 STEP 2:P%=asmJsonParse
   STA &72
   STA &73
 
-  \ payload ptr = input payload address
   LDA &86
   STA &74
   LDA &87
   STA &75
 
-  \ search offset = 0
   LDA #0
   STA &76
   STA &77
 
-  \ remaining payload bytes
   LDA &80
   STA &78
   LDA &81
@@ -376,7 +354,6 @@ FOR I%=0 TO 2 STEP 2:P%=asmJsonParse
 
 .searchLoop
 
-  \ if remaining < pattern length => fail
   LDA &79
   CMP &85
   BCS over1
@@ -407,7 +384,6 @@ FOR I%=0 TO 2 STEP 2:P%=asmJsonParse
   RTS
 
 .foundPattern
-  \ Result offset = search offset + pattern length
   CLC
   LDA &76
   ADC &84
@@ -416,7 +392,6 @@ FOR I%=0 TO 2 STEP 2:P%=asmJsonParse
   ADC &85
   STA &71
 
-  \ Advance payload ptr by pattern length
   LDA &84
   STA &8A
   LDA &85
@@ -437,16 +412,13 @@ FOR I%=0 TO 2 STEP 2:P%=asmJsonParse
   BCC advanceByPatternLoop
 
 .startValueScan
-  \ length = 0
   LDA #0
   STA &72
   STA &73
 
-  \ backslash parity = 0
   STA &88
 
 .valueLoop
-  \ Out of bytes => fail
   LDA &78
   ORA &79
   BEQ notFound
@@ -460,7 +432,6 @@ FOR I%=0 TO 2 STEP 2:P%=asmJsonParse
   CMP #92
   BEQ sawBackslash
 
-  \ ordinary char
   LDA #0
   STA &88
   JSR incLenAndAdvance1
@@ -476,11 +447,9 @@ FOR I%=0 TO 2 STEP 2:P%=asmJsonParse
   BCC valueLoop
 
 .maybeEndQuote
-  \ if backslash parity = 0 then quote ends string
   LDA &88
   BEQ done
 
-  \ escaped quote, include it in length
   LDA #0
   STA &88
   JSR incLenAndAdvance1
@@ -491,22 +460,16 @@ FOR I%=0 TO 2 STEP 2:P%=asmJsonParse
   RTS
 
 .matchPattern
-  \ Compare payload at &74/&75 against pattern at &82/&83 for &84/&85 bytes
-  \ Carry set if match, clear if no match
-
-  \ temp payload ptr = current payload ptr
   LDA &74
   STA &7C
   LDA &75
   STA &7D
 
-  \ temp pattern ptr = pattern ptr
   LDA &82
   STA &7E
   LDA &83
   STA &7F
 
-  \ remaining pattern bytes
   LDA &84
   STA &8A
   LDA &85
@@ -522,19 +485,16 @@ FOR I%=0 TO 2 STEP 2:P%=asmJsonParse
   CMP (&7E),Y
   BNE matchNo
 
-  \ temp payload ptr++
   INC &7C
   BNE noCarryMP1
   INC &7D
 .noCarryMP1
 
-  \ temp pattern ptr++
   INC &7E
   BNE noCarryMP2
   INC &7F
 .noCarryMP2
 
-  \ remaining pattern bytes--
   SEC
   LDA &8A
   SBC #1
@@ -555,19 +515,16 @@ FOR I%=0 TO 2 STEP 2:P%=asmJsonParse
   RTS
 
 .advSrch1
-  \ payload ptr++
   INC &74
   BNE noCarryAS1
   INC &75
 .noCarryAS1
 
-  \ offset++
   INC &76
   BNE noCarryAS2
   INC &77
 .noCarryAS2
 
-  \ remaining--
   SEC
   LDA &78
   SBC #1
@@ -578,13 +535,11 @@ FOR I%=0 TO 2 STEP 2:P%=asmJsonParse
   RTS
 
 .advancePayloadOnly1
-  \ payload ptr++
   INC &74
   BNE noCarryAP1
   INC &75
 .noCarryAP1
 
-  \ remaining--
   SEC
   LDA &78
   SBC #1
@@ -595,19 +550,16 @@ FOR I%=0 TO 2 STEP 2:P%=asmJsonParse
   RTS
 
 .incLenAndAdvance1
-  \ length++
   INC &72
   BNE lenNoCarry
   INC &73
 .lenNoCarry
 
-  \ payload ptr++
   INC &74
   BNE noCarryLA1
   INC &75
 .noCarryLA1
 
-  \ remaining--
   SEC
   LDA &78
   SBC #1
@@ -844,7 +796,7 @@ len% = ?&72 + 256*?&73
 IF len%<>0 THEN PROCcopy_value_bytes(pos%, len%)
 ENDPROC
 
-DEF PROCparse_json_string_value_from_buffer(key$)
+DEF PROCjson_value(key$)
 LOCAL pat$, pat_len%, i%, j%, match%
 jsonValueLen%=0
 pat$=CHR$(34)+key$+CHR$(34)+":"+CHR$(34)
@@ -904,7 +856,7 @@ DEF PROCperform_read(handle%)
 PROCnetwork_read_all(handle%)
 PROCnetwork_close(handle%)
 IF full_len%<=0 THEN full_len%=0
-IF full_len%<>0 THEN PROCparse_json_string_value_from_buffer("value")
+IF full_len%<>0 THEN PROCjson_value("value")
 ENDPROC
 
 DEF PROCfetch_joke(url$)
