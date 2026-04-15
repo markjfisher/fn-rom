@@ -1,21 +1,19 @@
 REM filename: iss
 REM Teletext ISS tracker test
-REM Using https://api.wheretheiss.at/v1/satellites/25544 to fetch ISS position
-REM In fields:
-REM "latitude": -32.812981235047,
-REM "longitude": -16.19368507439,
 
-MODE 7
-SCREEN%=&7C00
+TX_BUFFER_SIZE%=60
+RX_BUFFER_SIZE%=200
+NET_READ_SIZE%=180
+FULL_PAYLOAD%=400
+JSON_VALUE_SIZE%=20
 
-REM Hide cursor
-VDU 23,1,0;0;0;0;
-CLS
-PRINT "Initialising data..."
-
+DIM txPacket    TX_BUFFER_SIZE%
+DIM rxPacket    RX_BUFFER_SIZE%
+DIM fullPayload FULL_PAYLOAD%
+DIM jsonValue   JSON_VALUE_SIZE%
 DIM BUF% 1001
-DIM PATCH0% 10
-DIM PATCH1% 10
+DIM PATCH0% 6
+DIM PATCH1% 6
 DIM asmCopyScreen 75
 DIM asmChecksum 50
 DIM asmTransaction 375
@@ -23,25 +21,20 @@ DIM asmJsonParse 330
 DIM patBuf 20
 
 REM ISS icon shape bytes (2x2 visible mosaic cells)
-REM Change these four values to test different shapes quickly
 ISS00%=46
 ISS01%=56
 ISS10%=38
 ISS11%=60
 
-TX_BUFFER_SIZE%=160
-RX_BUFFER_SIZE%=256
-NET_READ_SIZE%=220
-FULL_PAYLOAD%=800
-JSON_VALUE_SIZE%=400
+SCREEN%=&7C00
 
-DIM txPacket    TX_BUFFER_SIZE%
-DIM rxPacket    RX_BUFFER_SIZE%
-DIM fullPayload FULL_PAYLOAD%
-DIM jsonValue   JSON_VALUE_SIZE%
+REM Hide cursor
+VDU 23,1,0;0;0;0;
+CLS
+PRINT "ISS tracker"
+PRINT "Initialising data..."
 
 PROC_assemble
-
 RESTORE 20000
 FOR I%=0 TO 999
   READ ?(BUF%+I%)
@@ -49,27 +42,39 @@ NEXT
 
 REM Show background
 CLS
-PROC_show
 
 OLDX%=-1
 OLDY%=-1
 ISSL%=4
 
-A%=GET
-PROC_move_iss(18,10)
-
-A%=GET
-PROC_move_iss(24,22)
-
-A%=GET
+REPEAT
+  PROCshow_globe
+  PROCshow_iss
+  PROCwait_next_or_timeout
+UNTIL FALSE
 END
 
-DEF PROC_show
+DEF PROCwait_next_or_timeout
+LOCAL key%, done%
+done%=FALSE
+TIME=0
+REPEAT
+  key%=INKEY(1)
+  IF key%=ASC("N") THEN done%=TRUE
+  IF key%=ASC("n") THEN done%=TRUE
+  IF TIME>=3000 THEN done%=TRUE
+UNTIL done%
+ENDPROC
+
+DEF PROC_show_globe
 ?(page_src%+1)=BUF% MOD 256
 ?(page_src%+2)=BUF% DIV 256
 ?(page_dst%+1)=SCREEN% MOD 256
 ?(page_dst%+2)=SCREEN% DIV 256
 CALL copy%
+ENDPROC
+
+PROCshow_iss
 ENDPROC
 
 DEF PROC_move_iss(NEWX%,NEWY%)
@@ -1066,12 +1071,6 @@ DATA 23,32,32,32,32,32,32,32,32,32
 DATA 32,32,56,36,32,32,32,32,32,32
 DATA 32,32,32,32,32,96,48,32,32,96
 DATA 112,112,112,96,96,112,48,32,32,32
-
-REM 2 blank lines
-REM DATA 32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32
-REM DATA 32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32
-
-REM Graphics version
 DATA 23,32,32,32,32,32,32,32,104,112
 DATA 112,120,127,32,32,32,32,32,120,124
 DATA 124,124,124,126,126,127,127,119,126,127
