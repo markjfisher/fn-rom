@@ -1,13 +1,15 @@
 REM filename: NETEST
 REM FujiNet network connectivity test using single asm send/receive transaction
 
-DIM asmOSBYTE 20
-DIM asmOSWRCH 8
-DIM asmTransaction 396
+httpGetURL$="http://192.168.1.101:8080/get"
+tcpEchoURL$="tcp://192.168.1.101:7777?halfclose=1"
+
+DIM asmTransaction 375
+DIM asmChecksum 50
 
 TX_BUFFER_SIZE%=160
-RX_BUFFER_SIZE%=160
-NET_READ_SIZE%=128
+RX_BUFFER_SIZE%=400
+NET_READ_SIZE%=380
 
 DIM txPacket TX_BUFFER_SIZE%
 DIM rxPacket RX_BUFFER_SIZE%
@@ -39,6 +41,10 @@ SLIP_ESCAPE=&DB
 SLIP_ESC_END=&DC
 SLIP_ESC_ESC=&DD
 
+ZP_SRC%=&70
+ZP_LEN%=&72
+ZP_RES%=&74
+
 PROCasmInit
 
 PRINT "FujiNet Network Connectivity Test"
@@ -63,85 +69,32 @@ REM PROCEDURE AND FUNCTION DEFINITIONS
 REM ============================================
 
 DEF PROCasmInit
-FOR I%=0 TO 2 STEP 2:P%=asmOSBYTE
-  [OPT I%
-   LDA &70
-   LDX &71
-   LDY &72
-   JSR OSBYTE
-   STA &70
-   STX &71
-   STY &72
-   RTS
-  ]
-NEXT I%
-
-FOR I%=0 TO 2 STEP 2:P%=asmOSWRCH
-  [OPT I%
-   LDA &70
-   JSR OSWRCH
-   RTS
-  ]
-NEXT I%
-
 FOR I%=0 TO 2 STEP 2:P%=asmTransaction
   [OPT I%
    .setup_serial
-   LDX #&08
-   LDY #&00
-   LDA #&07
-   JSR OSBYTE
-   LDX #&08
-   LDY #&00
-   LDA #&08
-   JSR OSBYTE
-   LDX #&01
-   LDY #&00
-   LDA #&02
-   JSR OSBYTE
-   LDX #&03
-   LDY #&00
-   LDA #&03
-   JSR OSBYTE
+   LDX #&08:LDY #&00:LDA #&07:JSR OSBYTE
+   LDX #&08:LDY #&00:LDA #&08:JSR OSBYTE
+   LDX #&01:LDY #&00:LDA #&02:JSR OSBYTE
+   LDX #&03:LDY #&00:LDA #&03:JSR OSBYTE
    RTS
 
    .flush_serial
-   LDX #&01
-   LDY #&00
-   LDA #&15
-   JSR OSBYTE
+   LDX #&01:LDY #&00:LDA #&15:JSR OSBYTE
    RTS
 
    .restore_screen
-   LDX #&00
-   LDY #&00
-   LDA #&03
-   JSR OSBYTE
-   LDX #&00
-   LDY #&00
-   LDA #&02
-   JSR OSBYTE
+   LDX #&00:LDY #&00:LDA #&03:JSR OSBYTE
+   LDX #&00:LDY #&00:LDA #&02:JSR OSBYTE
    RTS
 
    .check_rs423
-   LDA #&80
-   LDX #&FE
-   LDY #&FF
-   JSR OSBYTE
+   LDX #&FE:LDY #&FF:LDA #&80:JSR OSBYTE
    TXA
    RTS
 
    .read_rs423
-   LDA #&91
-   LDX #&01
-   LDY #&00
-   JSR OSBYTE
-   BCS read_fail
+   LDX #&01:LDY #&00:LDA #&91:JSR OSBYTE
    TYA
-   LDX #&01
-   RTS
-   .read_fail
-   LDX #&00
    RTS
 
    .wait_for_char
@@ -155,8 +108,9 @@ FOR I%=0 TO 2 STEP 2:P%=asmTransaction
    LDA &7C
    ORA &7D
    BNE wait_for_char
-   LDX #&00
+   SEC
    RTS
+
    .wait_have_char
    JSR read_rs423
    RTS
@@ -217,7 +171,8 @@ FOR I%=0 TO 2 STEP 2:P%=asmTransaction
    INC &7E
    BNE send_loop
    INC &7F
-   JMP send_loop
+   CLC
+   BCC send_loop
 
    .send_done
    LDA #SLIP_END
@@ -227,42 +182,37 @@ FOR I%=0 TO 2 STEP 2:P%=asmTransaction
    STY &7E
    STY &7F
    STY &78
+   STY &7C
+
    LDA &70
    STA &7A
    LDA &71
    STA &7B
 
-   LDA #0
-   STA &7C
-   LDA #&4F   \ timeout: 20k
+   \ Get the response
+   LDA #&B0
    STA &7D
 
    .wait_start
    JSR wait_for_char
-   CPX #&01
-   BEQ have_start_ok
-   BNE trans_fail
+   BCC have_start_ok
+   BCS trans_fail
+
    .have_start_ok
    CMP #SLIP_END
    BNE wait_start
 
    LDA #0
    STA &7C
-   LDA #&08     \ timeout: 2k
+   LDA #&08
    STA &7D
 
    .frame_loop
    JSR wait_for_char
-   CPX #&01
-   BEQ have_frame_ok
-   BNE trans_fail
+   BCC have_frame_ok
+   BCS trans_fail
    .have_frame_ok
    STA &79
-
-   LDA #0
-   STA &7C
-   LDA #&02     \ timeout: 256
-   STA &7D
 
    LDA &78
    BNE escaped_char
@@ -309,29 +259,26 @@ FOR I%=0 TO 2 STEP 2:P%=asmTransaction
    BNE trans_ok
 
    .store_char
-    \ &79 holds the decoded byte to write into the rx buffer.
-    \ &72/&73 = rx buffer capacity
-    \ &7E/&7F = current decoded length / write offset
-    \ &7A/&7B = current write pointer in rx buffer
-    LDA &7E
-    CMP &72
-    BNE store_space
-    LDA &7F
-    CMP &73
-    BEQ trans_fail
-    .store_space
-    LDY #&00
-    LDA &79
-    STA (&7A),Y
-    INC &7A
-    BNE store_ptr_ok
-    INC &7B
-    .store_ptr_ok
-    INC &7E
-    BNE no_inc
-    INC &7F
+   LDA &7E
+   CMP &72
+   BNE store_space
+   LDA &7F
+   CMP &73
+   BEQ trans_fail
+   .store_space
+   LDY #&00
+   LDA &79
+   STA (&7A),Y
+   INC &7A
+   BNE store_ptr_ok
+   INC &7B
+   .store_ptr_ok
+   INC &7E
+   BNE no_inc
+   INC &7F
    .no_inc
-   JMP frame_loop
+   CLC
+   BCC frame_loop
 
    .trans_ok
    JSR restore_screen
@@ -340,9 +287,51 @@ FOR I%=0 TO 2 STEP 2:P%=asmTransaction
    LDA &7F
    STA &73
    RTS
+  ]
+NEXT I%
+
+FOR I%=0 TO 2 STEP 2:P%=asmChecksum
+  [OPT I%
+
+  .calc_checksum
+    LDA #0
+    STA ZP_RES%
+
+    LDA ZP_LEN%
+    ORA ZP_LEN%+1
+    BEQ calc_checksum_done
+
+  .calc_checksum_loop
+    LDY #0
+    LDA (ZP_SRC%),Y
+
+    CLC
+    ADC ZP_RES%
+    ADC #0
+    STA ZP_RES%
+
+    INC ZP_SRC%
+    BNE calc_checksum_src_ok
+    INC ZP_SRC%+1
+  .calc_checksum_src_ok
+
+    LDA ZP_LEN%
+    BNE calc_checksum_dec_lo
+    DEC ZP_LEN%+1
+  .calc_checksum_dec_lo
+    DEC ZP_LEN%
+
+    LDA ZP_LEN%
+    ORA ZP_LEN%+1
+    BNE calc_checksum_loop
+
+  .calc_checksum_done
+    LDA ZP_RES%
+    RTS
 
   ]
 NEXT I%
+calc_checksum%=calc_checksum
 ENDPROC
 
 DEF PROCput_u16le(buf, offset%, value%)
@@ -377,13 +366,13 @@ FOR I%=0 TO count%-1
 NEXT I%
 ENDPROC
 
-DEF FNchecksum(buf, len%)
-LOCAL chk%, I%
-chk%=0
-FOR I%=0 TO len%-1
-  chk%=((chk% + buf?I%) DIV 256) + ((chk% + buf?I%) AND 255)
-NEXT I%
-=chk% AND &FF
+DEF FNchecksum(buf%, len%)
+?ZP_SRC%=buf% MOD 256
+?(ZP_SRC%+1)=buf% DIV 256
+?ZP_LEN%=len% MOD 256
+?(ZP_LEN%+1)=len% DIV 256
+CALL calc_checksum%
+=ZP_RES%?0
 
 DEF FNbuild_fujibus_packet(device%, command%, payload_len%)
 LOCAL total_len%
@@ -415,12 +404,9 @@ DEF FNtransaction(tx_len%)
 CALL asmTransaction+entry-asmTransaction
 =?&72 + 256*?&73
 
-DEF FNpacket_total_len
-=FNget_u16le(rxPacket, 2)
-
 DEF FNpacket_checksum_ok
 LOCAL pkt_len%, expected%, actual%
-pkt_len%=FNpacket_total_len
+pkt_len%=FNget_u16le(rxPacket, 2)
 expected%=rxPacket?4
 rxPacket?4=0
 actual%=FNchecksum(rxPacket, pkt_len%)
@@ -442,16 +428,22 @@ IF rxPacket?1<>command% THEN result%=FALSE
 IF FNpacket_checksum_ok=FALSE THEN result%=FALSE
 =result%
 
-DEF FNsend_request_retry(command%, payload_len%, retries%)
+DEF PROCpause(t%)
+TIME=0
+REPEAT UNTIL TIME>t%
+ENDPROC
+
+DEF FNsend_request_retry(command%, paylen%, retries%)
 LOCAL tries%, status%, result%, done%
 tries%=1
 done%=FALSE
 result%=FALSE
 REPEAT
-  IF FNsend_request_expect(command%, payload_len%)=FALSE THEN done%=TRUE
+  IF FNsend_request_expect(command%, paylen%)=FALSE THEN done%=TRUE
   status%=FNpacket_status
   IF done%=FALSE THEN IF status%=NET_STATUS_DEVICE_BUSY OR status%=NET_STATUS_NOT_READY THEN tries%=tries%+1 ELSE result%=TRUE:done%=TRUE
   IF tries%>retries% THEN done%=TRUE
+  IF done%=FALSE THEN PROCpause(50)
 UNTIL done%
 =result%
 
@@ -502,39 +494,6 @@ PROCput_u16le(txPacket, 13, data_len%)
 IF data_len%>0 THEN PROCcopy_string_to_buffer(txPacket, 15, data$)
 =9+data_len%
 
-DEF FNopen_handle_from_response
-=FNget_u16le(rxPacket, 11)
-
-DEF FNopen_accepted
-=((rxPacket?8 AND 1)<>0)
-
-DEF FNinfo_http_status
-=FNget_u16le(rxPacket, 13)
-
-DEF FNinfo_header_len
-=FNget_u32le(rxPacket, 23)
-
-DEF FNinfo_read_offset
-=FNget_u32le(rxPacket, 13)
-
-DEF FNinfo_read_data_len
-=FNget_u16le(rxPacket, 17)
-
-DEF FNinfo_read_eof
-=((rxPacket?8 AND 1)<>0)
-
-DEF FNwrite_bytes_written
-=FNget_u16le(rxPacket, 17)
-
-DEF FNread_response_offset
-=FNget_u32le(rxPacket, 13)
-
-DEF FNread_response_data_len
-=FNget_u16le(rxPacket, 17)
-
-DEF FNread_response_eof
-=((rxPacket?8 AND 1)<>0)
-
 DEF PROCprint_ascii_from_payload(offset%, count%)
 LOCAL I%, byte%
 FOR I%=0 TO count%-1
@@ -545,39 +504,56 @@ PRINT
 ENDPROC
 
 DEF FNnetwork_open(method%, flags%, url$, body_len_hint%)
-LOCAL payload_len%, result%
-payload_len%=FNbuild_open_payload(method%, flags%, url$, body_len_hint%)
-result%=-1
-IF FNsend_request_retry(NET_CMD_OPEN, payload_len%, 100)=FALSE THEN =-1
-IF FNpacket_status<>NET_STATUS_OK THEN =-1
-IF FNopen_accepted=FALSE THEN =-1
-result%=FNopen_handle_from_response
+LOCAL paylen%, result%, status%, accepted%
+paylen%=FNbuild_open_payload(method%, flags%, url$, body_len_hint%)
+
+IF FNsend_request_retry(NET_CMD_OPEN, paylen%, 200)=FALSE THEN =-1
+
+status%=FNpacket_status
+IF status%<>NET_STATUS_OK THEN =-1
+
+accepted%=((rxPacket?8 AND 1)<>0)
+IF accepted%=FALSE THEN =-1
+
+result%=FNget_u16le(rxPacket, 11)
 =result%
 
-DEF PROCnetwork_info(handle%)
-LOCAL payload_len%, header_len%, ok%, offset32%, chunk_len%, eof%, echo_offset%
-payload_len%=FNbuild_info_payload(handle%)
-ok%=FNsend_request_retry(NET_CMD_INFO, payload_len%, 100)
-IF ok%=FALSE THEN PRINT "INFO failed":ENDPROC
-IF FNpacket_status<>NET_STATUS_OK THEN PRINT "INFO status: ";FNpacket_status:ENDPROC
+DEF PROCnetinfo_get(handle%)
+LOCAL payload_len%, header_len%, ok%, offset32%, chunk_len%, eof%, echo_offset%, status%
+
 PRINT "Info handle:       ";FNget_u16le(rxPacket, 11)
-PRINT "Info http status:  ";FNinfo_http_status
-header_len%=FNinfo_header_len
+PRINT "Info http status:  ";FNget_u16le(rxPacket, 13)
+header_len%=FNget_u32le(rxPacket, 23)
 PRINT "Info header bytes: ";header_len%
 offset32%=0
-IF header_len%=0 THEN ENDPROC
+IF header_len%=0 THEN GOTO 1500
+
 REPEAT
+  status%=NET_STATUS_NOT_READY
+  eof%=FALSE
+  chunk_len%=0
+
   payload_len%=FNbuild_info_read_payload(handle%, offset32%, NET_READ_SIZE%)
-  ok%=FNsend_request_retry(NET_CMD_INFO_READ, payload_len%, 100)
-  IF ok%=FALSE THEN PRINT "INFO_READ failed":ENDPROC
-  IF FNpacket_status<>NET_STATUS_OK THEN PRINT "INFO_READ status: ";FNpacket_status:ENDPROC
-  echo_offset%=FNinfo_read_offset
-  chunk_len%=FNinfo_read_data_len
-  eof%=FNinfo_read_eof
-  IF echo_offset%<>offset32% THEN PRINT "INFO_READ offset mismatch":ENDPROC
-  IF chunk_len%>0 THEN PROCprint_ascii_from_payload(19, chunk_len%)
-  offset32%=offset32%+chunk_len%
-UNTIL eof%
+  ok%=FNsend_request_retry(NET_CMD_INFO_READ, payload_len%, 2000)
+  IF ok%=FALSE THEN PRINT "INFO_READ failed"
+  IF ok%=TRUE THEN status%=FNpacket_status
+  IF status%=NET_STATUS_OK THEN echo_offset%=FNget_u32le(rxPacket, 13):chunk_len%=FNget_u16le(rxPacket, 17):eof%=((rxPacket?8 AND 1)<>0)
+  IF status%=NET_STATUS_OK AND echo_offset%<>offset32% THEN PRINT "INFO_READ offset mismatch":ok%=FALSE
+  IF ok%=TRUE AND chunk_len%>0 THEN PROCprint_ascii_from_payload(19, chunk_len%)
+  IF ok%=TRUE AND status%=NET_STATUS_OK THEN offset32%=offset32%+chunk_len%
+UNTIL (eof%=TRUE OR ok%=FALSE OR status%<>NET_STATUS_OK)
+1500 REM endproc
+ENDPROC
+
+DEF PROCnetwork_info(handle%)
+LOCAL payload_len%, ok%, status%
+
+status%=NET_STATUS_NOT_READY
+payload_len%=FNbuild_info_payload(handle%)
+ok%=FNsend_request_retry(NET_CMD_INFO, payload_len%, 2000)
+IF ok%=FALSE THEN PRINT "INFO failed"
+IF ok%=TRUE THEN status%=FNpacket_status
+IF ok%=TRUE AND status%=NET_STATUS_OK THEN PRINT "INFO status: ";status%:PROCnetinfo_get(handle%)
 ENDPROC
 
 DEF FNbuild_info_read_payload(handle%, offset32%, max_bytes%)
@@ -588,49 +564,57 @@ PROCput_u16le(txPacket, 13, max_bytes%)
 =9
 
 DEF PROCnetwork_close(handle%)
-LOCAL payload_len%, ok%
-payload_len%=FNbuild_close_payload(handle%)
-ok%=FNsend_request_retry(NET_CMD_CLOSE, payload_len%, 100)
-IF ok%=FALSE THEN PRINT "CLOSE failed":ENDPROC
-IF FNpacket_status<>NET_STATUS_OK THEN PRINT "CLOSE status: ";FNpacket_status
+LOCAL paylen%,ok%
+paylen%=FNbuild_close_payload(handle%)
+ok%=FNsend_request_retry(NET_CMD_CLOSE, paylen%, 200)
 ENDPROC
 
 DEF FNnetwork_write(handle%, offset32%, data$, data_len%)
-LOCAL payload_len%, result%
+LOCAL payload_len%, result%, status%
 payload_len%=FNbuild_write_payload(handle%, offset32%, data$, data_len%)
 result%=-1
-IF FNsend_request_retry(NET_CMD_WRITE, payload_len%, 200)=FALSE THEN =-1
-IF FNpacket_status<>NET_STATUS_OK THEN =-1
-result%=FNwrite_bytes_written
+IF FNsend_request_retry(NET_CMD_WRITE, payload_len%, 2000)=FALSE THEN =-1
+status%=FNpacket_status
+IF status%<>NET_STATUS_OK THEN =-1
+result%=FNget_u16le(rxPacket, 17)
 =result%
 
+DEF FNnetwork_append_read_chunk(dlen%)
+LOCAL I%
+IF dlen%<=0 THEN =TRUE
+IF full_len%+dlen%>FULL_PAYLOAD%+1 THEN =FALSE
+FOR I%=0 TO dlen%-1
+  fullPayload?(full_len%+I%)=rxPacket?(19+I%)
+NEXT
+full_len%=full_len%+dlen%
+=TRUE
+
 DEF PROCnetwork_read_all(handle%)
-LOCAL offset32%, payload_len%, data_len%, eof%, echo_offset%, ok%
+LOCAL offset32%, paylen%, dlen%, eof%, ok%, status%
 offset32%=0
+full_len%=0
 REPEAT
-  payload_len%=FNbuild_read_payload(handle%, offset32%, NET_READ_SIZE%)
-  ok%=FNsend_request_retry(NET_CMD_READ, payload_len%, 500)
-  IF ok%=FALSE THEN PRINT "READ failed":ENDPROC
-  IF FNpacket_status<>NET_STATUS_OK THEN PRINT "READ status: ";FNpacket_status:ENDPROC
-  echo_offset%=FNread_response_offset
-  data_len%=FNread_response_data_len
-  eof%=FNread_response_eof
-  PRINT "Read offset: ";echo_offset%;" len: ";data_len%;" eof: ";eof%
-  IF data_len%>0 THEN PROCprint_ascii_from_payload(19, data_len%)
-  offset32%=offset32%+data_len%
-UNTIL eof%
+  status%=NET_STATUS_NOT_READY
+  eof%=FALSE
+  dlen%=0
+  paylen%=FNbuild_read_payload(handle%, offset32%, NET_READ_SIZE%)
+  ok%=FNsend_request_retry(NET_CMD_READ, paylen%, 2000)
+  IF ok%=TRUE THEN status%=FNpacket_status
+  IF status%=NET_STATUS_OK THEN dlen%=FNget_u16le(rxPacket, 17):eof%=((rxPacket?8 AND 1)<>0)
+  IF dlen%>0 THEN offset32%=offset32%+dlen%:PROCprint_ascii_from_payload(19, dlen%)
+UNTIL (eof%=TRUE OR ok%=FALSE OR status%<>NET_STATUS_OK)
 ENDPROC
 
 DEF PROChttp_get_example
-LOCAL handle%, url$
-url$="http://192.168.1.101:8080/get"
-PRINT "Opening: ";url$
-handle%=FNnetwork_open(NET_METHOD_GET, NET_FLAG_ALLOW_EVICT, url$, 0)
-IF handle%<0 THEN PRINT "OPEN failed":ENDPROC
+LOCAL handle%
+PRINT "Opening: ";httpGetURL$
+handle%=FNnetwork_open(NET_METHOD_GET, NET_FLAG_ALLOW_EVICT, httpGetURL$, 0)
+IF handle%<0 THEN PRINT "OPEN failed":GOTO 2000
 PRINT "Handle: ";handle%
 PROCnetwork_info(handle%)
 PROCnetwork_read_all(handle%)
 PROCnetwork_close(handle%)
+2000 REM endproc
 ENDPROC
 
 DEF PROCtcp_halfclose(handle%, offset32%)
@@ -641,18 +625,18 @@ ENDPROC
 
 DEF PROCtcp_sendrecv_example
 LOCAL handle%, url$, data$, written%
-url$="tcp://192.168.1.101:7777?halfclose=1"
 data$="hello world"
-PRINT "Opening: ";url$
-handle%=FNnetwork_open(NET_METHOD_GET, NET_FLAG_ALLOW_EVICT, url$, 0)
-IF handle%<0 THEN PRINT "OPEN failed":ENDPROC
+PRINT "Opening: ";tcpEchoURL$
+handle%=FNnetwork_open(NET_METHOD_GET, NET_FLAG_ALLOW_EVICT, tcpEchoURL$, 0)
+IF handle%<0 THEN PRINT "OPEN failed":GOTO 2500
 PRINT "Handle: ";handle%
 PRINT "Writing: ";data$
 written%=FNnetwork_write(handle%, 0, data$, LEN(data$))
-IF written%<0 THEN PRINT "WRITE failed":PROCnetwork_close(handle%):ENDPROC
+IF written%<0 THEN PRINT "WRITE failed":PROCnetwork_close(handle%):GOTO 2500
 PRINT "Written: ";written%
 PROCtcp_halfclose(handle%, written%)
 PROCnetwork_info(handle%)
 PROCnetwork_read_all(handle%)
 PROCnetwork_close(handle%)
+2500 REM endproc
 ENDPROC

@@ -751,12 +751,6 @@ PROCput_u32le(txPacket, 9, offset32%)
 PROCput_u16le(txPacket, 13, max_bytes%)
 =9
 
-DEF FNopen_accepted
-=((rxPacket?8 AND 1)<>0)
-
-DEF FNread_response_eof
-=((rxPacket?8 AND 1)<>0)
-
 DEF PROCprint_ascii_from_payload(offset%, count%)
 LOCAL I%, byte%
 FOR I%=0 TO count%-1
@@ -814,7 +808,7 @@ IF FNsend_request_retry(NET_CMD_OPEN, paylen%, 200)=FALSE THEN =-1
 status%=FNpacket_status
 IF status%<>NET_STATUS_OK THEN =-1
 
-accepted%=FNopen_accepted
+accepted%=((rxPacket?8 AND 1)<>0)
 IF accepted%=FALSE THEN =-1
 
 result%=FNget_u16le(rxPacket, 11)
@@ -847,7 +841,7 @@ REPEAT
   paylen%=FNbuild_read_payload(handle%, offset32%, NET_READ_SIZE%)
   ok%=FNsend_request_retry(NET_CMD_READ, paylen%, 2000)
   IF ok%=TRUE THEN status%=FNpacket_status
-  IF status%=NET_STATUS_OK THEN dlen%=FNget_u16le(rxPacket, 17):eof%=FNread_response_eof:ch_rd_ok%=FNnetwork_append_read_chunk(dlen%)
+  IF status%=NET_STATUS_OK THEN dlen%=FNget_u16le(rxPacket, 17):eof%=((rxPacket?8 AND 1)<>0):ch_rd_ok%=FNnetwork_append_read_chunk(dlen%)
   IF ch_rd_ok%=TRUE THEN offset32%=offset32%+dlen%
 UNTIL (eof%=TRUE OR ok%=FALSE OR status%<>NET_STATUS_OK)
 ENDPROC
