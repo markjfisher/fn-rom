@@ -13,7 +13,7 @@ VDU 23,1,0;0;0;0;
 CLS
 PRINT "Initialising data..."
 
-MYSTR$="LOAD GDATA "+MID$(STR$~GDATA%,2)
+MYSTR$="LOAD GDATA "+STR$~GDATA%
 PRINT ":";MYSTR$
 OSCLI MYSTR$
 
@@ -26,8 +26,8 @@ A%=GET
 END
 
 DEF PROC_show
-?(page_src%+1)=GDATA MOD 256
-?(page_src%+2)=GDATA DIV 256
+?(page_src%+1)=GDATA% MOD 256
+?(page_src%+2)=GDATA% DIV 256
 
 ?(page_dst%+1)=SCREEN% MOD 256
 ?(page_dst%+2)=SCREEN% DIV 256

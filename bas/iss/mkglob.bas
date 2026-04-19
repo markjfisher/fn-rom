@@ -4,9 +4,9 @@ REM convert screen DATA statements to file "GDATA"
 CLS
 PRINT "Converting data to binary file..."
 
-FH=OPENOUT("GDATA")
+FH=OPENOUT("GDATA2")
 RESTORE 20000
-FOR I%=0 TO 999
+FOR I%=0 TO 1
   READ D%
   BPUT# FH,D%
 NEXT

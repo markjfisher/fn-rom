@@ -169,13 +169,24 @@ cd_writedest_cat_nodel:
 
 create_file_2:
         sta     pws_tmp04
+
+.ifndef FUJINET_INTERFACE_DUMMY
+        ; Non-empty cat: MMFS seed (0,$02) lets the first gap check succeed without ever
+        ; entering cfile_loop — pws_tmp03 stays $02. Seed first free sector after last file.
+        ldy     dfs_cat_num_x8
+        cpy     #8
+        bcc     @create_seed_empty
+
+        jsr     seed_first_free_after_last_file
+        jmp     @create_cat_limit
+
+@create_seed_empty:
         lda     #$00
         sta     pws_tmp02
         lda     #$02
         sta     pws_tmp03
 
-.ifndef FUJINET_INTERFACE_DUMMY
-        ; REAL DISK: Use standard MMFS gap-finding algorithm
+@create_cat_limit:
         ldy     dfs_cat_num_x8
         cpy     #$F8
         bcc     getfirstblock_yoffset
@@ -223,11 +234,13 @@ debug_here:
         sta     pws_tmp02
 
 getfirstblock_yoffset:
+        ; Total sectors read only from catalogue header ($0F06/$0F07). With Y=num*8,
+        ; dfs_cat_sect_count,Y aliases into file rows (e.g. $0F07+$28=$0F2F), not geometry.
         sec
-        lda     dfs_cat_sect_count,y
+        lda     dfs_cat_sect_count
         sbc     pws_tmp03
         pha
-        lda     dfs_cat_boot_option,y
+        lda     dfs_cat_boot_option
         and     #$03
         sbc     pws_tmp02
         tax
@@ -305,6 +318,44 @@ cfile_copyfnloop:
         jsr     save_cat_to_disk
         pla
         tay
+        rts
+
+; Last sector occupied by catalogue row at Y (same maths as cfile_loop / debug_here),
+; then +1 -> first DFS sector number for the next contiguous allocation.
+seed_first_free_after_last_file:
+        ldy     dfs_cat_num_x8
+        jsr     y_sub8
+
+        lda     dfs_cat_file_op,y
+        jsr     a_rorx4and3
+        sta     pws_tmp02
+
+        clc
+        lda     #$FF
+        adc     dfs_cat_file_size,y
+        lda     dfs_cat_file_sect,y
+        adc     dfs_cat_file_size+1,y
+        sta     pws_tmp03
+
+        lda     dfs_cat_file_op,y
+        and     #$03
+        adc     pws_tmp02
+        sta     pws_tmp02
+
+        jmp     bump_pws_tmp_sector10
+
+bump_pws_tmp_sector10:
+        clc
+        lda     pws_tmp03
+        adc     #1
+        sta     pws_tmp03
+        bcc     @bump_done
+        lda     pws_tmp02
+        clc
+        adc     #1
+        and     #$03
+        sta     pws_tmp02
+@bump_done:
         rts
 
 delete_cat_entry_yfileoffset:
