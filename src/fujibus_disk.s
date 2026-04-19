@@ -187,6 +187,10 @@ _fujibus_disk_mount:
 ;   rx[16/17] = data length
 ;   rx[18+]   = sector data
 ;   copied to (*data_ptr)
+;
+; Shared read path uses cws_tmp1 as max bytes to copy from payload start:
+;   $00 = copy full payload (256-byte frame or entire short length)
+;   nonzero = copy at most that many bytes (DFS tail sector)
 
 ; Build read-sector request, send, receive first SLIP frame, validate header
 ; and status params. Carry clear = ready to read length at [16]/[17] and
@@ -271,131 +275,29 @@ disk_read_sector_common_recv:
         sec
         rts
 
-_fujibus_disk_read_sector:
-        jsr     disk_read_sector_common_recv
-        bcs     @fail
-
-        ; length at rx[16/17]
-        ; only 0..256 expected here
-        ldy     #$11
-        lda     (buffer_ptr),y
-        beq     @copy_short
-        cmp     #$01
-        bne     @fail
-
-        dey                             ; y=$10
-        lda     (buffer_ptr),y
-        bne     @fail                 ; >256 not expected
-
-        ; copy exactly 256 bytes from rx[18+] to (*data_ptr)
-        lda     buffer_ptr
-        clc
-        adc     #$12
-        sta     cws_tmp2
-        lda     buffer_ptr+1
-        adc     #$00
-        sta     cws_tmp3
-
-        ldy     #$00
-@copy_256:
-        lda     (cws_tmp2),y
-        sta     (data_ptr),y
-        iny
-        bne     @copy_256
-
-        lda     #$01
-        ldx     #$00
-        rts
-
-@copy_short:
-        dey                             ; y=$10
-        lda     (buffer_ptr),y
-        beq     @success              ; zero-length payload is allowed
-
-        tax
-        lda     buffer_ptr
-        clc
-        adc     #$12
-        sta     cws_tmp2
-        lda     buffer_ptr+1
-        adc     #$00
-        sta     cws_tmp3
-
-        ldy     #$00
-@copy_loop:
-        lda     (cws_tmp2),y
-        sta     (data_ptr),y
-        iny
-        dex
-        bne     @copy_loop
-
-@success:
-        lda     #$01
-        ldx     #$00
-        rts
-
-@fail:
-        lda     #$00
-        ldx     #$00
-        rts
-
-; bool fujibus_disk_read_sector_partial(void)
-;   aws_tmp14 = bytes to copy from start of decoded sector (1..255 typical)
-;   data_ptr  = destination (unchanged — sector payload stays in packet buffer)
-;   Same disk/slot/sector globals as _fujibus_disk_read_sector.
-;   On success A=1 X=0; on failure A=0 X=0.
-
 _fujibus_disk_read_sector_partial:
-        jsr     disk_read_sector_common_recv
-        bcs     @pr_fail
+        lda     aws_tmp14
+        sta     cws_tmp1
+        jmp     disk_read_sector_body
 
+_fujibus_disk_read_sector:
+        lda     #$00
+        sta     cws_tmp1
+
+disk_read_sector_body:
+        jsr     disk_read_sector_common_recv
+        bcs     @drs_fail
+
+        ; length at rx[16/17]; only 0..256 expected here
         ldy     #$11
         lda     (buffer_ptr),y
-        beq     @pr_copy_short
+        beq     @drs_copy_short
         cmp     #$01
-        bne     @pr_fail
+        bne     @drs_fail
 
-        dey
-        lda     (buffer_ptr),y
-        bne     @pr_fail
-
-        lda     buffer_ptr
-        clc
-        adc     #$12
-        sta     cws_tmp2
-        lda     buffer_ptr+1
-        adc     #$00
-        sta     cws_tmp3
-
-        ldy     #$00
-        ldx     aws_tmp14
-@pr_pcopy:
-        lda     (cws_tmp2),y
-        sta     (data_ptr),y
-        iny
-        dex
-        bne     @pr_pcopy
-
-        lda     #$01
-        ldx     #$00
-        rts
-
-@pr_copy_short:
         dey                             ; y=$10
         lda     (buffer_ptr),y
-        beq     @pr_zlen
-
-        tax
-        stx     cws_tmp1
-        lda     aws_tmp14
-        cmp     cws_tmp1
-        bcc     @pr_use_aws
-        lda     cws_tmp1
-        jmp     @pr_have_n
-@pr_use_aws:
-        lda     aws_tmp14
-@pr_have_n:
-        tax
+        bne     @drs_fail               ; >256 not expected
 
         lda     buffer_ptr
         clc
@@ -405,24 +307,72 @@ _fujibus_disk_read_sector_partial:
         adc     #$00
         sta     cws_tmp3
 
+        lda     cws_tmp1
+        beq     @drs_copy_full_256
+
+        tax
         ldy     #$00
-@pr_short_loop:
+@drs_copy_n:
         lda     (cws_tmp2),y
         sta     (data_ptr),y
         iny
         dex
-        bne     @pr_short_loop
+        bne     @drs_copy_n
+        jmp     @drs_success
 
+@drs_copy_full_256:
+        ldy     #$00
+@drs_copy_256:
+        lda     (cws_tmp2),y
+        sta     (data_ptr),y
+        iny
+        bne     @drs_copy_256
+
+@drs_success:
         lda     #$01
         ldx     #$00
         rts
 
-@pr_zlen:
-        lda     #$01
-        ldx     #$00
-        rts
+@drs_copy_short:
+        dey                             ; y=$10
+        lda     (buffer_ptr),y
+        beq     @drs_success            ; zero-length payload is allowed
 
-@pr_fail:
+        tax                             ; X = packet payload length
+        lda     cws_tmp1
+        beq     @drs_short_setup
+
+        stx     cws_tmp7                ; packet payload length
+        lda     cws_tmp1
+        cmp     cws_tmp7
+        bcc     @drs_short_cap_smaller  ; cap < pkt -> use cap
+        lda     cws_tmp7                ; pkt <= cap -> use pkt
+        jmp     @drs_short_x
+@drs_short_cap_smaller:
+        lda     cws_tmp1
+@drs_short_x:
+        tax
+
+@drs_short_setup:
+        lda     buffer_ptr
+        clc
+        adc     #$12
+        sta     cws_tmp2
+        lda     buffer_ptr+1
+        adc     #$00
+        sta     cws_tmp3
+
+        ldy     #$00
+@drs_copy_loop:
+        lda     (cws_tmp2),y
+        sta     (data_ptr),y
+        iny
+        dex
+        bne     @drs_copy_loop
+
+        jmp     @drs_success
+
+@drs_fail:
         lda     #$00
         ldx     #$00
         rts
