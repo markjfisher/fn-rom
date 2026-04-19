@@ -1,5 +1,6 @@
-REM filename: open
-REM test openin with reading a file
+REM filename: fs001
+REM
+REM test openin/out
 
 ?(&70)=0
 

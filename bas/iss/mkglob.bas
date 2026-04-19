@@ -1,7 +1,8 @@
 REM filename: mkglob
 REM
 REM Convert screen DATA statements to file "GDATA"
-REM This application helped test the file creation in fujinet
+REM This application helped test the file creation in fn-rom
+REM it didnt need to be a BBC basic program but was a good example
 
 CLS
 PRINT "Converting data to binary file..."
