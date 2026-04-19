@@ -196,27 +196,27 @@ _fujibus_disk_read_sector:
         lda     fuji_disk_slot
         clc
         adc     #$01
-        ldy     #$07
+        iny                                     ; y=7
         sta     (buffer_ptr),y
 
         lda     fuji_current_sector
-        ldy     #$08
+        iny                                     ; y=8
         sta     (buffer_ptr),y
 
         lda     fuji_current_sector+1
-        ldy     #$09
+        iny                                     ; y=9
         sta     (buffer_ptr),y
 
         lda     #$00
-        ldy     #$0A
+        iny                                     ; y=$0A
         sta     (buffer_ptr),y
-        ldy     #$0B
+        iny                                     ; y=$0B
         sta     (buffer_ptr),y
-        ldy     #$0C
+        iny                                     ; y=$0C
         sta     (buffer_ptr),y
 
         lda     #$01
-        ldy     #$0D
+        iny                                     ; y=$0D
         sta     (buffer_ptr),y
 
         ; send packet:
@@ -263,7 +263,7 @@ _fujibus_disk_read_sector:
         cmp     #$01
         bne     @fail
 
-        ldy     #$06
+        iny                             ; y=6
         lda     (buffer_ptr),y
         bne     @fail
 
@@ -275,7 +275,7 @@ _fujibus_disk_read_sector:
         cmp     #$01
         bne     @fail
 
-        ldy     #$10
+        dey                             ; y=$10
         lda     (buffer_ptr),y
         bne     @fail                 ; >256 not expected
 
@@ -300,7 +300,7 @@ _fujibus_disk_read_sector:
         rts
 
 @copy_short:
-        ldy     #$10
+        dey                             ; y=$10
         lda     (buffer_ptr),y
         beq     @success              ; zero-length payload is allowed
 

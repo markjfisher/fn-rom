@@ -28,6 +28,7 @@
         .import err_bad
         .import remember_axy
         .import restore_output_to_screen
+        .import current_cat
 
 
         ; Import FujiBus C functions - use underscore prefix for C calls
@@ -37,6 +38,7 @@
         .import _fujibus_disk_read_sector
         .import _fujibus_disk_write_sector
 
+
         .include "fujinet.inc"
 
         .segment "CODE"
@@ -45,6 +47,10 @@
 ; FUJI_READ_BLOCK_DATA - Read data block from FujiNet device
 ; Input: data_ptr points to buffer, other parameters in workspace
 ; Output: Data read into buffer, Carry=0 if success, Carry=1 if error
+;
+; This should only be called via fuji_read_block, which starts a
+; transaction, and sets the buffer_ptr, otherwise you have to ensure
+; buffer_ptr is setup correctly first. That is the start of PWS ($1700)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 fuji_read_block_data:
@@ -58,6 +64,10 @@ fuji_read_block_data:
         lda     fuji_file_offset+1
         and     #$03
         sta     fuji_current_sector+1
+
+        ; we are trashing E00, so mark current_cat as not loaded
+        lda     #$FF
+        sta     current_cat
 
         ; fuji_block_size holds the byte count for this transfer.
         ; High byte = number of full 256-byte sectors.

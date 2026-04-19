@@ -265,6 +265,7 @@ aws_tmp08       := $B8
 aws_tmp09       := $B9
 aws_tmp10       := $BA
 aws_tmp11       := $BB
+; start of ZP values saved during fuji_begin_transaction (into 1090-109F)
 aws_tmp12       := $BC
 aws_tmp13       := $BD
 aws_tmp14       := $BE
@@ -285,6 +286,7 @@ pws_tmp08       := $C8
 pws_tmp09       := $C9
 pws_tmp10       := $CA   ; use this as 2 byte data_ptr
 pws_tmp11       := $CB   ; ALSO WAS current_host
+; END of ZP locations saved in fuji_begin_transaction
 pws_tmp12       := $CC   ; ALSO directory_param
 pws_tmp13       := $CD   ; ALSO current_drv
 pws_tmp14       := $CE   ; cc65 uses these 2 as c_sp

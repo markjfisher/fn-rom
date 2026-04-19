@@ -20,9 +20,17 @@
         .import read_file_attribs_to_b0_yoffset
         .import set_param_block_pointer_b0
 
+        .import fuji_read_catalog
+
+
         .include "fujinet.inc"
 
         .segment "CODE"
+
+
+file_not_found:
+        ; File not found - exit with error
+        rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; osfileFF_loadfiletoaddr - Load file to address (A=&FF)
@@ -30,28 +38,23 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 osfileFF_loadfiletoaddr:
-        jsr     get_cat_entry_fspba        ; Get Load Addr etc.
-        bcc     @file_not_found            ; If file not found, exit with error
+        jsr     get_cat_entry_fspba             ; Get Load Addr etc. from catalog
+        bcc     file_not_found                  ; (If file not found, exit with error)
 
-        jsr     set_param_block_pointer_b0  ; from catalog
-        jsr     read_file_attribs_to_b0_yoffset  ; (Just for info?)
+        jsr     set_param_block_pointer_b0
+        jsr     read_file_attribs_to_b0_yoffset ; (Just for info?)
 
         ; Y now contains the catalog offset from get_cat_entry_fspba
-        ; Fall into LoadFile_Ycatoffset
-        jmp     LoadFile_Ycatoffset
-
-@file_not_found:
-        ; File not found - exit with error
-        rts
+        ; drop into LoadFile_Ycatoffset
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; LoadFile_Ycatoffset - Load file at catalog offset Y
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 LoadFile_Ycatoffset:
-        sty     aws_tmp10                ; STY &BA
+        sty     aws_tmp10
         ldx     #$00
-        lda     aws_tmp14                ; If ?BE=0 don't do Load Addr
+        lda     aws_tmp14                       ; If ?BE=0 don't do Load Addr
 
         bne     @load_at_load_addr
 
@@ -59,7 +62,7 @@ LoadFile_Ycatoffset:
         iny
         iny
         ldx     #$02
-        bne     @load_copyfileinfo_loop  ; always
+        bne     @load_copyfileinfo_loop         ; always
 
         ; use file's load address
 @load_at_load_addr:
@@ -78,8 +81,8 @@ LoadFile_Ycatoffset:
 
         jsr     exec_addr_hi2
 
-        ldy     aws_tmp10                ; LDY &BA
-        jsr     prt_info_msg_yoffset     ; pt. print file info
+        ldy     aws_tmp10
+        jsr     prt_info_msg_yoffset            ; pt. print file info
         ; Fall into load_mem_block_ex
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

@@ -133,8 +133,12 @@ init_fuji:
         bne     @extendedvec_loop
 
         ; X=0, Y=$30
-        sty     current_cat             ; set to "0" in ascii
-        sty     current_cat+1           ; this has the comment "?" in MMFS src... who knows why?
+        lda     #$FF
+        sta     current_cat
+        sta     current_cat
+
+        ; sty     current_cat             ; set to "0" in ascii
+        ; sty     current_cat+1           ; this has the comment "?" in MMFS src... who knows why?
         stx     current_drv             ; curdrv=0
         stx     fuji_current_dir_path
         stx     fuji_current_fs_uri

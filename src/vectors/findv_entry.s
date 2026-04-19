@@ -203,14 +203,14 @@ close_file_exit:
         rts
 
 findv_openfile:
-        jsr     remember_xy_only            ; Save A, X, Y  
+        jsr     remember_xy_only        ; Save X, Y as A will be returned
         stx     aws_tmp10               ; YX=Location of filename (MMFS: STX &BA)
         sty     aws_tmp11               ; (MMFS: STY &BB)
         sta     aws_tmp04               ; A=Operation
         bit     aws_tmp04
         php                             ; Save flags
-        jsr     read_fspba_reset
-        jsr     parameter_fsp
+        jsr     read_fspba_reset        ; Copies file name to fuji_filename_buffer (padding to 64 spaces), and to pws_tmp05-pws_tmp11
+        jsr     parameter_fsp           ; puts $FF into wild star and wild hash
         jsr     get_cat_firstentry80
         bcs     findv_filefound         ; If file found
         lda     #$00
@@ -282,12 +282,12 @@ err_file_open:
 
 setup_channel_info_block_yintch:
         lda     #$08
-        sta     fuji_channel_scratch         ; just used as a loop counter. No significance to it otherwise.
+        sta     fuji_channel_scratch    ; just used as a loop counter. No significance to it otherwise.
 @chnlblock_loop1:
-        lda     dfs_cat_file_s0_start,x         ; Copy filename sector (name + dir)
-        sta     fuji_channel_start,y            ; to channel info block
+        lda     dfs_cat_file_s0_start,x ; Copy filename sector (name + dir)
+        sta     fuji_channel_start,y    ; to channel info block
         iny
-        lda     dfs_cat_file_s1_start,x         ; Copy file details sector (load, exec, size, mixed, start sector)
+        lda     dfs_cat_file_s1_start,x ; Copy file details sector (load, exec, size, mixed, start sector)
         sta     fuji_channel_start,y
         iny
         inx

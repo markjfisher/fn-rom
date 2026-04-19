@@ -88,7 +88,6 @@
         .include "fujinet.inc"
 
 
-; parameter_afsp_param_syntax_error_if_null_getcatentry_fspTxtP
 ; Direct translation of MMFS line 620-630
 parameter_afsp_param_syntax_error_if_null_getcatentry_fsptxtp:
         jsr     parameter_afsp
@@ -98,7 +97,7 @@ param_syntax_error_if_null_getcatentry_fsptxtp:
 
 getcatentry_fspTxtP:
         jsr     read_fsp_text_pointer
-        jmp     get_cat_entry
+        jmp     get_cat_entry                   ; can we use BMI here?
 
 get_cat_entry_fspba:
 	jsr     read_fspba_reset
@@ -121,7 +120,7 @@ get_cat_firstentry80:
         ; dbg_string_axy "get_cat80: "
         jsr     check_cur_drv_cat       ; Get cat entry
         ldx     #$00                    ; now first byte @ &1000+X
-        beq     get_cat_entry_2            ; always
+        beq     get_cat_entry_2         ; always
 
 ; get_cat_nextentry (MMFS line 678-680)
 get_cat_nextentry:
@@ -359,7 +358,7 @@ set_curdirdrv_to_defaults_check_cur_drv_cat:
 check_cur_drv_cat:
         lda     current_cat              ; Get current catalog drive
         cmp     current_drv              ; Compare with current drive
-        bne     load_cur_drv_cat           ; If different, load catalog
+        bne     load_cur_drv_cat         ; If different, load catalog
         rts
 
 ; Additional helper functions needed
@@ -388,6 +387,7 @@ load_cur_drv_cat:
         jsr     fuji_read_catalog
 
         ; Mark catalog as loaded for current drive (equivalent to MMFS line 7322-7323)
+        ; why does this work? isnt' current_cat "0" rather than 0?
 write_current_drv_to_cat:
         lda     current_drv
         sta     current_cat
@@ -509,14 +509,14 @@ save_cat_to_disk:
 
 ; read_fsp_text_pointer - Read filename from text pointer (MMFS line 452-504)
 read_fsp_text_pointer:
-        jsr     set_curdir_drv_to_defaults ; Set current directory and drive
-        jmp     rdafsp_entry            ; Jump to filename parsing
+        jsr     set_curdir_drv_to_defaults      ; Set current directory and drive
+        jmp     rdafsp_entry                    ; Jump to filename parsing
 
 read_fspba_reset:
-        jsr     set_curdir_drv_to_defaults ; Set current directory and drive
+        jsr     set_curdir_drv_to_defaults      ; Set current directory and drive
 
 read_fspba:
-        lda     aws_tmp10               ; **Also creates copy at &C5 (MMFS line 458)
+        lda     aws_tmp10                       ; **Also creates copy at &C5 (MMFS line 458)
         sta     text_pointer
         lda     aws_tmp11
         sta     text_pointer+1
@@ -655,8 +655,9 @@ prt_y_spaces:
         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; fscv1_eof_yhndl - EOF being chekced, X = file handle
-; Esit: X=$FF if EOF, X=$00 if not EOF
+; fscv1_eof_yhndl - EOF being checked, X = file handle
+; Exit: X=$FF if EOF, X=$00 if not EOF
+; e.g. called by BASIC's "EOF#" command
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 fscv1_eof_yhndl:
@@ -665,6 +666,7 @@ fscv1_eof_yhndl:
         pha
         txa
         tay
+        ; compare the PTR and EXT values, if equal, then we are at EOF
         jsr     check_channel_yhndl_exyintch_tya_cmpptr
         bne     @eof_not_end
         ldx     #$FF
@@ -678,7 +680,7 @@ fscv1_eof_yhndl:
         rts
 
 check_channel_yhndl_exyintch_tya_cmpptr:
-        jsr     check_channel_yhndl_exyintch
+        jsr     check_channel_yhndl_exyintch    ; returns with Y = intch (e.g. $20 for channel 1)
 
 tya_cmp_ptr_ext:
         tya
