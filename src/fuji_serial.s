@@ -150,33 +150,49 @@ fuji_write_block_data:
         lda     aws_tmp14
         beq     @write_success
 
-        ; Preserve the caller's partial buffer pointer while we stage a full
-        ; sector for read/modify/write.
+        ; Preserve caller buffer; stage full sector at PWS payload (same offset
+        ; as FujiBus rx[18+]) so catalogue RAM at $0E00 is not touched.
         lda     data_ptr
         sta     aws_tmp08
         lda     data_ptr+1
         sta     aws_tmp09
 
-        lda     #<dfs_cat_s0_header
+        lda     buffer_ptr
+        clc
+        adc     #$12
         sta     data_ptr
-        lda     #>dfs_cat_s0_header
+        lda     buffer_ptr+1
+        adc     #$00
         sta     data_ptr+1
 
         jsr     _fujibus_disk_read_sector
         cmp     #$01
-        bne     @write_error
+        bne     @write_partial_fail
 
         ldy     #$00
-@copy_partial:
+@merge_partial:
         lda     (aws_tmp08),y
-        sta     dfs_cat_s0_header,y
+        sta     (data_ptr),y
         iny
         cpy     aws_tmp14
-        bne     @copy_partial
+        bne     @merge_partial
 
         jsr     _fujibus_disk_write_sector
         cmp     #$01
-        bne     @write_error
+        bne     @write_partial_fail
+
+        lda     aws_tmp08
+        sta     data_ptr
+        lda     aws_tmp09
+        sta     data_ptr+1
+        jmp     @write_success
+
+@write_partial_fail:
+        lda     aws_tmp08
+        sta     data_ptr
+        lda     aws_tmp09
+        sta     data_ptr+1
+        jmp     @write_error
 
 @write_success:
         lda     #$01
