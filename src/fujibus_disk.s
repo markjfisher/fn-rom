@@ -14,6 +14,7 @@
 
         .export  _fujibus_disk_mount
         .export  _fujibus_disk_read_sector
+        .export  _fujibus_disk_read_sector_partial
         .export  _fujibus_disk_write_sector
         .export  _fujibus_resolve_path
 
@@ -187,7 +188,10 @@ _fujibus_disk_mount:
 ;   rx[18+]   = sector data
 ;   copied to (*data_ptr)
 
-_fujibus_disk_read_sector:
+; Build read-sector request, send, receive first SLIP frame, validate header
+; and status params. Carry clear = ready to read length at [16]/[17] and
+; payload at [18+]. Carry set = hard failure (same cases as @fail below).
+disk_read_sector_common_recv:
         ; build payload
         lda     #FN_PROTOCOL_VERSION
         ldy     #$06
@@ -219,9 +223,6 @@ _fujibus_disk_read_sector:
         iny                                     ; y=$0D
         sta     (buffer_ptr),y
 
-        ; send packet:
-        ; _fujibus_send_packet(FN_DEVICE_DISK, DISK_CMD_READ_SECTOR, &buffer[6], 8)
-
         lda     #FN_DEVICE_DISK
         jsr     pusha
 
@@ -243,29 +244,36 @@ _fujibus_disk_read_sector:
         ldx     #$00
         jsr     _fujibus_send_packet
 
-        ; receive response
         jsr     _fujibus_receive_packet
 
-        ; fail if response length == 0
         cpx     #$00
-        bne     @check_minlen
+        bne     @drc_check_minlen
         cmp     #$00
-        beq     @fail
+        beq     @drc_fail
 
-        ; require at least 18 bytes to read status and data-length fields
+@drc_check_minlen:
         cmp     #$12                  ; 18
-        bcc     @fail
+        bcc     @drc_fail
 
-@check_minlen:
-        ; status bytes must be [5]=1, [6]=0
         ldy     #$05
         lda     (buffer_ptr),y
         cmp     #$01
-        bne     @fail
+        bne     @drc_fail
 
         iny                             ; y=6
         lda     (buffer_ptr),y
-        bne     @fail
+        bne     @drc_fail
+
+        clc
+        rts
+
+@drc_fail:
+        sec
+        rts
+
+_fujibus_disk_read_sector:
+        jsr     disk_read_sector_common_recv
+        bcs     @fail
 
         ; length at rx[16/17]
         ; only 0..256 expected here
@@ -327,6 +335,94 @@ _fujibus_disk_read_sector:
         rts
 
 @fail:
+        lda     #$00
+        ldx     #$00
+        rts
+
+; bool fujibus_disk_read_sector_partial(void)
+;   aws_tmp14 = bytes to copy from start of decoded sector (1..255 typical)
+;   data_ptr  = destination (unchanged — sector payload stays in packet buffer)
+;   Same disk/slot/sector globals as _fujibus_disk_read_sector.
+;   On success A=1 X=0; on failure A=0 X=0.
+
+_fujibus_disk_read_sector_partial:
+        jsr     disk_read_sector_common_recv
+        bcs     @pr_fail
+
+        ldy     #$11
+        lda     (buffer_ptr),y
+        beq     @pr_copy_short
+        cmp     #$01
+        bne     @pr_fail
+
+        dey
+        lda     (buffer_ptr),y
+        bne     @pr_fail
+
+        lda     buffer_ptr
+        clc
+        adc     #$12
+        sta     cws_tmp2
+        lda     buffer_ptr+1
+        adc     #$00
+        sta     cws_tmp3
+
+        ldy     #$00
+        ldx     aws_tmp14
+@pr_pcopy:
+        lda     (cws_tmp2),y
+        sta     (data_ptr),y
+        iny
+        dex
+        bne     @pr_pcopy
+
+        lda     #$01
+        ldx     #$00
+        rts
+
+@pr_copy_short:
+        dey                             ; y=$10
+        lda     (buffer_ptr),y
+        beq     @pr_zlen
+
+        tax
+        stx     cws_tmp1
+        lda     aws_tmp14
+        cmp     cws_tmp1
+        bcc     @pr_use_aws
+        lda     cws_tmp1
+        jmp     @pr_have_n
+@pr_use_aws:
+        lda     aws_tmp14
+@pr_have_n:
+        tax
+
+        lda     buffer_ptr
+        clc
+        adc     #$12
+        sta     cws_tmp2
+        lda     buffer_ptr+1
+        adc     #$00
+        sta     cws_tmp3
+
+        ldy     #$00
+@pr_short_loop:
+        lda     (cws_tmp2),y
+        sta     (data_ptr),y
+        iny
+        dex
+        bne     @pr_short_loop
+
+        lda     #$01
+        ldx     #$00
+        rts
+
+@pr_zlen:
+        lda     #$01
+        ldx     #$00
+        rts
+
+@pr_fail:
         lda     #$00
         ldx     #$00
         rts

@@ -28,7 +28,6 @@
         .import err_bad
         .import remember_axy
         .import restore_output_to_screen
-        .import current_cat
 
 
         ; Import FujiBus C functions - use underscore prefix for C calls
@@ -36,6 +35,7 @@
         .import _fujibus_set_mount_slot
         .import _fujibus_get_mount_slot
         .import _fujibus_disk_read_sector
+        .import _fujibus_disk_read_sector_partial
         .import _fujibus_disk_write_sector
 
 
@@ -65,10 +65,6 @@ fuji_read_block_data:
         and     #$03
         sta     fuji_current_sector+1
 
-        ; we are trashing E00, so mark current_cat as not loaded
-        lda     #$FF
-        sta     current_cat
-
         ; fuji_block_size holds the byte count for this transfer.
         ; High byte = number of full 256-byte sectors.
         ; Low byte  = trailing partial sector bytes.
@@ -97,29 +93,12 @@ fuji_read_block_data:
         lda     aws_tmp14
         beq     @read_success
 
-        ; The C helper reads a whole sector, so use catalog RAM as a
-        ; temporary buffer and copy only the tail bytes we need.
-        lda     data_ptr
-        sta     aws_tmp08
-        lda     data_ptr+1
-        sta     aws_tmp09
-
-        lda     #<dfs_cat_s0_header
-        sta     data_ptr
-        lda     #>dfs_cat_s0_header
-        sta     data_ptr+1
-
-        jsr     _fujibus_disk_read_sector
+        ; Payload is decoded into PWS at buffer_ptr; copy only the trailing
+        ; aws_tmp14 bytes from packet offset 18 into data_ptr (see
+        ; _fujibus_disk_read_sector_partial).
+        jsr     _fujibus_disk_read_sector_partial
         cmp     #$01
         bne     @read_error
-
-        ldy     #$00
-@copy_partial:
-        lda     dfs_cat_s0_header,y
-        sta     (aws_tmp08),y
-        iny
-        cpy     aws_tmp14
-        bne     @copy_partial
 
 @read_success:
         lda     #$01
