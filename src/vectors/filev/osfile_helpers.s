@@ -226,7 +226,7 @@ debug_here:
         adc     dfs_cat_file_size,y    ; A = $FF + len_lo (sets carry for next)
         lda     dfs_cat_file_sect,y    ; A = start_sector
         adc     dfs_cat_file_size+1,y  ; A = start + len_mid + carry
-        sta     pws_tmp03              ; Result: start + ((len-1) rounded up)
+        sta     pws_tmp03              ; with pws_tmp02: first free sector after this file
 
         lda     dfs_cat_file_op,y
         and     #$03
@@ -320,8 +320,8 @@ cfile_copyfnloop:
         tay
         rts
 
-; Last sector occupied by catalogue row at Y (same maths as cfile_loop / debug_here),
-; then +1 -> first DFS sector number for the next contiguous allocation.
+; Same extent maths as cfile_loop / debug_here — MMFS ADC chain already yields the first
+; free sector after the catalogue row at Y (not last occupied; no extra increment).
 seed_first_free_after_last_file:
         ldy     dfs_cat_num_x8
         jsr     y_sub8
@@ -342,20 +342,6 @@ seed_first_free_after_last_file:
         adc     pws_tmp02
         sta     pws_tmp02
 
-        jmp     bump_pws_tmp_sector10
-
-bump_pws_tmp_sector10:
-        clc
-        lda     pws_tmp03
-        adc     #1
-        sta     pws_tmp03
-        bcc     @bump_done
-        lda     pws_tmp02
-        clc
-        adc     #1
-        and     #$03
-        sta     pws_tmp02
-@bump_done:
         rts
 
 delete_cat_entry_yfileoffset:
