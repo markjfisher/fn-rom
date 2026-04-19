@@ -1,18 +1,19 @@
 REM filename: mkglob
-REM convert screen DATA statements to file "GDATA"
+REM
+REM Convert screen DATA statements to file "GDATA"
+REM This application helped test the file creation in fujinet
 
 CLS
 PRINT "Converting data to binary file..."
 
-FH=OPENOUT("GDATA2")
+FH=OPENOUT("GDATA")
 RESTORE 20000
-FOR I%=0 TO 1
+FOR I%=0 TO 999
   READ D%
   BPUT# FH,D%
 NEXT
 CLOSE# FH
 PRINT "Finished writing"
-
 END
 
 20000 REM screen data
