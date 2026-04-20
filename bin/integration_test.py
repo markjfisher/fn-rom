@@ -6,10 +6,15 @@ checks (screen text, peek memory vs expected bytes). Steps are YAML.
 Example:
   pip install -r integration-tests/requirements.txt   # PyYAML
   ./integration_test.py --fhost-path 'tnfs://192.168.1.101/bbc/' \\
-    --disk /path/to/test-disk.ssd \\
     --steps-dir ../integration-tests/steps
 
-Paste lines and paths may use placeholders: {FHOST_PATH}, {DISK}
+(Built-in steps without YAML still require ``--disk``.)
+
+Paste lines and paths may use placeholders: {FHOST_PATH}, {DISK} (same string passed to ``*FIN``).
+
+Each steps YAML file should declare **disk:** — the argument to ``*FIN`` (e.g. ``osargs.ssd``), relative to the
+host set by ``*FHOST``, **not** a path on your PC. Optional **paste:** lines
+after mount (e.g. ``MODE 7``), then **steps:**. ``--fhost-path`` is always from the command line only.
 
 **delay_seconds** (per step):
 
@@ -99,6 +104,17 @@ class IntegrationCase:
     step_dir: Path = field(default_factory=lambda: Path("."))
 
 
+@dataclass(frozen=True)
+class StepSuite:
+    """One YAML file: group, *FIN disk name, optional setup pastes after *FMOUNT, then steps."""
+
+    yaml_path: Path
+    group: str
+    fin_disk: str
+    setup_pastes: tuple[str, ...]
+    steps: tuple[IntegrationCase, ...]
+
+
 def _repo_bin() -> Path:
     return Path(__file__).resolve().parent
 
@@ -111,10 +127,16 @@ def _expand_placeholders(template: str, vars: Mapping[str, str]) -> str:
 
 
 def _default_step_vars(args: argparse.Namespace) -> dict[str, str]:
+    disk = getattr(args, "disk", None)
     return {
         "FHOST_PATH": args.fhost_path,
-        "DISK": args.disk,
+        "DISK": disk if isinstance(disk, str) else "",
     }
+
+
+def _fin_disk_argument(raw: str, vars: Mapping[str, str]) -> str:
+    """Literal *FIN argument (image name on the TNFS/host share), after placeholder expansion."""
+    return _expand_placeholders(str(raw).strip(), vars)
 
 
 def _resolve_expect_file(chk_path: Path, step_dir: Path, vars: Mapping[str, str]) -> Path:
@@ -232,16 +254,28 @@ def run_global_setup(
     b2: B2HttpCli,
     *,
     fhost_path: str,
-    disk_path: str,
+    fin_disk: str,
     delay: float,
 ) -> None:
-    """*FHOST, *FIN, *FMOUNT — same sequence as b2-scripts/tnfs.txt style FHOST."""
+    """*FHOST, *FIN, *FMOUNT — ``fin_disk`` is the host-relative image name (e.g. osargs.ssd)."""
     b2.paste(f"*FHOST {fhost_path}")
     time.sleep(delay)
-    b2.paste(f"*FIN {disk_path}")
+    b2.paste(f"*FIN {fin_disk}")
     time.sleep(delay)
     b2.paste("*FMOUNT 0 0")
     time.sleep(delay)
+
+
+def run_yaml_setup_pastes(
+    b2: B2HttpCli,
+    lines: Sequence[str],
+    *,
+    paste_delay: float,
+) -> None:
+    """Optional per-YAML ``paste:`` lines after *FMOUNT."""
+    for line in lines:
+        b2.paste(line)
+        time.sleep(max(paste_delay, 0.0))
 
 
 def assert_screen(screen: str, expect: ScreenExpect, *, label: str) -> list[str]:
@@ -629,29 +663,18 @@ def _parse_step_item(
     else:
         raise ValueError(f"{path}: step {index} 'paste' must be a string or list")
 
-    raw_checks = item.get("checks")
-    has_legacy_expect = "expect" in item
-    legacy_expect = item.get("expect")
-
-    if has_legacy_expect and raw_checks is not None:
+    if "expect" in item:
         raise ValueError(
-            f"{path}: step {index} uses both 'expect' and 'checks'; use only 'checks'"
+            f"{path}: step {index} has top-level 'expect' (removed); use 'checks' with a 'screen' block"
         )
 
+    raw_checks = item.get("checks")
     checks_list: list[StepCheck] = []
 
     if raw_checks is not None:
         if not isinstance(raw_checks, list):
             raise ValueError(f"{path}: step {index} 'checks' must be a list")
         checks_list.extend(_parse_checks_list(raw_checks, path=path, step_index=index, vars=vars))
-    elif has_legacy_expect:
-        exp = _parse_expect_block(legacy_expect)
-        exp = ScreenExpect(
-            contains=tuple(_expand_placeholders(s, vars) for s in exp.contains),
-            regex=tuple(_expand_placeholders(s, vars) for s in exp.regex),
-        )
-        if exp.contains or exp.regex:
-            checks_list.append(ScreenStepCheck(expect=exp))
 
     has_screen = any(isinstance(c, ScreenStepCheck) for c in checks_list)
 
@@ -676,13 +699,34 @@ def _parse_step_item(
     )
 
 
-def _cases_from_yaml_file(path: Path, vars: Mapping[str, str]) -> list[IntegrationCase]:
+def _suite_from_yaml_file(path: Path, args: argparse.Namespace) -> StepSuite:
     doc = _load_yaml_file(path)
+
     group = doc.get("group")
     if group is None:
         group = ""
     if not isinstance(group, str):
         raise ValueError(f"{path}: 'group' must be a string")
+
+    disk_raw = doc.get("disk")
+    if not isinstance(disk_raw, str) or not str(disk_raw).strip():
+        raise ValueError(f"{path}: missing non-empty 'disk' (*FIN argument, host-relative name)")
+
+    base_vars = _default_step_vars(args)
+    fin_disk = _fin_disk_argument(disk_raw, base_vars)
+    vars_full: dict[str, str] = dict(base_vars)
+    vars_full["DISK"] = fin_disk
+
+    raw_setup = doc.get("paste")
+    setup_lines: tuple[str, ...]
+    if raw_setup is None:
+        setup_lines = ()
+    elif isinstance(raw_setup, str):
+        setup_lines = (_expand_placeholders(raw_setup, vars_full),)
+    elif isinstance(raw_setup, list):
+        setup_lines = tuple(_expand_placeholders(str(x), vars_full) for x in raw_setup)
+    else:
+        raise ValueError(f"{path}: top-level 'paste' must be a string or list")
 
     raw_steps = doc.get("steps")
     if raw_steps is None:
@@ -690,12 +734,21 @@ def _cases_from_yaml_file(path: Path, vars: Mapping[str, str]) -> list[Integrati
     if not isinstance(raw_steps, list):
         raise ValueError(f"{path}: missing 'steps' (or alias 'cases') list")
 
-    out: list[IntegrationCase] = []
+    steps_out: list[IntegrationCase] = []
     for i, raw in enumerate(raw_steps):
         if not isinstance(raw, dict):
             raise ValueError(f"{path}: step {i} must be a mapping (dict)")
-        out.append(_parse_step_item(raw, path=path, index=i, group=group.strip(), vars=vars))
-    return out
+        steps_out.append(
+            _parse_step_item(raw, path=path, index=i, group=group.strip(), vars=vars_full)
+        )
+
+    return StepSuite(
+        yaml_path=path.resolve(),
+        group=group.strip(),
+        fin_disk=fin_disk,
+        setup_pastes=setup_lines,
+        steps=tuple(steps_out),
+    )
 
 
 def _discover_yaml_files(steps_dir: Path) -> list[Path]:
@@ -709,11 +762,8 @@ def _discover_yaml_files(steps_dir: Path) -> list[Path]:
     return files
 
 
-def _cases_from_steps_dir(steps_dir: Path, vars: Mapping[str, str]) -> list[IntegrationCase]:
-    cases: list[IntegrationCase] = []
-    for path in _discover_yaml_files(steps_dir):
-        cases.extend(_cases_from_yaml_file(path, vars))
-    return cases
+def _suites_from_steps_dir(steps_dir: Path, args: argparse.Namespace) -> list[StepSuite]:
+    return [_suite_from_yaml_file(path, args) for path in _discover_yaml_files(steps_dir)]
 
 
 def default_osfile_cases() -> list[IntegrationCase]:
@@ -736,18 +786,25 @@ def default_osfile_cases() -> list[IntegrationCase]:
     ]
 
 
-def select_cases(
-    all_cases: Iterable[IntegrationCase], only: Sequence[str] | None
-) -> list[IntegrationCase]:
-    cases = list(all_cases)
-    if not only:
-        return cases
-    want = set(only)
-    picked = [c for c in cases if c.name in want]
-    missing = want - {c.name for c in picked}
+def _all_names_from_suites(suites: Iterable[StepSuite]) -> set[str]:
+    return {c.name for s in suites for c in s.steps}
+
+
+def _validate_case_names(all_names: set[str], requested: Sequence[str] | None) -> None:
+    if not requested:
+        return
+    missing = set(requested) - all_names
     if missing:
         raise SystemExit(f"Unknown case name(s): {sorted(missing)}")
-    return picked
+
+
+def filter_cases(
+    cases: Iterable[IntegrationCase], only: Sequence[str] | None
+) -> list[IntegrationCase]:
+    if not only:
+        return list(cases)
+    want = set(only)
+    return [c for c in cases if c.name in want]
 
 
 def main() -> None:
@@ -761,9 +818,12 @@ def main() -> None:
     )
     parser.add_argument(
         "--disk",
-        required=True,
+        default=None,
         type=str,
-        help="Path passed to *FIN (e.g. test-disk.ssd on the host)",
+        help=(
+            "*FIN disc name (host/share-relative, e.g. osfile.ssd): required only for built-in "
+            "steps; YAML suites use each file's 'disk:' entry"
+        ),
     )
     parser.add_argument("--host", default="localhost")
     parser.add_argument("--port", type=int, default=48075)
@@ -790,7 +850,10 @@ def main() -> None:
         "--steps-dir",
         type=Path,
         default=None,
-        help="Directory of *.yaml / *.yml (sorted by filename); all steps are concatenated",
+        help=(
+            "Directory of *.yaml / *.yml (sorted by filename); each file is a suite with its own "
+            "disk: and *FHOST/*FIN/*FMOUNT run per file"
+        ),
     )
     parser.add_argument(
         "--no-builtin",
@@ -852,20 +915,25 @@ def main() -> None:
     if not b2_http.is_file():
         raise SystemExit(f"b2-http.py not found at {b2_http}")
 
-    vars = _default_step_vars(args)
+    using_yaml = args.steps is not None or args.steps_dir is not None
+    use_builtin = not using_yaml and not args.no_builtin
+
+    if use_builtin and not args.disk:
+        raise SystemExit("--disk is required when using built-in steps (no --steps / --steps-dir)")
+
+    suites: list[StepSuite] | None = None
+    builtin_cases: list[IntegrationCase] | None = None
 
     if args.steps is not None:
-        cases = _cases_from_yaml_file(args.steps, vars)
+        suites = [_suite_from_yaml_file(args.steps.resolve(), args)]
     elif args.steps_dir is not None:
-        cases = _cases_from_steps_dir(args.steps_dir, vars)
+        suites = _suites_from_steps_dir(args.steps_dir.resolve(), args)
     elif args.no_builtin:
         raise SystemExit(
             "No steps: pass --steps or --steps-dir, or omit --no-builtin for built-in cases"
         )
     else:
-        cases = default_osfile_cases()
-
-    cases = select_cases(cases, args.cases)
+        builtin_cases = default_osfile_cases()
 
     screen_kwargs: dict[str, Any] = {
         "start": args.screen_start,
@@ -877,37 +945,87 @@ def main() -> None:
         "paste_delay": args.paste_delay,
     }
 
+    vars = _default_step_vars(args)
+    if args.disk:
+        vars = dict(vars)
+        vars["DISK"] = args.disk
+
     b2 = B2HttpCli(b2_http, host=args.host, port=args.port, win=args.win)
 
     if args.reset_first:
         b2.reset()
 
-    run_global_setup(
-        b2,
-        fhost_path=args.fhost_path,
-        disk_path=args.disk,
-        delay=args.setup_delay,
-    )
-
     all_failures: list[str] = []
-    for c in cases:
-        all_failures.extend(
-            run_case(
+    steps_run = 0
+
+    if suites is not None:
+        _validate_case_names(_all_names_from_suites(suites), args.cases)
+        for suite in suites:
+            cases = filter_cases(suite.steps, args.cases)
+            if not cases:
+                continue
+            suite_vars = dict(vars)
+            suite_vars["DISK"] = suite.fin_disk
+            if args.verbose and suite.group:
+                print(
+                    f"=== suite: {suite.group} — {suite.yaml_path.name} "
+                    f"*FIN {suite.fin_disk!r}",
+                    file=sys.stderr,
+                )
+            run_global_setup(
                 b2,
-                c,
-                screen_kwargs=screen_kwargs,
-                vars=vars,
-                verbose=args.verbose,
-                default_screen_timeout=args.screen_timeout_default,
-                screen_poll_interval=args.screen_poll_interval,
+                fhost_path=args.fhost_path,
+                fin_disk=suite.fin_disk,
+                delay=args.setup_delay,
             )
+            run_yaml_setup_pastes(
+                b2,
+                suite.setup_pastes,
+                paste_delay=args.paste_delay,
+            )
+            for c in cases:
+                all_failures.extend(
+                    run_case(
+                        b2,
+                        c,
+                        screen_kwargs=screen_kwargs,
+                        vars=suite_vars,
+                        verbose=args.verbose,
+                        default_screen_timeout=args.screen_timeout_default,
+                        screen_poll_interval=args.screen_poll_interval,
+                    )
+                )
+                steps_run += 1
+    else:
+        assert builtin_cases is not None
+        all_names = {c.name for c in builtin_cases}
+        _validate_case_names(all_names, args.cases)
+        cases = filter_cases(builtin_cases, args.cases)
+        run_global_setup(
+            b2,
+            fhost_path=args.fhost_path,
+            fin_disk=args.disk,
+            delay=args.setup_delay,
         )
+        for c in cases:
+            all_failures.extend(
+                run_case(
+                    b2,
+                    c,
+                    screen_kwargs=screen_kwargs,
+                    vars=vars,
+                    verbose=args.verbose,
+                    default_screen_timeout=args.screen_timeout_default,
+                    screen_poll_interval=args.screen_poll_interval,
+                )
+            )
+            steps_run += 1
 
     if all_failures:
         for m in all_failures:
             print(m, file=sys.stderr)
         raise SystemExit(1)
-    print(f"OK: {len(cases)} case(s)", file=sys.stderr)
+    print(f"OK: {steps_run} step(s)", file=sys.stderr)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,19 @@
+group: BBC / FS / OSARGS
+
+disk: osargs.ssd
+
+paste:
+  - "MODE 7"
+  - "*CAT"
+
+steps:
+  - name: osa01
+    paste:
+      - 'CHAIN "OSA01"'
+    delay_seconds: 6.0
+    checks:
+      - screen:
+          expect:
+            regex:
+              - 'OSARGS value: 4'
+              - 'success'
