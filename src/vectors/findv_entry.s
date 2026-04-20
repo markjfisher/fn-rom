@@ -238,12 +238,11 @@ findv_loop1:
         ; Our RAM disk (~9 free sectors) can't fit multiple 64-sector files
         ; Files grow dynamically via bp_extendby100/bp_extendtogap as data is written
         lda     #$00
-        sta     pws_tmp03               ; End address = &0000 (zero-length file)
 .else
         ; REAL DISK: Pre-allocate 64 sectors ($4000 bytes) as MMFS does
         lda     #$40
-        sta     pws_tmp03               ; End address = &4000
 .endif
+        sta     pws_tmp03               ; End address = A * 256
         jsr     create_file_fsp         ; Creates file with requested size
 findv_filefound:
         plp                             ; in case another file created

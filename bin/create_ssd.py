@@ -6,8 +6,12 @@ Usage:
     ./create_ssd.py -i <input_dir> -o <output.ssd> [-t title] [-a load_addr] [-e exec_addr]
 
 Handles:
-- .bas files: tokenized using basictool (load/exec &001900 / &008023)
+- .bas files: tokenized using basictool (load/exec &001900 / &008023), unless a sidecar
+  <name>.inf exists (then copied as-is; metadata comes from the .inf)
+- Pairs like `$.MARK` + `$.MARK.inf`: load/exec/lock from .inf; directory and leaf name
+  parsed from the host filename (<1 char><dot><leaf>, `$` = root directory)
 - Other files: copied with configurable load/exec (default same as create-ssd.sh)
+- Host hidden dotfiles (names starting with a period, e.g. .gitignore) are ignored
 """
 
 import argparse
@@ -42,6 +46,85 @@ def format_bbc_address(addr: int) -> str:
     return f"&{addr:06X}"
 
 
+def normalize_bbc_address_word(value: int) -> int:
+    """DFS catalogue uses 16-bit load/exec; accept 32-bit style lines and take low word."""
+    return value & 0xFFFF
+
+
+def companion_inf_path(data_file: Path) -> Path:
+    """Sidecar path: for `$.MARK` -> `$.MARK.inf` (append .inf to full filename)."""
+    return data_file.parent / (data_file.name + ".inf")
+
+
+def has_companion_inf(data_file: Path) -> bool:
+    return companion_inf_path(data_file).is_file()
+
+
+def is_hidden_host_file(name: str) -> bool:
+    """True for Unix-style dotfiles (.gitignore, .DS_Store, etc.); not `$.NAME` (root dir)."""
+    return name.startswith(".")
+
+
+def parse_inf_line(inf_path: Path) -> Tuple[int, int, bool]:
+    """
+    Parse first non-empty line: <DFS name> <load hex> <exec hex> [L]
+
+    Load/exec may be 4- or 8-digit hex (e.g. ffff0e00); low 16 bits are used.
+    """
+    text = inf_path.read_text()
+    line = ""
+    for ln in text.splitlines():
+        ln = ln.strip()
+        if ln:
+            line = ln
+            break
+    if not line:
+        raise ValueError(f"empty or unreadable .inf file: {inf_path}")
+
+    parts = line.split()
+    if len(parts) < 3:
+        raise ValueError(
+            f"{inf_path}: expected 'name load exec [L]', got: {line!r}"
+        )
+
+    load_raw = parse_hex_address(parts[1])
+    exec_raw = parse_hex_address(parts[2])
+    load_addr = normalize_bbc_address_word(load_raw)
+    exec_addr = normalize_bbc_address_word(exec_raw)
+    locked = len(parts) > 3 and parts[3].upper().startswith("L")
+    return load_addr, exec_addr, locked
+
+
+_DFS_HOST_PREFIX_RE = re.compile(r"^(.)\.(.+)$")
+
+
+def parse_dfs_directory_and_leaf(host_filename: str) -> Tuple[str, str]:
+    """
+    BBC DFS name on disk: one directory character, '.', then leaf (rest of name).
+
+    The second character of the filename must be '.' so that names like FOO.BAS are
+    not mistaken for directory F + leaf OO.BAS.
+
+    If the pattern does not apply, directory is '$' (root) and the leaf is derived
+    POSIX-style (strip last extension): e.g. foo.bas -> FOO, BINARY -> BINARY.
+
+    Returns (directory, leaf) with leaf truncated to 7 characters, uppercased.
+    """
+    if len(host_filename) >= 3 and host_filename[1] == ".":
+        m = _DFS_HOST_PREFIX_RE.match(host_filename)
+        if m:
+            directory = m.group(1)
+            leaf_raw = m.group(2)
+            leaf = truncate_filename(leaf_raw.upper())
+            return directory, leaf
+
+    if "." in host_filename:
+        stem = host_filename.rsplit(".", 1)[0]
+    else:
+        stem = host_filename
+    return "$", truncate_filename(stem.upper())
+
+
 def extract_filename_from_bas(bas_file: Path) -> str:
     """
     Extract filename from first line of BAS file if it contains:
@@ -59,7 +142,11 @@ def extract_filename_from_bas(bas_file: Path) -> str:
     except OSError:
         pass
 
-    return bas_file.stem
+    # Avoid Path.stem — breaks names like $.FOO (POSIX sees $.FOO as stem '$')
+    name = bas_file.name
+    if name.lower().endswith(".bas"):
+        name = name[:-4]
+    return name
 
 
 def truncate_filename(name: str, max_len: int = 7) -> str:
@@ -70,15 +157,24 @@ def truncate_filename(name: str, max_len: int = 7) -> str:
     return name
 
 
-def process_bas_file(bas_file: Path, temp_dir: Path) -> Tuple[str, Path]:
+def staging_temp_name(directory: str, leaf: str) -> str:
+    """Unique-ish name under the host FS (avoids clash between A.FOO and B.FOO)."""
+    d = "R" if directory == "$" else directory
+    return f"_{d}_{leaf}"
+
+
+def process_bas_file(bas_file: Path, temp_dir: Path) -> Tuple[str, str, Path]:
     """
-    Tokenize a BASIC file and return (filename, tokenized_path).
+    Tokenize a BASIC file and return (directory, filename, tokenized_path).
+    DFS directory comes from the host filename; leaf name from REM text or host
+    (same rules as parse_dfs_directory_and_leaf on that string).
     """
     extracted_name = extract_filename_from_bas(bas_file)
-    filename = truncate_filename(extracted_name).upper()
-    output_path = temp_dir / filename
+    _, filename = parse_dfs_directory_and_leaf(extracted_name)
+    directory, _ = parse_dfs_directory_and_leaf(bas_file.name)
+    output_path = temp_dir / staging_temp_name(directory, filename)
 
-    print(f"  Tokenizing: {bas_file.name} -> {filename}")
+    print(f"  Tokenizing: {bas_file.name} -> {directory}.{filename}")
 
     result = subprocess.run(
         ["basictool", "-2", "-t", str(bas_file), str(output_path)],
@@ -91,56 +187,101 @@ def process_bas_file(bas_file: Path, temp_dir: Path) -> Tuple[str, Path]:
         print(result.stderr)
         sys.exit(1)
 
-    return filename, output_path
+    return "$", filename, output_path
 
 
-def process_data_file(data_file: Path, temp_dir: Path) -> Tuple[str, Path]:
+def process_data_file(data_file: Path, temp_dir: Path) -> Tuple[str, str, Path]:
     """
-    Copy a data file as-is and return (filename, copied_path).
+    Copy a data file as-is and return (directory, filename, copied_path).
+    Uses global load/exec from manifest defaults (caller).
     """
-    filename = truncate_filename(data_file.stem).upper()
-    output_path = temp_dir / filename
+    directory, filename = parse_dfs_directory_and_leaf(data_file.name)
+    output_path = temp_dir / staging_temp_name(directory, filename)
 
-    print(f"  Copying: {data_file.name} -> {filename}")
+    print(f"  Copying: {data_file.name} -> {directory}.{filename}")
 
     output_path.write_bytes(data_file.read_bytes())
 
-    return filename, output_path
+    return directory, filename, output_path
+
+
+def process_inf_paired_file(
+    data_file: Path, temp_dir: Path
+) -> Tuple[str, str, Path, str, str, bool]:
+    """
+    Copy bytes as-is; load/exec/lock come from companion .inf only.
+    Returns (directory, leaf, path, load_bbc, exec_bbc, locked).
+    """
+    inf_path = companion_inf_path(data_file)
+    load_i, exec_i, locked = parse_inf_line(inf_path)
+    load_bbc = format_bbc_address(load_i)
+    exec_bbc = format_bbc_address(exec_i)
+
+    directory, filename = parse_dfs_directory_and_leaf(data_file.name)
+    output_path = temp_dir / staging_temp_name(directory, filename)
+
+    print(
+        f"  .inf metadata: {data_file.name} -> {directory}.{filename} "
+        f"load {load_bbc} exec {exec_bbc}{' locked' if locked else ''}"
+    )
+
+    output_path.write_bytes(data_file.read_bytes())
+
+    return directory, filename, output_path, load_bbc, exec_bbc, locked
+
+
+class FileManifestEntry:
+    """One file entry for the JSON manifest."""
+
+    __slots__ = (
+        "file_name",
+        "directory",
+        "locked",
+        "load_addr",
+        "exec_addr",
+        "content_path",
+        "manifest_type",
+    )
+
+    def __init__(
+        self,
+        file_name: str,
+        directory: str,
+        locked: bool,
+        load_addr: str,
+        exec_addr: str,
+        content_path: Path,
+        manifest_type: str,
+    ):
+        self.file_name = file_name
+        self.directory = directory
+        self.locked = locked
+        self.load_addr = load_addr
+        self.exec_addr = exec_addr
+        self.content_path = content_path
+        self.manifest_type = manifest_type
 
 
 def create_manifest(
-    files_info: List[Tuple[str, Path, str]],
+    entries: List[FileManifestEntry],
     temp_dir: Path,
     disc_title: str,
     disc_size: int,
-    data_load_bbc: str,
-    data_exec_bbc: str,
 ) -> Path:
-    """
-    Create JSON manifest for dfstool.
-
-    files_info: list of (filename, path, type) tuples; type is "basic" or "data".
-    """
+    """Create JSON manifest for dfstool."""
     manifest_path = temp_dir / "manifest.json"
 
     files_json = []
-    for filename, file_path, file_type in files_info:
-        if file_type == "basic":
-            load_addr = format_bbc_address(0x1900)
-            exec_addr = format_bbc_address(0x8023)
-        else:
-            load_addr = data_load_bbc
-            exec_addr = data_exec_bbc
-
+    for e in entries:
         files_json.append(
             {
-                "fileName": filename,
-                "directory": "$",
-                "locked": False,
-                "loadAddress": load_addr,
-                "executionAddress": exec_addr,
-                "contentPath": str(file_path),
-                "type": "basic" if file_type == "basic" else "other",
+                "fileName": e.file_name,
+                "directory": e.directory,
+                "locked": e.locked,
+                "loadAddress": e.load_addr,
+                "executionAddress": e.exec_addr,
+                "contentPath": str(e.content_path),
+                "type": e.manifest_type,
             }
         )
 
@@ -194,12 +335,55 @@ def create_ssd(
             print(f"Error: {tool} not found in PATH")
             sys.exit(1)
 
-    bas_files = sorted(input_dir.glob("*.bas"))
-    other_files = sorted(
-        [f for f in input_dir.iterdir() if f.is_file() and f.suffix.lower() != ".bas"]
+    all_files = sorted(
+        [
+            f
+            for f in input_dir.iterdir()
+            if f.is_file() and not is_hidden_host_file(f.name)
+        ],
+        key=lambda p: p.name.lower(),
     )
 
-    if not bas_files and not other_files:
+    paired_with_inf = sorted(
+        [
+            f
+            for f in all_files
+            if not f.name.lower().endswith(".inf")
+            and has_companion_inf(f)
+        ],
+        key=lambda p: p.name.lower(),
+    )
+
+    bas_files = sorted(
+        [
+            f
+            for f in all_files
+            if f.suffix.lower() == ".bas"
+            and not has_companion_inf(f)
+            and not f.name.lower().endswith(".inf")
+        ],
+        key=lambda p: p.name.lower(),
+    )
+
+    other_files = sorted(
+        [
+            f
+            for f in all_files
+            if f.suffix.lower() != ".bas"
+            and not f.name.lower().endswith(".inf")
+            and not has_companion_inf(f)
+        ],
+        key=lambda p: p.name.lower(),
+    )
+
+    for p in all_files:
+        if p.name.lower().endswith(".inf"):
+            stem_key = p.name[:-4]
+            expected_data = p.parent / stem_key
+            if not expected_data.is_file():
+                print(f"  Warning: orphan sidecar (no data file): {p.name}")
+
+    if not paired_with_inf and not bas_files and not other_files:
         print(f"Error: No files found in '{input_dir}'")
         sys.exit(1)
 
@@ -207,13 +391,17 @@ def create_ssd(
     print(f"  Disc title: {disc_title}")
     print(f"  Input directory: {input_dir}")
     print(f"  Output SSD: {output_ssd}")
-    print(f"  Non-BASIC load/exec: {load_bbc} / {exec_bbc}")
+    print(f"  Non-BASIC load/exec (no .inf): {load_bbc} / {exec_bbc}")
 
-    print(f"\nFound {len(bas_files)} .bas files to process:")
+    print(f"\nFound {len(paired_with_inf)} file(s) with companion .inf:")
+    for f in paired_with_inf:
+        print(f"  - {f.name}")
+
+    print(f"\nFound {len(bas_files)} .bas file(s) to tokenize (no .inf):")
     for f in bas_files:
         print(f"  - {f.name}")
 
-    print(f"Found {len(other_files)} other files to process:")
+    print(f"\nFound {len(other_files)} other file(s) (no .inf):")
     for f in other_files:
         print(f"  - {f.name}")
 
@@ -221,28 +409,64 @@ def create_ssd(
         temp_dir = Path(temp_dir_str)
         print(f"\nUsing temporary directory: {temp_dir}")
 
-        files_info = []
+        entries: List[FileManifestEntry] = []
+
+        if paired_with_inf:
+            print("\nProcessing files with .inf sidecars (no tokenization)...")
+            for data_file in paired_with_inf:
+                d, fn, out_path, la, ea, locked = process_inf_paired_file(
+                    data_file, temp_dir
+                )
+                entries.append(
+                    FileManifestEntry(
+                        fn,
+                        d,
+                        locked,
+                        la,
+                        ea,
+                        out_path,
+                        "other",
+                    )
+                )
 
         if bas_files:
             print("\nTokenizing BAS files...")
             for bas_file in bas_files:
-                filename, output_path = process_bas_file(bas_file, temp_dir)
-                files_info.append((filename, output_path, "basic"))
+                d, fn, output_path = process_bas_file(bas_file, temp_dir)
+                entries.append(
+                    FileManifestEntry(
+                        fn,
+                        d,
+                        False,
+                        format_bbc_address(0x1900),
+                        format_bbc_address(0x8023),
+                        output_path,
+                        "basic",
+                    )
+                )
 
         if other_files:
             print("\nCopying data files...")
             for data_file in other_files:
-                filename, output_path = process_data_file(data_file, temp_dir)
-                files_info.append((filename, output_path, "data"))
+                d, fn, output_path = process_data_file(data_file, temp_dir)
+                entries.append(
+                    FileManifestEntry(
+                        fn,
+                        d,
+                        False,
+                        load_bbc,
+                        exec_bbc,
+                        output_path,
+                        "other",
+                    )
+                )
 
-        print(f"\nCreating JSON manifest with {len(files_info)} files")
+        print(f"\nCreating JSON manifest with {len(entries)} files")
         manifest_path = create_manifest(
-            files_info,
+            entries,
             temp_dir,
             disc_title,
             disc_size,
-            load_bbc,
-            exec_bbc,
         )
 
         print(f"\nCreating SSD disk image: {output_ssd}")
@@ -266,8 +490,8 @@ def create_ssd(
 
     print(f"\nSSD disk image created: {output_ssd}")
     print("Files included:")
-    for filename, _, file_type in files_info:
-        print(f"  - {filename} ({file_type})")
+    for e in entries:
+        print(f"  - {e.directory}.{e.file_name} ({e.manifest_type})")
 
 
 def main():
@@ -281,9 +505,16 @@ Examples:
   %(prog)s -i ./mix -o disk.ssd -t Programs -a 0x1900 -e 0x2000
 
 File handling:
-  - .bas files are tokenized with basictool (load &001900, exec &008023)
+  - .bas files are tokenized with basictool (load &001900, exec &008023), unless a
+    sidecar .inf exists — then the file is copied unchanged and metadata is read
+    from the .inf.
+  - If <filename>.inf exists next to a file, load/exec/lock come only from that .inf
+    (command-line -a/-e are ignored for that file). Host filename sets DFS directory
+    and leaf: one character, '.', then name (e.g. $.FOO is root directory, FOO); if
+    the pattern does not apply, directory is '$' and the leaf is the POSIX stem.
   - Other files use --load-addr and --exec-addr (default load 0x1900; if --exec-addr
     is omitted, execution address matches load), matching create-ssd.sh behaviour.
+  - Filenames starting with a period (host hidden files like .gitignore) are skipped.
         """,
     )
 

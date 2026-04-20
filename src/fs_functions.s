@@ -516,6 +516,7 @@ read_fspba_reset:
         jsr     set_curdir_drv_to_defaults      ; Set current directory and drive
 
 read_fspba:
+        ; findv_openfile copies the filename location into aws_tmp10/11
         lda     aws_tmp10                       ; **Also creates copy at &C5 (MMFS line 458)
         sta     text_pointer
         lda     aws_tmp11
@@ -561,7 +562,10 @@ rdafsp_notcolon:
         inx
         jsr     GSREAD_A                ; Get next character
         bcs     rdafsp_padx             ; If end of string
-        cpx     #$07                    ; Max 7 characters
+        ; TODO: THIS IS WHERE A RESOURCE NAME FAILS AT THE MOMENT AS
+        ; https://foo.bar/baz IS LONGER THAN 7 CHARS
+        ; should we look for :// and treat it as something to process by fujinet?
+        cpx     #$40                    ; Max characters (was 7)
         bne     @rdafsp_rdfnloop
         beq     err_bad_name            ; Too many characters
 
@@ -591,8 +595,12 @@ rdafsp_padx:
 @rdafsp_padloop:
         sta     fuji_filename_buffer,x  ; Store space
         inx
-        cpx     #$40                    ; Pad to $40 (64 bytes)
+        cpx     #$40                    ; Pad to $40 (64 bytes), this is mentioned in MMFS as being for wildcards
         bne     @rdafsp_padloop
+
+        ; why do we copy the name here? we can't do this with resource names like web addresses
+        ; I think this is needed as a "cache" of the filename for various functions, e.g. *COPY, *RENAME, etc
+        ; For now it's probably safe to leave this as is
         ldx     #$06                    ; Copy from fuji_filename_buffer ($1000) to $C5
 @rdafsp_copyloop:
         lda     fuji_filename_buffer,x
