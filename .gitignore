@@ -14,3 +14,5 @@ debug_*.txt
 /old_*.c
 
 /.vscode/
+
+__pycache__/

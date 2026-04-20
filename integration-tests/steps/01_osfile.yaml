@@ -1,0 +1,62 @@
+# Steps run after integration_test.py global setup (*FHOST, *FIN, *FMOUNT).
+# Same layout idea as fujinet-nio/integration-tests/steps/*.yaml (group + steps).
+
+group: BBC / FS / OSFILE
+
+steps:
+  - name: remove test file
+    paste:
+      - '*REMOVE"Myself"'
+      - 'CLS'
+    delay_seconds: 6.0
+  - name: osf01
+    paste:
+      - 'CHAIN "OSF01"'
+    delay_seconds: 6.0
+    expect:
+      contains:
+        - "$.Myself"
+      regex:
+        # Create Myself
+        - '\$\.Myself\s+001DC5\s+001DE0\s+000027\s+026'
+  - name: osf02
+    paste:
+      - 'CHAIN "OSF02"'
+    delay_seconds: 4.5
+    expect:
+      contains:
+        - "$.Myself"
+      regex:
+        # Change the load/exec addresses
+        - '\$\.Myself\s+001900\s+00191B\s+000027\s+026'
+  - name: osf03
+    paste:
+      - 'CHAIN "OSF03"'
+    delay_seconds: 4.5
+    expect:
+      contains:
+        - "$.Myself"
+      regex:
+        # Change just load
+        - '\$\.Myself\s+005000\s+00191B\s+000027\s+026'
+  - name: osf04
+    paste:
+      - 'CHAIN "OSF04"'
+    delay_seconds: 4.5
+    expect:
+      contains:
+        - "$.Myself"
+      regex:
+        # Change just exec
+        - '\$\.Myself\s+005000\s+00501B\s+000027\s+026'
+  - name: osf05
+    paste:
+      - 'CHAIN "OSF05"'
+    delay_seconds: 4.5
+    expect:
+      contains:
+        - "$.Myself"
+      regex:
+        # lock the file
+        - '\$\.Myself\s+L\s+005000\s+00501B\s+000027\s+026'
+
