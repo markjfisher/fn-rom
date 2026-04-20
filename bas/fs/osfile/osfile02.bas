@@ -33,6 +33,8 @@ P% = code%
        RTS                  \ bye bye
 ]
 NEXT pass%
+
+CLS
 CALL start
 *INFO Myself
 END

@@ -34,6 +34,8 @@ P% = code%
 ]
 
 NEXT pass%
+
+CLS
 CALL start
 *INFO Myself
 END

@@ -34,5 +34,7 @@ P% = code%
 ]
 NEXT pass%
 *OPT 1,2
+
+CLS
 CALL start
 END

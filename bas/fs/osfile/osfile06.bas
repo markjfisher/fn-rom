@@ -33,6 +33,8 @@ P% = code%
        RTS              \ bye bye
 ]
 NEXT pass%
+
+CLS
 CALL start
 PRINT "load address = ";~parms!2
 PRINT " xqt address = ";~parms!6
