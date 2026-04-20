@@ -1,5 +1,11 @@
 # Steps run after integration_test.py global setup (*FHOST, *FIN, *FMOUNT).
 #
+# delay_seconds:
+#   - Screen checks: maximum time to poll the screen (every --screen-poll-interval, default 0.1s)
+#     until expectations pass (no fixed pause first — exits as soon as it matches).
+#   - Peek-only steps: ignored (peek runs immediately after paste).
+#   - No checks (setup): fixed settle time after paste only.
+#
 # checks:
 #   - screen: decode screen RAM (b2-http screen); optional overrides: start, wrap_adjustment, ...
 #   - peek:    raw bytes from memory (b2-http peek BEGIN END); use one of:
@@ -18,7 +24,6 @@ steps:
       - '*ACCESS Myself'
       - '*DELETE Myself'
       - 'CLS'
-    delay_seconds: 4.0
 
   - name: osf01
     paste:
@@ -27,6 +32,7 @@ steps:
     checks:
       - screen:
           expect:
+            # We don't really need both of these here
             contains:
               - "$.Myself"
             regex:
@@ -49,8 +55,6 @@ steps:
     checks:
       - screen:
           expect:
-            contains:
-              - "$.Myself"
             regex:
               # Change the load/exec addresses
               - '\$\.Myself\s+001900\s+00191B\s+000027\s+026'
@@ -62,8 +66,6 @@ steps:
     checks:
       - screen:
           expect:
-            contains:
-              - "$.Myself"
             regex:
               # Change just load
               - '\$\.Myself\s+005000\s+00191B\s+000027\s+026'
@@ -75,8 +77,6 @@ steps:
     checks:
       - screen:
           expect:
-            contains:
-              - "$.Myself"
             regex:
               # Change just exec
               - '\$\.Myself\s+005000\s+00501B\s+000027\s+026'
@@ -88,10 +88,8 @@ steps:
     checks:
       - screen:
           expect:
-            contains:
-              - "$.Myself"
             regex:
-              # file is currently unlocked
+              # file is currently unlocked (status = 0)
               - 'load address = 5000'
               - 'xqt address = 501B'
               - 'size of file = 27'

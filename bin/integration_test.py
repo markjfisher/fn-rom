@@ -11,7 +11,14 @@ Example:
 
 Paste lines and paths may use placeholders: {FHOST_PATH}, {DISK}
 
-Steps without `checks` (and without legacy `expect`) perform paste + delay only.
+**delay_seconds** (per step):
+
+- Step has **screen** checks: maximum time to poll the screen every ``--screen-poll-interval``
+  seconds until expectations pass (fast exit on success). Not a fixed pause before the first grab.
+- Step has **peek-only** checks (no screen): ignored — peek runs immediately after paste.
+- Step has **no checks**: fixed settle time after paste (same as before).
+
+Peek checks always run once, right after the preceding screen check succeeds (no extra wait).
 
 PyYAML is only required when using --steps / --steps-dir (pip install -r integration-tests/requirements.txt).
 """
@@ -81,11 +88,11 @@ StepCheck = Union[ScreenStepCheck, PeekStepCheck]
 
 @dataclass(frozen=True)
 class IntegrationCase:
-    """Paste lines, delay, then run zero or more checks (screen / peek)."""
+    """Paste lines, then checks. delay_seconds meaning depends on checks (see module docstring)."""
 
     name: str
     paste_lines: tuple[str, ...]
-    delay_seconds: float = 2.0
+    delay_seconds: float | None = None
     checks: tuple[StepCheck, ...] = ()
     group: str = ""
     source_file: str = ""
@@ -308,6 +315,56 @@ def assert_peek(
     return []
 
 
+def _step_has_screen(case: IntegrationCase) -> bool:
+    return any(isinstance(c, ScreenStepCheck) for c in case.checks)
+
+
+def _poll_screen_until_pass(
+    b2: B2HttpCli,
+    check: ScreenStepCheck,
+    base_sk: dict[str, Any],
+    *,
+    label: str,
+    timeout_s: float,
+    poll_interval: float,
+    verbose: bool,
+) -> list[str]:
+    """Poll screen until expectations pass or timeout (first match wins)."""
+    sk = _merge_screen_kwargs(base_sk, check)
+    deadline = time.monotonic() + max(timeout_s, 0.0)
+    interval = max(poll_interval, 0.0)
+    attempt = 0
+    last_screen = ""
+    last_failures: list[str] = []
+
+    while True:
+        attempt += 1
+        last_screen = b2.screen_text(**sk)
+        last_failures = assert_screen(last_screen, check.expect, label=label)
+        if not last_failures:
+            if verbose:
+                print(f"--- screen ok ({label}) after {attempt} grab(s)", file=sys.stderr)
+                print(last_screen, file=sys.stderr)
+            return []
+        if time.monotonic() >= deadline:
+            out = [
+                f"[{label}] screen timed out after {timeout_s}s "
+                f"({attempt} grabs, poll every {interval}s)",
+            ]
+            out.extend(last_failures)
+            out.append(f"[{label}] last screen capture:\n{last_screen}")
+            return out
+        if verbose:
+            print(
+                f"--- screen poll attempt {attempt} ({label}) "
+                f"({len(last_failures)} assertion(s) failed), retry…",
+                file=sys.stderr,
+            )
+            print(last_screen, file=sys.stderr)
+        if interval:
+            time.sleep(interval)
+
+
 def _merge_screen_kwargs(
     base: dict[str, Any], chk: ScreenStepCheck
 ) -> dict[str, Any]:
@@ -334,6 +391,8 @@ def run_case(
     screen_kwargs: dict[str, Any],
     vars: Mapping[str, str],
     verbose: bool,
+    default_screen_timeout: float,
+    screen_poll_interval: float,
 ) -> list[str]:
     if verbose:
         if case.group:
@@ -349,28 +408,45 @@ def run_case(
         b2.paste(line)
         time.sleep(paste_delay)
 
-    delay = max(case.delay_seconds, 0.0)
-    if delay:
-        time.sleep(delay)
-
-    failures: list[str] = []
     base_sk = {
         k: v
         for k, v in screen_kwargs.items()
         if k != "paste_delay"
     }
 
+    failures: list[str] = []
+
+    if not case.checks:
+        settle = case.delay_seconds if case.delay_seconds is not None else 2.0
+        if settle > 0:
+            time.sleep(settle)
+        return []
+
+    has_screen = _step_has_screen(case)
+    screen_timeout = (
+        case.delay_seconds
+        if case.delay_seconds is not None
+        else default_screen_timeout
+    )
+    if has_screen:
+        screen_timeout = max(screen_timeout, 0.0)
+
     for i, check in enumerate(case.checks):
         sub = f"{case.name}/check[{i}]"
         if isinstance(check, ScreenStepCheck):
-            sk = _merge_screen_kwargs(base_sk, check)
-            screen = b2.screen_text(**sk)
-            if verbose:
-                print(f"--- screen ({sub})", file=sys.stderr)
-                print(screen, file=sys.stderr)
             failures.extend(
-                assert_screen(screen, check.expect, label=sub)
+                _poll_screen_until_pass(
+                    b2,
+                    check,
+                    base_sk,
+                    label=sub,
+                    timeout_s=screen_timeout,
+                    poll_interval=screen_poll_interval,
+                    verbose=verbose,
+                )
             )
+            if failures:
+                return failures
         elif isinstance(check, PeekStepCheck):
             got = b2.peek_bytes(
                 check.begin,
@@ -393,6 +469,8 @@ def run_case(
                     vars=vars,
                 )
             )
+            if failures:
+                return failures
     return failures
 
 
@@ -551,8 +629,6 @@ def _parse_step_item(
     else:
         raise ValueError(f"{path}: step {index} 'paste' must be a string or list")
 
-    delay_seconds = float(item.get("delay_seconds", 2.0))
-
     raw_checks = item.get("checks")
     has_legacy_expect = "expect" in item
     legacy_expect = item.get("expect")
@@ -576,6 +652,18 @@ def _parse_step_item(
         )
         if exp.contains or exp.regex:
             checks_list.append(ScreenStepCheck(expect=exp))
+
+    has_screen = any(isinstance(c, ScreenStepCheck) for c in checks_list)
+
+    if "delay_seconds" in item:
+        delay_seconds: float | None = float(item["delay_seconds"])
+    elif has_screen:
+        delay_seconds = None
+    elif not checks_list:
+        delay_seconds = 2.0
+    else:
+        # Peek-only (or other non-screen checks later): polling delay not used.
+        delay_seconds = None
 
     return IntegrationCase(
         name=name.strip(),
@@ -633,7 +721,7 @@ def default_osfile_cases() -> list[IntegrationCase]:
         IntegrationCase(
             name="osf01",
             paste_lines=('CHAIN "OSF01"',),
-            delay_seconds=3.0,
+            delay_seconds=30.0,
             checks=(
                 ScreenStepCheck(
                     expect=ScreenExpect(
@@ -739,6 +827,21 @@ def main() -> None:
         default=0.3,
         help="Sleep after each paste line within a case",
     )
+    parser.add_argument(
+        "--screen-timeout-default",
+        type=float,
+        default=30.0,
+        help=(
+            "When a step has screen checks but omits delay_seconds, max seconds "
+            "to poll the screen (default 30)"
+        ),
+    )
+    parser.add_argument(
+        "--screen-poll-interval",
+        type=float,
+        default=0.1,
+        help="Seconds between screen grabs while waiting for expectations (default 0.1)",
+    )
 
     args = parser.parse_args()
 
@@ -795,6 +898,8 @@ def main() -> None:
                 screen_kwargs=screen_kwargs,
                 vars=vars,
                 verbose=args.verbose,
+                default_screen_timeout=args.screen_timeout_default,
+                screen_poll_interval=args.screen_poll_interval,
             )
         )
 
