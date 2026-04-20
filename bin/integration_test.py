@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Run BASIC programs inside b2 via bin/b2-http.py: paste commands, capture screen,
-and assert on the text. Steps are YAML (same idea as fujinet-nio integration-tests).
+Run BASIC programs inside b2 via bin/b2-http.py: paste commands, then optional
+checks (screen text, peek memory vs expected bytes). Steps are YAML.
 
 Example:
   pip install -r integration-tests/requirements.txt   # PyYAML
@@ -9,21 +9,9 @@ Example:
     --disk /path/to/test-disk.ssd \\
     --steps-dir ../integration-tests/steps
 
-YAML step file (see integration-tests/steps/01_osfile.yaml):
+Paste lines and paths may use placeholders: {FHOST_PATH}, {DISK}
 
-    group: BBC / FS / OSFILE
-    steps:
-      - name: osf01
-        paste:
-          - 'CHAIN "OSF01"'
-        delay_seconds: 3.0
-        expect:
-          contains:
-            - "$.Myself"
-          regex:
-            - '\\$\\.Myself\\s+001DC5\\s+001DE0\\s+000027\\s+026'
-
-Paste lines and expect strings may use placeholders: {FHOST_PATH}, {DISK}
+Steps without `checks` (and without legacy `expect`) perform paste + delay only.
 
 PyYAML is only required when using --steps / --steps-dir (pip install -r integration-tests/requirements.txt).
 """
@@ -31,6 +19,7 @@ PyYAML is only required when using --steps / --steps-dir (pip install -r integra
 from __future__ import annotations
 
 import argparse
+import hashlib
 import importlib
 import re
 import subprocess
@@ -38,8 +27,7 @@ import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Iterable, Mapping, Sequence
-
+from typing import Any, Iterable, Mapping, Sequence, Union
 
 def _yaml_module():
     """Lazy import so built-in-only runs work without PyYAML installed."""
@@ -63,15 +51,45 @@ class ScreenExpect:
 
 
 @dataclass(frozen=True)
+class ScreenStepCheck:
+    """Run b2-http screen with optional parameter overrides, then assert on text."""
+
+    expect: ScreenExpect
+    start: str | None = None
+    wrap_adjustment: str | None = None
+    screen_size: int | None = None
+    lines: int | None = None
+    chars_per_line: int | None = None
+    stride: int | None = None
+
+
+@dataclass(frozen=True)
+class PeekStepCheck:
+    """b2-http peek BEGIN END; compare raw bytes to a file, hex string, or SHA-256."""
+
+    begin: str
+    end: str
+    s: str | None = None
+    mos: bool | None = None
+    expect_file: Path | None = None
+    expect_hex: str | None = None
+    expect_sha256: str | None = None
+
+
+StepCheck = Union[ScreenStepCheck, PeekStepCheck]
+
+
+@dataclass(frozen=True)
 class IntegrationCase:
-    """One test: paste one or more lines (each submitted with CR), wait, check screen."""
+    """Paste lines, delay, then run zero or more checks (screen / peek)."""
 
     name: str
     paste_lines: tuple[str, ...]
     delay_seconds: float = 2.0
-    expect: ScreenExpect = field(default_factory=ScreenExpect)
+    checks: tuple[StepCheck, ...] = ()
     group: str = ""
     source_file: str = ""
+    step_dir: Path = field(default_factory=lambda: Path("."))
 
 
 def _repo_bin() -> Path:
@@ -92,8 +110,17 @@ def _default_step_vars(args: argparse.Namespace) -> dict[str, str]:
     }
 
 
+def _resolve_expect_file(chk_path: Path, step_dir: Path, vars: Mapping[str, str]) -> Path:
+    """expect_file paths are relative to the YAML file's directory."""
+    expanded = _expand_placeholders(str(chk_path), vars)
+    p = Path(expanded)
+    if p.is_absolute():
+        return p.resolve()
+    return (step_dir / p).resolve()
+
+
 class B2HttpCli:
-    """Thin wrapper around b2-http.py (same defaults as typical FN + mode-7-style screen)."""
+    """Thin wrapper around b2-http.py."""
 
     def __init__(
         self,
@@ -151,6 +178,21 @@ class B2HttpCli:
         out = self._run_capture(cmd)
         return out.decode("utf-8", errors="replace")
 
+    def peek_bytes(
+        self,
+        begin: str,
+        end: str,
+        *,
+        s: str | None = None,
+        mos: bool | None = None,
+    ) -> bytes:
+        cmd = self._base() + ["peek", begin, end]
+        if s is not None:
+            cmd.extend(["-s", s])
+        if mos is not None:
+            cmd.extend(["--mos", "true" if mos else "false"])
+        return self._run_capture(cmd)
+
     def reset(self, *, boot: bool = False, config: str | None = None) -> None:
         cmd = self._base() + ["reset"]
         if boot:
@@ -195,16 +237,94 @@ def run_global_setup(
     time.sleep(delay)
 
 
-def assert_screen(screen: str, expect: ScreenExpect, *, case_name: str) -> list[str]:
-    """Return list of failure messages (empty if all pass)."""
+def assert_screen(screen: str, expect: ScreenExpect, *, label: str) -> list[str]:
     failures: list[str] = []
     for s in expect.contains:
         if s not in screen:
-            failures.append(f"[{case_name}] missing substring: {s!r}")
+            failures.append(f"[{label}] missing substring: {s!r}")
     for pattern in expect.regex:
         if not re.search(pattern, screen):
-            failures.append(f"[{case_name}] regex did not match: {pattern!r}")
+            failures.append(f"[{label}] regex did not match: {pattern!r}")
     return failures
+
+
+def _hex_nibbles_to_bytes(text: str) -> bytes:
+    pairs = re.findall(r"[0-9A-Fa-f]{2}", text)
+    return bytes(int(p, 16) for p in pairs)
+
+
+def _peek_expected_bytes(chk: PeekStepCheck, step_dir: Path, vars: Mapping[str, str]) -> bytes:
+    n_expects = sum(
+        1
+        for x in (chk.expect_file, chk.expect_hex, chk.expect_sha256)
+        if x is not None
+    )
+    if n_expects != 1:
+        raise ValueError(
+            "peek check requires exactly one of: expect_file, expect_hex, expect_sha256"
+        )
+    if chk.expect_file is not None:
+        path = _resolve_expect_file(chk.expect_file, step_dir, vars)
+        return path.read_bytes()
+    if chk.expect_hex is not None:
+        expanded = _expand_placeholders(chk.expect_hex, vars)
+        return _hex_nibbles_to_bytes(expanded)
+    # sha256: compare in assert — return placeholder? Use empty and handle in assert
+    return b""
+
+
+def assert_peek(
+    got: bytes,
+    chk: PeekStepCheck,
+    *,
+    label: str,
+    step_dir: Path,
+    vars: Mapping[str, str],
+) -> list[str]:
+    if chk.expect_sha256 is not None:
+        want_hex = _expand_placeholders(chk.expect_sha256.strip(), vars).lower()
+        got_hash = hashlib.sha256(got).hexdigest()
+        if got_hash != want_hex:
+            return [
+                f"[{label}] peek SHA-256 mismatch: got {got_hash} expected {want_hex}"
+            ]
+        return []
+
+    expected = _peek_expected_bytes(chk, step_dir, vars)
+    if len(got) != len(expected):
+        return [
+            f"[{label}] peek length {len(got)} != expected {len(expected)} "
+            f"(begin={chk.begin} end={chk.end})"
+        ]
+    for i, (a, b) in enumerate(zip(got, expected)):
+        if a != b:
+            snippet_got = got[max(0, i - 4) : i + 8].hex()
+            snippet_exp = expected[max(0, i - 4) : i + 8].hex()
+            return [
+                f"[{label}] peek mismatch at offset {i}: "
+                f"got 0x{a:02x} expected 0x{b:02x}; "
+                f"context got={snippet_got} exp={snippet_exp}"
+            ]
+    return []
+
+
+def _merge_screen_kwargs(
+    base: dict[str, Any], chk: ScreenStepCheck
+) -> dict[str, Any]:
+    out = dict(base)
+    if chk.start is not None:
+        out["start"] = chk.start
+    if chk.wrap_adjustment is not None:
+        out["wrap_adjustment"] = chk.wrap_adjustment
+    if chk.screen_size is not None:
+        out["screen_size"] = chk.screen_size
+    if chk.lines is not None:
+        out["lines"] = chk.lines
+    if chk.chars_per_line is not None:
+        out["chars_per_line"] = chk.chars_per_line
+    if chk.stride is not None:
+        out["stride"] = chk.stride
+    return out
 
 
 def run_case(
@@ -212,6 +332,7 @@ def run_case(
     case: IntegrationCase,
     *,
     screen_kwargs: dict[str, Any],
+    vars: Mapping[str, str],
     verbose: bool,
 ) -> list[str]:
     if verbose:
@@ -222,16 +343,57 @@ def run_case(
             )
         else:
             print(f"--- case: {case.name}", file=sys.stderr)
+
+    paste_delay = screen_kwargs.get("paste_delay", 0.3)
     for line in case.paste_lines:
         b2.paste(line)
-        time.sleep(screen_kwargs.get("paste_delay", 0.3))
+        time.sleep(paste_delay)
+
     delay = max(case.delay_seconds, 0.0)
     if delay:
         time.sleep(delay)
-    screen = b2.screen_text(**{k: v for k, v in screen_kwargs.items() if k != "paste_delay"})
-    if verbose:
-        print(screen, file=sys.stderr)
-    return assert_screen(screen, case.expect, case_name=case.name)
+
+    failures: list[str] = []
+    base_sk = {
+        k: v
+        for k, v in screen_kwargs.items()
+        if k != "paste_delay"
+    }
+
+    for i, check in enumerate(case.checks):
+        sub = f"{case.name}/check[{i}]"
+        if isinstance(check, ScreenStepCheck):
+            sk = _merge_screen_kwargs(base_sk, check)
+            screen = b2.screen_text(**sk)
+            if verbose:
+                print(f"--- screen ({sub})", file=sys.stderr)
+                print(screen, file=sys.stderr)
+            failures.extend(
+                assert_screen(screen, check.expect, label=sub)
+            )
+        elif isinstance(check, PeekStepCheck):
+            got = b2.peek_bytes(
+                check.begin,
+                check.end,
+                s=check.s,
+                mos=check.mos,
+            )
+            if verbose:
+                print(
+                    f"--- peek {check.begin}..{check.end} ({len(got)} bytes) ({sub})",
+                    file=sys.stderr,
+                )
+                print(got.hex(), file=sys.stderr)
+            failures.extend(
+                assert_peek(
+                    got,
+                    check,
+                    label=sub,
+                    step_dir=case.step_dir,
+                    vars=vars,
+                )
+            )
+    return failures
 
 
 def _load_yaml_file(path: Path) -> dict[str, Any]:
@@ -259,6 +421,112 @@ def _parse_expect_block(raw: Any) -> ScreenExpect:
     )
 
 
+def _screen_check_from_mapping(m: dict[str, Any], vars: Mapping[str, str]) -> ScreenStepCheck:
+    exp_raw = m.get("expect")
+    if exp_raw is None:
+        raise ValueError("screen check must include 'expect'")
+    exp = _parse_expect_block(exp_raw)
+    exp = ScreenExpect(
+        contains=tuple(_expand_placeholders(s, vars) for s in exp.contains),
+        regex=tuple(_expand_placeholders(s, vars) for s in exp.regex),
+    )
+
+    def opt_str(key: str) -> str | None:
+        v = m.get(key)
+        if v is None:
+            return None
+        return _expand_placeholders(str(v), vars)
+
+    def opt_int(key: str) -> int | None:
+        v = m.get(key)
+        if v is None:
+            return None
+        return int(v)
+
+    return ScreenStepCheck(
+        expect=exp,
+        start=opt_str("start"),
+        wrap_adjustment=opt_str("wrap_adjustment"),
+        screen_size=opt_int("screen_size"),
+        lines=opt_int("lines"),
+        chars_per_line=opt_int("chars_per_line"),
+        stride=opt_int("stride"),
+    )
+
+
+def _peek_check_from_mapping(m: dict[str, Any], vars: Mapping[str, str]) -> PeekStepCheck:
+    begin = m.get("begin")
+    end = m.get("end")
+    if not isinstance(begin, str) or not str(begin).strip():
+        raise ValueError("peek.begin must be a non-empty string")
+    if not isinstance(end, str) or not str(end).strip():
+        raise ValueError("peek.end must be a non-empty string")
+
+    s = m.get("s")
+    mos = m.get("mos")
+    mos_b: bool | None
+    if mos is None:
+        mos_b = None
+    elif isinstance(mos, bool):
+        mos_b = mos
+    else:
+        mos_b = str(mos).lower() in ("1", "true", "yes")
+
+    ef = m.get("expect_file")
+    eh = m.get("expect_hex")
+    es = m.get("expect_sha256")
+    # paths may contain placeholders
+    expect_path: Path | None = None
+    if ef is not None:
+        expect_path = Path(_expand_placeholders(str(ef), vars))
+    expect_hex_str: str | None = None
+    if eh is not None:
+        expect_hex_str = str(eh)
+    expect_sha: str | None = None
+    if es is not None:
+        expect_sha = _expand_placeholders(str(es).strip(), vars)
+
+    return PeekStepCheck(
+        begin=_expand_placeholders(str(begin).strip(), vars),
+        end=_expand_placeholders(str(end).strip(), vars),
+        s=_expand_placeholders(str(s), vars) if s is not None else None,
+        mos=mos_b,
+        expect_file=expect_path,
+        expect_hex=expect_hex_str,
+        expect_sha256=expect_sha,
+    )
+
+
+def _parse_checks_list(
+    raw_checks: list[Any],
+    *,
+    path: Path,
+    step_index: int,
+    vars: Mapping[str, str],
+) -> tuple[StepCheck, ...]:
+    out: list[StepCheck] = []
+    for j, raw in enumerate(raw_checks):
+        if not isinstance(raw, dict) or len(raw) != 1:
+            raise ValueError(
+                f"{path}: step {step_index} checks[{j}] must be a single-key mapping "
+                "(e.g. screen: {{...}} or peek: {{...}})"
+            )
+        kind = next(iter(raw.keys()))
+        body = raw[kind]
+        if not isinstance(body, dict):
+            raise ValueError(f"{path}: step {step_index} checks[{j}].{kind} must be a mapping")
+        if kind == "screen":
+            out.append(_screen_check_from_mapping(body, vars))
+        elif kind == "peek":
+            out.append(_peek_check_from_mapping(body, vars))
+        else:
+            raise ValueError(
+                f"{path}: step {step_index} checks[{j}] unknown kind {kind!r} "
+                "(use 'screen' or 'peek')"
+            )
+    return tuple(out)
+
+
 def _parse_step_item(
     item: dict[str, Any],
     *,
@@ -271,30 +539,52 @@ def _parse_step_item(
     if not isinstance(name, str) or not name.strip():
         raise ValueError(f"{path}: step {index} missing/invalid 'name'")
 
-    paste = item.get("paste")
-    if paste is None:
-        raise ValueError(f"{path}: step {index} missing 'paste'")
-    if isinstance(paste, str):
-        paste_lines = (_expand_placeholders(paste, vars),)
-    elif isinstance(paste, list) and paste:
-        paste_lines = tuple(_expand_placeholders(str(x), vars) for x in paste)
+    step_dir = path.parent.resolve()
+
+    raw_paste = item.get("paste")
+    if raw_paste is None:
+        paste_lines = ()
+    elif isinstance(raw_paste, str):
+        paste_lines = (_expand_placeholders(raw_paste, vars),)
+    elif isinstance(raw_paste, list):
+        paste_lines = tuple(_expand_placeholders(str(x), vars) for x in raw_paste)
     else:
-        raise ValueError(f"{path}: step {index} 'paste' must be a non-empty string or list")
+        raise ValueError(f"{path}: step {index} 'paste' must be a string or list")
 
     delay_seconds = float(item.get("delay_seconds", 2.0))
-    expect = _parse_expect_block(item.get("expect"))
-    expect = ScreenExpect(
-        contains=tuple(_expand_placeholders(s, vars) for s in expect.contains),
-        regex=tuple(_expand_placeholders(s, vars) for s in expect.regex),
-    )
+
+    raw_checks = item.get("checks")
+    has_legacy_expect = "expect" in item
+    legacy_expect = item.get("expect")
+
+    if has_legacy_expect and raw_checks is not None:
+        raise ValueError(
+            f"{path}: step {index} uses both 'expect' and 'checks'; use only 'checks'"
+        )
+
+    checks_list: list[StepCheck] = []
+
+    if raw_checks is not None:
+        if not isinstance(raw_checks, list):
+            raise ValueError(f"{path}: step {index} 'checks' must be a list")
+        checks_list.extend(_parse_checks_list(raw_checks, path=path, step_index=index, vars=vars))
+    elif has_legacy_expect:
+        exp = _parse_expect_block(legacy_expect)
+        exp = ScreenExpect(
+            contains=tuple(_expand_placeholders(s, vars) for s in exp.contains),
+            regex=tuple(_expand_placeholders(s, vars) for s in exp.regex),
+        )
+        if exp.contains or exp.regex:
+            checks_list.append(ScreenStepCheck(expect=exp))
 
     return IntegrationCase(
         name=name.strip(),
         paste_lines=paste_lines,
         delay_seconds=delay_seconds,
-        expect=expect,
+        checks=tuple(checks_list),
         group=group,
         source_file=path.name,
+        step_dir=step_dir,
     )
 
 
@@ -339,19 +629,19 @@ def _cases_from_steps_dir(steps_dir: Path, vars: Mapping[str, str]) -> list[Inte
 
 
 def default_osfile_cases() -> list[IntegrationCase]:
-    """
-    Built-in checks when no --steps / --steps-dir is given.
-    Same expectations as integration-tests/steps/01_osfile.yaml.
-    """
     return [
         IntegrationCase(
             name="osf01",
             paste_lines=('CHAIN "OSF01"',),
             delay_seconds=3.0,
-            expect=ScreenExpect(
-                contains=("$.Myself",),
-                regex=(
-                    r"\$\.Myself\s+001DC5\s+001DE0\s+000027\s+026",
+            checks=(
+                ScreenStepCheck(
+                    expect=ScreenExpect(
+                        contains=("$.Myself",),
+                        regex=(
+                            r"\$\.Myself\s+001DC5\s+001DE0\s+000027\s+026",
+                        ),
+                    ),
                 ),
             ),
         ),
@@ -374,7 +664,7 @@ def select_cases(
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Integration tests for b2 via b2-http.py (YAML steps + screen asserts)",
+        description="Integration tests for b2 via b2-http.py (YAML steps; screen / peek)",
     )
     parser.add_argument(
         "--fhost-path",
@@ -434,8 +724,8 @@ def main() -> None:
     parser.add_argument(
         "-v",
         "--verbose",
+        help="Print group, step name, captured screen text, and peek hex to stderr",
         action="store_true",
-        help="Print group, step name, and captured screen text to stderr",
     )
     parser.add_argument("--screen-start", default="7c00")
     parser.add_argument("--wrap-adjustment", default="5000")
@@ -498,7 +788,15 @@ def main() -> None:
 
     all_failures: list[str] = []
     for c in cases:
-        all_failures.extend(run_case(b2, c, screen_kwargs=screen_kwargs, verbose=args.verbose))
+        all_failures.extend(
+            run_case(
+                b2,
+                c,
+                screen_kwargs=screen_kwargs,
+                vars=vars,
+                verbose=args.verbose,
+            )
+        )
 
     if all_failures:
         for m in all_failures:

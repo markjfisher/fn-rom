@@ -1,62 +1,126 @@
 # Steps run after integration_test.py global setup (*FHOST, *FIN, *FMOUNT).
-# Same layout idea as fujinet-nio/integration-tests/steps/*.yaml (group + steps).
+#
+# checks:
+#   - screen: decode screen RAM (b2-http screen); optional overrides: start, wrap_adjustment, ...
+#   - peek:    raw bytes from memory (b2-http peek BEGIN END); use one of:
+#              expect_file (path relative to this YAML file),
+#              expect_hex (pairs of hex digits),
+#              expect_sha256 (hash of peek bytes)
+# You can list several checks after one paste (e.g. screen then peek).
+# Legacy single-block `expect:` is still supported but prefer `checks` / `screen`.
 
 group: BBC / FS / OSFILE
 
 steps:
-  - name: remove test file
+  # Setup only — no checks, so no screen grab or peek.
+  - name: unlock and delete any test files
     paste:
-      - '*REMOVE"Myself"'
+      - '*ACCESS Myself'
+      - '*DELETE Myself'
       - 'CLS'
-    delay_seconds: 6.0
+    delay_seconds: 4.0
+
   - name: osf01
     paste:
       - 'CHAIN "OSF01"'
     delay_seconds: 6.0
-    expect:
-      contains:
-        - "$.Myself"
-      regex:
-        # Create Myself
-        - '\$\.Myself\s+001DC5\s+001DE0\s+000027\s+026'
+    checks:
+      - screen:
+          expect:
+            contains:
+              - "$.Myself"
+            regex:
+              # Create Myself
+              - '\$\.Myself\s+001DC5\s+001DE0\s+000027\s+026'
+      - peek:
+          begin: "0e00"
+          end: "0e08"
+          expect_hex: "62 65 65 62 00 00 00 00"
+      # Example: also verify RAM (exclusive end = start of next page)
+      # - peek:
+      #     begin: "0e00"
+      #     end: "0f00"
+      #     expect_file: data/expected_0e00.bin
+
   - name: osf02
     paste:
       - 'CHAIN "OSF02"'
     delay_seconds: 4.5
-    expect:
-      contains:
-        - "$.Myself"
-      regex:
-        # Change the load/exec addresses
-        - '\$\.Myself\s+001900\s+00191B\s+000027\s+026'
+    checks:
+      - screen:
+          expect:
+            contains:
+              - "$.Myself"
+            regex:
+              # Change the load/exec addresses
+              - '\$\.Myself\s+001900\s+00191B\s+000027\s+026'
+
   - name: osf03
     paste:
       - 'CHAIN "OSF03"'
     delay_seconds: 4.5
-    expect:
-      contains:
-        - "$.Myself"
-      regex:
-        # Change just load
-        - '\$\.Myself\s+005000\s+00191B\s+000027\s+026'
+    checks:
+      - screen:
+          expect:
+            contains:
+              - "$.Myself"
+            regex:
+              # Change just load
+              - '\$\.Myself\s+005000\s+00191B\s+000027\s+026'
+
   - name: osf04
     paste:
       - 'CHAIN "OSF04"'
     delay_seconds: 4.5
-    expect:
-      contains:
-        - "$.Myself"
-      regex:
-        # Change just exec
-        - '\$\.Myself\s+005000\s+00501B\s+000027\s+026'
+    checks:
+      - screen:
+          expect:
+            contains:
+              - "$.Myself"
+            regex:
+              # Change just exec
+              - '\$\.Myself\s+005000\s+00501B\s+000027\s+026'
+
+  - name: info before lock
+    paste:
+      - 'CHAIN "OSF06"'
+    delay_seconds: 4.5
+    checks:
+      - screen:
+          expect:
+            contains:
+              - "$.Myself"
+            regex:
+              # file is currently unlocked
+              - 'load address = 5000'
+              - 'xqt address = 501B'
+              - 'size of file = 27'
+              - 'lock status = 0'
+
   - name: osf05
     paste:
       - 'CHAIN "OSF05"'
     delay_seconds: 4.5
-    expect:
-      contains:
-        - "$.Myself"
-      regex:
-        # lock the file
-        - '\$\.Myself\s+L\s+005000\s+00501B\s+000027\s+026'
+    checks:
+      - screen:
+          expect:
+            contains:
+              - "$.Myself"
+            regex:
+              # lock the file
+              - '\$\.Myself\s+L\s+005000\s+00501B\s+000027\s+026'
+
+  - name: info after lock
+    paste:
+      - 'CHAIN "OSF06"'
+    delay_seconds: 4.5
+    checks:
+      - screen:
+          expect:
+            regex:
+              # file is currently unlocked
+              - 'load address = 5000'
+              - 'xqt address = 501B'
+              - 'size of file = 27'
+              - 'lock status = 8'
 
