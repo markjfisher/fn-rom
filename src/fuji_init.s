@@ -139,22 +139,11 @@ init_fuji:
         sty     current_cat             ; set to "0" in ascii
         ; sty     current_cat+1           ; this has the comment "?" in MMFS src... who knows why? Can't see this being used, removing it
 
-        jsr     set_fuji_fs_uri_ptr     ; buffer_ptr -> FS URI in PWS (same as transactions)
-        lda     #$00
-        tay
-        sta     (buffer_ptr),y          ; NUL at start of FS URI buffer
-        lda     buffer_ptr
-        clc
-        adc     #80
-        sta     aws_tmp06
-        lda     buffer_ptr+1
-        adc     #$00
-        sta     aws_tmp07
-        sta     (aws_tmp06),y           ; NUL at start of DIR path buffer (FS URI + 80)
+        ; FS URI / DIR path buffers (PWS) and their lengths (SWS) are not cleared here:
+        ; on soft break the MOS keeps private workspace, so host/path state should survive.
+        ; Cold reset clears them in setdefaults (see initdfs_reset).
 
         stx     current_drv             ; curdrv=0
-        stx     fuji_current_fs_len
-        stx     fuji_current_dir_len
         ; stx     current_host            ; set host to 0
 
         ldx     #$0F                    ; vectors claimed!
@@ -253,6 +242,23 @@ setdefaults:
         sta     fuji_drive_disk_map+1   ; Drive 1
         sta     fuji_drive_disk_map+2   ; Drive 2
         sta     fuji_drive_disk_map+3   ; Drive 3
+
+        ; Power-on / hard break only: empty FS URI and DIR path in PWS; zero lengths in SWS
+        jsr     set_fuji_fs_uri_ptr
+        lda     #$00
+        tay
+        sta     (buffer_ptr),y
+        lda     buffer_ptr
+        clc
+        adc     #80
+        sta     aws_tmp06
+        lda     buffer_ptr+1
+        adc     #$00
+        sta     aws_tmp07
+        sta     (aws_tmp06),y
+        ldx     #$00
+        stx     fuji_current_fs_len
+        stx     fuji_current_dir_len
 
 ; TODO: REVIEW THIS CODE
 

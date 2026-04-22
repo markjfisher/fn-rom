@@ -605,7 +605,14 @@ _fujibus_resolve_path:
         beq     @rp_fail
 
         cmp     #$0D
-        bcc     @rp_fail
+        bcs     @rp_check_status
+
+; put rp_fail into branch range
+@rp_fail:
+        lda     #$00
+        ; ldx     #$00
+        rts
+
 
 @rp_check_status:
         ldy     #$05
@@ -647,38 +654,57 @@ _fujibus_resolve_path:
         lda     (cws_tmp2),y
         sta     fuji_current_dir_len
 
+        ; FileDevice ResolvePath payload after FujiBus header (buffer_ptr[7+] = fileproto):
+        ; [7] ver, [8] flags, [9..10] res, [11..12] uri_len u16le, [13..] uri,
+        ; then path_len u16le, then path bytes. First path byte at 13+uri_len+2.
         lda     buffer_ptr
         clc
-        adc     #$0F
+        adc     #$0D
         sta     cws_tmp2
         lda     buffer_ptr+1
+        adc     #$00
+        sta     cws_tmp3
+        lda     fuji_current_host_len
+        clc
+        adc     cws_tmp2
+        sta     cws_tmp2
+        lda     cws_tmp3
+        adc     #$00
+        sta     cws_tmp3
+        lda     #$02
+        clc
+        adc     cws_tmp2
+        sta     cws_tmp2
+        lda     cws_tmp3
         adc     #$00
         sta     cws_tmp3
 
         jsr     get_fuji_dir_path_addr_to_aws_tmp6
 
-        ldx     #$00
+        ldy     #$00
 @copy_dir_path:
-        cpx     fuji_current_dir_len
-        beq     @rp_success
+        cpy     fuji_current_dir_len
+        beq     @clear_dir_tail
         lda     (cws_tmp2),y
-        pha
-        txa
-        tay
-        pla
         sta     (aws_tmp06),y
         iny
-        inx
-        bne     @copy_dir_path
+        jmp     @copy_dir_path
+
+        ; Clear bytes [dir_len..79] so a shorter path does not leave stale data
+        ; (e.g. old /s:// after fixing copy math).
+@clear_dir_tail:
+        ldy     fuji_current_dir_len
+@clear_dir_tail_loop:
+        cpy     #80
+        bcs     @rp_success
+        lda     #$00
+        sta     (aws_tmp06),y
+        iny
+        bne     @clear_dir_tail_loop
 
 ; this function isn't called by C, so don't need to worry about X value
 
 @rp_success:
         lda     #$01
-        ; ldx     #$00
-        rts
-
-@rp_fail:
-        lda     #$00
         ; ldx     #$00
         rts
