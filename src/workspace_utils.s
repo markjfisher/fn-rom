@@ -52,10 +52,18 @@ _fuji_data_buffer_ptr:
         rts
 
 ; uint8_t *fuji_fs_uri_ptr(void);  return in A/X — PWS + FUJI_FS_URI_OFFSET (see fujinet.inc)
+; Must NOT redirect buffer_ptr (see set_fuji_fs_uri_ptr): FujiBus SLIP uses buffer_ptr for the
+; RX/TX packet at PWS+0; C often calls this between fuji_data_buffer_ptr() and send/receive.
 _fuji_fs_uri_ptr:
-        jsr     set_fuji_fs_uri_ptr
-        lda     buffer_ptr
-        ldx     buffer_ptr+1
+        jsr     set_private_workspace_pointer_b0
+        lda     aws_tmp00
+        clc
+        adc     #<(FUJI_FS_URI_OFFSET)
+        pha
+        lda     aws_tmp01
+        adc     #>(FUJI_FS_URI_OFFSET)
+        tax
+        pla
         rts
 
 ; uint8_t *fuji_dir_path_ptr(void);  return in A/X
