@@ -3,6 +3,10 @@
         .export set_fuji_data_buffer_ptr
         .export set_fuji_fs_uri_ptr
         .export _fuji_data_buffer_ptr
+        .export _fuji_fs_uri_ptr
+        .export _fuji_dir_path_ptr
+        .export get_fuji_fs_uri_addr_to_aws_tmp6
+        .export get_fuji_dir_path_addr_to_aws_tmp6
 
         .import  remember_axy
         .import  print_string
@@ -43,6 +47,50 @@ _fuji_data_buffer_ptr:
         jsr     set_fuji_data_buffer_ptr
         lda     buffer_ptr
         ldx     buffer_ptr+1
+        rts
+
+; uint8_t *fuji_fs_uri_ptr(void);  return in A/X — PWS + FUJI_FS_URI_OFFSET (see fujinet.inc)
+_fuji_fs_uri_ptr:
+        jsr     set_fuji_fs_uri_ptr
+        lda     buffer_ptr
+        ldx     buffer_ptr+1
+        rts
+
+; uint8_t *fuji_dir_path_ptr(void);  return in A/X — immediately after 80-byte FS URI buffer in PWS
+_fuji_dir_path_ptr:
+        jsr     set_fuji_fs_uri_ptr
+        lda     buffer_ptr
+        clc
+        adc     #80
+        tay
+        lda     buffer_ptr+1
+        adc     #$00
+        tax
+        tya
+        rts
+
+; FS URI storage address in aws_tmp06/aws_tmp07 (does not modify buffer_ptr)
+get_fuji_fs_uri_addr_to_aws_tmp6:
+        jsr     set_private_workspace_pointer_b0
+        lda     aws_tmp00
+        clc
+        adc     #<(FUJI_FS_URI_OFFSET)
+        sta     aws_tmp06
+        lda     aws_tmp01
+        adc     #>(FUJI_FS_URI_OFFSET)
+        sta     aws_tmp07
+        rts
+
+; DIR path buffer address (FS URI + 80 bytes) in aws_tmp06/aws_tmp07
+get_fuji_dir_path_addr_to_aws_tmp6:
+        jsr     set_private_workspace_pointer_b0
+        lda     aws_tmp00
+        clc
+        adc     #<(FUJI_FS_URI_OFFSET + 80)
+        sta     aws_tmp06
+        lda     aws_tmp01
+        adc     #>(FUJI_FS_URI_OFFSET + 80)
+        sta     aws_tmp07
         rts
 
 ; Copy valuable data from static workspace (sws) to private workspace (pws)

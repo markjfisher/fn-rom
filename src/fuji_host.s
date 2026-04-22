@@ -30,7 +30,7 @@
 ;
 ; Entry: FUJI_CURRENT_HOST_URI and FUJI_CURRENT_HOST_LEN set
 ; Exit:  FUJI_CURRENT_HOST_URI/LEN = resolved URI
-;        FUJI_CURRENT_DIR_PATH/LEN = display path
+;        DIR display path in PWS (fuji_dir_path_ptr) / FUJI_CURRENT_DIR_LEN
 ;        A = bool (true = success)
 ;//////////////////////////////////////////////////////////////////////
 

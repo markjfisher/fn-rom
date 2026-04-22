@@ -48,8 +48,8 @@ bool fujibus_get_mount_slot() {
  * Payload format: [slot][flags][uri_len][uri][mode_len][mode]
  * 
  * Uses global fuji_disk_slot for slot number.
- * Assumes the full URI (host + filename) is already in FUJI_CURRENT_FS_URI
- * with length in FUJI_CURRENT_FS_LEN.
+ * Assumes the full URI (host + filename) is already in the PWS FS URI buffer
+ * (fuji_fs_uri_ptr()) with length in FUJI_CURRENT_FS_LEN.
  * 
  * @return true on success, false on failure
  */
@@ -67,7 +67,7 @@ bool fujibus_set_mount_slot() {
     slot = *FUJI_DISK_SLOT;
     
     /* Get URI from global */
-    uri_ptr = FUJI_CURRENT_FS_URI;
+    uri_ptr = fuji_fs_uri_ptr();
     uri_len = *FUJI_CURRENT_FS_LEN;
     
     /* Default mode is "r" (read-only) */

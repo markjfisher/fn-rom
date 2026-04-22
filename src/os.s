@@ -144,8 +144,6 @@
 
         .export  fuji_ax_save
         .export  fuji_current_host_uri
-        .export  fuji_current_fs_uri
-        .export  fuji_current_dir_path
         .export  fuji_bss
 
         .export  dfs_cat_s0_header
@@ -612,11 +610,8 @@ fuji_ch_handle_high     = fuji_channel_start + $1F  ; handle for fujinet resourc
 ; Keep this aligned with [`FUJI_CURRENT_HOST_URI`](src/fujibus_c.h:26) used by the C path.
 fuji_current_host_uri  = fuji_workspace + $01B0
 
-; 80 byte buffer - TODO review lengths, we can only input 64 chars in param_get_string
-fuji_current_fs_uri    = fuji_workspace + $0200
-
-; 80 byte buffer, technically cannot be more than "uri - scheme length"
-fuji_current_dir_path  = fuji_workspace + $0250
+; FS URI (80 bytes) and DIR path (80 bytes) live in private workspace after the FujiBus
+; packet slice — see FUJI_FS_URI_OFFSET / set_fuji_fs_uri_ptr in workspace_utils.s (not $1200/$1250).
 
 ; FujiBus packet buffer: lives in private workspace (see FUJI_PWS_* in fujinet.inc).
 ; Runtime base address is set in buffer_ptr (cws_tmp4/5) by set_fuji_data_buffer_ptr.

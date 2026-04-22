@@ -18,9 +18,10 @@
  *
  * Design split:
  * - FHOST/FFS are the URI-facing commands.
- * - The BBC stores two related values:
- *     fuji_current_fs_uri   -> canonical full URI for machine/protocol use
- *     fuji_current_dir_path -> display path for human-facing output only
+ * - The BBC stores two related values (host URI in static workspace; display path
+ *   in PWS after the packet buffer — see fuji_dir_path_ptr in fujibus_c.h):
+ *     FUJI_CURRENT_HOST_URI   -> canonical base URI for machine/protocol use
+ *     fuji_dir_path_ptr()     -> display path for human-facing output only
  * - URI and path semantics are intentionally delegated to FujiNet-NIO via
  *   FileDevice ResolvePath rather than reimplemented in 6502.
  *
@@ -64,6 +65,9 @@ void fhost_show_current(void) {
     uint8_t dir_len;
     uint8_t i;
     uint8_t *none_string = "(none)";
+    uint8_t *dir_path;
+
+    dir_path = fuji_dir_path_ptr();
 
     print_newline();
     
@@ -91,7 +95,7 @@ void fhost_show_current(void) {
     } else {
         /* Print DIR path */
         for (i = 0; i < dir_len; i++) {
-            print_char(FUJI_CURRENT_DIR_PATH[i]);
+            print_char(dir_path[i]);
         }
     }
     
@@ -106,10 +110,13 @@ void fhost_show_current(void) {
 bool fhost_set_uri(void) {
     uint8_t uri_len;
     uint8_t i;
-    
+    uint8_t *dir_path;
+
+    dir_path = fuji_dir_path_ptr();
+
     uri_len = *FUJI_FILENAME_LEN;
     
-    /* Copy URI from fuji_filename_buffer to fuji_current_fs_uri */
+    /* Copy URI from fuji_filename_buffer to FUJI_CURRENT_HOST_URI */
     for (i = 0; i < uri_len; i++) {
         FUJI_CURRENT_HOST_URI[i] = FUJI_FILENAME_BUFFER[i];
     }
@@ -121,7 +128,7 @@ bool fhost_set_uri(void) {
         FUJI_CURRENT_HOST_URI[0] = '\0';
         *FUJI_CURRENT_HOST_LEN = 0;
         
-        FUJI_CURRENT_DIR_PATH[0] = '\0';
+        dir_path[0] = '\0';
         *FUJI_CURRENT_DIR_LEN = 0;
         
         return false;

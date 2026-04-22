@@ -29,6 +29,9 @@
         .import  pusha
         .import  pushax
 
+        .import  get_fuji_fs_uri_addr_to_aws_tmp6
+        .import  get_fuji_dir_path_addr_to_aws_tmp6
+
         .include "fujinet.inc"
 
 
@@ -48,7 +51,7 @@
 ;   +5  0
 ;   +6  *fuji_current_fs_len
 ;   +7  0
-;   +8+ fuji_current_fs_uri[0..len-1]
+;   +8+ current FS URI bytes (source: PWS + FUJI_FS_URI_OFFSET)
 ;
 ; Packet:
 ;   device  = FN_DEVICE_DISK ($FC)
@@ -93,11 +96,13 @@ _fujibus_disk_mount:
         adc     #$00
         sta     cws_tmp3
 
+        jsr     get_fuji_fs_uri_addr_to_aws_tmp6
+
         ldy     #$00
 @copy_uri:
         cpy     fuji_current_fs_len
         beq     @send_packet
-        lda     fuji_current_fs_uri,y
+        lda     (aws_tmp06),y
         sta     (cws_tmp2),y
         iny
         bne     @copy_uri
@@ -650,12 +655,18 @@ _fujibus_resolve_path:
         adc     #$00
         sta     cws_tmp3
 
+        jsr     get_fuji_dir_path_addr_to_aws_tmp6
+
         ldx     #$00
 @copy_dir_path:
         cpx     fuji_current_dir_len
         beq     @rp_success
         lda     (cws_tmp2),y
-        sta     fuji_current_dir_path,x
+        pha
+        txa
+        tay
+        pla
+        sta     (aws_tmp06),y
         iny
         inx
         bne     @copy_dir_path

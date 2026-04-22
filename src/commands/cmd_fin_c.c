@@ -37,7 +37,7 @@ extern void err_set_mount_failed(void);
 
 /**
  * Build the full URI from host + filename
- * Stores result in FUJI_CURRENT_FS_URI and sets FUJI_CURRENT_FS_LEN
+ * Stores result in PWS FS URI buffer (fuji_fs_uri_ptr()) and FUJI_CURRENT_FS_LEN
  */
 static void build_full_uri() {
     uint8_t host_len;
@@ -50,7 +50,7 @@ static void build_full_uri() {
     
     host_len = *FUJI_CURRENT_HOST_LEN;
     host_uri = FUJI_CURRENT_HOST_URI;
-    full_uri = FUJI_CURRENT_FS_URI;
+    full_uri = fuji_fs_uri_ptr();
     
     /* Copy host URI */
     for (i = 0; i < host_len; i++) {

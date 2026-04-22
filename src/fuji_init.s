@@ -26,6 +26,9 @@
         .import tube_check_if_present
         .import vectors_table
 
+        .import    set_fuji_fs_uri_ptr
+        .importzp  buffer_ptr
+
         .import __WORKSP_START__
         .import __WORKSP_SIZE__
         .importzp c_sp
@@ -136,9 +139,20 @@ init_fuji:
         sty     current_cat             ; set to "0" in ascii
         ; sty     current_cat+1           ; this has the comment "?" in MMFS src... who knows why? Can't see this being used, removing it
 
+        jsr     set_fuji_fs_uri_ptr     ; buffer_ptr -> FS URI in PWS (same as transactions)
+        lda     #$00
+        tay
+        sta     (buffer_ptr),y          ; NUL at start of FS URI buffer
+        lda     buffer_ptr
+        clc
+        adc     #80
+        sta     aws_tmp06
+        lda     buffer_ptr+1
+        adc     #$00
+        sta     aws_tmp07
+        sta     (aws_tmp06),y           ; NUL at start of DIR path buffer (FS URI + 80)
+
         stx     current_drv             ; curdrv=0
-        stx     fuji_current_dir_path
-        stx     fuji_current_fs_uri
         stx     fuji_current_fs_len
         stx     fuji_current_dir_len
         ; stx     current_host            ; set host to 0

@@ -62,14 +62,12 @@
 /* Current HOST URI buffer (80 bytes) */
 #define FUJI_CURRENT_HOST_URI    ((uint8_t*)0x11B0)
 
-/* Current filesystem URI buffer (80 bytes) */
-#define FUJI_CURRENT_FS_URI      ((uint8_t*)0x1200)
+/* FS URI and DIR path buffers (80 bytes each) live in private workspace after the packet buffer. */
+#define FUJI_FS_URI_BUFFER_SIZE  80
 
-/* Current directory path buffer (80 bytes) */
-#define FUJI_CURRENT_DIR_PATH    ((uint8_t*)0x1250)
-
-/* FujiBus RX/TX packet buffer: base = private workspace + FUJI_PWS_PACKET_OFFSET (runtime). */
 extern uint8_t* fuji_data_buffer_ptr(void);
+extern uint8_t* fuji_fs_uri_ptr(void);
+extern uint8_t* fuji_dir_path_ptr(void);
 
 
 

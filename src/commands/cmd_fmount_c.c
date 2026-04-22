@@ -84,6 +84,7 @@ uint8_t cmd_fs_fmount(void) {
 
         {
         uint8_t *db = fuji_data_buffer_ptr();
+        uint8_t *fs_uri = fuji_fs_uri_ptr();
 
         // check enabled flag
         if (db[8] == 0) {
@@ -92,10 +93,10 @@ uint8_t cmd_fs_fmount(void) {
 
         // copy the uri to the FS uri
         uri_len = db[9];
-        FUJI_CURRENT_FS_URI[0] = '\0';      // in case the length is 0, pre-write a nul byte. The buffer
+        fs_uri[0] = '\0';      /* in case the length is 0, pre-write a nul byte */
 
         for (i = 0; i < uri_len; i++) {
-            FUJI_CURRENT_FS_URI[i] = db[10 + i];
+            fs_uri[i] = db[10 + i];
         }
         *FUJI_CURRENT_FS_LEN = uri_len;
         }

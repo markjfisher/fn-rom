@@ -43,7 +43,7 @@ bool fhost_set_uri(void);
 
 /**
  * ResolvePath via FujiNet using workspace variables
- * Reads from FUJI_CURRENT_FS_URI and FUJI_CURRENT_FS_LEN
+ * Reads host URI / length (static workspace) per fujibus_c.h
  * @return true on success
  */
 bool fhost_resolve_path(void);

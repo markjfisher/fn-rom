@@ -43,8 +43,10 @@ bool flist_resolve_target(void)
     uint8_t* buf;
     uint8_t* tx;
     uint8_t* rx;
+    uint8_t* fs_uri;
 
     buf = fuji_data_buffer_ptr();
+    fs_uri = fuji_fs_uri_ptr();
     tx = buf;
     rx = buf;
     base_len = *FUJI_CURRENT_HOST_LEN;
@@ -99,10 +101,10 @@ bool flist_resolve_target(void)
     *FUJI_CURRENT_FS_LEN = rx[11];
 
     for (i = 0; i < (*FUJI_CURRENT_FS_LEN); i++) {
-        FUJI_CURRENT_FS_URI[i] = rx[13 + i];
+        fs_uri[i] = rx[13 + i];
     }
 
-    FUJI_CURRENT_FS_URI[*FUJI_CURRENT_FS_LEN] = '\0';
+    fs_uri[*FUJI_CURRENT_FS_LEN] = '\0';
     return true;
 }
 
@@ -116,8 +118,10 @@ bool flist_list_page(uint16_t start_index, uint8_t* returned_count, bool* more)
     uint8_t* tx;
     uint8_t* rx;
     uint8_t uri_len;
+    uint8_t* fs_uri;
 
     buf = fuji_data_buffer_ptr();
+    fs_uri = fuji_fs_uri_ptr();
     tx = buf;
     rx = buf;
     uri_len = *FUJI_CURRENT_FS_LEN;
@@ -127,7 +131,7 @@ bool flist_list_page(uint16_t start_index, uint8_t* returned_count, bool* more)
     tx[8] = 0;
 
     for (offset = 0; offset < uri_len; offset++) {
-        tx[9 + offset] = FUJI_CURRENT_FS_URI[offset];
+        tx[9 + offset] = fs_uri[offset];
     }
 
     offset = (uint16_t)(9 + uri_len);
@@ -187,6 +191,7 @@ uint8_t cmd_fs_flist(void)
         uint16_t start_index;
         uint8_t returned_count;
         bool more;
+        uint8_t* fs_uri_cmd;
 
         if (*FUJI_CURRENT_HOST_LEN == 0) {
             err_no_host_flist();
@@ -195,6 +200,7 @@ uint8_t cmd_fs_flist(void)
         param_count = parse_flist_params();
 
         if (param_count == 0) {
+            fs_uri_cmd = fuji_fs_uri_ptr();
             *FUJI_CURRENT_FS_LEN = *FUJI_CURRENT_HOST_LEN;
 
             if (*FUJI_CURRENT_FS_LEN >= FLIST_URI_BUFFER_SIZE) {
@@ -202,9 +208,9 @@ uint8_t cmd_fs_flist(void)
             }
 
             for (start_index = 0; start_index < (*FUJI_CURRENT_FS_LEN); start_index++) {
-                FUJI_CURRENT_FS_URI[start_index] = FUJI_CURRENT_HOST_URI[start_index];
+                fs_uri_cmd[start_index] = FUJI_CURRENT_HOST_URI[start_index];
             }
-            FUJI_CURRENT_FS_URI[*FUJI_CURRENT_FS_LEN] = '\0';
+            fs_uri_cmd[*FUJI_CURRENT_FS_LEN] = '\0';
         } else {
             if (!flist_resolve_target()) {
                 err_bad_flist_path();
