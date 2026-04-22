@@ -2,7 +2,6 @@
         .export  _cmd_fs_fhost
         .export  _parse_fhost_params
         .export  _err_bad_uri
-        .export  _err_set_uri
 
         .import  param_count
         .import  param_get_string
@@ -36,30 +35,6 @@
         .segment "CODE"
 
 ;------------------------------------------------------------------------------
-; If SWS host_len is 0 but PWS has a NUL-terminated URI, recover length for display.
-;------------------------------------------------------------------------------
-fhost_repair_host_len:
-        lda     fuji_current_host_len
-        bne     @done
-        jsr     _fuji_host_uri_ptr
-        sta     cws_tmp2
-        stx     cws_tmp3
-        ldy     #$00
-@scan:
-        lda     (cws_tmp2),y
-        beq     @got
-        iny
-        cpy     #80
-        bne     @scan
-        rts
-@got:
-        tya
-        beq     @done
-        sta     fuji_current_host_len
-@done:
-        rts
-
-;------------------------------------------------------------------------------
 ; uint8_t cmd_fs_fhost(void)
 ;------------------------------------------------------------------------------
 _cmd_fs_fhost:
@@ -79,9 +54,7 @@ _cmd_fs_fhost:
 ; Show HOST (canonical URI in PWS) and PATH (suffix per host_len/dir_len)
 ;------------------------------------------------------------------------------
 fhost_show_current:
-        jsr     print_newline
-
-        jsr     fhost_repair_host_len
+        ; jsr     print_newline
 
         lda     #<str_fhost_host
         ldx     #>str_fhost_host
@@ -109,19 +82,9 @@ fhost_show_current:
         ldx     #>str_fhost_path
         jsr     print_string_ax
 
-        lda     fuji_current_host_len
-        beq     @path_none
-
         lda     fuji_current_dir_len
         beq     @path_none
 
-        lda     fuji_current_dir_len
-        cmp     fuji_current_host_len
-        beq     @path_ok
-        bcc     @path_ok
-        jmp     @path_none
-
-@path_ok:
         jsr     _fuji_dir_path_ptr
         sta     cws_tmp2
         stx     cws_tmp3
@@ -182,17 +145,19 @@ fhost_copy_and_resolve:
 @copy_done:
         jsr     _fuji_resolve_path
         cmp     #$00
-        bne     @ok
+        beq     @resolve_err
+        rts
 
+@resolve_err:
         lda     #$00
         tay
         sta     (cws_tmp2),y
         sta     fuji_current_host_len
         sta     fuji_current_dir_len
-        jmp     _err_set_uri
 
-@ok:
-        rts
+        jsr     report_error
+        .byte   $CB
+        .byte   "Could not set host URI", 0
 
 ;------------------------------------------------------------------------------
 ; uint8_t parse_fhost_params(void)
@@ -216,11 +181,6 @@ _err_bad_uri:
         jsr     err_bad
         .byte   $CB
         .byte   "uri", 0
-
-_err_set_uri:
-        jsr     report_error
-        .byte   $CB
-        .byte   "Could not set host URI", 0
 
         .segment "RODATA"
 
