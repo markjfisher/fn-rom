@@ -1,3 +1,6 @@
+; *FIN — persist URI into FujiNet mount slot (host + filename → SetMount)
+
+        .export  _cmd_fs_fin
         .export  _parse_fin_params
         .export  _err_no_host
         .export  _err_bad_filename
@@ -8,44 +11,121 @@
         .import  report_error
         .import  param_get_num
         .import  param_get_string
+
         .import  fuji_filename_buffer
         .import  fuji_filename_len
+        .import  fuji_disk_slot
+        .import  fuji_current_host_len
+        .import  fuji_current_fs_len
+
         .import  exit_user_ok
 
+        .import  _fuji_fs_uri_ptr
+        .import  get_fuji_host_uri_addr_to_aws_tmp6
+        .import  fuji_set_slot
+
         .import  _err_bad_mount_slot
+
+        .importzp cws_tmp2
+        .importzp cws_tmp3
+        .importzp aws_tmp06
+        .import  fuji_channel_scratch
 
         .include "fujinet.inc"
 
         .segment "CODE"
 
-
-; Allow slot number to0-7
 MAX_MOUNT_SLOT := 7
 
-; void parse_fin_params()
-;
-; if cli args have 1 arg: filename only, slot = default (0)
-; if cli args have 2 args: slot and filename
-; otherwise fails with syntax error (no return)
-;
-; Writes: 
-;   fuji_disk_slot = mount slot
-;   fuji_filename_buffer = filename
-;   fuji_filename_len = filename length (returned by param_get_string)
+;------------------------------------------------------------------------------
+; uint8_t cmd_fs_fin(void)
+;------------------------------------------------------------------------------
+_cmd_fs_fin:
+        jsr     _parse_fin_params
 
+        lda     fuji_current_host_len
+        bne     @have_host
+        jmp     _err_no_host
+
+@have_host:
+        jsr     fin_build_full_uri
+
+        jsr     fuji_set_slot
+        cmp     #$00
+        bne     @set_ok
+        jmp     _err_set_mount_failed
+
+@set_ok:
+        jmp     exit_user_ok
+
+;------------------------------------------------------------------------------
+; Build full URI in PWS FS slot: host || filename, NUL, fuji_current_fs_len
+;------------------------------------------------------------------------------
+fin_build_full_uri:
+        jsr     _fuji_fs_uri_ptr
+        sta     cws_tmp2
+        stx     cws_tmp3
+
+        jsr     get_fuji_host_uri_addr_to_aws_tmp6
+
+        lda     fuji_current_host_len
+        tax
+        beq     @host_done
+        ldy     #$00
+@copy_host:
+        lda     (aws_tmp06),y
+        sta     (cws_tmp2),y
+        iny
+        dex
+        bne     @copy_host
+        ; Y = host_len
+@host_done:
+
+        lda     fuji_filename_len
+        tax
+        beq     @terminate
+
+        lda     #$00
+        sta     fuji_channel_scratch
+@copy_fn:
+        ldy     fuji_channel_scratch
+        lda     fuji_filename_buffer,y
+        pha
+        lda     fuji_current_host_len
+        clc
+        adc     fuji_channel_scratch
+        tay
+        pla
+        sta     (cws_tmp2),y
+        inc     fuji_channel_scratch
+        dex
+        bne     @copy_fn
+
+@terminate:
+        lda     fuji_current_host_len
+        clc
+        adc     fuji_filename_len
+        tay
+        lda     #$00
+        sta     (cws_tmp2),y
+        lda     fuji_current_host_len
+        clc
+        adc     fuji_filename_len
+        sta     fuji_current_fs_len
+        rts
+
+;------------------------------------------------------------------------------
+; void parse_fin_params(void)
+; 1 arg: filename only → fuji_disk_slot = 0
+; 2 args: slot then filename (slot 0–7)
+;------------------------------------------------------------------------------
 _parse_fin_params:
-        ; Count parameters first. FIN supports 1 or 2 parameters.
-        ldy     fuji_cmd_offset_y       ; ensure the cmd line Y index is correct
-        lda     #$80                    ; allows 1-2 parameters
-        jsr     param_count_a           ; this causes an error if we don't have 1-2 params, but preserves Y
-        ; C = 0 indicates we had 1 param, C = 1 indicates we had 2 params
+        lda     #$80
+        jsr     param_count_a
 
-        ; Do we have a slot number?
-        bcc     @read_filename          ; C=0, only filename provided
+        bcc     @one_param_only
 
-        ; We have 2 params - read slot number first
-        jsr     param_get_num           ; FujiNet mount slot index 0-7
-        sty     fuji_cmd_offset_y       ; save the command position for next param
+        jsr     param_get_num
 
         cmp     #MAX_MOUNT_SLOT+1
         bcc     @ok_slot
@@ -54,16 +134,16 @@ _parse_fin_params:
 
 @ok_slot:
         sta     fuji_disk_slot
-        ; ... fallthrough
+        jmp     @read_filename
+
+@one_param_only:
+        lda     #$00
+        sta     fuji_disk_slot
 
 @read_filename:
-        clc                             ; GSINIT param, string terminated by one of: CR, space or 2nd quotation mark - no spaces in file names as it would mess up the param count anyway
-        jsr     param_get_string        ; reads filename into fuji_filename_buffer, returns length in A
-        
-        ; Store filename length
+        clc
+        jsr     param_get_string
         sta     fuji_filename_len
-        
-        ; End parsing
         rts
 
 _err_no_host:

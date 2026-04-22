@@ -11,7 +11,6 @@
         .import  param_count
         .import  param_get_string
         .import  fuji_filename_len
-        .import  fuji_cmd_offset_y
 
         .include "fujinet.inc"
 
@@ -29,7 +28,6 @@
 ;
 ; Returns: A = param count (0 or 1)
 _parse_flist_params:
-        ldy     fuji_cmd_offset_y
         jsr     param_count
         bcs     @read_string
 

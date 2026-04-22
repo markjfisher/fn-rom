@@ -37,7 +37,6 @@ MAX_BBC_DRIVE  := 3
 
 _parse_fmount_params:
         ; Count parameters first. FMOUNT supports 1 or 2 parameters.
-        ldy     fuji_cmd_offset_y       ; ensure the cmd line Y index is correct
         lda     #$80                    ; allows 1-2 parameters
         jsr     param_count_a           ; this causes an error if we don't have 1-2 params, but preserves Y
         ; C = 0 indicates we had 1 param, C = 1 indicates we had 2 params
@@ -49,7 +48,6 @@ _parse_fmount_params:
         ; X is preserved though param_get_num so we retain the number of params in X
         ; Read and the mandatory FujiNet mount slot index. Y is already the correct location after param_count_a
         jsr     param_get_num           ; FujiNet mount slot index 0-7, this errors if the value is not between 0-9
-        sty     fuji_cmd_offset_y       ; save the command position in case we have more params
 
         cmp     #MAX_MOUNT_SLOT
         bcs     _err_bad_mount_slot
@@ -61,7 +59,6 @@ _parse_fmount_params:
         bne     @done
 
         ; use existing function to deal with optional drive
-        ldy     fuji_cmd_offset_y
         jsr     param_optional_drive_no
 
 @done:

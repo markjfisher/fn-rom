@@ -13,7 +13,6 @@
         .import  print_newline
         .import  print_string_ax
 
-        .import  _cmd_save_args_state
         .import  exit_user_ok
 
         .import  _fuji_host_uri_ptr
@@ -22,7 +21,6 @@
 
         .import  fuji_filename_buffer
         .import  fuji_filename_len
-        .import  fuji_cmd_offset_y
         .import  fuji_current_host_len
         .import  fuji_current_dir_len
         .import  fuji_channel_scratch
@@ -38,7 +36,6 @@
 ; uint8_t cmd_fs_fhost(void)
 ;------------------------------------------------------------------------------
 _cmd_fs_fhost:
-        jsr     _cmd_save_args_state
         jsr     _parse_fhost_params
         cmp     #$00
         beq     @show
@@ -54,8 +51,6 @@ _cmd_fs_fhost:
 ; Show HOST (canonical URI in PWS) and PATH (suffix per host_len/dir_len)
 ;------------------------------------------------------------------------------
 fhost_show_current:
-        ; jsr     print_newline
-
         lda     #<str_fhost_host
         ldx     #>str_fhost_host
         jsr     print_string_ax
@@ -164,7 +159,6 @@ fhost_copy_and_resolve:
 ; 0 params -> A=0; 1 param -> A = string length (same non-zero test as old C)
 ;------------------------------------------------------------------------------
 _parse_fhost_params:
-        ldy     fuji_cmd_offset_y
         jsr     param_count
         bcs     @read_string
 

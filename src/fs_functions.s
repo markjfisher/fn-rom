@@ -50,7 +50,6 @@
 
         .export _err_bad_string
         .export _num_params
-        .export _param_get_string
         .export _param_get_num
 
         .import GSINIT_A
@@ -400,28 +399,13 @@ write_current_drv_to_cat:
 ;      C = 0 for truncated string (i.e. hit max first)
 ;      C = 1 for completed reading string
 
-; This is the C wrapper:
-_param_get_string:
-        jsr     param_get_string
-        ; for C we need to ensure X is 0 for the return. A contains the length already
-        ldx     #$00
-
-        ; set the error flag based on truncation, for truncated, we'll set fuji_error_flag to 1
-        bcs     @not_truncated
-        inx
-@not_truncated:
-        stx     fuji_error_flag
-        rts
-
 ; INPUT: same as GSINIT:
 ;  C=0, string terminated by first space, CR or 2nd quotation mark
 ;  C=1, string terminated by CR or 2nd quotation mark
 param_get_string:
-        ldy     fuji_cmd_offset_y
         jsr     GSINIT_A
         beq     err_bad_string
 
-; nothing calls this directly, with our insistence on calling cmd_save_args_state first, we may not allow anyone to either. would need testing to see if it works correctly if Y is trashed
 param_get_string_no_init:
         ldx     #$00
 @str_loop:
@@ -896,12 +880,10 @@ param_count_a:
         rts
 
 ; just read the number of parameters on command line, return in A (set X to 0)
-; preserve Y with the value in fuji_cmd_offset_y. _cmd_save_args_state must have been called prior to this.
 _num_params:
 num_params:
-        ldy     fuji_cmd_offset_y
-        ; tya                             ; save Y
-        ; pha
+        tya                             ; save Y
+        pha
 
         ldx     #$00
 @loop1:
@@ -915,11 +897,9 @@ num_params:
         bcs     @loop1
 
 @exit_count:
-        ldy     fuji_cmd_offset_y
-        ; pla                             ; restore Y
-        ; tay
+        pla                             ; restore Y
+        tay
         txa                             ; set result in A
-        ldx     #$00                    ; for C callers they need A/X to contain 16 bit result
         rts
 
 ; param_drive_or_default - Read drive parameter or use default

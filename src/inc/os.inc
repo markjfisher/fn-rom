@@ -86,7 +86,6 @@ OS_INC = 1
         .import  fuji_disk_slot
         .import  fuji_disk_flags
         .import  fuji_current_host_len
-        .import  fuji_cmd_offset_y
         .import  fuji_filename_len
         .import  fuji_own_sws_indicator
 

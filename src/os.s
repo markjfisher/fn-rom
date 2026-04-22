@@ -80,7 +80,6 @@
         .export  fuji_disk_slot
         .export  fuji_disk_flags
         .export  fuji_current_host_len
-        .export  fuji_cmd_offset_y
         .export  fuji_filename_len
         .export  fuji_own_sws_indicator
 
@@ -501,28 +500,27 @@ fuji_disk_slot          = fuji_static_workspace + $2B  ; current fujinet mount s
 fuji_disk_flags         = fuji_static_workspace + $2C  ; flags for disk
 fuji_current_host_len   = fuji_static_workspace + $2D  ; Current filesystem URI length
 
-fuji_cmd_offset_y       = fuji_static_workspace + $2E  ; save value of the command offset in Y given to CMD functions on entry.
-fuji_filename_len       = fuji_static_workspace + $2F  ; the filename part of the FS URI input by *FIN
+fuji_filename_len       = fuji_static_workspace + $2E  ; the filename part of the FS URI input by *FIN
 
 ; These 2 need to be in this order, as there is an optimization to use INY to index the owns sws indicator flag
-fuji_force_reset        = fuji_static_workspace + $30  ; Force reset flag
-fuji_own_sws_indicator  = fuji_static_workspace + $31  ; Used to check if we currently own the SWS
+fuji_force_reset        = fuji_static_workspace + $2F  ; Force reset flag
+fuji_own_sws_indicator  = fuji_static_workspace + $30  ; Used to check if we currently own the SWS
 
 ; END OF STATE WE WILL SAVE TO PWS WHEN FILE SYSTEMS SWAP
 
 ; Saved IRQ-disable state for temporarily enabling IRQs during FujiBus I/O.
 ; 0 = IRQs were enabled on entry, nonzero = IRQs were disabled on entry.
 ; Must not overlap with any MMFS-mapped fields; kept outside the MMFS copy range.
-fuji_saved_i            = fuji_static_workspace + $32
+fuji_saved_i            = fuji_static_workspace + $31
 
 ; 2 byte buffer for stashing AX registers for saving result while restoring state.
-fuji_ax_save            = fuji_static_workspace + $33   ; 2 bytes, don't need to save it
+fuji_ax_save            = fuji_static_workspace + $32   ; 2 bytes, don't need to save it
 
 ; FINAL LOCATION CAN BE + $3F
 
 ; LAST location for the copy state in workspace_utils.s function to understand
-; Note this does not have to be all the values above, we have 10F2 to 10FF for general variables
-fuji_last_state_loc     = fuji_static_workspace + $31  ; effectively $10F1
+; Note this does not have to be all the values above, we have 10F1 to 10FF for general variables
+fuji_last_state_loc     = fuji_static_workspace + $30  ; effectively $10F0
 
 
 ; Advanced disk guide describes how 1200-12FF is for open file 1
