@@ -64,9 +64,10 @@ _cmd_fs_fmount:
         jmp     _err_not_enabled
 
 @enabled:
+        ; _fuji_fs_uri_ptr returns pointer in A/X — do not hold uri_len in X across it
         ldy     #$09
         lda     (ptr1),y
-        tax                     ; uri length
+        pha                     ; uri_len (stack)
 
         jsr     _fuji_fs_uri_ptr
         sta     cws_tmp2
@@ -78,7 +79,10 @@ _cmd_fs_fmount:
 
         lda     #$00
         sta     fuji_channel_scratch
-        txa
+
+        pla
+        tax                     ; uri_len back in X
+
         beq     @len_done
 
 @copy_uri:
