@@ -18,10 +18,10 @@
  *
  * Design split:
  * - FHOST/FFS are the URI-facing commands.
- * - The BBC stores two related values (host URI in static workspace; display path
- *   in PWS after the packet buffer — see fuji_dir_path_ptr in fujibus_c.h):
- *     FUJI_CURRENT_HOST_URI   -> canonical base URI for machine/protocol use
- *     fuji_dir_path_ptr()     -> display path for human-facing output only
+ * - ResolvePath returns uri_len + path_len + path; the resolved URI string contains
+ *   the directory as a suffix. We store one buffer (FUJI_CURRENT_HOST_URI) plus
+ *   FUJI_CURRENT_HOST_LEN and FUJI_CURRENT_DIR_LEN; fuji_dir_path_ptr() returns
+ *   host_uri + (host_len - dir_len) for PATH display.
  * - URI and path semantics are intentionally delegated to FujiNet-NIO via
  *   FileDevice ResolvePath rather than reimplemented in 6502.
  *
@@ -110,9 +110,6 @@ void fhost_show_current(void) {
 bool fhost_set_uri(void) {
     uint8_t uri_len;
     uint8_t i;
-    uint8_t *dir_path;
-
-    dir_path = fuji_dir_path_ptr();
 
     uri_len = *FUJI_FILENAME_LEN;
     
@@ -127,8 +124,6 @@ bool fhost_set_uri(void) {
         /* On failure, clear both URI and DIR to indicate invalid state */
         FUJI_CURRENT_HOST_URI[0] = '\0';
         *FUJI_CURRENT_HOST_LEN = 0;
-        
-        dir_path[0] = '\0';
         *FUJI_CURRENT_DIR_LEN = 0;
         
         return false;

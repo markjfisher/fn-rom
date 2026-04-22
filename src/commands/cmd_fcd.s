@@ -28,9 +28,8 @@
 ; - baseUriLen/baseUri are taken from fuji_current_fs_len/fuji_current_fs_uri
 ; - argLen/arg are taken from the user string in fuji_filename_buffer
 ; - fn_file_resolve_path is responsible for protocol encoding/transport and,
-;   on success, overwriting both:
-;     fuji_current_fs_uri   ; canonical machine-facing URI
-;     fuji_current_dir_path ; human-facing path such as "/root/NEXT"
+;   on success, overwriting stored FS state (canonical URI + lengths; PATH is a
+;   suffix of the resolved URI string, not a separate buffer)
 ;
 ; Intentional design choice:
 ; - the BBC ROM does not parse filesystem schemes, URI authorities, or relative

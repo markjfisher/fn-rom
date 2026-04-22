@@ -29,8 +29,8 @@
 ; This is the high-level interface that manages transactions
 ;
 ; Entry: FUJI_CURRENT_HOST_URI and FUJI_CURRENT_HOST_LEN set
-; Exit:  FUJI_CURRENT_HOST_URI/LEN = resolved URI
-;        DIR display path in PWS (fuji_dir_path_ptr) / FUJI_CURRENT_DIR_LEN
+; Exit:  FUJI_CURRENT_HOST_URI/LEN = resolved URI; FUJI_CURRENT_DIR_LEN = path suffix length
+;        PATH display = suffix of host buffer (fuji_dir_path_ptr)
 ;        A = bool (true = success)
 ;//////////////////////////////////////////////////////////////////////
 

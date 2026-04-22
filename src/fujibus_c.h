@@ -59,10 +59,10 @@
 // THESE ARE WRONG - THEY INTERFERE WITH IO BUFFERS
 // See page 111 of the Advanced Disk User Guide.
 
-/* Current HOST URI buffer (80 bytes) */
+/* Resolved host URI (max 80 bytes); directory path is a suffix per ResolvePath lengths */
 #define FUJI_CURRENT_HOST_URI    ((uint8_t*)0x11B0)
 
-/* FS URI and DIR path buffers (80 bytes each) live in private workspace after the packet buffer. */
+/* FS URI scratch (e.g. *FIN) in PWS after the packet buffer — see FUJI_FS_URI_OFFSET */
 #define FUJI_FS_URI_BUFFER_SIZE  80
 
 extern uint8_t* fuji_data_buffer_ptr(void);

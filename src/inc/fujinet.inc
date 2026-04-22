@@ -120,6 +120,8 @@ FN_PARAMS_OFFSET = 4
 ; at PWS+0 until responses are streamed or split.
 FUJI_PWS_PACKET_OFFSET = 0
 FUJI_PWS_PACKET_SIZE = 280
+; After packet: 80-byte FS URI scratch (*FIN etc.). Next 80 bytes are currently spare
+; (DIR was previously copied here; PATH is now a suffix of FUJI_CURRENT_HOST_URI).
 FUJI_FS_URI_OFFSET = 280
 FN_MAX_PACKET_SIZE = FUJI_PWS_PACKET_SIZE
 

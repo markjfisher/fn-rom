@@ -248,14 +248,7 @@ setdefaults:
         lda     #$00
         tay
         sta     (buffer_ptr),y
-        lda     buffer_ptr
-        clc
-        adc     #80
-        sta     aws_tmp06
-        lda     buffer_ptr+1
-        adc     #$00
-        sta     aws_tmp07
-        sta     (aws_tmp06),y
+        ; Second 80-byte slot after PWS FS URI was removed (DIR is suffix of host URI).
         ldx     #$00
         stx     fuji_current_fs_len
         stx     fuji_current_dir_len

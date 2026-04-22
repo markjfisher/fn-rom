@@ -30,7 +30,6 @@
         .import  pushax
 
         .import  get_fuji_fs_uri_addr_to_aws_tmp6
-        .import  get_fuji_dir_path_addr_to_aws_tmp6
 
         .include "fujinet.inc"
 
@@ -651,56 +650,25 @@ _fujibus_resolve_path:
         bne     @copy_resolved_uri
 
 @get_dir_len:
+        ; path_len u16le immediately after URI bytes in RX packet
         lda     (cws_tmp2),y
         sta     fuji_current_dir_len
 
-        ; FileDevice ResolvePath payload after FujiBus header (buffer_ptr[7+] = fileproto):
-        ; [7] ver, [8] flags, [9..10] res, [11..12] uri_len u16le, [13..] uri,
-        ; then path_len u16le, then path bytes. First path byte at 13+uri_len+2.
-        lda     buffer_ptr
-        clc
-        adc     #$0D
-        sta     cws_tmp2
-        lda     buffer_ptr+1
-        adc     #$00
-        sta     cws_tmp3
-        lda     fuji_current_host_len
-        clc
-        adc     cws_tmp2
-        sta     cws_tmp2
-        lda     cws_tmp3
-        adc     #$00
-        sta     cws_tmp3
-        lda     #$02
-        clc
-        adc     cws_tmp2
-        sta     cws_tmp2
-        lda     cws_tmp3
-        adc     #$00
-        sta     cws_tmp3
-
-        jsr     get_fuji_dir_path_addr_to_aws_tmp6
-
-        ldy     #$00
-@copy_dir_path:
-        cpy     fuji_current_dir_len
-        beq     @clear_dir_tail
-        lda     (cws_tmp2),y
-        sta     (aws_tmp06),y
-        iny
-        jmp     @copy_dir_path
-
-        ; Clear bytes [dir_len..79] so a shorter path does not leave stale data
-        ; (e.g. old /s:// after fixing copy math).
-@clear_dir_tail:
-        ldy     fuji_current_dir_len
-@clear_dir_tail_loop:
+        ; Display path is the suffix of the resolved URI (same bytes as wire path);
+        ; fuji_dir_path_ptr() = host_uri + (host_len - dir_len). Clamp if inconsistent.
+        lda     fuji_current_dir_len
+        cmp     fuji_current_host_len
+        beq     @dir_len_ok
+        bcc     @dir_len_ok
+        lda     #$00
+        sta     fuji_current_dir_len
+@dir_len_ok:
+        ; Optional NUL after URI for C-style use when host_len < 80
+        ldy     fuji_current_host_len
         cpy     #80
         bcs     @rp_success
         lda     #$00
-        sta     (aws_tmp06),y
-        iny
-        bne     @clear_dir_tail_loop
+        sta     fuji_current_host_uri,y
 
 ; this function isn't called by C, so don't need to worry about X value
 
