@@ -49,7 +49,7 @@ static void build_full_uri() {
     filename_len = *FUJI_FILENAME_LEN;
     
     host_len = *FUJI_CURRENT_HOST_LEN;
-    host_uri = FUJI_CURRENT_HOST_URI;
+    host_uri = fuji_host_uri_ptr();
     full_uri = fuji_fs_uri_ptr();
     
     /* Copy host URI */

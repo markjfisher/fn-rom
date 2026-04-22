@@ -30,6 +30,7 @@
         .import  pushax
 
         .import  get_fuji_fs_uri_addr_to_aws_tmp6
+        .import  get_fuji_host_uri_addr_to_aws_tmp6
 
         .include "fujinet.inc"
 
@@ -555,11 +556,12 @@ _fujibus_resolve_path:
         adc     #$00
         sta     cws_tmp3
 
+        jsr     get_fuji_host_uri_addr_to_aws_tmp6
         ldy     #$00
 @copy_base_uri:
         cpy     fuji_current_host_len
         beq     @finish_request
-        lda     fuji_current_host_uri,y
+        lda     (aws_tmp06),y
         sta     (cws_tmp2),y
         iny
         bne     @copy_base_uri
@@ -640,12 +642,13 @@ _fujibus_resolve_path:
         adc     #$00
         sta     cws_tmp3
 
+        jsr     get_fuji_host_uri_addr_to_aws_tmp6
         ldy     #$00
 @copy_resolved_uri:
         cpy     fuji_current_host_len
         beq     @get_dir_len
         lda     (cws_tmp2),y
-        sta     fuji_current_host_uri,y
+        sta     (aws_tmp06),y
         iny
         bne     @copy_resolved_uri
 
@@ -664,11 +667,12 @@ _fujibus_resolve_path:
         sta     fuji_current_dir_len
 @dir_len_ok:
         ; Optional NUL after URI for C-style use when host_len < 80
+        jsr     get_fuji_host_uri_addr_to_aws_tmp6
         ldy     fuji_current_host_len
         cpy     #80
         bcs     @rp_success
         lda     #$00
-        sta     fuji_current_host_uri,y
+        sta     (aws_tmp06),y
 
 ; this function isn't called by C, so don't need to worry about X value
 

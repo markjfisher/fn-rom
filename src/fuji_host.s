@@ -28,8 +28,8 @@
 ; fuji_resolve_path - Resolve path using FileDevice
 ; This is the high-level interface that manages transactions
 ;
-; Entry: FUJI_CURRENT_HOST_URI and FUJI_CURRENT_HOST_LEN set
-; Exit:  FUJI_CURRENT_HOST_URI/LEN = resolved URI; FUJI_CURRENT_DIR_LEN = path suffix length
+; Entry: host URI buffer (fuji_host_uri_ptr) and FUJI_CURRENT_HOST_LEN set
+; Exit:  resolved URI in host buffer / LEN; FUJI_CURRENT_DIR_LEN = path suffix length
 ;        PATH display = suffix of host buffer (fuji_dir_path_ptr)
 ;        A = bool (true = success)
 ;//////////////////////////////////////////////////////////////////////
@@ -52,7 +52,7 @@ _fuji_resolve_path:
 ; fuji_set_host - Set current host URI
 ; This is the high-level interface that manages transactions
 ;
-; Entry: FUJI_CURRENT_HOST_URI and FUJI_CURRENT_HOST_LEN set
+; Entry: host URI buffer and FUJI_CURRENT_HOST_LEN set
 ; Exit:  A = bool (true = success)
 ;//////////////////////////////////////////////////////////////////////
 
@@ -74,7 +74,7 @@ _fuji_set_host:
 ; fuji_get_host - Get current host URI
 ; This is the high-level interface that manages transactions
 ;
-; Exit:  FUJI_CURRENT_HOST_URI and FUJI_CURRENT_HOST_LEN = current host
+; Exit:  host buffer and FUJI_CURRENT_HOST_LEN = current host
 ;        A = bool (true = success)
 ;//////////////////////////////////////////////////////////////////////
 
@@ -127,7 +127,7 @@ fuji_set_host_data:
 fuji_get_host_data:
         ; TODO: do we need to do anything here when change to a single string and offsets for path?
         ; I don't see the need for host_uri anymore
-        ; For serial, the host is stored locally in BBC memory (FUJI_CURRENT_HOST_URI/LEN)
+        ; For serial, the host is stored in PWS (fuji_host_uri_ptr / FUJI_CURRENT_HOST_LEN)
         ; No FujiNet command needed - just return success
         lda     #$01
         rts

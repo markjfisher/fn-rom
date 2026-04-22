@@ -4,13 +4,14 @@
         .export set_fuji_fs_uri_ptr
         .export _fuji_data_buffer_ptr
         .export _fuji_fs_uri_ptr
+        .export _fuji_host_uri_ptr
         .export _fuji_dir_path_ptr
         .export get_fuji_fs_uri_addr_to_aws_tmp6
+        .export get_fuji_host_uri_addr_to_aws_tmp6
 
         .import  remember_axy
         .import  fuji_current_host_len
         .import  fuji_current_dir_len
-        .import  fuji_current_host_uri
         .import  print_string
         .import  set_private_workspace_pointer_b0
         .import  return_with_a0
@@ -66,16 +67,37 @@ _fuji_fs_uri_ptr:
         pla
         rts
 
+; uint8_t *fuji_host_uri_ptr(void);  return in A/X — PWS + FUJI_HOST_URI_OFFSET
+_fuji_host_uri_ptr:
+        jsr     set_private_workspace_pointer_b0
+        lda     aws_tmp00
+        clc
+        adc     #<(FUJI_HOST_URI_OFFSET)
+        pha
+        lda     aws_tmp01
+        adc     #>(FUJI_HOST_URI_OFFSET)
+        tax
+        pla
+        rts
+
 ; uint8_t *fuji_dir_path_ptr(void);  return in A/X
-; DIR is a suffix of the resolved URI in FUJI_CURRENT_HOST_URI: base + (host_len - dir_len).
+; PATH = suffix of canonical host URI: PWS host base + (host_len - dir_len).
 _fuji_dir_path_ptr:
+        jsr     set_private_workspace_pointer_b0
+        lda     aws_tmp00
+        clc
+        adc     #<(FUJI_HOST_URI_OFFSET)
+        sta     aws_tmp06
+        lda     aws_tmp01
+        adc     #>(FUJI_HOST_URI_OFFSET)
+        sta     aws_tmp07
         lda     fuji_current_host_len
         sec
         sbc     fuji_current_dir_len
         clc
-        adc     #<fuji_current_host_uri
+        adc     aws_tmp06
         pha
-        lda     #>fuji_current_host_uri
+        lda     aws_tmp07
         adc     #$00
         tax
         pla
@@ -90,6 +112,18 @@ get_fuji_fs_uri_addr_to_aws_tmp6:
         sta     aws_tmp06
         lda     aws_tmp01
         adc     #>(FUJI_FS_URI_OFFSET)
+        sta     aws_tmp07
+        rts
+
+; Host URI (*FHOST) storage address in aws_tmp06/aws_tmp07 (does not modify buffer_ptr)
+get_fuji_host_uri_addr_to_aws_tmp6:
+        jsr     set_private_workspace_pointer_b0
+        lda     aws_tmp00
+        clc
+        adc     #<(FUJI_HOST_URI_OFFSET)
+        sta     aws_tmp06
+        lda     aws_tmp01
+        adc     #>(FUJI_HOST_URI_OFFSET)
         sta     aws_tmp07
         rts
 

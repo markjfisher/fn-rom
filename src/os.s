@@ -143,7 +143,6 @@
         .export  fuji_ch_111A
 
         .export  fuji_ax_save
-        .export  fuji_current_host_uri
         .export  fuji_bss
 
         .export  dfs_cat_s0_header
@@ -605,14 +604,12 @@ fuji_ch_handle_high     = fuji_channel_start + $1F  ; handle for fujinet resourc
 
 ; these should be the claimed pages from PWS (usually 1700-18FF)
 
-; 80-byte buffer: resolved URI from FileDevice ResolvePath (host_len). Directory path
-; for display is the suffix of this string; length in fuji_current_dir_len (wire path_len);
-; base for PATH output = host_uri + (host_len - dir_len). See fuji_dir_path_ptr.
-; Aligned with FUJI_CURRENT_HOST_URI in fujibus_c.h.
-fuji_current_host_uri  = fuji_workspace + $01B0
+; Canonical host URI from *FHOST ResolvePath lives in PWS at FUJI_HOST_URI_OFFSET (second
+; 80-byte slot after the packet slice). Directory path for display is the suffix of that
+; string; length in fuji_current_dir_len (wire path_len); PATH = host base + (host_len - dir_len).
+; Use fuji_host_uri_ptr() / get_fuji_host_uri_addr_to_aws_tmp6.
 
-; FS URI scratch (80 bytes) in PWS after the FujiBus packet slice — FUJI_FS_URI_OFFSET /
-; set_fuji_fs_uri_ptr in workspace_utils.s. An extra 80 bytes after that are currently unused.
+; FS URI scratch (80 bytes) in PWS — FUJI_FS_URI_OFFSET / fuji_fs_uri_ptr (working cwd for FLS/FIN).
 
 ; FujiBus packet buffer: lives in private workspace (see FUJI_PWS_* in fujinet.inc).
 ; Runtime base address is set in buffer_ptr (cws_tmp4/5) by set_fuji_data_buffer_ptr.

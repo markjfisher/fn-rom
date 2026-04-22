@@ -19,7 +19,7 @@
  * Design split:
  * - FHOST/FFS are the URI-facing commands.
  * - ResolvePath returns uri_len + path_len + path; the resolved URI string contains
- *   the directory as a suffix. We store one buffer (FUJI_CURRENT_HOST_URI) plus
+ *   the directory as a suffix. We store canonical host URI in PWS (fuji_host_uri_ptr) plus
  *   FUJI_CURRENT_HOST_LEN and FUJI_CURRENT_DIR_LEN; fuji_dir_path_ptr() returns
  *   host_uri + (host_len - dir_len) for PATH display.
  * - URI and path semantics are intentionally delegated to FujiNet-NIO via
@@ -33,6 +33,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "cmd_fhost_c.h"
+#include "fujibus_c.h"
 
 extern void cmd_save_args_state(void);
 extern uint8_t parse_fhost_params(void);
@@ -66,8 +67,10 @@ void fhost_show_current(void) {
     uint8_t i;
     uint8_t *none_string = "(none)";
     uint8_t *dir_path;
+    uint8_t *host_uri;
 
     dir_path = fuji_dir_path_ptr();
+    host_uri = fuji_host_uri_ptr();
 
     print_newline();
     
@@ -79,7 +82,7 @@ void fhost_show_current(void) {
     } else {
         /* Print FS URI */
         for (i = 0; i < (*FUJI_CURRENT_HOST_LEN); i++) {
-            print_char(FUJI_CURRENT_HOST_URI[i]);
+            print_char(host_uri[i]);
         }
     }
     
@@ -104,25 +107,27 @@ void fhost_show_current(void) {
 
 /* ============================================================================
  * fhost_set_uri - Set current URI from user input
- * Uses workspace: FUJI_FILENAME_BUFFER, FUJI_CURRENT_HOST_URI, FUJI_ERROR_FLAG
+ * Uses workspace: FUJI_FILENAME_BUFFER, host URI slot (fuji_host_uri_ptr), FUJI_ERROR_FLAG
  * ============================================================================ */
 
 bool fhost_set_uri(void) {
     uint8_t uri_len;
     uint8_t i;
+    uint8_t *host_uri;
 
     uri_len = *FUJI_FILENAME_LEN;
-    
-    /* Copy URI from fuji_filename_buffer to FUJI_CURRENT_HOST_URI */
+    host_uri = fuji_host_uri_ptr();
+
+    /* Copy URI from fuji_filename_buffer into PWS host slot */
     for (i = 0; i < uri_len; i++) {
-        FUJI_CURRENT_HOST_URI[i] = FUJI_FILENAME_BUFFER[i];
+        host_uri[i] = FUJI_FILENAME_BUFFER[i];
     }
     *FUJI_CURRENT_HOST_LEN = uri_len;
 
     /* Try to resolve the path */
     if (!fuji_resolve_path()) {
         /* On failure, clear both URI and DIR to indicate invalid state */
-        FUJI_CURRENT_HOST_URI[0] = '\0';
+        host_uri[0] = '\0';
         *FUJI_CURRENT_HOST_LEN = 0;
         *FUJI_CURRENT_DIR_LEN = 0;
         

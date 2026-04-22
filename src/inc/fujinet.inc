@@ -120,9 +120,11 @@ FN_PARAMS_OFFSET = 4
 ; at PWS+0 until responses are streamed or split.
 FUJI_PWS_PACKET_OFFSET = 0
 FUJI_PWS_PACKET_SIZE = 280
-; After packet: 80-byte FS URI scratch (*FIN etc.). Next 80 bytes are currently spare
-; (DIR was previously copied here; PATH is now a suffix of FUJI_CURRENT_HOST_URI).
+FUJI_FS_URI_BUFFER_SIZE = 80
+; PWS layout after packet: [+280] working FS URI (*FIN, FLS cwd, disk mount);
+; [+360] canonical host URI from *FHOST ResolvePath (PATH suffix uses host_len/dir_len).
 FUJI_FS_URI_OFFSET = 280
+FUJI_HOST_URI_OFFSET = FUJI_FS_URI_OFFSET + FUJI_FS_URI_BUFFER_SIZE
 FN_MAX_PACKET_SIZE = FUJI_PWS_PACKET_SIZE
 
 FN_PROTOCOL_VERSION = $01

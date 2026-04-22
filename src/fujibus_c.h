@@ -56,17 +56,13 @@
 // BUFFERS
 //////////////////////////////////////////////////////////////////////////
 
-// THESE ARE WRONG - THEY INTERFERE WITH IO BUFFERS
-// See page 111 of the Advanced Disk User Guide.
-
-/* Resolved host URI (max 80 bytes); directory path is a suffix per ResolvePath lengths */
-#define FUJI_CURRENT_HOST_URI    ((uint8_t*)0x11B0)
-
-/* FS URI scratch (e.g. *FIN) in PWS after the packet buffer — see FUJI_FS_URI_OFFSET */
+/* FS/host URI scratch (80 bytes each) in private workspace — see FUJI_FS_URI_OFFSET /
+ * FUJI_HOST_URI_OFFSET in fujinet.inc */
 #define FUJI_FS_URI_BUFFER_SIZE  80
 
 extern uint8_t* fuji_data_buffer_ptr(void);
 extern uint8_t* fuji_fs_uri_ptr(void);
+extern uint8_t* fuji_host_uri_ptr(void);
 extern uint8_t* fuji_dir_path_ptr(void);
 
 

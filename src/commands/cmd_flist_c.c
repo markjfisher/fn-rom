@@ -44,9 +44,11 @@ bool flist_resolve_target(void)
     uint8_t* tx;
     uint8_t* rx;
     uint8_t* fs_uri;
+    uint8_t* host_uri;
 
     buf = fuji_data_buffer_ptr();
     fs_uri = fuji_fs_uri_ptr();
+    host_uri = fuji_host_uri_ptr();
     tx = buf;
     rx = buf;
     base_len = *FUJI_CURRENT_HOST_LEN;
@@ -61,7 +63,7 @@ bool flist_resolve_target(void)
     tx[8] = 0;
 
     for (i = 0; i < base_len; i++) {
-        tx[9 + i] = FUJI_CURRENT_HOST_URI[i];
+        tx[9 + i] = host_uri[i];
     }
 
     tx[9 + base_len] = arg_len;
@@ -192,6 +194,7 @@ uint8_t cmd_fs_flist(void)
         uint8_t returned_count;
         bool more;
         uint8_t* fs_uri_cmd;
+        uint8_t* host_canon;
 
         if (*FUJI_CURRENT_HOST_LEN == 0) {
             err_no_host_flist();
@@ -201,6 +204,7 @@ uint8_t cmd_fs_flist(void)
 
         if (param_count == 0) {
             fs_uri_cmd = fuji_fs_uri_ptr();
+            host_canon = fuji_host_uri_ptr();
             *FUJI_CURRENT_FS_LEN = *FUJI_CURRENT_HOST_LEN;
 
             if (*FUJI_CURRENT_FS_LEN >= FLIST_URI_BUFFER_SIZE) {
@@ -208,7 +212,7 @@ uint8_t cmd_fs_flist(void)
             }
 
             for (start_index = 0; start_index < (*FUJI_CURRENT_FS_LEN); start_index++) {
-                fs_uri_cmd[start_index] = FUJI_CURRENT_HOST_URI[start_index];
+                fs_uri_cmd[start_index] = host_canon[start_index];
             }
             fs_uri_cmd[*FUJI_CURRENT_FS_LEN] = '\0';
         } else {

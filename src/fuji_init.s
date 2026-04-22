@@ -27,6 +27,12 @@
         .import vectors_table
 
         .import    set_fuji_fs_uri_ptr
+        .import    get_fuji_host_uri_addr_to_aws_tmp6
+
+        .import    fuji_current_fs_len
+        .import    fuji_current_host_len
+
+        .importzp  aws_tmp06
         .importzp  buffer_ptr
 
         .import __WORKSP_START__
@@ -243,15 +249,17 @@ setdefaults:
         sta     fuji_drive_disk_map+2   ; Drive 2
         sta     fuji_drive_disk_map+3   ; Drive 3
 
-        ; Power-on / hard break only: empty FS URI and DIR path in PWS; zero lengths in SWS
+        ; Power-on / hard break only: empty FS + host URI in PWS; zero lengths in SWS
         jsr     set_fuji_fs_uri_ptr
         lda     #$00
         tay
         sta     (buffer_ptr),y
-        ; Second 80-byte slot after PWS FS URI was removed (DIR is suffix of host URI).
+        jsr     get_fuji_host_uri_addr_to_aws_tmp6
+        sta     (aws_tmp06),y
         ldx     #$00
         stx     fuji_current_fs_len
         stx     fuji_current_dir_len
+        stx     fuji_current_host_len
 
 ; TODO: REVIEW THIS CODE
 
