@@ -1,143 +1,232 @@
+; *FHOST / *FFS — set or show canonical host URI (FileDevice ResolvePath)
+        .export  _cmd_fs_fhost
         .export  _parse_fhost_params
         .export  _err_bad_uri
         .export  _err_set_uri
 
         .import  param_count
-        .import  param_count_a
         .import  param_get_string
 
         .import  err_bad
         .import  report_error
 
         .import  print_char
-        .import  print_string
+        .import  print_newline
+        .import  print_string_ax
+
+        .import  _cmd_save_args_state
+        .import  exit_user_ok
+
+        .import  _fuji_host_uri_ptr
+        .import  _fuji_dir_path_ptr
+        .import  _fuji_resolve_path
 
         .import  fuji_filename_buffer
         .import  fuji_filename_len
-        .import  fuji_error_flag
         .import  fuji_cmd_offset_y
-        .import  set_fuji_fs_uri_ptr
+        .import  fuji_current_host_len
+        .import  fuji_current_dir_len
+        .import  fuji_channel_scratch
+
+        .importzp cws_tmp2
+        .importzp cws_tmp3
 
         .include "fujinet.inc"
 
         .segment "CODE"
 
-print_none:
-        jsr     print_string
-        .byte   "(none)"
-        lda     #$00                    ; terminate string and be an instruction > $80
+;------------------------------------------------------------------------------
+; If SWS host_len is 0 but PWS has a NUL-terminated URI, recover length for display.
+;------------------------------------------------------------------------------
+fhost_repair_host_len:
+        lda     fuji_current_host_len
+        bne     @done
+        jsr     _fuji_host_uri_ptr
+        sta     cws_tmp2
+        stx     cws_tmp3
+        ldy     #$00
+@scan:
+        lda     (cws_tmp2),y
+        beq     @got
+        iny
+        cpy     #80
+        bne     @scan
         rts
-
-fhost_show_current:
-        jsr     set_fuji_fs_uri_ptr     ; set buffer_ptr to fs_uri, we'll increment this to the dir part if needed later
-
-        jsr     print_string
-        ; .byte  $0D                    ; uncomment for a newline at the start
-        .byte   "HOST: "                ; next byte must be above $80 to terminate the string, e.g. lda
-        lda     fuji_current_fs_len
-        bne     @show_host
-
-        ; was not set, print none and skip to path
-        jsr     print_none
-        beq     @show_dir               ; always, return from print_none sets Z
-
-@show_host:
-        ; FS_URI = host://some-url/path/to/folder
-        ; DIR_LEN is count of "/path/to/folder", so subtracting lengths gives the length of the host part
-        ; print the length of the fs_uri minus the length of the dir in chars
-        lda     fuji_current_fs_len
-        sec
-        sbc     fuji_current_dir_len
-
-        sta     fuji_channel_scratch    ; save it in our tmp location so we can use it in dir path printing
-        tax                             ; use as a counter
-
-        jsr     print_from_buffer_x
-        ; fall into show dir
-@show_dir:
-        lda     fuji_current_dir_len
-        tax                             ; save for length
-        bne     @do_show_dir
-        jsr     print_none
+@got:
+        tya
         beq     @done
-
-@do_show_dir:
-        ; increment buffer_ptr by the host length, this can be done by adding the fs len, and subtracing the dir len
-        ; but we already calculated this earlier, and if we have a path length, we must have a host, so safe
-        ; to assume that the stored calculation is correct
-        lda     buffer_ptr
-        clc
-        adc     fuji_channel_scratch
-        sta     buffer_ptr
-        bcc     :+
-        inc     buffer_ptr + 1
-
-:       ; x is just length of the dir to print, already set
-        jsr     print_from_buffer_x
-
+        sta     fuji_current_host_len
 @done:
         rts
 
-; print X chars from buffer_ptr
-print_from_buffer_x:
+;------------------------------------------------------------------------------
+; uint8_t cmd_fs_fhost(void)
+;------------------------------------------------------------------------------
+_cmd_fs_fhost:
+        jsr     _cmd_save_args_state
+        jsr     _parse_fhost_params
+        cmp     #$00
+        beq     @show
+
+        jsr     fhost_copy_and_resolve
+        jmp     exit_user_ok
+
+@show:
+        jsr     fhost_show_current
+        jmp     exit_user_ok
+
+;------------------------------------------------------------------------------
+; Show HOST (canonical URI in PWS) and PATH (suffix per host_len/dir_len)
+;------------------------------------------------------------------------------
+fhost_show_current:
+        jsr     print_newline
+
+        jsr     fhost_repair_host_len
+
+        lda     #<str_fhost_host
+        ldx     #>str_fhost_host
+        jsr     print_string_ax
+
+        lda     fuji_current_host_len
+        beq     @host_none
+
+        jsr     _fuji_host_uri_ptr
+        sta     cws_tmp2
+        stx     cws_tmp3
+        lda     fuji_current_host_len
+        tax
+        jsr     print_cws_tmp2_x
+
+        jmp     @after_host
+
+@host_none:
+        jsr     print_none_str
+
+@after_host:
+        jsr     print_newline
+
+        lda     #<str_fhost_path
+        ldx     #>str_fhost_path
+        jsr     print_string_ax
+
+        lda     fuji_current_host_len
+        beq     @path_none
+
+        lda     fuji_current_dir_len
+        beq     @path_none
+
+        lda     fuji_current_dir_len
+        cmp     fuji_current_host_len
+        beq     @path_ok
+        bcc     @path_ok
+        jmp     @path_none
+
+@path_ok:
+        jsr     _fuji_dir_path_ptr
+        sta     cws_tmp2
+        stx     cws_tmp3
+        lda     fuji_current_dir_len
+        tax
+        jsr     print_cws_tmp2_x
+
+        jmp     @after_path
+
+@path_none:
+        jsr     print_none_str
+
+@after_path:
+        jmp     print_newline
+
+;------------------------------------------------------------------------------
+print_none_str:
+        lda     #<str_fhost_none
+        ldx     #>str_fhost_none
+        jmp     print_string_ax
+
+; Print X bytes from (cws_tmp2); X should be <= 80
+print_cws_tmp2_x:
         ldy     #$00
-@print_loop_host:
-        lda     (buffer_ptr), y
+        txa
+        beq     @done
+        sta     fuji_channel_scratch
+@loop:
+        lda     (cws_tmp2),y
         jsr     print_char
         iny
-        dex
-        bne     @print_loop_host
-
-; asm version of cmd_fs_fhost
-cmd_fs_fhost:
-        ; eventually we can fold this in and remove the jsr saving 3 bytes
-        jsr     _parse_fhost_params
-        beq     fhost_show_current
-
-; do a resolve on this host string and set the fs_uri string, and dir len
+        dec     fuji_channel_scratch
+        bne     @loop
+@done:
         rts
 
+;------------------------------------------------------------------------------
+; Copy parsed URI into PWS host slot and ResolvePath; BRK path on failure
+;------------------------------------------------------------------------------
+fhost_copy_and_resolve:
+        jsr     _fuji_host_uri_ptr
+        sta     cws_tmp2
+        stx     cws_tmp3
 
-; uint8_t parse_fhost_params()
-;
-; FHOST supports 0 or 1 parameters:
-;   0 params: no action needed, return 0
-;   1 param:  read string into fuji_filename_buffer, return 1
-;
-; Returns: A = param count (0 or 1)
+        lda     fuji_filename_len
+        sta     fuji_current_host_len
 
+        ldy     #$00
+        lda     fuji_filename_len
+        beq     @copy_done
+        tax
+@copy:
+        lda     fuji_filename_buffer,y
+        sta     (cws_tmp2),y
+        iny
+        dex
+        bne     @copy
+@copy_done:
+        jsr     _fuji_resolve_path
+        cmp     #$00
+        bne     @ok
 
+        lda     #$00
+        tay
+        sta     (cws_tmp2),y
+        sta     fuji_current_host_len
+        sta     fuji_current_dir_len
+        jmp     _err_set_uri
+
+@ok:
+        rts
+
+;------------------------------------------------------------------------------
+; uint8_t parse_fhost_params(void)
+; 0 params -> A=0; 1 param -> A = string length (same non-zero test as old C)
+;------------------------------------------------------------------------------
 _parse_fhost_params:
-        ; Count parameters first. FHOST supports 0 or 1 parameters.
-        ldy     fuji_cmd_offset_y       ; ensure the cmd line Y index is correct
-        jsr     param_count             ; C=0 means 0 params, C=1 means 1 param
-
-        ; Determine param count from carry flag
+        ldy     fuji_cmd_offset_y
+        jsr     param_count
         bcs     @read_string
 
-        lda     #$00            ; this may not be needed, with param_count, A should be 0 on exit
-        tax                     ; this can be removed when we only use ASM *fhost
+        lda     #$00
         rts
 
 @read_string:
-        ; We have 1 param - read the string
-        clc                             ; string terminated by CR, space or quote
-        jsr     param_get_string        ; reads into fuji_filename_buffer, returns length in A
-
-        ; Store length
+        clc
+        jsr     param_get_string
         sta     fuji_filename_len
-
         rts
 
-
 _err_bad_uri:
-        ; Standard ROM "Bad uri" error path.
         jsr     err_bad
         .byte   $CB
         .byte   "uri", 0
 
 _err_set_uri:
-        ; Standard ROM "Bad uri" error path.
         jsr     report_error
         .byte   $CB
         .byte   "Could not set host URI", 0
+
+        .segment "RODATA"
+
+str_fhost_host:
+        .byte   "HOST: ", $a0
+str_fhost_path:
+        .byte   "PATH: ", $a0
+str_fhost_none:
+        .byte   "(none)", $a0

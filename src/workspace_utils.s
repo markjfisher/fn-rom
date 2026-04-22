@@ -94,6 +94,9 @@ _fuji_dir_path_ptr:
         lda     fuji_current_host_len
         sec
         sbc     fuji_current_dir_len
+        bcs     @suffix_off_ok
+        lda     #$00
+@suffix_off_ok:
         clc
         adc     aws_tmp06
         pha
