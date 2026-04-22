@@ -107,7 +107,7 @@ bp_entry:
 @bp_extendtogap:
         ; Set file length in catalog and channel - MMFS lines 5328-5333
         sta     dfs_cat_file_size+1,x   ; File len 1 (mid byte)
-        sta     fuji_ch_1119,y          ; Sector count
+        sta     fuji_ch_sect_cnt,y          ; Sector count
         lda     #$00
         sta     dfs_cat_file_size,x     ; File len 0 (low byte)
         jsr     save_cat_to_disk        ; Write catalog to disk

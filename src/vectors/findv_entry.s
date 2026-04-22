@@ -315,7 +315,7 @@ setup_channel_info_block_yintch:
         adc     #$FF                    ; If Length0>0 C=1
         lda     fuji_ch_110B,y          ; Length1
         adc     #$00
-        sta     fuji_ch_1119,y          ; Sector count
+        sta     fuji_ch_sect_cnt,y      ; Sector count
         lda     fuji_ch_op,y            ; Mixed byte
         ora     #$0F
         adc     #$00                    ; Add carry flag

@@ -107,6 +107,8 @@
         .export  fuji_ch_bitmask
         .export  fuji_ch_sect_lo
         .export  fuji_ch_sect_hi
+        .export  fuji_ch_handle_low
+        .export  fuji_ch_handle_high
 
         .export  fuji_ch_bptr_low
         .export  fuji_ch_bptr_mid
@@ -137,7 +139,7 @@
         .export  fuji_gbpbv_tube_op
 
         .export  fuji_ch_1118
-        .export  fuji_ch_1119
+        .export  fuji_ch_sect_cnt
         .export  fuji_ch_111A
 
         .export  fuji_ax_save
@@ -547,10 +549,10 @@ fuji_ch_1105            = fuji_channel_start + $05 ; exec addr byte 1
 fuji_ch_1106            = fuji_channel_start + $06 ; name byte 4
 fuji_ch_1107            = fuji_channel_start + $07 ; exec addr byte 2
 fuji_ch_1108            = fuji_channel_start + $08 ; name byte 5
-fuji_ch_1109            = fuji_channel_start + $09 ; size byte 1
+fuji_ch_1109            = fuji_channel_start + $09 ; size byte 1 (of 3)
 fuji_ch_110A            = fuji_channel_start + $0A ; name byte 6
-fuji_ch_110B            = fuji_channel_start + $0B ; size byte 2
-fuji_ch_name7           = fuji_channel_start + $0C ; name byte 7
+fuji_ch_110B            = fuji_channel_start + $0B ; size byte 2 (of 3)
+fuji_ch_name7           = fuji_channel_start + $0C ; name byte 7 - high bit set means READ ONLY (findv_entry)
 fuji_ch_op              = fuji_channel_start + $0D ; "op" mixed byte
 fuji_ch_dir             = fuji_channel_start + $0E ; directory -> directory_param when setting drive from current channel info
 fuji_ch_sec_start       = fuji_channel_start + $0F ; start sector
@@ -564,12 +566,14 @@ fuji_ch_ext_low         = fuji_channel_start + $14  ; EXT low byte
 fuji_ch_ext_mid         = fuji_channel_start + $15  ; EXT mid byte
 fuji_ch_ext_hi          = fuji_channel_start + $16  ; EXT high byte
 fuji_ch_flg             = fuji_channel_start + $17  ; Channel flags; see below for breakdown
-fuji_ch_1118            = fuji_channel_start + $18  ; ???
-fuji_ch_1119            = fuji_channel_start + $19  ; ??? - sector count
-fuji_ch_111A            = fuji_channel_start + $1A  ; ??? - len 2
+fuji_ch_1118            = fuji_channel_start + $18  ; ??? UNUSED
+fuji_ch_sect_cnt        = fuji_channel_start + $19  ; Sector Count
+fuji_ch_111A            = fuji_channel_start + $1A  ; size byte 3 (of 3)
 fuji_ch_bitmask         = fuji_channel_start + $1B  ; Bit mask
 fuji_ch_sect_lo         = fuji_channel_start + $1C  ; buffer sector low
 fuji_ch_sect_hi         = fuji_channel_start + $1D  ; buffer sector high
+fuji_ch_handle_low      = fuji_channel_start + $1E  ; handle for fujinet resources - low
+fuji_ch_handle_high     = fuji_channel_start + $1F  ; handle for fujinet resources - high
 
 
 ; Breakdown of fuji_ch_flg

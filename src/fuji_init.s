@@ -132,13 +132,10 @@ init_fuji:
         dex
         bne     @extendedvec_loop
 
-        ; X=0, Y=$30
-        lda     #$FF
-        sta     current_cat
-        sta     current_cat
+        ; The fix for getting the simple LOAD/RUN working was not setting this to FF, but instead not using E00 as a buffer for fetching data
+        sty     current_cat             ; set to "0" in ascii
+        ; sty     current_cat+1           ; this has the comment "?" in MMFS src... who knows why? Can't see this being used, removing it
 
-        ; sty     current_cat             ; set to "0" in ascii
-        ; sty     current_cat+1           ; this has the comment "?" in MMFS src... who knows why?
         stx     current_drv             ; curdrv=0
         stx     fuji_current_dir_path
         stx     fuji_current_fs_uri
