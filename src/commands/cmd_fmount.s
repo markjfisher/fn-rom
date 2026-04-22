@@ -1,3 +1,6 @@
+; *FMOUNT — bind BBC drive to persisted FujiNet mount slot (GetMount + disk mount)
+
+        .export  _cmd_fs_fmount
         .export  _err_bad_disk_mount
         .export  _err_bad_mount_slot
         .export  _err_failed_to_mount
@@ -9,9 +12,22 @@
         .import  param_get_num
         .import  param_optional_drive_no
         .import  report_error
-        .import  set_user_flag_x
+
+        .import  exit_user_ok
+        .import  _fuji_data_buffer_ptr
+        .import  _fuji_fs_uri_ptr
+
+        .import  fuji_get_slot
+        .import  fuji_mount_disk
+
+        .import  fuji_channel_scratch
+        .import  fuji_current_fs_len
+        .import  fuji_disk_slot
 
         .importzp  ptr1
+        .importzp  cws_tmp2
+        .importzp  cws_tmp3
+        .importzp  aws_tmp08
 
         .include "fujinet.inc"
 
@@ -19,13 +35,83 @@
 
 
 ; Allow slot number to be 0-7
-; I'm not sure if we want to force a limit in fujinet-nio for number of mounts.
-; There's a limit on the reading params in get_param_num, so that would have
-; to be fixed if we wanted to support any number of mount entries.
-MAX_MOUNT_SLOT := 7
+MAX_MOUNT_SLOT_COUNT := 8
 
 ; Allow drives 0-3
 MAX_BBC_DRIVE  := 3
+
+;------------------------------------------------------------------------------
+; Main entry — same layout as cmd_fin.s (parse, FujiBus, exit_user_ok)
+;------------------------------------------------------------------------------
+_cmd_fs_fmount:
+        jsr     _parse_fmount_params
+
+        jsr     fuji_get_slot
+        cmp     #$00
+        beq     @get_failed
+
+        jsr     _fuji_data_buffer_ptr
+        sta     ptr1
+        stx     ptr1+1
+
+        ; After FujiBus hdr + status [5],[6]: GetMount record is
+        ; [7]=slot (echoes request; 0 for slot 0), [8]=flags (bit0=enabled),
+        ; [9]=uri_len, [10..]=uri — matches SetMount tx layout at [6..]
+        ldy     #$08
+        lda     (ptr1),y
+        and     #$01
+        bne     @enabled
+        jmp     _err_not_enabled
+
+@enabled:
+        ldy     #$09
+        lda     (ptr1),y
+        tax                     ; uri length
+
+        jsr     _fuji_fs_uri_ptr
+        sta     cws_tmp2
+        stx     cws_tmp3
+
+        lda     #$00
+        ldy     #$00
+        sta     (cws_tmp2),y
+
+        lda     #$00
+        sta     fuji_channel_scratch
+        txa
+        beq     @len_done
+
+@copy_uri:
+        lda     fuji_channel_scratch
+        clc
+        adc     #$0A
+        tay
+        lda     (ptr1),y
+        pha
+        ldy     fuji_channel_scratch
+        pla
+        sta     (cws_tmp2),y
+        inc     fuji_channel_scratch
+        dex
+        bne     @copy_uri
+
+@len_done:
+        lda     fuji_channel_scratch
+        sta     fuji_current_fs_len
+
+        lda     fuji_disk_slot
+        sta     aws_tmp08
+
+        jsr     fuji_mount_disk
+        cmp     #$00
+        beq     @mount_failed
+        jmp     exit_user_ok
+
+@get_failed:
+        jmp     _err_failed_to_mount
+
+@mount_failed:
+        jmp     _err_bad_disk_mount
 
 ; void parse_params()
 ;
@@ -33,7 +119,7 @@ MAX_BBC_DRIVE  := 3
 ; if cli args have 2 args, set both from params
 ; otherwise fails with syntax error (no return)
 ;
-; writes to param 1 to fuji_disk_slot, and param 2 (or default) to current_drv
+; writes param 1 to fuji_disk_slot, and param 2 (or default) to current_drv
 
 _parse_fmount_params:
         ; Count parameters first. FMOUNT supports 1 or 2 parameters.
@@ -49,7 +135,7 @@ _parse_fmount_params:
         ; Read and the mandatory FujiNet mount slot index. Y is already the correct location after param_count_a
         jsr     param_get_num           ; FujiNet mount slot index 0-7, this errors if the value is not between 0-9
 
-        cmp     #MAX_MOUNT_SLOT
+        cmp     #MAX_MOUNT_SLOT_COUNT
         bcs     _err_bad_mount_slot
 
         sta     fuji_disk_slot
@@ -62,8 +148,7 @@ _parse_fmount_params:
         jsr     param_optional_drive_no
 
 @done:
-        ldx     #$00
-        jmp     set_user_flag_x
+        rts
 
 
 _err_bad_mount_slot:
@@ -75,7 +160,7 @@ _err_bad_mount_slot:
 _err_failed_to_mount:
         jsr     report_error
         .byte   $CB
-        .byte   "Failed to set mount config", 0
+        .byte   "Failed to read mount slot", 0
 
 _err_not_enabled:
         jsr     report_error

@@ -14,8 +14,8 @@
  * fujibus_get_mount_slot - Get mount record for a slot (FujiBus protocol)
  * 
  * Sends GetMount command to FujiNet for the specified slot.
- * Response format (after FujiBus header and status param):
- *   [flags][uri_len][uri...][mode_len][mode...]
+ * Response format (bytes relative to buf[0]; after FujiBus hdr, status at [6]):
+ *   [7]=slot echo, [8]=flags (bit0=enabled), [9]=uri_len, [10]=uri..., then mode...
  * 
  * Uses the current mount slot number
  * @return true on success, false on failure
