@@ -326,7 +326,7 @@ fuji_mount_disk_data:
 
 ;//////////////////////////////////////////////////////////////////////
 ; fuji_set_mount_slot_data - Set mount record for a slot (data layer)
-; Calls the C function fujibus_set_mount_slot()
+; fujibus_fuji.s (_fujibus_set_mount_slot)
 ;//////////////////////////////////////////////////////////////////////
 
 fuji_set_mount_slot_data:
@@ -335,7 +335,7 @@ fuji_set_mount_slot_data:
 
 ;//////////////////////////////////////////////////////////////////////
 ; fuji_get_mount_slot_data - Get mount record for a slot (data layer)
-; Calls the C function fujibus_get_mount_slot()
+; fujibus_fuji.s (_fujibus_get_mount_slot)
 ;//////////////////////////////////////////////////////////////////////
 
 fuji_get_mount_slot_data:
