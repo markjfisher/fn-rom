@@ -185,6 +185,10 @@ OS_INC = 1
         .importzp  aws_tmp13
         .importzp  aws_tmp14
         .importzp  aws_tmp15
+        .importzp  fuji_bus_tx_payload_lo
+        .importzp  fuji_bus_tx_payload_hi
+        .importzp  fuji_bus_tx_device
+        .importzp  fuji_bus_tx_command
         .importzp  cws_tmp1
         .importzp  cws_tmp2
         .importzp  cws_tmp3

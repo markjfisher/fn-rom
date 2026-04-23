@@ -45,9 +45,6 @@
         .import  print_char
         .import  print_newline
 
-        .import  pusha
-        .import  pushax
-
         .import  fuji_filename_len
         .import  fuji_current_fs_len
         .import  fuji_current_host_len
@@ -265,21 +262,18 @@ cfl_tx_uri_done:
         sta     aws_tmp13
 
         lda     #FN_DEVICE_FILE
-        jsr     pusha
+        sta     fuji_bus_tx_device
 
         lda     #FILE_CMD_LIST_DIRECTORY
-        jsr     pusha
+        sta     fuji_bus_tx_command
 
         lda     buffer_ptr
         clc
         adc     #$06
-        sta     cws_tmp2
+        sta     fuji_bus_tx_payload_lo
         lda     buffer_ptr+1
         adc     #$00
-        sta     cws_tmp3
-        lda     cws_tmp2
-        ldx     cws_tmp3
-        jsr     pushax
+        sta     fuji_bus_tx_payload_hi
 
         lda     aws_tmp12
         ldx     aws_tmp13

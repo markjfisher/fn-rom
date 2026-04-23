@@ -9,11 +9,6 @@
         .import fujibus_read_slip_stream
         .import fujibus_write_slip_stream
 
-        .import popa
-        .import popax
-        .import pusha
-        .import pushax
-
         .segment "CODE"
 
         .export _fujibus_send_packet
@@ -25,7 +20,10 @@
 
 fujibus_header_size = 6
 
-; void fujibus_send_packet(uint8_t device, uint8_t command, uint8_t* payload, uint16_t paylen)
+; void fujibus_send_packet(uint16_t paylen);  A/X = payload byte count
+;
+; Caller must set ZP slots (see os.s): fuji_bus_tx_device, fuji_bus_tx_command,
+; fuji_bus_tx_payload_lo/hi → first byte of payload source to copy after the wire header.
 
 _fujibus_send_packet:
         sta     fuji_ax_save
@@ -44,49 +42,29 @@ _fujibus_send_packet:
         lda     aws_tmp09
         pha
 
-        ldx     fuji_ax_save+1
         lda     fuji_ax_save
-        jsr     fujibus_send_packet_impl
-
-        pla
-        sta     aws_tmp09
-        pla
-        sta     aws_tmp08
-        pla
-        sta     aws_tmp03
-        pla
         sta     aws_tmp02
-        pla
-        sta     aws_tmp01
-        pla
+        lda     fuji_ax_save+1
+        sta     aws_tmp03
+
+        lda     fuji_bus_tx_payload_lo
         sta     aws_tmp00
-        rts
+        lda     fuji_bus_tx_payload_hi
+        sta     aws_tmp01
+
+        ldy     #$00
+        lda     fuji_bus_tx_device
+        sta     (buffer_ptr),y
+        iny
+        lda     fuji_bus_tx_command
+        sta     (buffer_ptr),y
+
+        jmp     fujibus_send_packet_impl
 
 
-; Internal entry:
-;   A/X     = paylen
-;   stack   = payload (16), command (8), device (8)
+; Internal: aws_tmp02/03 = paylen, aws_tmp00/01 = payload ptr, buffer [0],[1] = dev/cmd
 
 fujibus_send_packet_impl:
-        ; save paylen
-        sta     aws_tmp02
-        stx     aws_tmp03
-
-        ; payload pointer
-        jsr     popax
-        sta     aws_tmp00
-        stx     aws_tmp01
-
-        ; command -> tx buffer[1]
-        jsr     popa
-        ldy     #$01
-        sta     (buffer_ptr),y
-
-        ; device -> tx buffer[0]
-        jsr     popa
-        ldy     #$00
-        sta     (buffer_ptr),y
-
         ; destination pointer = buffer + header size
         lda     buffer_ptr
         clc
@@ -172,7 +150,21 @@ fujibus_send_packet_impl:
         sta     aws_tmp01
         ; aws_tmp02/03 still = total_len
         jsr     fujibus_write_slip_stream
+
+        pla
+        sta     aws_tmp09
+        pla
+        sta     aws_tmp08
+        pla
+        sta     aws_tmp03
+        pla
+        sta     aws_tmp02
+        pla
+        sta     aws_tmp01
+        pla
+        sta     aws_tmp00
         rts
+
 
 ; uint16_t fujibus_receive_packet(void)
 

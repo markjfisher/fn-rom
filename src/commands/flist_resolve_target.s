@@ -6,9 +6,6 @@
         .import  _fujibus_receive_packet
         .import  _fujibus_send_packet
 
-        .import  pusha
-        .import  pushax
-
         .import  get_fuji_fs_uri_addr_to_aws_tmp6
         .import  get_fuji_host_uri_addr_to_aws_tmp6
 
@@ -122,21 +119,18 @@ _flist_resolve_target:
         sta     cws_tmp7
 
         lda     #FN_DEVICE_FILE
-        jsr     pusha
+        sta     fuji_bus_tx_device
 
         lda     #FILE_CMD_RESOLVE_PATH
-        jsr     pusha
+        sta     fuji_bus_tx_command
 
         lda     buffer_ptr
         clc
         adc     #$06
-        sta     cws_tmp2
+        sta     fuji_bus_tx_payload_lo
         lda     buffer_ptr+1
         adc     #$00
-        sta     cws_tmp3
-        lda     cws_tmp2
-        ldx     cws_tmp3
-        jsr     pushax
+        sta     fuji_bus_tx_payload_hi
 
         lda     cws_tmp6
         ldx     cws_tmp7

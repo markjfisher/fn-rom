@@ -26,9 +26,6 @@
         .import  calc_checksum
         .import  calc_checksum_continue
 
-        .import  pusha
-        .import  pushax
-
         .import  get_fuji_fs_uri_addr_to_aws_tmp6
         .import  get_fuji_host_uri_addr_to_aws_tmp6
 
@@ -109,21 +106,18 @@ _fujibus_disk_mount:
 
 @send_packet:
         lda     #FN_DEVICE_DISK
-        jsr     pusha
+        sta     fuji_bus_tx_device
 
         lda     #DISK_CMD_MOUNT
-        jsr     pusha
+        sta     fuji_bus_tx_command
 
         lda     buffer_ptr
         clc
         adc     #$06
-        sta     cws_tmp2
+        sta     fuji_bus_tx_payload_lo
         lda     buffer_ptr+1
         adc     #$00
-        sta     cws_tmp3
-        lda     cws_tmp2
-        ldx     cws_tmp3
-        jsr     pushax
+        sta     fuji_bus_tx_payload_hi
 
         ldx     #$00
         lda     fuji_current_fs_len
@@ -233,21 +227,18 @@ disk_read_sector_common_recv:
         sta     (buffer_ptr),y
 
         lda     #FN_DEVICE_DISK
-        jsr     pusha
+        sta     fuji_bus_tx_device
 
         lda     #DISK_CMD_READ_SECTOR
-        jsr     pusha
+        sta     fuji_bus_tx_command
 
         lda     buffer_ptr
         clc
         adc     #$06
-        sta     cws_tmp2
+        sta     fuji_bus_tx_payload_lo
         lda     buffer_ptr+1
         adc     #$00
-        sta     cws_tmp3
-        lda     cws_tmp2
-        ldx     cws_tmp3
-        jsr     pushax
+        sta     fuji_bus_tx_payload_hi
 
         lda     #$08
         ldx     #$00
@@ -573,21 +564,18 @@ _fujibus_resolve_path:
         sta     (cws_tmp2),y
 
         lda     #FN_DEVICE_FILE
-        jsr     pusha
+        sta     fuji_bus_tx_device
 
         lda     #FILE_CMD_RESOLVE_PATH
-        jsr     pusha
+        sta     fuji_bus_tx_command
 
         lda     buffer_ptr
         clc
         adc     #$06
-        sta     cws_tmp2
+        sta     fuji_bus_tx_payload_lo
         lda     buffer_ptr+1
         adc     #$00
-        sta     cws_tmp3
-        lda     cws_tmp2
-        ldx     cws_tmp3
-        jsr     pushax
+        sta     fuji_bus_tx_payload_hi
 
         ldx     #$00
         lda     fuji_current_host_len

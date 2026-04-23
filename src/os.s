@@ -178,6 +178,10 @@
         .exportzp  aws_tmp13
         .exportzp  aws_tmp14
         .exportzp  aws_tmp15
+        .exportzp  fuji_bus_tx_payload_lo
+        .exportzp  fuji_bus_tx_payload_hi
+        .exportzp  fuji_bus_tx_device
+        .exportzp  fuji_bus_tx_command
         .exportzp  cws_tmp1
         .exportzp  cws_tmp2
         .exportzp  cws_tmp3
@@ -268,6 +272,13 @@ aws_tmp12       := $BC
 aws_tmp13       := $BD
 aws_tmp14       := $BE
 aws_tmp15       := $BF
+
+; FujiBus TX — before jsr _fujibus_send_packet: payload length in A/X; set these four bytes:
+; payload source pointer is copied internally to aws_tmp00/01 during send (same scratch as legacy path).
+fuji_bus_tx_payload_lo  := aws_tmp10
+fuji_bus_tx_payload_hi  := aws_tmp11
+fuji_bus_tx_device      := aws_tmp14
+fuji_bus_tx_command     := aws_tmp15
 
 
 ; Private workspace variables

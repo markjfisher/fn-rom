@@ -1,5 +1,5 @@
 ; FujiDevice FujiBus: GetMount / SetMount (replaces fujibus_fuji_c.c)
-; Calls _fujibus_send_packet with cc65 pusha/pushax stack layout (see fujibus.s).
+; Calls _fujibus_send_packet with fuji_bus_tx_* ZP params (see os.s / fujibus.s).
 
         .export  _fujibus_get_mount_slot
         .export  _fujibus_set_mount_slot
@@ -8,9 +8,6 @@
         .import  _fujibus_receive_packet
         .import  _fuji_data_buffer_ptr
         .import  get_fuji_fs_uri_addr_to_aws_tmp6
-
-        .import  pusha
-        .import  pushax
 
         .import  fuji_disk_slot
         .import  fuji_current_fs_len
@@ -35,21 +32,18 @@ _fujibus_get_mount_slot:
         sta     (buffer_ptr),y
 
         lda     #FN_DEVICE_FUJI
-        jsr     pusha
+        sta     fuji_bus_tx_device
 
         lda     #FUJI_CMD_GET_MOUNT
-        jsr     pusha
+        sta     fuji_bus_tx_command
 
         lda     buffer_ptr
         clc
         adc     #$06
-        sta     cws_tmp2
+        sta     fuji_bus_tx_payload_lo
         lda     buffer_ptr+1
         adc     #$00
-        sta     cws_tmp3
-        lda     cws_tmp2
-        ldx     cws_tmp3
-        jsr     pushax
+        sta     fuji_bus_tx_payload_hi
 
         ldx     #$00
         lda     #$01
@@ -107,21 +101,18 @@ _fujibus_set_mount_slot:
         sta     (buffer_ptr),y
 
         lda     #FN_DEVICE_FUJI
-        jsr     pusha
+        sta     fuji_bus_tx_device
 
         lda     #FUJI_CMD_SET_MOUNT
-        jsr     pusha
+        sta     fuji_bus_tx_command
 
         lda     buffer_ptr
         clc
         adc     #$06
-        sta     cws_tmp2
+        sta     fuji_bus_tx_payload_lo
         lda     buffer_ptr+1
         adc     #$00
-        sta     cws_tmp3
-        lda     cws_tmp2
-        ldx     cws_tmp3
-        jsr     pushax
+        sta     fuji_bus_tx_payload_hi
 
         lda     fuji_current_fs_len
         clc
