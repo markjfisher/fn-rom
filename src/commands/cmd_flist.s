@@ -6,6 +6,29 @@
         .export  _err_flist_failed
         .export  _err_no_host_flist
 
+        .export  cfl_after_name
+        .export  cfl_compact_skip
+        .export  cfl_copy_uri
+        .export  cfl_done_ok
+        .export  cfl_entries_done
+        .export  cfl_entry_loop
+        .export  cfl_fail_a0
+        .export  cfl_flist_one_page
+        .export  cfl_have_host
+        .export  cfl_len_ok
+        .export  cfl_no_slash
+        .export  cfl_page_fail
+        .export  cfl_page_loop
+        .export  cfl_pr_chars
+        .export  cfl_read_string
+        .export  cfl_rxlen_ok
+        .export  cfl_scan_uri_nul
+        .export  cfl_tx_uri
+        .export  cfl_tx_uri_done
+        .export  cfl_uri_len_from_nul
+        .export  cfl_uri_len_ok
+        .export  cfl_zterm
+
         .import  err_bad
         .import  exit_user_ok
         .import  report_error
@@ -36,8 +59,6 @@
         .importzp  aws_tmp07
         .importzp  aws_tmp08
         .importzp  aws_tmp09
-        .importzp  aws_tmp10
-        .importzp  aws_tmp11
         .importzp  aws_tmp12
         .importzp  aws_tmp13
         .importzp  cws_tmp1
@@ -45,9 +66,11 @@
         .importzp  cws_tmp3
         .importzp  cws_tmp4
         .importzp  cws_tmp5
-        .importzp  cws_tmp6
-        .importzp  cws_tmp7
         .importzp  cws_tmp8
+        .importzp  pws_tmp04
+        .importzp  pws_tmp05
+        .importzp  pws_tmp06
+        .importzp  pws_tmp07
         .importzp  pws_tmp08
         .importzp  pws_tmp09
 
@@ -57,6 +80,8 @@
 
 FLIST_URI_BUFFER_SIZE   = FUJI_FS_URI_BUFFER_SIZE
 FLIST_PAGE_SIZE         = 10
+; Host file_commands.h: kListFlagCompactOmitMetadata | kListFlagSortByName
+FLIST_LIST_FLAGS        = $03
 
 
 _err_no_host_flist:
@@ -76,11 +101,11 @@ _cmd_fs_flist:
         lda     fuji_current_host_len
         beq     _err_no_host_flist
 
-@have_host:
+cfl_have_host:
         cmp     #FLIST_URI_BUFFER_SIZE
         bcs     _err_bad_flist_path
 
-@len_ok:
+cfl_len_ok:
         sta     fuji_current_fs_len
 
         jsr     get_fuji_fs_uri_addr_to_aws_tmp6
@@ -92,56 +117,60 @@ _cmd_fs_flist:
         jsr     get_fuji_host_uri_addr_to_aws_tmp6
 
         ldy     #$00
-@copy_uri:
+cfl_copy_uri:
         cpy     fuji_current_fs_len
-        beq     @zterm
+        beq     cfl_zterm
         lda     (aws_tmp06),y
         sta     (ptr2),y
         iny
-        bne     @copy_uri
+        bne     cfl_copy_uri
 
-@zterm:
+cfl_zterm:
         lda     #$00
         sta     (ptr2),y
 
         jsr     print_newline
 
+        ; ListDirectory start_index (16-bit). Must not live in cws_tmp6/7 ($AD/$AE):
+        ; MOS/OSWRCH uses those ZP cells while printing entries — stomps accumulation.
+
         lda     #$00
-        sta     cws_tmp6
-        sta     cws_tmp7
+        sta     pws_tmp04
+        sta     pws_tmp05
 
-@page_loop:
-        jsr     @flist_one_page
+cfl_page_loop:
+        jsr     cfl_flist_one_page
         cmp     #$00
-        beq     @page_fail
+        beq     cfl_page_fail
 
-        lda     aws_tmp10
-        ora     aws_tmp11
-        beq     @done_ok
+        lda     pws_tmp06
+        ora     pws_tmp07
+        beq     cfl_done_ok
 
-        lda     aws_tmp10
+        lda     pws_tmp06
         clc
-        adc     cws_tmp6
-        sta     cws_tmp6
-        lda     aws_tmp11
-        adc     cws_tmp7
-        sta     cws_tmp7
+        adc     pws_tmp04
+        sta     pws_tmp04
+        lda     pws_tmp07
+        adc     pws_tmp05
+        sta     pws_tmp05
 
         lda     pws_tmp09
-        bne     @page_loop
+        bne     cfl_page_loop
 
-@done_ok:
+cfl_done_ok:
         jmp     exit_user_ok
 
-@page_fail:
+cfl_page_fail:
         jmp     _err_flist_failed
 
 ;------------------------------------------------------------------------------
-; One ListDirectory page. Input: start_index in cws_tmp6/7.
-; Output: A=1 ok / A=0 fail; aws_tmp10/11 = returned count;
+; One ListDirectory page. Input: start_index in pws_tmp04/pws_tmp05.
+; Output: A=1 ok / A=0 fail; pws_tmp06/07 = this page entry count (not aws_tmp10/11:
+; those alias cc65 ptr4 — OSASCI corrupts ptr4 while printing names).
 ;         pws_tmp09 = more pages (0/1); buffer_ptr aliases cws_tmp4/cws_tmp5 only.
 ;------------------------------------------------------------------------------
-@flist_one_page:
+cfl_flist_one_page:
         jsr     _fuji_data_buffer_ptr
 
         lda     fuji_current_fs_len
@@ -151,24 +180,24 @@ _cmd_fs_flist:
 
         lda     #$00
         tay
-@scan_uri_nul:
+cfl_scan_uri_nul:
         lda     (aws_tmp06),y
-        beq     @uri_len_from_nul
+        beq     cfl_uri_len_from_nul
         iny
         cpy     cws_tmp8
-        bcc     @scan_uri_nul
+        bcc     cfl_scan_uri_nul
 
         lda     cws_tmp8
         sta     cws_tmp1
-        jmp     @uri_len_ok
+        jmp     cfl_uri_len_ok
 
-@uri_len_from_nul:
+cfl_uri_len_from_nul:
         sty     cws_tmp1
 
-@uri_len_ok:
+cfl_uri_len_ok:
         lda     cws_tmp1
         bne     :+
-        jmp     @fail_a0
+        jmp     cfl_fail_a0
 :
 
         ldy     #$06
@@ -194,15 +223,15 @@ _cmd_fs_flist:
         ; and clears ptr1 low, so the copy would start at buffer base and clobber +6/+7/+8.
 
         ldy     #$00
-@tx_uri:
+cfl_tx_uri:
         cpy     cws_tmp1
-        beq     @tx_uri_done
+        beq     cfl_tx_uri_done
         lda     (aws_tmp06),y
         sta     (ptr1),y
         iny
-        bne     @tx_uri
+        bne     cfl_tx_uri
 
-@tx_uri_done:
+cfl_tx_uri_done:
         lda     ptr1
         clc
         adc     cws_tmp1
@@ -212,10 +241,10 @@ _cmd_fs_flist:
         sta     ptr1+1
 
         ldy     #$00
-        lda     cws_tmp6
+        lda     pws_tmp04
         sta     (ptr1),y
         iny
-        lda     cws_tmp7
+        lda     pws_tmp05
         sta     (ptr1),y
         iny
         lda     #FLIST_PAGE_SIZE
@@ -223,10 +252,13 @@ _cmd_fs_flist:
         iny
         lda     #$00
         sta     (ptr1),y
+        iny
+        lda     #FLIST_LIST_FLAGS
+        sta     (ptr1),y
 
         lda     cws_tmp1
         clc
-        adc     #7
+        adc     #8
         sta     aws_tmp12
         lda     #$00
         adc     #$00
@@ -260,36 +292,36 @@ _cmd_fs_flist:
         lda     aws_tmp12
         ora     aws_tmp13
         bne     :+
-        jmp     @fail_a0
+        jmp     cfl_fail_a0
 :
 
         lda     aws_tmp13
-        bne     @rxlen_ok
+        bne     cfl_rxlen_ok
         lda     aws_tmp12
         cmp     #13
         bcs     :+
-        jmp     @fail_a0
+        jmp     cfl_fail_a0
 :
 
-@rxlen_ok:
+cfl_rxlen_ok:
         ldy     #$05
         lda     (buffer_ptr),y
         cmp     #$01
         beq     :+
-        jmp     @fail_a0
+        jmp     cfl_fail_a0
 :
 
         ldy     #$06
         lda     (buffer_ptr),y
         beq     :+
-        jmp     @fail_a0
+        jmp     cfl_fail_a0
 :
 
         ldy     #$07
         lda     (buffer_ptr),y
         cmp     #FN_PROTOCOL_VERSION
         beq     :+
-        jmp     @fail_a0
+        jmp     cfl_fail_a0
 :
 
         ldy     #$08
@@ -308,14 +340,14 @@ _cmd_fs_flist:
 
         ldy     #$0B
         lda     (buffer_ptr),y
-        sta     aws_tmp10
+        sta     pws_tmp06
         iny
         lda     (buffer_ptr),y
-        sta     aws_tmp11
+        sta     pws_tmp07
 
-        lda     aws_tmp10
+        lda     pws_tmp06
         sta     cws_tmp2
-        lda     aws_tmp11
+        lda     pws_tmp07
         sta     cws_tmp3
 
         lda     buffer_ptr
@@ -326,11 +358,11 @@ _cmd_fs_flist:
         adc     #$00
         sta     ptr1+1
 
-@entry_loop:
+cfl_entry_loop:
         lda     cws_tmp2
         ora     cws_tmp3
         bne     :+
-        jmp     @entries_done
+        jmp     cfl_entries_done
 :
 
         lda     ptr1
@@ -338,7 +370,7 @@ _cmd_fs_flist:
         lda     ptr1+1
         sbc     ptr2+1
         bcc     :+
-        jmp     @fail_a0
+        jmp     cfl_fail_a0
 :
 
         ldy     #$00
@@ -359,9 +391,9 @@ _cmd_fs_flist:
         sta     aws_tmp09
 
         ldy     #$00
-@pr_chars:
+cfl_pr_chars:
         lda     cws_tmp1
-        beq     @after_name
+        beq     cfl_after_name
         lda     (aws_tmp08),y
         jsr     print_char
         inc     aws_tmp08
@@ -369,14 +401,14 @@ _cmd_fs_flist:
         inc     aws_tmp09
 :
         dec     cws_tmp1
-        jmp     @pr_chars
+        jmp     cfl_pr_chars
 
-@after_name:
+cfl_after_name:
         lda     cws_tmp8
-        beq     @no_slash
+        beq     cfl_no_slash
         lda     #'/'
         jsr     print_char
-@no_slash:
+cfl_no_slash:
         jsr     print_newline
 
         ldy     #$01
@@ -401,7 +433,7 @@ _cmd_fs_flist:
 
         lda     pws_tmp08
         and     #$02
-        bne     @compact_skip
+        bne     cfl_compact_skip
 
         lda     ptr1
         clc
@@ -411,20 +443,20 @@ _cmd_fs_flist:
         adc     #$00
         sta     ptr1+1
 
-@compact_skip:
+cfl_compact_skip:
         lda     cws_tmp2
         bne     :+
         dec     cws_tmp3
 :
         dec     cws_tmp2
 
-        jmp     @entry_loop
+        jmp     cfl_entry_loop
 
-@entries_done:
+cfl_entries_done:
         lda     #$01
         rts
 
-@fail_a0:
+cfl_fail_a0:
         lda     #$00
         rts
 
@@ -433,13 +465,13 @@ _cmd_fs_flist:
 ;------------------------------------------------------------------------------
 _parse_flist_params:
         jsr     param_count
-        bcs     @read_string
+        bcs     cfl_read_string
 
         lda     #$00
         tax
         rts
 
-@read_string:
+cfl_read_string:
         clc
         jsr     param_get_string
         sta     fuji_filename_len
