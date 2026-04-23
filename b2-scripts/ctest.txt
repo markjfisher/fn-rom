@@ -1,5 +1,6 @@
 *FHOST tnfs://192.168.1.101/bbc/
 REM *FIN net.ssd
-*FIN osargs.ssd
-*FMOUNT 0 0
-*.
+REM *FIN osargs.ssd
+REM *FMOUNT 0 0
+REM *.
+*FLS
