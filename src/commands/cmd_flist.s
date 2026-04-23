@@ -49,8 +49,6 @@
         .import  fuji_current_fs_len
         .import  fuji_current_host_len
 
-        .importzp  ptr1
-        .importzp  ptr2
         .importzp  buffer_ptr
         .importzp  aws_tmp06
         .importzp  aws_tmp07
@@ -107,9 +105,9 @@ cfl_len_ok:
 
         jsr     get_fuji_fs_uri_addr_to_aws_tmp6
         lda     aws_tmp06
-        sta     ptr2
+        sta     aws_tmp02
         lda     aws_tmp07
-        sta     ptr2+1
+        sta     aws_tmp02+1
 
         jsr     get_fuji_host_uri_addr_to_aws_tmp6
 
@@ -118,13 +116,13 @@ cfl_copy_uri:
         cpy     fuji_current_fs_len
         beq     cfl_zterm
         lda     (aws_tmp06),y
-        sta     (ptr2),y
+        sta     (aws_tmp02),y
         iny
         bne     cfl_copy_uri
 
 cfl_zterm:
         lda     #$00
-        sta     (ptr2),y
+        sta     (aws_tmp02),y
 
         jsr     print_newline
 
@@ -210,48 +208,48 @@ cfl_uri_len_ok:
         lda     buffer_ptr
         clc
         adc     #$09
-        sta     ptr1
+        sta     aws_tmp00
         lda     buffer_ptr+1
         adc     #$00
-        sta     ptr1+1
+        sta     aws_tmp01
 
         ; aws_tmp06/07 still hold FS URI from get_fuji_fs_uri_addr above — do not call
         ; get_fuji_fs_uri_addr_to_aws_tmp6 here: it runs set_private_workspace_pointer_b0
-        ; and clears ptr1 low, so the copy would start at buffer base and clobber +6/+7/+8.
+        ; and clears aws_tmp00 low, so the copy would start at buffer base and clobber +6/+7/+8.
 
         ldy     #$00
 cfl_tx_uri:
         cpy     cws_tmp1
         beq     cfl_tx_uri_done
         lda     (aws_tmp06),y
-        sta     (ptr1),y
+        sta     (aws_tmp00),y
         iny
         bne     cfl_tx_uri
 
 cfl_tx_uri_done:
-        lda     ptr1
+        lda     aws_tmp00
         clc
         adc     cws_tmp1
-        sta     ptr1
-        lda     ptr1+1
+        sta     aws_tmp00
+        lda     aws_tmp01
         adc     #$00
-        sta     ptr1+1
+        sta     aws_tmp01
 
         ldy     #$00
         lda     pws_tmp04
-        sta     (ptr1),y
+        sta     (aws_tmp00),y
         iny
         lda     pws_tmp05
-        sta     (ptr1),y
+        sta     (aws_tmp00),y
         iny
         lda     #FLIST_PAGE_SIZE
-        sta     (ptr1),y
+        sta     (aws_tmp00),y
         iny
         lda     #$00
-        sta     (ptr1),y
+        sta     (aws_tmp00),y
         iny
         lda     #FLIST_LIST_FLAGS
-        sta     (ptr1),y
+        sta     (aws_tmp00),y
 
         lda     cws_tmp1
         clc
@@ -327,10 +325,10 @@ cfl_rxlen_ok:
         lda     buffer_ptr
         clc
         adc     aws_tmp12
-        sta     ptr2
+        sta     aws_tmp02
         lda     buffer_ptr+1
         adc     aws_tmp13
-        sta     ptr2+1
+        sta     aws_tmp02+1
 
         ldy     #$0B
         lda     (buffer_ptr),y
@@ -347,10 +345,10 @@ cfl_rxlen_ok:
         lda     buffer_ptr
         clc
         adc     #13
-        sta     ptr1
+        sta     aws_tmp00
         lda     buffer_ptr+1
         adc     #$00
-        sta     ptr1+1
+        sta     aws_tmp01
 
 cfl_entry_loop:
         lda     cws_tmp2
@@ -359,28 +357,28 @@ cfl_entry_loop:
         jmp     cfl_entries_done
 :
 
-        lda     ptr1
-        cmp     ptr2
-        lda     ptr1+1
-        sbc     ptr2+1
+        lda     aws_tmp00
+        cmp     aws_tmp02
+        lda     aws_tmp01
+        sbc     aws_tmp02+1
         bcc     :+
         jmp     cfl_fail_a0
 :
 
         ldy     #$00
-        lda     (ptr1),y
+        lda     (aws_tmp00),y
         and     #$01
         sta     cws_tmp8
 
         ldy     #$01
-        lda     (ptr1),y
+        lda     (aws_tmp00),y
         sta     cws_tmp1
 
-        lda     ptr1
+        lda     aws_tmp00
         clc
         adc     #$02
         sta     aws_tmp08
-        lda     ptr1+1
+        lda     aws_tmp01
         adc     #$00
         sta     aws_tmp09
 
@@ -406,36 +404,36 @@ cfl_no_slash:
         jsr     print_newline
 
         ldy     #$01
-        lda     (ptr1),y
+        lda     (aws_tmp00),y
         sta     cws_tmp1
 
-        lda     ptr1
+        lda     aws_tmp00
         clc
         adc     #$02
         sta     aws_tmp08
-        lda     ptr1+1
+        lda     aws_tmp01
         adc     #$00
         sta     aws_tmp09
 
         lda     aws_tmp08
         clc
         adc     cws_tmp1
-        sta     ptr1
+        sta     aws_tmp00
         lda     aws_tmp09
         adc     #$00
-        sta     ptr1+1
+        sta     aws_tmp01
 
         lda     pws_tmp08
         and     #$02
         bne     cfl_compact_skip
 
-        lda     ptr1
+        lda     aws_tmp00
         clc
         adc     #16
-        sta     ptr1
-        lda     ptr1+1
+        sta     aws_tmp00
+        lda     aws_tmp01
         adc     #$00
-        sta     ptr1+1
+        sta     aws_tmp01
 
 cfl_compact_skip:
         lda     cws_tmp2

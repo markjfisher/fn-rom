@@ -24,7 +24,6 @@
         .import  fuji_current_fs_len
         .import  fuji_disk_slot
 
-        .importzp  ptr1
         .importzp  cws_tmp2
         .importzp  cws_tmp3
         .importzp  aws_tmp08
@@ -51,14 +50,14 @@ _cmd_fs_fmount:
         beq     @get_failed
 
         jsr     _fuji_data_buffer_ptr
-        sta     ptr1
-        stx     ptr1+1
+        sta     aws_tmp00
+        stx     aws_tmp01
 
         ; After FujiBus hdr + status [5],[6]: GetMount record is
         ; [7]=slot (echoes request; 0 for slot 0), [8]=flags (bit0=enabled),
         ; [9]=uri_len, [10..]=uri — matches SetMount tx layout at [6..]
         ldy     #$08
-        lda     (ptr1),y
+        lda     (aws_tmp00),y
         and     #$01
         bne     @enabled
         jmp     _err_not_enabled
@@ -66,7 +65,7 @@ _cmd_fs_fmount:
 @enabled:
         ; _fuji_fs_uri_ptr returns pointer in A/X — do not hold uri_len in X across it
         ldy     #$09
-        lda     (ptr1),y
+        lda     (aws_tmp00),y
         pha                     ; uri_len (stack)
 
         jsr     _fuji_fs_uri_ptr
@@ -90,7 +89,7 @@ _cmd_fs_fmount:
         clc
         adc     #$0A
         tay
-        lda     (ptr1),y
+        lda     (aws_tmp00),y
         pha
         ldy     fuji_channel_scratch
         pla

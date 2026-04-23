@@ -39,7 +39,6 @@
         .import  osbyte_X0YFF
         .import  remember_axy
         .import  remember_xy_only
-        .import  init_csp
 
         .include "fujinet.inc"
 
@@ -180,9 +179,6 @@ err_continue:
         ; otherwise we print until a 0 byte, and then BRK to command line
         bne     @errstr_loop
         ; jsr     tube_release  ; FUTURE: add this back in
-
-        ; we're crashing out, reset the c stack
-        jsr     init_csp
 
         ; BOOM - return to command line
         jmp     $0100

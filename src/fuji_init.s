@@ -4,7 +4,6 @@
         .export init_fuji
         .export set_private_workspace_pointer_b0
         .export boot_options
-        .export init_csp
         .export autoboot
         .export cmd_fs_disc
         .export cmd_fs_fuji
@@ -26,11 +25,11 @@
         .import tube_check_if_present
         .import vectors_table
 
-        .import    set_fuji_fs_uri_ptr
-        .import    get_fuji_host_uri_addr_to_aws_tmp6
+        .import set_fuji_fs_uri_ptr
+        .import get_fuji_host_uri_addr_to_aws_tmp6
 
-        .import    fuji_current_fs_len
-        .import    fuji_current_host_len
+        .import fuji_current_fs_len
+        .import fuji_current_host_len
 
         .importzp  aws_tmp06
         .importzp  buffer_ptr
@@ -58,15 +57,6 @@ boot_options:
 .assert >boot_options = >(boot_options + 10), lderror, "boot_options crosses a page"
 
         .segment "CODE"
-
-init_csp:
-        ; TODO: this should be driven from the PWS locations
-        ; TODO: ... or completely removed when we stop using C functions via cc65
-        lda     #<(__WORKSP_START__ + __WORKSP_SIZE__)
-        sta     c_sp
-        lda     #>(__WORKSP_START__ + __WORKSP_SIZE__)
-        sta     c_sp+1
-        rts
 
 autoboot:
         lda     aws_tmp03               ; the stored value of Y when service 03 was called
@@ -105,9 +95,6 @@ cmd_fs_fuji:
 init_fuji:
         jsr     return_with_a0        ; On entry: if A=0 then boot file
         pha
-
-        ; initialise c_sp for cc65 to the end of WORKSP segment, this resets CC65 stack
-        jsr     init_csp
 
         ; Register as new Filing System
         lda     #$06
