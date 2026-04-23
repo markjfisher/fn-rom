@@ -48,6 +48,8 @@
         .importzp  cws_tmp6
         .importzp  cws_tmp7
         .importzp  cws_tmp8
+        .importzp  pws_tmp08
+        .importzp  pws_tmp09
 
         .include "fujinet.inc"
 
@@ -55,8 +57,6 @@
 
 FLIST_URI_BUFFER_SIZE   = FUJI_FS_URI_BUFFER_SIZE
 FLIST_PAGE_SIZE         = 10
-; compact (omit per-entry metadata) | sort by basename
-FLIST_LIST_FLAGS        = $03
 
 
 _err_no_host_flist:
@@ -127,7 +127,7 @@ _cmd_fs_flist:
         adc     cws_tmp7
         sta     cws_tmp7
 
-        lda     cws_tmp4
+        lda     pws_tmp09
         bne     @page_loop
 
 @done_ok:
@@ -139,13 +139,37 @@ _cmd_fs_flist:
 ;------------------------------------------------------------------------------
 ; One ListDirectory page. Input: start_index in cws_tmp6/7.
 ; Output: A=1 ok / A=0 fail; aws_tmp10/11 = returned count;
-;         cws_tmp4 = more (0/1); uses buffer_ptr packet buffer.
+;         pws_tmp09 = more pages (0/1); buffer_ptr aliases cws_tmp4/cws_tmp5 only.
 ;------------------------------------------------------------------------------
 @flist_one_page:
         jsr     _fuji_data_buffer_ptr
 
         lda     fuji_current_fs_len
+        sta     cws_tmp8
+
+        jsr     get_fuji_fs_uri_addr_to_aws_tmp6
+
+        lda     #$00
+        tay
+@scan_uri_nul:
+        lda     (aws_tmp06),y
+        beq     @uri_len_from_nul
+        iny
+        cpy     cws_tmp8
+        bcc     @scan_uri_nul
+
+        lda     cws_tmp8
         sta     cws_tmp1
+        jmp     @uri_len_ok
+
+@uri_len_from_nul:
+        sty     cws_tmp1
+
+@uri_len_ok:
+        lda     cws_tmp1
+        bne     :+
+        jmp     @fail_a0
+:
 
         ldy     #$06
         lda     #FN_PROTOCOL_VERSION
@@ -165,7 +189,9 @@ _cmd_fs_flist:
         adc     #$00
         sta     ptr1+1
 
-        jsr     get_fuji_fs_uri_addr_to_aws_tmp6
+        ; aws_tmp06/07 still hold FS URI from get_fuji_fs_uri_addr above — do not call
+        ; get_fuji_fs_uri_addr_to_aws_tmp6 here: it runs set_private_workspace_pointer_b0
+        ; and clears ptr1 low, so the copy would start at buffer base and clobber +6/+7/+8.
 
         ldy     #$00
 @tx_uri:
@@ -197,13 +223,10 @@ _cmd_fs_flist:
         iny
         lda     #$00
         sta     (ptr1),y
-        iny
-        lda     #FLIST_LIST_FLAGS
-        sta     (ptr1),y
 
         lda     cws_tmp1
         clc
-        adc     #8
+        adc     #7
         sta     aws_tmp12
         lda     #$00
         adc     #$00
@@ -271,9 +294,9 @@ _cmd_fs_flist:
 
         ldy     #$08
         lda     (buffer_ptr),y
-        sta     cws_tmp5
+        sta     pws_tmp08
         and     #$01
-        sta     cws_tmp4
+        sta     pws_tmp09
 
         lda     buffer_ptr
         clc
@@ -376,7 +399,7 @@ _cmd_fs_flist:
         adc     #$00
         sta     ptr1+1
 
-        lda     cws_tmp5
+        lda     pws_tmp08
         and     #$02
         bne     @compact_skip
 

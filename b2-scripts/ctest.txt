@@ -3,4 +3,4 @@ REM *FIN net.ssd
 REM *FIN osargs.ssd
 REM *FMOUNT 0 0
 REM *.
-*FLS
+REM *FLS
