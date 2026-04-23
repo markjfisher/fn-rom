@@ -11,7 +11,6 @@
         .export  calc_checksum_continue
 
         .import  inc_word_aws_tmp00_dec_word_aws_tmp02
-        .import  popax
 
         .include "fujinet.inc"
 

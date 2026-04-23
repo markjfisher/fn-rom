@@ -273,12 +273,10 @@ aws_tmp13       := $BD
 aws_tmp14       := $BE
 aws_tmp15       := $BF
 
-; FujiBus TX — before jsr _fujibus_send_packet: payload length in A/X; set these four bytes:
-; payload source pointer is copied internally to aws_tmp00/01 during send (same scratch as legacy path).
+; FujiBus TX — before jsr _fujibus_send_packet: payload length in A/X; payload pointer below.
+; Device/command slots are defined after pws_tmp15 — must not use aws_tmp14/15 (see there).
 fuji_bus_tx_payload_lo  := aws_tmp10
 fuji_bus_tx_payload_hi  := aws_tmp11
-fuji_bus_tx_device      := aws_tmp14
-fuji_bus_tx_command     := aws_tmp15
 
 
 ; Private workspace variables
@@ -300,6 +298,11 @@ pws_tmp12       := $CC   ; ALSO directory_param
 pws_tmp13       := $CD   ; ALSO current_drv
 pws_tmp14       := $CE   ; cc65 uses these 2 as c_sp
 pws_tmp15       := $CF
+
+; FujiBus TX device/command — staged here so we do not clobber aws_tmp14/15: fuji_read_block_data
+; (fuji_serial.s) stores fuji_block_size / full-sector loop count in aws_tmp14/15 during LOAD.
+fuji_bus_tx_device      := pws_tmp14
+fuji_bus_tx_command     := pws_tmp15
 
 text_pointer    := $F2
 paged_ram_copy  := $F4
