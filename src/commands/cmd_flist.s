@@ -1,10 +1,6 @@
 ; *FLIST / *FLS — list directory via FileDevice ListDirectory (hand asm)
 
         .export  _cmd_fs_flist
-        .export  _parse_flist_params
-        .export  _err_bad_flist_path
-        .export  _err_flist_failed
-        .export  _err_no_host_flist
 
         .export  cfl_after_name
         .export  cfl_compact_skip
@@ -35,6 +31,7 @@
         .import  param_count
         .import  param_get_string
 
+        .import  _flist_resolve_target
         .import  _fuji_data_buffer_ptr
         .import  _fujibus_receive_packet
         .import  _fujibus_send_packet
@@ -97,6 +94,11 @@ _cmd_fs_flist:
         beq     _err_no_host_flist
 
 cfl_have_host:
+        jsr     _parse_flist_params
+        cmp     #$00
+        bne     cfl_resolve_target
+
+        lda     fuji_current_host_len
         cmp     #FLIST_URI_BUFFER_SIZE
         bcs     _err_bad_flist_path
 
@@ -124,7 +126,16 @@ cfl_zterm:
         lda     #$00
         sta     (aws_tmp02),y
 
-        jsr     print_newline
+        beq     cfl_start_list
+
+cfl_resolve_target:
+        jsr     _fuji_data_buffer_ptr
+        jsr     _flist_resolve_target
+        cmp     #$00
+        beq     _err_bad_flist_path
+
+cfl_start_list:
+        ; jsr     print_newline
 
         ; ListDirectory start_index (16-bit). Must not live in cws_tmp6/7 ($AD/$AE):
         ; MOS/OSWRCH uses those ZP cells while printing entries — stomps accumulation.
@@ -157,7 +168,10 @@ cfl_done_ok:
         jmp     exit_user_ok
 
 cfl_page_fail:
-        jmp     _err_flist_failed
+_err_flist_failed:
+        jsr     report_error
+        .byte   $CB
+        .byte   "Directory list failed", 0
 
 ;------------------------------------------------------------------------------
 ; One ListDirectory page. Input: start_index in pws_tmp04/pws_tmp05.
@@ -469,8 +483,3 @@ cfl_read_string:
         sta     fuji_filename_len
         lda     #$01
         rts
-
-_err_flist_failed:
-        jsr     report_error
-        .byte   $CB
-        .byte   "Directory list failed", 0
