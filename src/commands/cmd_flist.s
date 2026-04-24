@@ -6,17 +6,12 @@
         .export  cfl_compact_skip
         .export  cfl_copy_uri
         .export  cfl_done_ok
-        .export  cfl_entries_done
         .export  cfl_entry_loop
-        .export  cfl_fail_a0
         .export  cfl_flist_one_page
-        .export  cfl_have_host
         .export  cfl_len_ok
         .export  cfl_no_slash
-        .export  cfl_page_fail
         .export  cfl_page_loop
         .export  cfl_pr_chars
-        .export  cfl_read_string
         .export  cfl_rxlen_ok
         .export  cfl_scan_uri_nul
         .export  cfl_tx_uri
@@ -81,11 +76,6 @@ _err_no_host_flist:
         .byte   $CB
         .byte   "No host set", 0
 
-_err_bad_flist_path:
-        jsr     err_bad
-        .byte   $CB
-        .byte   "path", 0
-
 ;------------------------------------------------------------------------------
 ; uint8_t cmd_fs_flist(void)
 ;------------------------------------------------------------------------------
@@ -93,11 +83,25 @@ _cmd_fs_flist:
         lda     fuji_current_host_len
         beq     _err_no_host_flist
 
-cfl_have_host:
-        jsr     _parse_flist_params
-        cmp     #$00
-        bne     cfl_resolve_target
+_parse_flist_params:
+        jsr     param_count
+        bcc     cfl_no_param
 
+        clc                                     ; terminate with spaces
+        jsr     param_get_string
+        sta     fuji_filename_len
+
+        jsr     _fuji_data_buffer_ptr
+        jsr     _flist_resolve_target
+        bcc     cfl_start_list
+
+        ; fall through to error
+_err_bad_flist_path:
+        jsr     err_bad
+        .byte   $CB
+        .byte   "path", 0
+
+cfl_no_param:
         lda     fuji_current_host_len
         cmp     #FLIST_URI_BUFFER_SIZE
         bcs     _err_bad_flist_path
@@ -109,7 +113,7 @@ cfl_len_ok:
         lda     aws_tmp06
         sta     aws_tmp02
         lda     aws_tmp07
-        sta     aws_tmp02+1
+        sta     aws_tmp03
 
         jsr     get_fuji_host_uri_addr_to_aws_tmp6
 
@@ -126,17 +130,7 @@ cfl_zterm:
         lda     #$00
         sta     (aws_tmp02),y
 
-        beq     cfl_start_list
-
-cfl_resolve_target:
-        jsr     _fuji_data_buffer_ptr
-        jsr     _flist_resolve_target
-        cmp     #$00
-        beq     _err_bad_flist_path
-
 cfl_start_list:
-        ; jsr     print_newline
-
         ; ListDirectory start_index (16-bit). Must not live in cws_tmp6/7 ($AD/$AE):
         ; MOS/OSWRCH uses those ZP cells while printing entries — stomps accumulation.
 
@@ -146,9 +140,14 @@ cfl_start_list:
 
 cfl_page_loop:
         jsr     cfl_flist_one_page
-        cmp     #$00
-        beq     cfl_page_fail
+        bcc     :+
 
+cfl_page_fail:
+        jsr     report_error
+        .byte   $CB
+        .byte   "Directory list failed", 0
+
+:
         lda     pws_tmp06
         ora     pws_tmp07
         beq     cfl_done_ok
@@ -167,16 +166,10 @@ cfl_page_loop:
 cfl_done_ok:
         jmp     exit_user_ok
 
-cfl_page_fail:
-_err_flist_failed:
-        jsr     report_error
-        .byte   $CB
-        .byte   "Directory list failed", 0
 
 ;------------------------------------------------------------------------------
 ; One ListDirectory page. Input: start_index in pws_tmp04/pws_tmp05.
-; Output: A=1 ok / A=0 fail; pws_tmp06/07 = this page entry count (not aws_tmp10/11:
-; those alias cc65 ptr4 — OSASCI corrupts ptr4 while printing names).
+; Output: C=0 ok / C=1 fail; pws_tmp06/07 = this page entry count
 ;         pws_tmp09 = more pages (0/1); buffer_ptr aliases cws_tmp4/cws_tmp5 only.
 ;------------------------------------------------------------------------------
 cfl_flist_one_page:
@@ -206,9 +199,12 @@ cfl_uri_len_from_nul:
 cfl_uri_len_ok:
         lda     cws_tmp1
         bne     :+
-        jmp     cfl_fail_a0
-:
 
+        ; error out
+        sec
+        rts
+
+:
         ldy     #$06
         lda     #FN_PROTOCOL_VERSION
         sta     (buffer_ptr),y
@@ -297,38 +293,33 @@ cfl_tx_uri_done:
 
         lda     aws_tmp12
         ora     aws_tmp13
-        bne     :+
-        jmp     cfl_fail_a0
-:
+        beq     cfl_fail_c1
 
+        ; check RX len in aws_tmp12/13
         lda     aws_tmp13
         bne     cfl_rxlen_ok
         lda     aws_tmp12
         cmp     #13
-        bcs     :+
-        jmp     cfl_fail_a0
-:
+        bcs     cfl_rxlen_ok
+
+cfl_fail_c1:
+        sec
+        rts
 
 cfl_rxlen_ok:
         ldy     #$05
         lda     (buffer_ptr),y
         cmp     #$01
-        beq     :+
-        jmp     cfl_fail_a0
-:
+        bne     cfl_fail_c1
 
         ldy     #$06
         lda     (buffer_ptr),y
-        beq     :+
-        jmp     cfl_fail_a0
-:
+        bne     cfl_fail_c1
 
         ldy     #$07
         lda     (buffer_ptr),y
         cmp     #FN_PROTOCOL_VERSION
-        beq     :+
-        jmp     cfl_fail_a0
-:
+        bne     cfl_fail_c1
 
         ldy     #$08
         lda     (buffer_ptr),y
@@ -368,16 +359,18 @@ cfl_entry_loop:
         lda     cws_tmp2
         ora     cws_tmp3
         bne     :+
-        jmp     cfl_entries_done
-:
 
+        ; successful return from cfl_flist_one_page, the only good exit
+        clc
+        rts
+
+:
+        ; validate not greater
         lda     aws_tmp00
         cmp     aws_tmp02
         lda     aws_tmp01
         sbc     aws_tmp02+1
-        bcc     :+
-        jmp     cfl_fail_a0
-:
+        bcs     cfl_fail_c1
 
         ldy     #$00
         lda     (aws_tmp00),y
@@ -457,29 +450,3 @@ cfl_compact_skip:
         dec     cws_tmp2
 
         jmp     cfl_entry_loop
-
-cfl_entries_done:
-        lda     #$01
-        rts
-
-cfl_fail_a0:
-        lda     #$00
-        rts
-
-;------------------------------------------------------------------------------
-; uint8_t parse_flist_params()
-;------------------------------------------------------------------------------
-_parse_flist_params:
-        jsr     param_count
-        bcs     cfl_read_string
-
-        lda     #$00
-        tax
-        rts
-
-cfl_read_string:
-        clc
-        jsr     param_get_string
-        sta     fuji_filename_len
-        lda     #$01
-        rts

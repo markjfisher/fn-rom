@@ -28,14 +28,12 @@
 
 FUJI_FILENAME_BUF     = $1000
 
-; bool flist_resolve_target(void)
-;   Success: A=1, X=0. Failure: A=0, X=0.
+;   Success: C=0, failure C=1
 
 _flist_resolve_target:
         lda     fuji_current_host_len
         bne     @got_host
-        lda     #$00
-        ldx     #$00
+        sec                                     ; C=1 is an error
         rts
 
 @got_host:
@@ -147,8 +145,7 @@ _flist_resolve_target:
         bcs     @recv_ok
 
 @fail:
-        lda     #$00
-        ldx     #$00
+        sec
         rts
 
 @recv_ok:
@@ -209,6 +206,5 @@ _flist_resolve_target:
         sta     (aws_tmp06),y
 
 @success:
-        lda     #$01
-        ldx     #$00
+        clc
         rts
