@@ -1,30 +1,19 @@
 ; *FHOST / *FFS — set or show canonical host URI (FileDevice ResolvePath)
         .export  cmd_fs_fhost
 
+        ; exports for debug
+        .export  fhost_copy_and_resolve
+
+        .import  exit_user_ok
+        .import  fuji_dir_path_ptr
+        .import  fuji_host_uri_ptr
+        .import  fuji_resolve_path
         .import  param_count
         .import  param_get_string
-
-        .import  err_bad
-        .import  report_error
-
         .import  print_char
         .import  print_newline
         .import  print_string_ax
-
-        .import  exit_user_ok
-
-        .import  fuji_host_uri_ptr
-        .import  fuji_dir_path_ptr
-        .import  fuji_resolve_path
-
-        .import  fuji_filename_buffer
-        .import  fuji_filename_len
-        .import  fuji_current_host_len
-        .import  fuji_current_dir_len
-        .import  fuji_channel_scratch
-
-        .importzp cws_tmp2
-        .importzp cws_tmp3
+        .import  report_error
 
         .include "fujinet.inc"
 
@@ -126,10 +115,10 @@ fhost_copy_and_resolve:
         lda     fuji_filename_len
         sta     fuji_current_host_len
 
-        ldy     #$00
         lda     fuji_filename_len
         beq     @copy_done
         tax
+        ldy     #$00
 @copy:
         lda     fuji_filename_buffer,y
         sta     (cws_tmp2),y

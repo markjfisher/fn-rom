@@ -1,32 +1,19 @@
 ; *FIN — persist URI into FujiNet mount slot (host + filename → SetMount)
 
         .export  cmd_fs_fin
+
         .export  err_no_host
         .export  err_bad_mount_slot
 
-        .import  param_count_a
         .import  err_bad
-        .import  report_error
+        .import  exit_user_ok
+        .import  fuji_fs_uri_ptr
+        .import  fuji_set_slot
+        .import  get_fuji_host_uri_addr_to_aws_tmp00
+        .import  param_count_a
         .import  param_get_num
         .import  param_get_string
-
-        .import  fuji_filename_buffer
-        .import  fuji_filename_len
-        .import  fuji_disk_slot
-        .import  fuji_current_host_len
-        .import  fuji_current_fs_len
-
-        .import  exit_user_ok
-
-        .import  fuji_fs_uri_ptr
-        .import  get_fuji_host_uri_addr_to_aws_tmp00
-        .import  fuji_set_slot
-
-
-        .importzp cws_tmp2
-        .importzp cws_tmp3
-        .importzp aws_tmp06
-        .import  fuji_channel_scratch
+        .import  report_error
 
         .include "fujinet.inc"
 

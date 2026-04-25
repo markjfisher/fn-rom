@@ -1,30 +1,20 @@
 ; *FMOUNT — bind BBC drive to persisted FujiNet mount slot (GetMount + disk mount)
 
         .export  cmd_fs_fmount
+
         .export  err_bad_disk_mount
         .export  err_failed_to_mount
 
         .import  err_bad_mount_slot
-        .import  err_bad
+        .import  exit_user_ok
+        .import  fuji_data_buffer_ptr
+        .import  fuji_fs_uri_ptr
+        .import  fuji_get_slot
+        .import  fuji_mount_disk
         .import  param_count_a
         .import  param_get_num
         .import  param_optional_drive_no
         .import  report_error
-
-        .import  exit_user_ok
-        .import  fuji_data_buffer_ptr
-        .import  fuji_fs_uri_ptr
-
-        .import  fuji_get_slot
-        .import  fuji_mount_disk
-
-        .import  fuji_channel_scratch
-        .import  fuji_current_fs_len
-        .import  fuji_disk_slot
-
-        .importzp  cws_tmp2
-        .importzp  cws_tmp3
-        .importzp  aws_tmp08
 
         .include "fujinet.inc"
 

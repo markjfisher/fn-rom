@@ -23,24 +23,17 @@
         .import  err_bad
         .import  err_no_host
         .import  exit_user_ok
-        .import  report_error
-        .import  param_count
-        .import  param_get_string
-
         .import  flist_resolve_target
         .import  fuji_data_buffer_ptr
         .import  fujibus_receive_packet
         .import  fujibus_send_packet
-
         .import  get_fuji_fs_uri_addr_to_aws_tmp00
         .import  get_fuji_host_uri_addr_to_aws_tmp00
-
+        .import  param_count
+        .import  param_get_string
         .import  print_char
         .import  print_newline
-
-        .import  fuji_filename_len
-        .import  fuji_current_fs_len
-        .import  fuji_current_host_len
+        .import  report_error
 
         .include "fujinet.inc"
 
@@ -73,7 +66,7 @@ parse_flist_params:
         bcc     cfl_start_list
 
         ; fall through to error
-_err_bad_flist_path:
+err_bad_flist_path:
         jsr     err_bad
         .byte   $CB
         .byte   "path", 0
@@ -81,7 +74,7 @@ _err_bad_flist_path:
 cfl_no_param:
         lda     fuji_current_host_len
         cmp     #FLIST_URI_BUFFER_SIZE
-        bcs     _err_bad_flist_path
+        bcs     err_bad_flist_path
 
 cfl_len_ok:
         sta     fuji_current_fs_len
@@ -122,7 +115,7 @@ cfl_page_loop:
 cfl_page_fail:
         jsr     report_error
         .byte   $CB
-        .byte   "Directory list failed", 0
+        .byte   "Dir list err", 0
 
 :
         lda     pws_tmp06

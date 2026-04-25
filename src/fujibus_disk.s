@@ -599,7 +599,6 @@ fujibus_resolve_path:
 ; put rp_fail into branch range
 @rp_fail:
         lda     #$00
-        ; ldx     #$00
         rts
 
 
