@@ -4,6 +4,7 @@
 
         .export  err_bad_disk_mount
         .export  err_failed_to_mount
+        .export  mount_ok
 
         .import  err_bad_mount_slot
         .import  exit_user_ok
@@ -76,13 +77,19 @@ err_failed_to_mount:
         .byte   "Err reading slot", 0
 
 mount_ok:
-        jsr     set_fuji_data_buffer_ptr                ; TODO: can we use buffer_ptr directly now rather than aws_tmp00/01? This does set them in aws_tmp00/01 as well as buffer_ptr
+        ; put fs_uri location in cws_tmp2/3
+        jsr     fuji_fs_uri_ptr
+        sta     cws_tmp2
+        stx     cws_tmp3
+
+        ; set buffer_ptr/aws_tmp00/01 to PWS location
+        jsr     set_fuji_data_buffer_ptr
 
         ; After FujiBus hdr + status [5],[6]: GetMount record is
         ; [7]=slot (echoes request; 0 for slot 0), [8]=flags (bit0=enabled),
         ; [9]=uri_len, [10..]=uri — matches SetMount tx layout at [6..]
         ldy     #$08
-        lda     (aws_tmp00),y
+        lda     (buffer_ptr),y
         and     #$01
         bne     is_enabled
         ; fall through to error
@@ -94,41 +101,31 @@ mount_ok:
 is_enabled:
         ; fuji_fs_uri_ptr returns pointer in A/X — do not hold uri_len in X across it
         ldy     #$09
-        lda     (aws_tmp00),y
-        pha                     ; uri_len (stack)
-
-        jsr     fuji_fs_uri_ptr
-        sta     cws_tmp2
-        stx     cws_tmp3
+        lda     (buffer_ptr),y
+        tax                     ; uri_len (stack)
 
         lda     #$00
         ldy     #$00
         sta     (cws_tmp2),y
+        sta     cws_tmp6                ; used as a scratch value for following loop
 
-        lda     #$00
-        sta     fuji_channel_scratch
-
-        pla
-        tax                     ; uri_len back in X
-
+        cpx     #$00
         beq     @len_done
 
 @copy_uri:
-        lda     fuji_channel_scratch
+        lda     cws_tmp6
         clc
         adc     #$0A
         tay
-        lda     (aws_tmp00),y
-        pha
-        ldy     fuji_channel_scratch
-        pla
+        lda     (buffer_ptr),y
+        ldy     cws_tmp6
         sta     (cws_tmp2),y
-        inc     fuji_channel_scratch
+        inc     cws_tmp6
         dex
         bne     @copy_uri
 
 @len_done:
-        lda     fuji_channel_scratch
+        lda     cws_tmp6
         sta     fuji_current_fs_len
 
         lda     fuji_disk_slot
