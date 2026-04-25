@@ -77,7 +77,7 @@ err_failed_to_mount:
         .byte   "Err reading slot", 0
 
 mount_ok:
-        ; put fs_uri location in cws_tmp2/3
+        ; put fs_uri location in cws_tmp2/3, do it before set_fuji_data_buffer_ptr
         jsr     fuji_fs_uri_ptr
         sta     cws_tmp2
         stx     cws_tmp3
@@ -99,28 +99,28 @@ mount_ok:
         .byte   "Not enabled", 0
 
 is_enabled:
-        ; fuji_fs_uri_ptr returns pointer in A/X — do not hold uri_len in X across it
         ldy     #$09
         lda     (buffer_ptr),y
-        tax                     ; uri_len (stack)
+        tax                     ; uri_len
 
         lda     #$00
         ldy     #$00
         sta     (cws_tmp2),y
         sta     cws_tmp6                ; used as a scratch value for following loop
+        lda     #$0A
+        sta     cws_tmp7                ; 10 above tmp6
 
         cpx     #$00
         beq     @len_done
 
+        ; copy X bytes from buffer_ptr+10 to fs_uri
 @copy_uri:
-        lda     cws_tmp6
-        clc
-        adc     #$0A
-        tay
+        ldy     cws_tmp7
         lda     (buffer_ptr),y
         ldy     cws_tmp6
         sta     (cws_tmp2),y
         inc     cws_tmp6
+        inc     cws_tmp7
         dex
         bne     @copy_uri
 
