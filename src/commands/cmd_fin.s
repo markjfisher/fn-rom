@@ -21,7 +21,7 @@
         .import  exit_user_ok
 
         .import  _fuji_fs_uri_ptr
-        .import  get_fuji_host_uri_addr_to_aws_tmp6
+        .import  get_fuji_host_uri_addr_to_aws_tmp00
         .import  fuji_set_slot
 
         .import  _err_bad_mount_slot
@@ -66,14 +66,14 @@ fin_build_full_uri:
         sta     cws_tmp2
         stx     cws_tmp3
 
-        jsr     get_fuji_host_uri_addr_to_aws_tmp6
+        jsr     get_fuji_host_uri_addr_to_aws_tmp00
 
         lda     fuji_current_host_len
         tax
         beq     @host_done
         ldy     #$00
 @copy_host:
-        lda     (aws_tmp06),y
+        lda     (aws_tmp00),y
         sta     (cws_tmp2),y
         iny
         dex

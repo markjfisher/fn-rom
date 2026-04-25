@@ -32,7 +32,7 @@
         .import  _fujibus_send_packet
 
         .import  get_fuji_fs_uri_addr_to_aws_tmp6
-        .import  get_fuji_host_uri_addr_to_aws_tmp6
+        .import  get_fuji_host_uri_addr_to_aws_tmp00
 
         .import  print_char
         .import  print_newline
@@ -115,13 +115,13 @@ cfl_len_ok:
         lda     aws_tmp07
         sta     aws_tmp03
 
-        jsr     get_fuji_host_uri_addr_to_aws_tmp6
+        jsr     get_fuji_host_uri_addr_to_aws_tmp00
 
         ldy     #$00
 cfl_copy_uri:
         cpy     fuji_current_fs_len
         beq     cfl_zterm
-        lda     (aws_tmp06),y
+        lda     (aws_tmp00),y
         sta     (aws_tmp02),y
         iny
         bne     cfl_copy_uri

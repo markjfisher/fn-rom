@@ -619,7 +619,7 @@ fuji_ch_handle_high     = fuji_channel_start + $1F  ; handle for fujinet resourc
 ; Canonical host URI from *FHOST ResolvePath lives in PWS at FUJI_HOST_URI_OFFSET (second
 ; 80-byte slot after the packet slice). Directory path for display is the suffix of that
 ; string; length in fuji_current_dir_len (wire path_len); PATH = host base + (host_len - dir_len).
-; Use fuji_host_uri_ptr() / get_fuji_host_uri_addr_to_aws_tmp6.
+; Use fuji_host_uri_ptr() / get_fuji_host_uri_addr_to_aws_tmp00.
 
 ; FS URI scratch (80 bytes) in PWS — FUJI_FS_URI_OFFSET / fuji_fs_uri_ptr (working cwd for FLS/FIN).
 

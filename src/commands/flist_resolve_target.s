@@ -7,7 +7,7 @@
         .import  _fujibus_send_packet
 
         .import  get_fuji_fs_uri_addr_to_aws_tmp6
-        .import  get_fuji_host_uri_addr_to_aws_tmp6
+        .import  get_fuji_host_uri_addr_to_aws_tmp00
 
         .importzp  buffer_ptr
         .importzp  aws_tmp06
@@ -62,13 +62,13 @@ _flist_resolve_target:
         adc     #$00
         sta     cws_tmp3
 
-        jsr     get_fuji_host_uri_addr_to_aws_tmp6
+        jsr     get_fuji_host_uri_addr_to_aws_tmp00
 
         ldy     #$00
 @copy_base:
         cpy     cws_tmp1
         beq     @after_base
-        lda     (aws_tmp06),y
+        lda     (aws_tmp00),y
         sta     (cws_tmp2),y
         iny
         bne     @copy_base

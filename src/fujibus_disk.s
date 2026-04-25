@@ -27,7 +27,7 @@
         .import  calc_checksum_continue
 
         .import  get_fuji_fs_uri_addr_to_aws_tmp6
-        .import  get_fuji_host_uri_addr_to_aws_tmp6
+        .import  get_fuji_host_uri_addr_to_aws_tmp00
 
         .include "fujinet.inc"
 
@@ -547,12 +547,12 @@ _fujibus_resolve_path:
         adc     #$00
         sta     cws_tmp3
 
-        jsr     get_fuji_host_uri_addr_to_aws_tmp6
+        jsr     get_fuji_host_uri_addr_to_aws_tmp00
         ldy     #$00
 @copy_base_uri:
         cpy     fuji_current_host_len
         beq     @finish_request
-        lda     (aws_tmp06),y
+        lda     (aws_tmp00),y
         sta     (cws_tmp2),y
         iny
         bne     @copy_base_uri
@@ -630,13 +630,13 @@ _fujibus_resolve_path:
         adc     #$00
         sta     cws_tmp3
 
-        jsr     get_fuji_host_uri_addr_to_aws_tmp6
+        jsr     get_fuji_host_uri_addr_to_aws_tmp00
         ldy     #$00
 @copy_resolved_uri:
         cpy     fuji_current_host_len
         beq     @get_dir_len
         lda     (cws_tmp2),y
-        sta     (aws_tmp06),y
+        sta     (aws_tmp00),y
         iny
         bne     @copy_resolved_uri
 
@@ -655,12 +655,12 @@ _fujibus_resolve_path:
         sta     fuji_current_dir_len
 @dir_len_ok:
         ; Optional NUL after URI for C-style use when host_len < 80
-        jsr     get_fuji_host_uri_addr_to_aws_tmp6
+        jsr     get_fuji_host_uri_addr_to_aws_tmp00
         ldy     fuji_current_host_len
         cpy     #80
         bcs     @rp_success
         lda     #$00
-        sta     (aws_tmp06),y
+        sta     (aws_tmp00),y
 
 @rp_success:
         lda     #$01

@@ -26,7 +26,7 @@
         .import vectors_table
 
         .import set_fuji_fs_uri_ptr
-        .import get_fuji_host_uri_addr_to_aws_tmp6
+        .import get_fuji_host_uri_addr_to_aws_tmp00
 
         .import fuji_current_fs_len
         .import fuji_current_host_len
@@ -241,8 +241,8 @@ setdefaults:
         lda     #$00
         tay
         sta     (buffer_ptr),y
-        jsr     get_fuji_host_uri_addr_to_aws_tmp6
-        sta     (aws_tmp06),y
+        jsr     get_fuji_host_uri_addr_to_aws_tmp00
+        sta     (aws_tmp00),y
         ldx     #$00
         stx     fuji_current_fs_len
         stx     fuji_current_dir_len

@@ -7,7 +7,7 @@
         .export _fuji_host_uri_ptr
         .export _fuji_dir_path_ptr
         .export get_fuji_fs_uri_addr_to_aws_tmp6
-        .export get_fuji_host_uri_addr_to_aws_tmp6
+        .export get_fuji_host_uri_addr_to_aws_tmp00
 
         .import  remember_axy
         .import  fuji_current_host_len
@@ -125,16 +125,15 @@ get_fuji_fs_uri_addr_to_aws_tmp6:
         rts
 
 ; Host URI (*FHOST) storage address in aws_tmp06/aws_tmp07 (does not modify buffer_ptr)
-; TODO: this can be improved, PWS is always on a boundary, so lower byte is 00
-get_fuji_host_uri_addr_to_aws_tmp6:
+get_fuji_host_uri_addr_to_aws_tmp00:
         jsr     set_private_workspace_pointer_b0
-        lda     aws_tmp00
+        ; lower byte always 00 as it's a page boundary, so we can avoid an ADC
+        lda     #<(FUJI_HOST_URI_OFFSET)
+        sta     aws_tmp00
         clc
-        adc     #<(FUJI_HOST_URI_OFFSET)
-        sta     aws_tmp06
         lda     aws_tmp01
         adc     #>(FUJI_HOST_URI_OFFSET)
-        sta     aws_tmp07
+        sta     aws_tmp01
         rts
 
 ; Copy valuable data from static workspace (sws) to private workspace (pws)
