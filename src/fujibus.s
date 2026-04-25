@@ -11,8 +11,8 @@
 
         .segment "CODE"
 
-        .export _fujibus_send_packet
-        .export _fujibus_receive_packet
+        .export fujibus_send_packet
+        .export fujibus_receive_packet
 
         ; for debug
         .export fujibus_send_packet_impl
@@ -25,7 +25,7 @@ fujibus_header_size = 6
 ; Caller must set ZP slots (see os.s): fuji_bus_tx_device, fuji_bus_tx_command,
 ; fuji_bus_tx_payload_lo/hi → first byte of payload source to copy after the wire header.
 
-_fujibus_send_packet:
+fujibus_send_packet:
         sta     fuji_ax_save
         stx     fuji_ax_save+1
 
@@ -168,7 +168,7 @@ fujibus_send_packet_impl:
 
 ; uint16_t fujibus_receive_packet(void)
 
-_fujibus_receive_packet:
+fujibus_receive_packet:
         lda     aws_tmp00
         pha
         lda     aws_tmp01

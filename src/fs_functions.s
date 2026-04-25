@@ -3,6 +3,7 @@
         .export cmp_ptr_ext
         .export conv_yhndl_intch_exyintch
         .export err_bad_drive
+        .export err_bad_string
         .export err_syntax
         .export fscv1_eof_yhndl
         .export fscv7_hndlrange
@@ -47,10 +48,6 @@
         .export param_count
         .export param_count_a
         .export param_drive_or_default
-
-        .export _err_bad_string
-        .export _num_params
-        .export _param_get_num
 
         .import GSINIT_A
         .import a_rolx5
@@ -424,7 +421,6 @@ param_get_string_no_init:
         ; C=0 for truncated string (max hit), C=1 for string read to end
         rts
 
-_err_bad_string:
 err_bad_string:
         jsr     err_bad
         .byte   $CB                             ; error code, need to decide what values to set in fujinet overall
@@ -433,7 +429,6 @@ err_bad_string:
 ; read a generic number, continuing from current read position (Y)
 ; non optional, error if it's not between 0-9
 ; returns result in A, X is preserved
-_param_get_num:
 param_get_num:
         jsr     GSINIT_A
         beq     err_bad_num
@@ -880,7 +875,6 @@ param_count_a:
         rts
 
 ; just read the number of parameters on command line, return in A (set X to 0)
-_num_params:
 num_params:
         tya                             ; save Y
         pha

@@ -1,11 +1,11 @@
 ; Workspace utility functions
         .export save_static_to_private_workspace
-        .export set_fuji_data_buffer_ptr
+        .export setfuji_data_buffer_ptr
         .export set_fuji_fs_uri_ptr
-        .export _fuji_data_buffer_ptr
-        .export _fuji_fs_uri_ptr
-        .export _fuji_host_uri_ptr
-        .export _fuji_dir_path_ptr
+        .export fuji_data_buffer_ptr
+        .export fuji_fs_uri_ptr
+        .export fuji_host_uri_ptr
+        .export fuji_dir_path_ptr
         .export get_fuji_fs_uri_addr_to_aws_tmp00
         .export get_fuji_host_uri_addr_to_aws_tmp00
 
@@ -24,7 +24,7 @@
 
 ; Set buffer_ptr to PWS (FujiBus RX/TX packet buffer is at location 0).
 ; TODO: this can be improved, PWS is always on a boundary, so lower byte is 00
-set_fuji_data_buffer_ptr:
+setfuji_data_buffer_ptr:
         jsr     set_private_workspace_pointer_b0
         lda     aws_tmp00
         sta     buffer_ptr
@@ -35,7 +35,7 @@ set_fuji_data_buffer_ptr:
 ; Set buffer_ptr to PWS + FUJI_PWS_PACKET_OFFSET (FujiBus RX/TX packet buffer).
 ; THIS IS OPTIMIZED TO USE THE FACT THE WHOLE BUFFER STARTS ON A PAGE BOUNDARY
 set_fuji_fs_uri_ptr:
-        jsr     set_fuji_data_buffer_ptr
+        jsr     setfuji_data_buffer_ptr
 
         ; directly add 280, the FUJI_PWS_PACKET_SIZE, just inc the high byte, then add 280-256 = 24
         ; and use the fact we know buffer_ptr lower byte is 0 from being on a boundary, so just need to set it rather than add
@@ -46,9 +46,9 @@ set_fuji_fs_uri_ptr:
 
 ; uint8_t *fuji_data_buffer_ptr(void);  return in A/X
 ; used by C functions to get the buffer_ptr
-_fuji_data_buffer_ptr:
+fuji_data_buffer_ptr:
         ; ensure it's set correctly first
-        jsr     set_fuji_data_buffer_ptr
+        jsr     setfuji_data_buffer_ptr
         lda     buffer_ptr
         ldx     buffer_ptr+1
         rts
@@ -58,7 +58,7 @@ _fuji_data_buffer_ptr:
 ; RX/TX packet at PWS+0; C often calls this between fuji_data_buffer_ptr() and send/receive.
 ; Amends aws_tmp00 as calculating vector.
 ; TODO: this can be improved, PWS is always on a boundary, so lower byte is 00
-_fuji_fs_uri_ptr:
+fuji_fs_uri_ptr:
         jsr     set_private_workspace_pointer_b0
         lda     aws_tmp00
         clc
@@ -72,7 +72,7 @@ _fuji_fs_uri_ptr:
 
 ; uint8_t *fuji_host_uri_ptr(void);  return in A/X — PWS + FUJI_HOST_URI_OFFSET
 ; TODO: this can be improved, PWS is always on a boundary, so lower byte is 00
-_fuji_host_uri_ptr:
+fuji_host_uri_ptr:
         jsr     set_private_workspace_pointer_b0
         lda     aws_tmp00
         clc
@@ -87,7 +87,7 @@ _fuji_host_uri_ptr:
 ; uint8_t *fuji_dir_path_ptr(void);  return in A/X
 ; PATH = suffix of canonical host URI: PWS host base + (host_len - dir_len).
 ; TODO: this can be improved, PWS is always on a boundary, so lower byte is 00
-_fuji_dir_path_ptr:
+fuji_dir_path_ptr:
         jsr     set_private_workspace_pointer_b0
         lda     aws_tmp00
         clc

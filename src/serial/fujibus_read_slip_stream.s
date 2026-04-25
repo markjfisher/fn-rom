@@ -1,7 +1,7 @@
         .export  fujibus_read_slip_stream
 
-        .import  _check_rs423_buffer
-        .import  _read_rs423_char
+        .import  check_rs423_buffer
+        .import  read_rs423_char
         .import  setup_serial_19200
         .import  restore_output_to_screen
 
@@ -46,10 +46,10 @@ fujibus_read_slip_stream:
 
 @wait_start:
 
-        jsr     _check_rs423_buffer
+        jsr     check_rs423_buffer
         beq     @dec_wait_start
 
-        jsr     _read_rs423_char
+        jsr     read_rs423_char
         ldx     cws_tmp1
         beq     @no_error
         jmp     @error
@@ -101,10 +101,10 @@ fujibus_read_slip_stream:
 
 @wait_char:
 
-        jsr     _check_rs423_buffer
+        jsr     check_rs423_buffer
         beq     @dec_wait_char
 
-        jsr     _read_rs423_char
+        jsr     read_rs423_char
         ldx     cws_tmp1
         bne     @read_err
 

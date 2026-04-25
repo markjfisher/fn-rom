@@ -3,13 +3,10 @@
 ; This is part of the Hardware Interface Layer (fuji_fs.s equivalent)
 
         .export fuji_mount_disk
-        .export _fuji_mount_disk
         .export fuji_unmount_disk
         .export fuji_get_mounted_disk
         .export fuji_set_slot
-        .export _fuji_set_slot
         .export fuji_get_slot
-        .export _fuji_get_slot
 
         .import fuji_mount_disk_data
         .import fuji_set_mount_slot_data
@@ -35,8 +32,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 fuji_mount_disk:
-        ; C-friendly alias for calling from C
-_fuji_mount_disk:
         jsr     remember_xy_only
         
         ; Record the mapping: fuji_drive_disk_map[current_drv] = disk_num
@@ -91,8 +86,6 @@ fuji_get_mounted_disk:
 ;//////////////////////////////////////////////////////////////////////
 
 fuji_set_slot:
-        ; C-friendly alias for calling from C
-_fuji_set_slot:
         jsr     remember_xy_only
         
         ; NOTE: fuji_disk_slot is already set by the caller (via parameter parsing)
@@ -117,8 +110,6 @@ _fuji_set_slot:
 ;//////////////////////////////////////////////////////////////////////
 
 fuji_get_slot:
-        ; C-friendly alias for calling from C
-_fuji_get_slot:
         jsr     remember_xy_only
         
         ; NOTE: fuji_disk_slot is already set by the caller (via parameter parsing)

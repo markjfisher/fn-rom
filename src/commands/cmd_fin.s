@@ -1,10 +1,8 @@
 ; *FIN — persist URI into FujiNet mount slot (host + filename → SetMount)
 
-        .export  _cmd_fs_fin
-        .export  _parse_fin_params
-        .export  _err_no_host
-        .export  _err_bad_filename
-        .export  _err_set_mount_failed
+        .export  cmd_fs_fin
+        .export  err_no_host
+        .export  err_bad_mount_slot
 
         .import  param_count_a
         .import  err_bad
@@ -20,11 +18,10 @@
 
         .import  exit_user_ok
 
-        .import  _fuji_fs_uri_ptr
+        .import  fuji_fs_uri_ptr
         .import  get_fuji_host_uri_addr_to_aws_tmp00
         .import  fuji_set_slot
 
-        .import  _err_bad_mount_slot
 
         .importzp cws_tmp2
         .importzp cws_tmp3
@@ -40,12 +37,40 @@ MAX_MOUNT_SLOT := 7
 ;------------------------------------------------------------------------------
 ; uint8_t cmd_fs_fin(void)
 ;------------------------------------------------------------------------------
-_cmd_fs_fin:
-        jsr     _parse_fin_params
-
+cmd_fs_fin:
+        ; check host is set before doing anything
         lda     fuji_current_host_len
-        bne     @have_host
-        jmp     _err_no_host
+        bne     have_host
+
+err_no_host:
+        jsr     report_error
+        .byte   $CB
+        .byte   "No host set", 0
+
+have_host:
+        ; parse parameters
+        lda     #$80
+        jsr     param_count_a
+        bcc     @one_param_only
+
+        jsr     param_get_num
+        cmp     #MAX_MOUNT_SLOT+1
+        bcs     err_bad_mount_slot
+
+@ok_slot:
+        sta     fuji_disk_slot
+        bcc     @read_filename
+
+@one_param_only:
+        lda     #$00
+        sta     fuji_disk_slot
+
+@read_filename:
+        clc
+        jsr     param_get_string
+        sta     fuji_filename_len
+
+
 
 @have_host:
         jsr     fin_build_full_uri
@@ -53,16 +78,25 @@ _cmd_fs_fin:
         jsr     fuji_set_slot
         cmp     #$00
         bne     @set_ok
-        jmp     _err_set_mount_failed
+
+        jsr     report_error
+        .byte   $CB
+        .byte   "Set Mount error", 0
 
 @set_ok:
         jmp     exit_user_ok
 
+
+err_bad_mount_slot:
+        ; this terminates command because the byte after the string is 0
+        jsr     err_bad
+        .byte   $CB                     ; TODO sort out what error codes we want to return
+        .byte   "mount slot", 0         ; terminate after message
 ;------------------------------------------------------------------------------
 ; Build full URI in PWS FS slot: host || filename, NUL, fuji_current_fs_len
 ;------------------------------------------------------------------------------
 fin_build_full_uri:
-        jsr     _fuji_fs_uri_ptr
+        jsr     fuji_fs_uri_ptr
         sta     cws_tmp2
         stx     cws_tmp3
 
@@ -119,7 +153,7 @@ fin_build_full_uri:
 ; 1 arg: filename only → fuji_disk_slot = 0
 ; 2 args: slot then filename (slot 0–7)
 ;------------------------------------------------------------------------------
-_parse_fin_params:
+parse_fin_params:
         lda     #$80
         jsr     param_count_a
 
@@ -130,11 +164,11 @@ _parse_fin_params:
         cmp     #MAX_MOUNT_SLOT+1
         bcc     @ok_slot
 
-        jmp     _err_bad_mount_slot
+        bcs     err_bad_mount_slot
 
 @ok_slot:
         sta     fuji_disk_slot
-        jmp     @read_filename
+        bcc     @read_filename
 
 @one_param_only:
         lda     #$00
@@ -145,18 +179,3 @@ _parse_fin_params:
         jsr     param_get_string
         sta     fuji_filename_len
         rts
-
-_err_no_host:
-        jsr     report_error
-        .byte   $CB
-        .byte   "No host set", 0
-
-_err_bad_filename:
-        jsr     err_bad
-        .byte   $CB
-        .byte   "filename", 0
-
-_err_set_mount_failed:
-        jsr     report_error
-        .byte   $CB
-        .byte   "Set Mount error", 0

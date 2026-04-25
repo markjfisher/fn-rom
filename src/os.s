@@ -188,7 +188,7 @@
         .exportzp  cws_tmp4
         .exportzp  cws_tmp5
         ; 16-bit pointer to FujiBus packet buffer in PWS (aliases cws_tmp4/5). Set by
-        ; set_fuji_data_buffer_ptr from fuji_begin_transaction; do not use as scratch
+        ; setfuji_data_buffer_ptr from fuji_begin_transaction; do not use as scratch
         ; across any call that may begin a Fuji transaction (or save Y elsewhere).
         .exportzp  buffer_ptr
         .exportzp  cws_tmp6
@@ -273,7 +273,7 @@ aws_tmp13       := $BD
 aws_tmp14       := $BE
 aws_tmp15       := $BF
 
-; FujiBus TX — before jsr _fujibus_send_packet: payload length in A/X; payload pointer below.
+; FujiBus TX — before jsr fujibus_send_packet: payload length in A/X; payload pointer below.
 ; Device/command slots are defined after pws_tmp15 — must not use aws_tmp14/15 (see there).
 fuji_bus_tx_payload_lo  := aws_tmp10
 fuji_bus_tx_payload_hi  := aws_tmp11
@@ -624,7 +624,7 @@ fuji_ch_handle_high     = fuji_channel_start + $1F  ; handle for fujinet resourc
 ; FS URI scratch (80 bytes) in PWS — FUJI_FS_URI_OFFSET / fuji_fs_uri_ptr (working cwd for FLS/FIN).
 
 ; FujiBus packet buffer: lives in private workspace (see FUJI_PWS_* in fujinet.inc).
-; Runtime base address is set in buffer_ptr (cws_tmp4/5) by set_fuji_data_buffer_ptr.
+; Runtime base address is set in buffer_ptr (cws_tmp4/5) by setfuji_data_buffer_ptr.
 
 ; should be free from $13C0 to $1500
 

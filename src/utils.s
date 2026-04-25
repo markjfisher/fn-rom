@@ -20,7 +20,7 @@
         .export  ucasea2
         .export  y_add7
         .export  y_add8
-        .export  _vblank
+        .export  vblank
 
         .export tube_claim
         .export tube_release
@@ -34,7 +34,7 @@
 
 
 ; set x to be the number of 1/50ths of a second to delay (via vertical sync)
-_vblank:
+vblank:
 osbyte_13_delay_a:
         tax
 micro_pause_start:

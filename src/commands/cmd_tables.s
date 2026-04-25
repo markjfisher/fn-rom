@@ -27,10 +27,10 @@
         .import cmd_fs_enable
         .import cmd_fs_ex
         .import cmd_fs_fboot
-        .import _cmd_fs_fhost
+        .import cmd_fs_fhost
         .import cmd_test
         ; .import cmd_fs_fls
-        .import _cmd_fs_flist
+        .import cmd_fs_flist
         .import cmd_fs_form
         .import cmd_fs_free
         .import cmd_fs_fuji
@@ -42,8 +42,8 @@
         .import cmd_fs_verify
         .import cmd_fs_wipe
 
-        .import _cmd_fs_fin
-        .import _cmd_fs_fmount
+        .import cmd_fs_fin
+        .import cmd_fs_fmount
         .import cmd_fs_funmount
         .import cmd_fs_fout
         .import cmd_fs_fdrive
@@ -197,13 +197,13 @@ cmd_table_help_cmds:
 ; OLD: cmdaddr4
 cmd_table_futils_cmds:
         .word   cmd_fs_fboot-1
-        .word   _cmd_fs_fhost-1
-        .word   _cmd_fs_fhost-1
+        .word   cmd_fs_fhost-1
+        .word   cmd_fs_fhost-1
         .word   cmd_fs_fdrive-1
-        .word   _cmd_fs_fin-1
-        .word   _cmd_fs_flist-1
-        .word   _cmd_fs_flist-1
-        .word   _cmd_fs_fmount-1
+        .word   cmd_fs_fin-1
+        .word   cmd_fs_flist-1
+        .word   cmd_fs_flist-1
+        .word   cmd_fs_fmount-1
         .word   cmd_fs_funmount-1
         .word   cmd_fs_fout-1
         .word   cmd_fs_freset-1

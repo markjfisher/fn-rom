@@ -4,14 +4,10 @@
         .export flush_serial
         .export restore_output_to_screen
         .export setup_serial_19200
-        
-        .export _flush_serial
-        .export _restore_output_to_screen
-        .export _setup_serial_19200
 
         ; functions used by C
-        .export _check_rs423_buffer
-        .export _read_rs423_char
+        .export check_rs423_buffer
+        .export read_rs423_char
 
         .import err_bad_response
 
@@ -48,7 +44,6 @@ BUFFER_SERIAL_INPUT     = $01   ; Serial input buffer
 ; Modifies: A, X, Y
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-_setup_serial_19200:
 setup_serial_19200:
         ; Set RX baud to 19200
         ldx     #BAUD_19200
@@ -75,7 +70,6 @@ setup_serial_19200:
         jsr     OSBYTE
         ; ... drop through to flush
 
-_flush_serial:
 flush_serial:
         ; Flush serial input buffer
         ldx     #BUFFER_SERIAL_INPUT
@@ -89,7 +83,6 @@ flush_serial:
 ; Modifies: A, X, Y
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-_restore_output_to_screen:
 restore_output_to_screen:
         ; Restore output to screen
         ldx     #OUTPUT_SCREEN
@@ -105,13 +98,13 @@ restore_output_to_screen:
         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; _check_rs423_buffer - Check if RS423 buffer has data
+; check_rs423_buffer - Check if RS423 buffer has data
 ; C prototype: uint8_t check_rs423_buffer(void);
 ; Returns: A = number of characters in buffer (0-255)
 ; Modifies: A, X, Y
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-_check_rs423_buffer:
+check_rs423_buffer:
         ; OSBYTE 128 (0x80), X=254 (RS423 buffer), Y=255
         lda     #$80            ; OSBYTE 128 (READ_ADC)
         ldx     #$FE            ; X = 254 (RS423 input buffer)
@@ -123,14 +116,14 @@ _check_rs423_buffer:
         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; _read_rs423_char - Read a character from RS423 buffer
+; read_rs423_char - Read a character from RS423 buffer
 ; C prototype: uint8_t read_rs423_char(void);
 ; Returns: A = character read
 ;          cws_tmp1 is 0 for good read, -1 for error
 ; Modifies: A, X, Y
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-_read_rs423_char:
+read_rs423_char:
         ; OSBYTE 145 (0x91), X=1 (RS423), Y=0
         lda     #$91            ; OSBYTE 145 (REMOVE_CHAR)
         ldx     #$01            ; X = 1 (RS423 buffer)

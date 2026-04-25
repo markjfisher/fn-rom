@@ -3,11 +3,8 @@
 ; This is part of the Hardware Interface Layer
 
         .export fuji_resolve_path
-        .export _fuji_resolve_path       ; C-friendly label
         .export fuji_set_host
-        .export _fuji_set_host           ; C-friendly label
         .export fuji_get_host
-        .export _fuji_get_host           ; C-friendly label
 
         .export fuji_resolve_path_data
         .export fuji_set_host_data
@@ -35,8 +32,6 @@
 ;//////////////////////////////////////////////////////////////////////
 
 fuji_resolve_path:
-        ; C-friendly alias for calling from C
-_fuji_resolve_path:
         jsr     remember_xy_only
         
         ; Call hardware-specific implementation
@@ -57,8 +52,6 @@ _fuji_resolve_path:
 ;//////////////////////////////////////////////////////////////////////
 
 fuji_set_host:
-        ; C-friendly alias for calling from C
-_fuji_set_host:
         jsr     remember_xy_only
         
         ; Call hardware-specific implementation
@@ -79,8 +72,6 @@ _fuji_set_host:
 ;//////////////////////////////////////////////////////////////////////
 
 fuji_get_host:
-        ; C-friendly alias for calling from C
-_fuji_get_host:
         jsr     remember_xy_only
         
         ; Call hardware-specific implementation
@@ -117,12 +108,12 @@ fuji_get_host_data:
 .ifdef FUJINET_INTERFACE_SERIAL
 
 ; Serial interface - call C implementation
-        .import _fujibus_resolve_path
+        .import fujibus_resolve_path
 
 ; For serial, set host is the same as resolve path (validates and stores)
 fuji_resolve_path_data:
 fuji_set_host_data:
-        jmp     _fujibus_resolve_path
+        jmp     fujibus_resolve_path
 
 fuji_get_host_data:
         ; TODO: do we need to do anything here when change to a single string and offsets for path?

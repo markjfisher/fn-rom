@@ -12,14 +12,14 @@
 ;   0x06 - ClearChanged
 ;   0x07 - Create
 
-        .export  _fujibus_disk_mount
-        .export  _fujibus_disk_read_sector
-        .export  _fujibus_disk_read_sector_partial
-        .export  _fujibus_disk_write_sector
-        .export  _fujibus_resolve_path
+        .export  fujibus_disk_mount
+        .export  fujibus_disk_read_sector
+        .export  fujibus_disk_read_sector_partial
+        .export  fujibus_disk_write_sector
+        .export  fujibus_resolve_path
 
-        .import  _fujibus_receive_packet
-        .import  _fujibus_send_packet
+        .import  fujibus_receive_packet
+        .import  fujibus_send_packet
 
         .import  fujibus_write_slip_stream
         .import  fujibus_write_slip_stream_dual
@@ -54,7 +54,7 @@
 ;   device  = FN_DEVICE_DISK ($FC)
 ;   command = DISK_CMD_MOUNT ($01)
 
-_fujibus_disk_mount:
+fujibus_disk_mount:
         ; flags
         ldy     #$08
         sta     (buffer_ptr),y
@@ -126,10 +126,10 @@ _fujibus_disk_mount:
         bcc     :+
         inx
 :
-        jsr     _fujibus_send_packet
+        jsr     fujibus_send_packet
 
         ; receive response
-        jsr     _fujibus_receive_packet
+        jsr     fujibus_receive_packet
 
         ; false if response length == 0
         cpx     #$00
@@ -242,9 +242,9 @@ disk_read_sector_common_recv:
 
         lda     #$08
         ldx     #$00
-        jsr     _fujibus_send_packet
+        jsr     fujibus_send_packet
 
-        jsr     _fujibus_receive_packet
+        jsr     fujibus_receive_packet
 
         cpx     #$00
         bne     @drc_check_minlen
@@ -271,12 +271,12 @@ disk_read_sector_common_recv:
         sec
         rts
 
-_fujibus_disk_read_sector_partial:
+fujibus_disk_read_sector_partial:
         lda     aws_tmp14
         sta     cws_tmp1
         jmp     disk_read_sector_body
 
-_fujibus_disk_read_sector:
+fujibus_disk_read_sector:
         lda     #$00
         sta     cws_tmp1
 
@@ -388,7 +388,7 @@ disk_read_sector_body:
 ; header bytes are:
 ; FC (disk) 04 (write sector), length 0E 01, 00, 00, 01 (protocol version), disk_slot+1, 
 
-_fujibus_disk_write_sector:
+fujibus_disk_write_sector:
         lda     #FN_DEVICE_DISK
         ldy     #$00
         sta     (buffer_ptr),y
@@ -496,7 +496,7 @@ _fujibus_disk_write_sector:
         sta     aws_tmp09
         jsr     fujibus_write_slip_stream_dual
 
-        jsr     _fujibus_receive_packet
+        jsr     fujibus_receive_packet
 
         cpx     #$00
         bne     @ws_check_minlen
@@ -525,7 +525,7 @@ _fujibus_disk_write_sector:
 
 ; bool fujibus_resolve_path(void)
 
-_fujibus_resolve_path:
+fujibus_resolve_path:
 
         lda     #FN_PROTOCOL_VERSION
         ldy     #$06
@@ -584,9 +584,9 @@ _fujibus_resolve_path:
         bcc     :+
         inx
 :
-        jsr     _fujibus_send_packet
+        jsr     fujibus_send_packet
 
-        jsr     _fujibus_receive_packet
+        jsr     fujibus_receive_packet
 
         cpx     #$00
         bne     @rp_check_status

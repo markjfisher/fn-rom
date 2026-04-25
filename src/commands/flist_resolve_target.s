@@ -1,10 +1,10 @@
 ; Resolve host URI + relative path from FUJI_FILENAME_BUFFER ($1000) via FileDevice
 ; ResolvePath. Caller sets fuji_filename_len and filename bytes.
 
-        .export  _flist_resolve_target
+        .export  flist_resolve_target
 
-        .import  _fujibus_receive_packet
-        .import  _fujibus_send_packet
+        .import  fujibus_receive_packet
+        .import  fujibus_send_packet
 
         .import  get_fuji_fs_uri_addr_to_aws_tmp00
         .import  get_fuji_host_uri_addr_to_aws_tmp00
@@ -30,7 +30,7 @@ FUJI_FILENAME_BUF     = $1000
 
 ;   Success: C=0, failure C=1
 
-_flist_resolve_target:
+flist_resolve_target:
         lda     fuji_current_host_len
         bne     @got_host
         sec                                     ; C=1 is an error
@@ -132,9 +132,9 @@ _flist_resolve_target:
 
         lda     cws_tmp6
         ldx     cws_tmp7
-        jsr     _fujibus_send_packet
+        jsr     fujibus_send_packet
 
-        jsr     _fujibus_receive_packet
+        jsr     fujibus_receive_packet
 
         cpx     #$00
         bne     @recv_ok

@@ -1,12 +1,12 @@
 ; FujiDevice FujiBus: GetMount / SetMount (replaces fujibus_fuji_c.c)
-; Calls _fujibus_send_packet with fuji_bus_tx_* ZP params (see os.s / fujibus.s).
+; Calls fujibus_send_packet with fuji_bus_tx_* ZP params (see os.s / fujibus.s).
 
-        .export  _fujibus_get_mount_slot
-        .export  _fujibus_set_mount_slot
+        .export  fujibus_get_mount_slot
+        .export  fujibus_set_mount_slot
 
-        .import  _fujibus_send_packet
-        .import  _fujibus_receive_packet
-        .import  _fuji_data_buffer_ptr
+        .import  fujibus_send_packet
+        .import  fujibus_receive_packet
+        .import  fuji_data_buffer_ptr
         .import  get_fuji_fs_uri_addr_to_aws_tmp00
 
         .import  fuji_disk_slot
@@ -24,8 +24,8 @@
 
 ; bool fujibus_get_mount_slot(void)
 ;   A=1 success, A=0 failure, X=0
-_fujibus_get_mount_slot:
-        jsr     _fuji_data_buffer_ptr
+fujibus_get_mount_slot:
+        jsr     fuji_data_buffer_ptr
 
         ldy     #$06
         lda     fuji_disk_slot
@@ -47,16 +47,16 @@ _fujibus_get_mount_slot:
 
         ldx     #$00
         lda     #$01
-        jsr     _fujibus_send_packet
+        jsr     fujibus_send_packet
 
-        jsr     _fujibus_receive_packet
+        jsr     fujibus_receive_packet
         jmp     fujibus_fuji_check_status
 
 
 ; bool fujibus_set_mount_slot(void)
 ;   Payload at buffer+6: slot, flags $01, uri_len, uri..., mode_len, mode 'r'
-_fujibus_set_mount_slot:
-        jsr     _fuji_data_buffer_ptr
+fujibus_set_mount_slot:
+        jsr     fuji_data_buffer_ptr
 
         ldy     #$06
         lda     fuji_disk_slot
@@ -121,9 +121,9 @@ _fujibus_set_mount_slot:
         bcc     :+
         inx
 :
-        jsr     _fujibus_send_packet
+        jsr     fujibus_send_packet
 
-        jsr     _fujibus_receive_packet
+        jsr     fujibus_receive_packet
         ; fall through
 
 ; Shared: receive in A/X; [5]=1 param count, [6]=0 status

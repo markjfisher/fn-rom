@@ -1,11 +1,10 @@
 ; *FMOUNT — bind BBC drive to persisted FujiNet mount slot (GetMount + disk mount)
 
-        .export  _cmd_fs_fmount
-        .export  _err_bad_disk_mount
-        .export  _err_bad_mount_slot
-        .export  _err_failed_to_mount
-        .export  _err_not_enabled
+        .export  cmd_fs_fmount
+        .export  err_bad_disk_mount
+        .export  err_failed_to_mount
 
+        .import  err_bad_mount_slot
         .import  err_bad
         .import  param_count_a
         .import  param_get_num
@@ -13,8 +12,8 @@
         .import  report_error
 
         .import  exit_user_ok
-        .import  _fuji_data_buffer_ptr
-        .import  _fuji_fs_uri_ptr
+        .import  fuji_data_buffer_ptr
+        .import  fuji_fs_uri_ptr
 
         .import  fuji_get_slot
         .import  fuji_mount_disk
@@ -39,16 +38,10 @@ MAX_MOUNT_SLOT_COUNT := 8
 MAX_BBC_DRIVE  := 3
 
 
-_err_bad_mount_slot:
-        ; this terminates command because the byte after the string is 0
-        jsr     err_bad
-        .byte   $CB                     ; TODO sort out what error codes we want to return
-        .byte   "mount slot", 0         ; terminate after message
-
 ;------------------------------------------------------------------------------
 ; Main entry — same layout as cmd_fin.s (parse, FujiBus, exit_user_ok)
 ;------------------------------------------------------------------------------
-_cmd_fs_fmount:
+cmd_fs_fmount:
         ; if cli args have 1 arg, set bbc_slot to default value
         ; if cli args have 2 args, set both from params
         ; otherwise fails with syntax error (no return)
@@ -69,24 +62,31 @@ _cmd_fs_fmount:
         jsr     param_get_num           ; FujiNet mount slot index 0-7, this errors if the value is not between 0-9
 
         cmp     #MAX_MOUNT_SLOT_COUNT
-        bcs     _err_bad_mount_slot
+        bcc     @in_range
+        jmp     err_bad_mount_slot
 
+@in_range:
         sta     fuji_disk_slot
 
         ; do we have 2nd param?
         cpx     #$02
         bne     @done
 
-        ; use existing function to deal with optional drive
+        ; deal with optional drive
         jsr     param_optional_drive_no
 
 @done:
-
         jsr     fuji_get_slot
         cmp     #$00
-        beq     _err_failed_to_mount
+        bne     mount_ok
 
-        jsr     _fuji_data_buffer_ptr
+err_failed_to_mount:
+        jsr     report_error
+        .byte   $CB
+        .byte   "Err reading slot", 0
+
+mount_ok:
+        jsr     fuji_data_buffer_ptr
         sta     aws_tmp00
         stx     aws_tmp01
 
@@ -98,18 +98,18 @@ _cmd_fs_fmount:
         and     #$01
         bne     is_enabled
         ; fall through to error
-_err_not_enabled:
+
         jsr     report_error
         .byte   $CB
-        .byte   "Mount point not enabled", 0
+        .byte   "Not enabled", 0
 
 is_enabled:
-        ; _fuji_fs_uri_ptr returns pointer in A/X — do not hold uri_len in X across it
+        ; fuji_fs_uri_ptr returns pointer in A/X — do not hold uri_len in X across it
         ldy     #$09
         lda     (aws_tmp00),y
         pha                     ; uri_len (stack)
 
-        jsr     _fuji_fs_uri_ptr
+        jsr     fuji_fs_uri_ptr
         sta     cws_tmp2
         stx     cws_tmp3
 
@@ -146,16 +146,12 @@ is_enabled:
         lda     fuji_disk_slot
         sta     aws_tmp08
 
-        jsr     fuji_mount_disk                 ; sets A via final PLA, so sets Z if it's 0 already
-        beq     _err_bad_disk_mount
+        jsr     fuji_mount_disk                         ; this uses "remember_xy_only" - can't rely on PLA to keep A set
+        cmp     #$00
+        beq     err_bad_disk_mount
         jmp     exit_user_ok
 
-_err_failed_to_mount:
-        jsr     report_error
-        .byte   $CB
-        .byte   "Failed to read mount slot", 0
-
-_err_bad_disk_mount:
+err_bad_disk_mount:
         jsr     report_error
         .byte   $CB
         .byte   "Failed to mount disk", 0

@@ -31,12 +31,12 @@
 
 
         ; Import FujiBus C functions - use underscore prefix for C calls
-        .import _fujibus_disk_mount
-        .import _fujibus_set_mount_slot
-        .import _fujibus_get_mount_slot
-        .import _fujibus_disk_read_sector
-        .import _fujibus_disk_read_sector_partial
-        .import _fujibus_disk_write_sector
+        .import fujibus_disk_mount
+        .import fujibus_set_mount_slot
+        .import fujibus_get_mount_slot
+        .import fujibus_disk_read_sector
+        .import fujibus_disk_read_sector_partial
+        .import fujibus_disk_write_sector
 
 
         .include "fujinet.inc"
@@ -77,7 +77,7 @@ fuji_read_block_data:
         lda     aws_tmp15
         beq     @read_partial_sector
 
-        jsr     _fujibus_disk_read_sector
+        jsr     fujibus_disk_read_sector
         cmp     #$01
         bne     @read_error
 
@@ -95,8 +95,8 @@ fuji_read_block_data:
 
         ; Payload is decoded into PWS at buffer_ptr; copy only the trailing
         ; aws_tmp14 bytes from packet offset 18 into data_ptr (see
-        ; _fujibus_disk_read_sector_partial).
-        jsr     _fujibus_disk_read_sector_partial
+        ; fujibus_disk_read_sector_partial).
+        jsr     fujibus_disk_read_sector_partial
         cmp     #$01
         bne     @read_error
 
@@ -134,7 +134,7 @@ fuji_write_block_data:
         lda     aws_tmp15
         beq     @write_partial_sector
 
-        jsr     _fujibus_disk_write_sector
+        jsr     fujibus_disk_write_sector
         cmp     #$01
         bne     @write_error
 
@@ -165,7 +165,7 @@ fuji_write_block_data:
         adc     #$00
         sta     data_ptr+1
 
-        jsr     _fujibus_disk_read_sector
+        jsr     fujibus_disk_read_sector
         cmp     #$01
         bne     @write_partial_fail
 
@@ -177,7 +177,7 @@ fuji_write_block_data:
         cpy     aws_tmp14
         bne     @merge_partial
 
-        jsr     _fujibus_disk_write_sector
+        jsr     fujibus_disk_write_sector
         cmp     #$01
         bne     @write_partial_fail
 
@@ -223,7 +223,7 @@ fuji_read_catalog_data:
         ; - fuji_disk_slot (set by caller)
         ; - fuji_current_sector (set above)
         ; - data_ptr (set by caller)
-        jsr     _fujibus_disk_read_sector
+        jsr     fujibus_disk_read_sector
         ; check the return value in A, 1 = success
         cmp     #$01
         bne     @read_error
@@ -236,7 +236,7 @@ fuji_read_catalog_data:
         ; Advance buffer pointer by 256
         inc     data_ptr+1
 
-        jsr     _fujibus_disk_read_sector
+        jsr     fujibus_disk_read_sector
         ; check the return value in A, 1 = success
         cmp     #$01
         bne     @read_error
@@ -263,7 +263,7 @@ fuji_write_catalog_data:
         lda     #$00
         sta     aws_tmp14
 
-        jsr     _fujibus_disk_write_sector
+        jsr     fujibus_disk_write_sector
         cmp     #$01
         beq     :+
         inc     aws_tmp14
@@ -275,7 +275,7 @@ fuji_write_catalog_data:
 :
         inc     data_ptr+1
 
-        jsr     _fujibus_disk_write_sector
+        jsr     fujibus_disk_write_sector
         cmp     #$01
         beq     :+
         inc     aws_tmp14
@@ -321,25 +321,25 @@ fuji_mount_disk_data:
         ; PWS FS URI buffer (fuji_fs_uri_ptr()) contains the URI (already set by *FMOUNT)
         ; Call the C function - pass flags in A (0 = read-write)
         lda     #$00
-        jsr     _fujibus_disk_mount
+        jsr     fujibus_disk_mount
         rts
 
 ;//////////////////////////////////////////////////////////////////////
 ; fuji_set_mount_slot_data - Set mount record for a slot (data layer)
-; fujibus_fuji.s (_fujibus_set_mount_slot)
+; fujibus_fuji.s (fujibus_set_mount_slot)
 ;//////////////////////////////////////////////////////////////////////
 
 fuji_set_mount_slot_data:
-        jsr     _fujibus_set_mount_slot
+        jsr     fujibus_set_mount_slot
         rts
 
 ;//////////////////////////////////////////////////////////////////////
 ; fuji_get_mount_slot_data - Get mount record for a slot (data layer)
-; fujibus_fuji.s (_fujibus_get_mount_slot)
+; fujibus_fuji.s (fujibus_get_mount_slot)
 ;//////////////////////////////////////////////////////////////////////
 
 fuji_get_mount_slot_data:
-        jsr     _fujibus_get_mount_slot
+        jsr     fujibus_get_mount_slot
         rts
 
 err_bad_response:

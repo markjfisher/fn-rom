@@ -1,6 +1,6 @@
 ; *FLIST / *FLS — list directory via FileDevice ListDirectory (hand asm)
 
-        .export  _cmd_fs_flist
+        .export  cmd_fs_flist
 
         .export  cfl_after_name
         .export  cfl_compact_skip
@@ -21,15 +21,16 @@
         .export  cfl_zterm
 
         .import  err_bad
+        .import  err_no_host
         .import  exit_user_ok
         .import  report_error
         .import  param_count
         .import  param_get_string
 
-        .import  _flist_resolve_target
-        .import  _fuji_data_buffer_ptr
-        .import  _fujibus_receive_packet
-        .import  _fujibus_send_packet
+        .import  flist_resolve_target
+        .import  fuji_data_buffer_ptr
+        .import  fujibus_receive_packet
+        .import  fujibus_send_packet
 
         .import  get_fuji_fs_uri_addr_to_aws_tmp00
         .import  get_fuji_host_uri_addr_to_aws_tmp00
@@ -41,26 +42,6 @@
         .import  fuji_current_fs_len
         .import  fuji_current_host_len
 
-        .importzp  buffer_ptr
-        .importzp  aws_tmp06
-        .importzp  aws_tmp07
-        .importzp  aws_tmp08
-        .importzp  aws_tmp09
-        .importzp  aws_tmp12
-        .importzp  aws_tmp13
-        .importzp  cws_tmp1
-        .importzp  cws_tmp2
-        .importzp  cws_tmp3
-        .importzp  cws_tmp4
-        .importzp  cws_tmp5
-        .importzp  cws_tmp8
-        .importzp  pws_tmp04
-        .importzp  pws_tmp05
-        .importzp  pws_tmp06
-        .importzp  pws_tmp07
-        .importzp  pws_tmp08
-        .importzp  pws_tmp09
-
         .include "fujinet.inc"
 
         .segment "CODE"
@@ -71,19 +52,15 @@ FLIST_PAGE_SIZE         = 10
 FLIST_LIST_FLAGS        = $03
 
 
-_err_no_host_flist:
-        jsr     report_error
-        .byte   $CB
-        .byte   "No host set", 0
-
 ;------------------------------------------------------------------------------
 ; uint8_t cmd_fs_flist(void)
 ;------------------------------------------------------------------------------
-_cmd_fs_flist:
+cmd_fs_flist:
         lda     fuji_current_host_len
-        beq     _err_no_host_flist
+        bne     parse_flist_params
+        jmp     err_no_host
 
-_parse_flist_params:
+parse_flist_params:
         jsr     param_count
         bcc     cfl_no_param
 
@@ -91,8 +68,8 @@ _parse_flist_params:
         jsr     param_get_string
         sta     fuji_filename_len
 
-        jsr     _fuji_data_buffer_ptr
-        jsr     _flist_resolve_target
+        jsr     fuji_data_buffer_ptr
+        jsr     flist_resolve_target
         bcc     cfl_start_list
 
         ; fall through to error
@@ -173,7 +150,7 @@ cfl_done_ok:
 ;         pws_tmp09 = more pages (0/1); buffer_ptr aliases cws_tmp4/cws_tmp5 only.
 ;------------------------------------------------------------------------------
 cfl_flist_one_page:
-        jsr     _fuji_data_buffer_ptr
+        jsr     fuji_data_buffer_ptr
 
         lda     fuji_current_fs_len
         sta     cws_tmp8
@@ -285,9 +262,9 @@ cfl_tx_uri_done:
 
         lda     aws_tmp12
         ldx     aws_tmp13
-        jsr     _fujibus_send_packet
+        jsr     fujibus_send_packet
 
-        jsr     _fujibus_receive_packet
+        jsr     fujibus_receive_packet
         sta     aws_tmp12
         stx     aws_tmp13
 
