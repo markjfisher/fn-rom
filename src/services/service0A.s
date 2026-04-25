@@ -20,9 +20,11 @@ service0A_claim_statworkspace:
 
         jsr     remember_axy
 
-        ; Do I own sws? Check if pws is "full"
+        ; Do I own sws? Check if pws is "full" - why isn't this using fuji_own_sws_indicator?
+        ; This uses 17D4 (if PWS is 1700), but fuji_force_reset is 10EF, so not the same thing.
         jsr     set_private_workspace_pointer_b0
         ldy     #$D4                    ; fuji_force_reset+1 offset, this is the "I OWN SWS INDICATOR flag"
+
         lda     (aws_tmp00),y           ; Check if pws is "full"
         bpl     @exit                   ; If pws "full" then sws is not mine
 

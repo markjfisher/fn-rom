@@ -23,6 +23,7 @@
         .segment "CODE"
 
 ; Set buffer_ptr to PWS (FujiBus RX/TX packet buffer is at location 0).
+; TODO: this can be improved, PWS is always on a boundary, so lower byte is 00
 set_fuji_data_buffer_ptr:
         jsr     set_private_workspace_pointer_b0
         lda     aws_tmp00
@@ -55,7 +56,8 @@ _fuji_data_buffer_ptr:
 ; uint8_t *fuji_fs_uri_ptr(void);  return in A/X — PWS + FUJI_FS_URI_OFFSET (see fujinet.inc)
 ; Must NOT redirect buffer_ptr (see set_fuji_fs_uri_ptr): FujiBus SLIP uses buffer_ptr for the
 ; RX/TX packet at PWS+0; C often calls this between fuji_data_buffer_ptr() and send/receive.
-; INPUT: aws_tmp00 must point to buffer_ptr
+; Amends aws_tmp00 as calculating vector.
+; TODO: this can be improved, PWS is always on a boundary, so lower byte is 00
 _fuji_fs_uri_ptr:
         jsr     set_private_workspace_pointer_b0
         lda     aws_tmp00
@@ -69,6 +71,7 @@ _fuji_fs_uri_ptr:
         rts
 
 ; uint8_t *fuji_host_uri_ptr(void);  return in A/X — PWS + FUJI_HOST_URI_OFFSET
+; TODO: this can be improved, PWS is always on a boundary, so lower byte is 00
 _fuji_host_uri_ptr:
         jsr     set_private_workspace_pointer_b0
         lda     aws_tmp00
@@ -83,6 +86,7 @@ _fuji_host_uri_ptr:
 
 ; uint8_t *fuji_dir_path_ptr(void);  return in A/X
 ; PATH = suffix of canonical host URI: PWS host base + (host_len - dir_len).
+; TODO: this can be improved, PWS is always on a boundary, so lower byte is 00
 _fuji_dir_path_ptr:
         jsr     set_private_workspace_pointer_b0
         lda     aws_tmp00
@@ -108,6 +112,7 @@ _fuji_dir_path_ptr:
         rts
 
 ; FS URI storage address in aws_tmp06/aws_tmp07 (does not modify buffer_ptr)
+; TODO: this can be improved, PWS is always on a boundary, so lower byte is 00
 get_fuji_fs_uri_addr_to_aws_tmp6:
         jsr     set_private_workspace_pointer_b0
         lda     aws_tmp00
@@ -120,6 +125,7 @@ get_fuji_fs_uri_addr_to_aws_tmp6:
         rts
 
 ; Host URI (*FHOST) storage address in aws_tmp06/aws_tmp07 (does not modify buffer_ptr)
+; TODO: this can be improved, PWS is always on a boundary, so lower byte is 00
 get_fuji_host_uri_addr_to_aws_tmp6:
         jsr     set_private_workspace_pointer_b0
         lda     aws_tmp00

@@ -662,9 +662,6 @@ _fujibus_resolve_path:
         lda     #$00
         sta     (aws_tmp06),y
 
-; this function isn't called by C, so don't need to worry about X value
-
 @rp_success:
         lda     #$01
-        ; ldx     #$00
         rts

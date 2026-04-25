@@ -237,7 +237,7 @@ setdefaults:
         sta     fuji_drive_disk_map+3   ; Drive 3
 
         ; Power-on / hard break only: empty FS + host URI in PWS; zero lengths in SWS
-        jsr     set_fuji_fs_uri_ptr
+        jsr     set_fuji_fs_uri_ptr     ; sets buffer_ptr to fs_uri
         lda     #$00
         tay
         sta     (buffer_ptr),y
@@ -247,8 +247,6 @@ setdefaults:
         stx     fuji_current_fs_len
         stx     fuji_current_dir_len
         stx     fuji_current_host_len
-
-; TODO: REVIEW THIS CODE
 
 initdfs_noreset:
         jsr     tube_check_if_present   ; Tube present?
