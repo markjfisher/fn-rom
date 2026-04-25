@@ -31,7 +31,7 @@
         .import  _fujibus_receive_packet
         .import  _fujibus_send_packet
 
-        .import  get_fuji_fs_uri_addr_to_aws_tmp6
+        .import  get_fuji_fs_uri_addr_to_aws_tmp00
         .import  get_fuji_host_uri_addr_to_aws_tmp00
 
         .import  print_char
@@ -109,11 +109,11 @@ cfl_no_param:
 cfl_len_ok:
         sta     fuji_current_fs_len
 
-        jsr     get_fuji_fs_uri_addr_to_aws_tmp6
-        lda     aws_tmp06
-        sta     aws_tmp02
-        lda     aws_tmp07
+        jsr     get_fuji_fs_uri_addr_to_aws_tmp00
+        ; A contains high byte already
         sta     aws_tmp03
+        lda     aws_tmp00
+        sta     aws_tmp02
 
         jsr     get_fuji_host_uri_addr_to_aws_tmp00
 
@@ -178,12 +178,12 @@ cfl_flist_one_page:
         lda     fuji_current_fs_len
         sta     cws_tmp8
 
-        jsr     get_fuji_fs_uri_addr_to_aws_tmp6
+        jsr     get_fuji_fs_uri_addr_to_aws_tmp00
 
         lda     #$00
         tay
 cfl_scan_uri_nul:
-        lda     (aws_tmp06),y
+        lda     (aws_tmp00),y
         beq     cfl_uri_len_from_nul
         iny
         cpy     cws_tmp8
@@ -224,7 +224,7 @@ cfl_uri_len_ok:
         sta     aws_tmp01
 
         ; aws_tmp06/07 still hold FS URI from get_fuji_fs_uri_addr above — do not call
-        ; get_fuji_fs_uri_addr_to_aws_tmp6 here: it runs set_private_workspace_pointer_b0
+        ; get_fuji_fs_uri_addr_to_aws_tmp00 here: it runs set_private_workspace_pointer_b0
         ; and clears aws_tmp00 low, so the copy would start at buffer base and clobber +6/+7/+8.
 
         ldy     #$00

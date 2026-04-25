@@ -26,7 +26,7 @@
         .import  calc_checksum
         .import  calc_checksum_continue
 
-        .import  get_fuji_fs_uri_addr_to_aws_tmp6
+        .import  get_fuji_fs_uri_addr_to_aws_tmp00
         .import  get_fuji_host_uri_addr_to_aws_tmp00
 
         .include "fujinet.inc"
@@ -93,13 +93,13 @@ _fujibus_disk_mount:
         adc     #$00
         sta     cws_tmp3
 
-        jsr     get_fuji_fs_uri_addr_to_aws_tmp6
+        jsr     get_fuji_fs_uri_addr_to_aws_tmp00
 
         ldy     #$00
 @copy_uri:
         cpy     fuji_current_fs_len
         beq     @send_packet
-        lda     (aws_tmp06),y
+        lda     (aws_tmp00),y
         sta     (cws_tmp2),y
         iny
         bne     @copy_uri

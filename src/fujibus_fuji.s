@@ -7,7 +7,7 @@
         .import  _fujibus_send_packet
         .import  _fujibus_receive_packet
         .import  _fuji_data_buffer_ptr
-        .import  get_fuji_fs_uri_addr_to_aws_tmp6
+        .import  get_fuji_fs_uri_addr_to_aws_tmp00
 
         .import  fuji_disk_slot
         .import  fuji_current_fs_len
@@ -78,13 +78,13 @@ _fujibus_set_mount_slot:
         adc     #$00
         sta     cws_tmp3
 
-        jsr     get_fuji_fs_uri_addr_to_aws_tmp6
+        jsr     get_fuji_fs_uri_addr_to_aws_tmp00
 
         ldy     #$00
 @copy_uri:
         cpy     fuji_current_fs_len
         beq     @uri_done
-        lda     (aws_tmp06),y
+        lda     (aws_tmp00),y
         sta     (cws_tmp2),y
         iny
         bne     @copy_uri
