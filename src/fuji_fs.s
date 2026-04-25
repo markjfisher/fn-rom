@@ -16,7 +16,7 @@
         .import print_string
         .import err_disk
         .import remember_axy
-        .import setfuji_data_buffer_ptr
+        .import set_fuji_data_buffer_ptr
         .import fuji_read_block_data
         .import fuji_write_block_data
         .import fuji_read_catalog_data
@@ -188,7 +188,7 @@ fuji_begin_transaction:
         sta     fuji_saved_i
         cli
 
-        jsr     setfuji_data_buffer_ptr
+        jsr     set_fuji_data_buffer_ptr
 
         ; Save workspace variables - this is saving $BC-$CB (aws_tmp12-15 & pws_tmp00-11) into 1090-109f
         ldx     #$0F

@@ -24,7 +24,7 @@
         .import  err_no_host
         .import  exit_user_ok
         .import  flist_resolve_target
-        .import  fuji_data_buffer_ptr
+        .import  set_fuji_data_buffer_ptr
         .import  fujibus_receive_packet
         .import  fujibus_send_packet
         .import  get_fuji_fs_uri_addr_to_aws_tmp00
@@ -61,7 +61,7 @@ parse_flist_params:
         jsr     param_get_string
         sta     fuji_filename_len
 
-        jsr     fuji_data_buffer_ptr
+        jsr     set_fuji_data_buffer_ptr
         jsr     flist_resolve_target
         bcc     cfl_start_list
 
@@ -102,7 +102,6 @@ cfl_zterm:
 
 cfl_start_list:
         ; ListDirectory start_index (16-bit). Must not live in cws_tmp6/7 ($AD/$AE):
-        ; MOS/OSWRCH uses those ZP cells while printing entries — stomps accumulation.
 
         lda     #$00
         sta     pws_tmp04
@@ -110,14 +109,14 @@ cfl_start_list:
 
 cfl_page_loop:
         jsr     cfl_flist_one_page
-        bcc     :+
+        bcc     cfl_page_ok
 
 cfl_page_fail:
         jsr     report_error
         .byte   $CB
         .byte   "Dir list err", 0
 
-:
+cfl_page_ok:
         lda     pws_tmp06
         ora     pws_tmp07
         beq     cfl_done_ok
@@ -143,7 +142,7 @@ cfl_done_ok:
 ;         pws_tmp09 = more pages (0/1); buffer_ptr aliases cws_tmp4/cws_tmp5 only.
 ;------------------------------------------------------------------------------
 cfl_flist_one_page:
-        jsr     fuji_data_buffer_ptr
+        jsr     set_fuji_data_buffer_ptr
 
         lda     fuji_current_fs_len
         sta     cws_tmp8
@@ -194,7 +193,7 @@ cfl_uri_len_ok:
         sta     aws_tmp01
 
         ; aws_tmp06/07 still hold FS URI from get_fuji_fs_uri_addr above — do not call
-        ; get_fuji_fs_uri_addr_to_aws_tmp00 here: it runs set_private_workspace_pointer_b0
+        ; get_fuji_fs_uri_addr_to_aws_tmp00 here: it runs set_private_workspace_pointer_aws_tmp00
         ; and clears aws_tmp00 low, so the copy would start at buffer base and clobber +6/+7/+8.
 
         ldy     #$00

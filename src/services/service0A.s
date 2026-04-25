@@ -4,7 +4,7 @@
         .import  print_axy
         .import  print_string
         .import  remember_axy
-        .import  set_private_workspace_pointer_b0
+        .import  set_private_workspace_pointer_aws_tmp00
         .import  channel_buffer_to_disk_yhandle
         .import  save_static_to_private_workspace
 
@@ -22,7 +22,7 @@ service0A_claim_statworkspace:
 
         ; Do I own sws? Check if pws is "full" - why isn't this using fuji_own_sws_indicator?
         ; This uses 17D4 (if PWS is 1700), but fuji_force_reset is 10EF, so not the same thing.
-        jsr     set_private_workspace_pointer_b0
+        jsr     set_private_workspace_pointer_aws_tmp00
         ldy     #$D4                    ; fuji_force_reset+1 offset, this is the "I OWN SWS INDICATOR flag"
 
         lda     (aws_tmp00),y           ; Check if pws is "full"

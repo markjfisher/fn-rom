@@ -7,7 +7,7 @@
 
         .import  err_bad_mount_slot
         .import  exit_user_ok
-        .import  fuji_data_buffer_ptr
+        .import  set_fuji_data_buffer_ptr
         .import  fuji_fs_uri_ptr
         .import  fuji_get_slot
         .import  fuji_mount_disk
@@ -76,9 +76,7 @@ err_failed_to_mount:
         .byte   "Err reading slot", 0
 
 mount_ok:
-        jsr     fuji_data_buffer_ptr
-        sta     aws_tmp00
-        stx     aws_tmp01
+        jsr     set_fuji_data_buffer_ptr                ; TODO: can we use buffer_ptr directly now rather than aws_tmp00/01? This does set them in aws_tmp00/01 as well as buffer_ptr
 
         ; After FujiBus hdr + status [5],[6]: GetMount record is
         ; [7]=slot (echoes request; 0 for slot 0), [8]=flags (bit0=enabled),

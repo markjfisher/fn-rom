@@ -2,7 +2,7 @@
 ; Translated from MMFS mmfs100.asm lines 2943-3139
 
         .export init_fuji
-        .export set_private_workspace_pointer_b0
+        .export set_private_workspace_pointer_aws_tmp00
         .export boot_options
         .export autoboot
         .export cmd_fs_disc
@@ -147,7 +147,7 @@ init_fuji:
         ; then copy pws to sws
         ; else reset fs to defaults.
 
-        jsr     set_private_workspace_pointer_b0
+        jsr     set_private_workspace_pointer_aws_tmp00
 
         ldy     #<fuji_force_reset
         lda     (aws_tmp00),y         ; A=PWSP + offset (-ve=soft break)
@@ -288,7 +288,7 @@ not_opt0:
 go_fscv:
         jmp     (FSCV)
 
-set_private_workspace_pointer_b0:
+set_private_workspace_pointer_aws_tmp00:
         lda     #$00
         sta     aws_tmp00
         ldx     paged_ram_copy
@@ -302,7 +302,7 @@ claim_static_workspace:
         lda     #$8F
         jsr     OSBYTE                          ; issue service request &A
 
-        jsr     set_private_workspace_pointer_b0
+        jsr     set_private_workspace_pointer_aws_tmp00
         ldy     #<fuji_force_reset
         lda     #$FF
         sta     (aws_tmp00),y                   ; Data valid in SWS

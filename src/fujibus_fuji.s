@@ -6,7 +6,7 @@
 
         .import  fujibus_send_packet
         .import  fujibus_receive_packet
-        .import  fuji_data_buffer_ptr
+        .import  set_fuji_data_buffer_ptr
         .import  get_fuji_fs_uri_addr_to_aws_tmp00
 
         .import  fuji_disk_slot
@@ -25,7 +25,7 @@
 ; bool fujibus_get_mount_slot(void)
 ;   A=1 success, A=0 failure, X=0
 fujibus_get_mount_slot:
-        jsr     fuji_data_buffer_ptr
+        jsr     set_fuji_data_buffer_ptr
 
         ldy     #$06
         lda     fuji_disk_slot
@@ -56,7 +56,7 @@ fujibus_get_mount_slot:
 ; bool fujibus_set_mount_slot(void)
 ;   Payload at buffer+6: slot, flags $01, uri_len, uri..., mode_len, mode 'r'
 fujibus_set_mount_slot:
-        jsr     fuji_data_buffer_ptr
+        jsr     set_fuji_data_buffer_ptr
 
         ldy     #$06
         lda     fuji_disk_slot
