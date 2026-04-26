@@ -200,7 +200,7 @@ frt_nul_term:
         cpy     #FUJI_FS_URI_BUFFER_SIZE
         bcs     frt_success
         lda     #$00
-        sta     (aws_tmp06),y
+        sta     (aws_tmp00),y
 
 frt_success:
         clc
