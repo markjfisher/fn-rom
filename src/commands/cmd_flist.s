@@ -146,17 +146,18 @@ cfl_done_ok:
 ;         pws_tmp09 = more pages (0/1); buffer_ptr aliases cws_tmp4/cws_tmp5 only.
 ;------------------------------------------------------------------------------
 cfl_flist_one_page:
-        ; save the host uri pointer in tmp06/07 for later
-        jsr     fuji_host_uri_ptr
-        sta     aws_tmp06
-        stx     aws_tmp07
-
         jsr     set_fuji_data_buffer_ptr
 
         lda     fuji_current_fs_len
         sta     cws_tmp8
 
         jsr     get_fuji_fs_uri_addr_to_aws_tmp00
+
+        ; Preserve FS URI pointer before aws_tmp00/01 are reused for packet assembly.
+        lda     aws_tmp00
+        sta     aws_tmp06
+        lda     aws_tmp01
+        sta     aws_tmp07
 
         ldy     #$00
 cfl_scan_uri_nul:
