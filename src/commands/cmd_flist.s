@@ -24,7 +24,7 @@
         .import  err_no_host
         .import  exit_user_ok
         .import  flist_resolve_target
-        .import  set_fuji_data_buffer_ptr
+        .import  fuji_host_uri_ptr
         .import  fujibus_receive_packet
         .import  fujibus_send_packet
         .import  get_fuji_fs_uri_addr_to_aws_tmp00
@@ -34,6 +34,7 @@
         .import  print_char
         .import  print_newline
         .import  report_error
+        .import  set_fuji_data_buffer_ptr
 
         .include "fujinet.inc"
 
@@ -79,14 +80,17 @@ cfl_no_param:
 cfl_len_ok:
         sta     fuji_current_fs_len
 
+        ; fs_uri into aws_tmp02/03
         jsr     get_fuji_fs_uri_addr_to_aws_tmp00
         ; A contains high byte already
         sta     aws_tmp03
         lda     aws_tmp00
         sta     aws_tmp02
 
+        ; host_uri into aws_tmp00/01
         jsr     get_fuji_host_uri_addr_to_aws_tmp00
 
+        ; copy fuji_current_fs_len bytes from host_uri into fs_uri
         ldy     #$00
 cfl_copy_uri:
         cpy     fuji_current_fs_len
@@ -142,6 +146,11 @@ cfl_done_ok:
 ;         pws_tmp09 = more pages (0/1); buffer_ptr aliases cws_tmp4/cws_tmp5 only.
 ;------------------------------------------------------------------------------
 cfl_flist_one_page:
+        ; save the host uri pointer in tmp06/07 for later
+        jsr     fuji_host_uri_ptr
+        sta     aws_tmp06
+        stx     aws_tmp07
+
         jsr     set_fuji_data_buffer_ptr
 
         lda     fuji_current_fs_len
@@ -149,8 +158,7 @@ cfl_flist_one_page:
 
         jsr     get_fuji_fs_uri_addr_to_aws_tmp00
 
-        lda     #$00
-        tay
+        ldy     #$00
 cfl_scan_uri_nul:
         lda     (aws_tmp00),y
         beq     cfl_uri_len_from_nul
@@ -167,13 +175,13 @@ cfl_uri_len_from_nul:
 
 cfl_uri_len_ok:
         lda     cws_tmp1
-        bne     :+
+        bne     has_length
 
         ; error out
         sec
         rts
 
-:
+has_length:
         ldy     #$06
         lda     #FN_PROTOCOL_VERSION
         sta     (buffer_ptr),y
@@ -192,10 +200,7 @@ cfl_uri_len_ok:
         adc     #$00
         sta     aws_tmp01
 
-        ; aws_tmp06/07 still hold FS URI from get_fuji_fs_uri_addr above — do not call
-        ; get_fuji_fs_uri_addr_to_aws_tmp00 here: it runs set_private_workspace_pointer_aws_tmp00
-        ; and clears aws_tmp00 low, so the copy would start at buffer base and clobber +6/+7/+8.
-
+        ; aws_tmp06/07 holds FS URI
         ldy     #$00
 cfl_tx_uri:
         cpy     cws_tmp1

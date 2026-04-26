@@ -12,11 +12,6 @@
         .import  fuji_disk_slot
         .import  fuji_current_fs_len
 
-        .importzp  buffer_ptr
-        .importzp  cws_tmp2
-        .importzp  cws_tmp3
-        .importzp  aws_tmp06
-
         .include "fujinet.inc"
 
         .segment "CODE"

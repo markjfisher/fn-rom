@@ -31,13 +31,6 @@
         .import fuji_current_fs_len
         .import fuji_current_host_len
 
-        .importzp  aws_tmp06
-        .importzp  buffer_ptr
-
-        .import __WORKSP_START__
-        .import __WORKSP_SIZE__
-        .importzp c_sp
-
 .ifdef FUJINET_INTERFACE_DUMMY
         .import fuji_init_ram_filesystem
 .endif

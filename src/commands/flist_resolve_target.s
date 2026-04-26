@@ -3,24 +3,21 @@
 
         .export  flist_resolve_target
 
+        .export  frt_after_base
+        .export  frt_compute_paylen
+        .export  frt_copy_base
+        .export  frt_copy_fn
+        .export  frt_copy_fs
+        .export  frt_fail
+        .export  frt_got_host
+        .export  frt_nul_term
+        .export  frt_recv_ok
+        .export  frt_success
+
         .import  fujibus_receive_packet
         .import  fujibus_send_packet
-
         .import  get_fuji_fs_uri_addr_to_aws_tmp00
         .import  get_fuji_host_uri_addr_to_aws_tmp00
-
-        .importzp  buffer_ptr
-        .importzp  aws_tmp06
-        .importzp  cws_tmp1
-        .importzp  cws_tmp2
-        .importzp  cws_tmp3
-        .importzp  cws_tmp6
-        .importzp  cws_tmp7
-        .importzp  cws_tmp8
-
-        .import  fuji_current_fs_len
-        .import  fuji_current_host_len
-        .import  fuji_filename_len
 
         .include "fujinet.inc"
 
@@ -32,11 +29,11 @@ FUJI_FILENAME_BUF     = $1000
 
 flist_resolve_target:
         lda     fuji_current_host_len
-        bne     @got_host
+        bne     frt_got_host
         sec                                     ; C=1 is an error
         rts
 
-@got_host:
+frt_got_host:
         sta     cws_tmp1
 
         lda     fuji_filename_len
@@ -65,15 +62,15 @@ flist_resolve_target:
         jsr     get_fuji_host_uri_addr_to_aws_tmp00
 
         ldy     #$00
-@copy_base:
+frt_copy_base:
         cpy     cws_tmp1
-        beq     @after_base
+        beq     frt_after_base
         lda     (aws_tmp00),y
         sta     (cws_tmp2),y
         iny
-        bne     @copy_base
+        bne     frt_copy_base
 
-@after_base:
+frt_after_base:
         lda     cws_tmp8
         sta     (cws_tmp2),y
 
@@ -91,15 +88,15 @@ flist_resolve_target:
         sta     cws_tmp3
 
         ldy     #$00
-@copy_fn:
+frt_copy_fn:
         cpy     cws_tmp8
-        beq     @compute_paylen
+        beq     frt_compute_paylen
         lda     FUJI_FILENAME_BUF,y
         sta     (cws_tmp2),y
         iny
-        bne     @copy_fn
+        bne     frt_copy_fn
 
-@compute_paylen:
+frt_compute_paylen:
         lda     #$05
         clc
         adc     cws_tmp1
@@ -137,46 +134,46 @@ flist_resolve_target:
         jsr     fujibus_receive_packet
 
         cpx     #$00
-        bne     @recv_ok
+        bne     frt_recv_ok
         cmp     #$00
-        beq     @fail
+        beq     frt_fail
 
         cmp     #$0D
-        bcs     @recv_ok
+        bcs     frt_recv_ok
 
-@fail:
+frt_fail:
         sec
         rts
 
-@recv_ok:
+frt_recv_ok:
         ldy     #$05
         lda     (buffer_ptr),y
         cmp     #$01
-        bne     @fail
+        bne     frt_fail
 
         ldy     #$06
         lda     (buffer_ptr),y
-        bne     @fail
+        bne     frt_fail
 
         ldy     #$07
         lda     (buffer_ptr),y
         cmp     #FN_PROTOCOL_VERSION
-        bne     @fail
+        bne     frt_fail
 
         ldy     #$08
         lda     (buffer_ptr),y
         and     #$03
         cmp     #$03
-        bne     @fail
+        bne     frt_fail
 
         ldy     #$0C
         lda     (buffer_ptr),y
-        bne     @fail
+        bne     frt_fail
 
         ldy     #$0B
         lda     (buffer_ptr),y
         cmp     #FUJI_FS_URI_BUFFER_SIZE
-        bcs     @fail
+        bcs     frt_fail
 
         sta     fuji_current_fs_len
 
@@ -191,20 +188,20 @@ flist_resolve_target:
         jsr     get_fuji_fs_uri_addr_to_aws_tmp00
 
         ldy     #$00
-@copy_fs:
+frt_copy_fs:
         cpy     fuji_current_fs_len
-        beq     @nul_term
+        beq     frt_nul_term
         lda     (cws_tmp2),y
         sta     (aws_tmp00),y
         iny
-        bne     @copy_fs
+        bne     frt_copy_fs
 
-@nul_term:
+frt_nul_term:
         cpy     #FUJI_FS_URI_BUFFER_SIZE
-        bcs     @success
+        bcs     frt_success
         lda     #$00
         sta     (aws_tmp06),y
 
-@success:
+frt_success:
         clc
         rts
