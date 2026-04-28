@@ -92,7 +92,7 @@ cmd_fs_fmount:
 
         lda     #FMOUNT_FLAG_FORCE_RO
         sta     fuji_channel_scratch
-        beq     @done                   ; always
+        bne     @done                   ; always
 
 @syntax_jump:
         jmp     err_fmount_syntax

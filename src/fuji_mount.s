@@ -33,6 +33,7 @@
 
 fuji_mount_disk:
         jsr     remember_xy_only
+        pha                             ; Save live mount flags from caller
         
         ; Record the mapping: fuji_drive_disk_map[current_drv] = disk_num
         ldx     current_drv
@@ -41,6 +42,7 @@ fuji_mount_disk:
         
         ; Call hardware-specific mount implementation
         jsr     fuji_begin_transaction  ; Protect &BC-&CB
+        pla                             ; Restore live mount flags for hardware-specific mount
         jsr     fuji_mount_disk_data    ; Hardware-specific (dummy/serial)
         pha                             ; Save return value (bool)
         jsr     fuji_end_transaction    ; Restore &BC-&CB
@@ -124,4 +126,3 @@ fuji_get_slot:
         
         ; This causes the XY to be restored, but leaves A alone for return value
         rts
-
