@@ -12,9 +12,12 @@
         .import  fuji_fs_uri_ptr
         .import  fuji_get_slot
         .import  fuji_mount_disk
-        .import  param_count_a
+        .import  num_params
         .import  param_get_num
+        .import  param_get_string
         .import  param_optional_drive_no
+        .import  print_newline
+        .import  print_string_ax
         .import  report_error
 
         .include "fujinet.inc"
@@ -28,28 +31,29 @@ MAX_MOUNT_SLOT_COUNT := 8
 ; Allow drives 0-3
 MAX_BBC_DRIVE  := 3
 
+FMOUNT_FLAG_FORCE_RO := DISK_MOUNT_FLAG_READONLY
+
 
 ;------------------------------------------------------------------------------
 ; Main entry — same layout as cmd_fin.s (parse, FujiBus, exit_user_ok)
 ;------------------------------------------------------------------------------
 cmd_fs_fmount:
-        ; if cli args have 1 arg, set bbc_slot to default value
-        ; if cli args have 2 args, set both from params
-        ; otherwise fails with syntax error (no return)
-        ;
-        ; writes param 1 to fuji_disk_slot, and param 2 (or default) to current_drv
+        ; FMOUNT accepts:
+        ;   *FMOUNT <slot>
+        ;   *FMOUNT <slot> <drive>
+        ;   *FMOUNT <slot> <drive> RO
+        ; With no explicit mode, FMOUNT defaults to AUTO.
 
-        ; Count parameters first. FMOUNT supports 1 or 2 parameters.
-        lda     #$80                    ; allows 1-2 parameters
-        jsr     param_count_a           ; this causes an error if we don't have 1-2 params, but preserves Y
-        ; C = 0 indicates we had 1 param, C = 1 indicates we had 2 params
+        jsr     num_params
+        cmp     #$01
+        bcc     @syntax_jump
+        cmp     #$04
+        bcs     @syntax_jump
+        sta     cws_tmp7                ; number of params
 
-        ldx     #$01
-        bcc     @only_mount_slot
-        inx
-@only_mount_slot:
-        ; X is preserved though param_get_num so we retain the number of params in X
-        ; Read and the mandatory FujiNet mount slot index. Y is already the correct location after param_count_a
+        lda     #$00
+        sta     fuji_channel_scratch    ; live mount flags, default AUTO
+
         jsr     param_get_num           ; FujiNet mount slot index 0-7, this errors if the value is not between 0-9
 
         cmp     #MAX_MOUNT_SLOT_COUNT
@@ -59,12 +63,42 @@ cmd_fs_fmount:
 @in_range:
         sta     fuji_disk_slot
 
-        ; do we have 2nd param?
-        cpx     #$02
+        ; Optional drive present?
+        lda     cws_tmp7
+        cmp     #$02
+        bcc     @check_mode
+
+        jsr     param_optional_drive_no
+
+@check_mode:
+        lda     cws_tmp7
+        cmp     #$03
         bne     @done
 
-        ; deal with optional drive
-        jsr     param_optional_drive_no
+        clc
+        jsr     param_get_string
+        tax                             ; length
+        cpx     #$02
+        bne     @bad_mode_jump
+
+        lda     fuji_filename_buffer
+        and     #$DF                    ; uppercase
+        cmp     #'R'
+        bne     @bad_mode_jump
+        lda     fuji_filename_buffer+1
+        and     #$DF
+        cmp     #'O'
+        bne     @bad_mode_jump
+
+        lda     #FMOUNT_FLAG_FORCE_RO
+        sta     fuji_channel_scratch
+        beq     @done                   ; always
+
+@syntax_jump:
+        jmp     err_fmount_syntax
+
+@bad_mode_jump:
+        jmp     err_fmount_bad_mode
 
 @done:
         jsr     fuji_get_slot
@@ -86,8 +120,10 @@ mount_ok:
         jsr     set_fuji_data_buffer_ptr
 
         ; After FujiBus hdr + status [5],[6]: GetMount record is
-        ; [7]=slot (echoes request; 0 for slot 0), [8]=flags (bit0=enabled),
-        ; [9]=uri_len, [10..]=uri — matches SetMount tx layout at [6..]
+        ; [7]=slot, [8]=flags(bit0=enabled), [9]=uri_len, [10..]=uri,
+        ; [10+uri_len]=mode_len, [11+uri_len..]=mode (slot default policy).
+        ; BBC-side FMOUNT currently ignores persisted slot policy and uses a
+        ; live mount policy: AUTO by default, or RO if explicitly requested.
         ldy     #$08
         lda     (buffer_ptr),y
         and     #$01
@@ -131,12 +167,40 @@ is_enabled:
         lda     fuji_disk_slot
         sta     aws_tmp08
 
+        lda     fuji_channel_scratch
         jsr     fuji_mount_disk                         ; this uses "remember_xy_only" - can't rely on PLA to keep A set
         cmp     #$00
         beq     err_bad_disk_mount
+
+        ; Disk mount response payload: [7]=version [8]=flags
+        ; bit1 on flags means effective read-only.
+        ldy     #$08
+        lda     (buffer_ptr),y
+        and     #DISK_MOUNT_RESP_FLAG_READONLY
+        beq     @mount_success
+
+        lda     #<str_fmount_readonly
+        ldx     #>str_fmount_readonly
+        jsr     print_string_ax
+        jsr     print_newline
+
+@mount_success:
         jmp     exit_user_ok
 
 err_bad_disk_mount:
         jsr     report_error
         .byte   $CB
         .byte   "Failed to mount disk", 0
+
+err_fmount_bad_mode:
+        jsr     report_error
+        .byte   $CB
+        .byte   "Mode must be RO", 0
+
+err_fmount_syntax:
+        jsr     report_error
+        .byte   $CB
+        .byte   "Syntax: FMOUNT slot [drive] [RO]", 0
+
+str_fmount_readonly:
+        .byte   "Mounted read-only", 0

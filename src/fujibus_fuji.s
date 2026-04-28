@@ -49,7 +49,7 @@ fujibus_get_mount_slot:
 
 
 ; bool fujibus_set_mount_slot(void)
-;   Payload at buffer+6: slot, flags $01, uri_len, uri..., mode_len, mode 'r'
+;   Payload at buffer+6: slot, flags $01, uri_len, uri..., mode_len, mode 'auto'
 fujibus_set_mount_slot:
         jsr     set_fuji_data_buffer_ptr
 
@@ -89,10 +89,19 @@ fujibus_set_mount_slot:
         clc
         adc     #$09
         tay
-        lda     #$01
+        lda     #$04
         sta     (buffer_ptr),y
         iny
-        lda     #'r'
+        lda     #'a'
+        sta     (buffer_ptr),y
+        iny
+        lda     #'u'
+        sta     (buffer_ptr),y
+        iny
+        lda     #'t'
+        sta     (buffer_ptr),y
+        iny
+        lda     #'o'
         sta     (buffer_ptr),y
 
         lda     #FN_DEVICE_FUJI
@@ -111,7 +120,7 @@ fujibus_set_mount_slot:
 
         lda     fuji_current_fs_len
         clc
-        adc     #$05
+        adc     #$08
         ldx     #$00
         bcc     :+
         inx

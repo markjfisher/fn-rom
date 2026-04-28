@@ -60,3 +60,11 @@ REM filename: foo
 ```
 then the file will be stored on the disk as "FOO", instead of the name of the source file.
 This allows you to have normal file names on a modern system but tokenize them to a short name for the SSD image.
+
+## Mount policy
+
+- `*FIN` persists the slot URI and currently stores default slot policy `auto`
+- `*FMOUNT` owns the live mount mode
+- `*FMOUNT <slot> [drive]` uses `auto`: try writable, fall back to read-only if needed
+- `*FMOUNT <slot> [drive] RO` forces a read-only live mount
+- If the live mount falls back to read-only, the ROM prints `Mounted read-only`

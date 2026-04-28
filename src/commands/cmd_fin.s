@@ -1,4 +1,5 @@
 ; *FIN — persist URI into FujiNet mount slot (host + filename → SetMount)
+; Default persisted policy is AUTO; live mount behavior is chosen by *FMOUNT.
 
         .export  cmd_fs_fin
 

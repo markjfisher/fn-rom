@@ -319,8 +319,7 @@ fuji_mount_disk_data:
         ; Mount disk using FujiBus - call the C function
         ; aws_tmp08 contains the slot number (already set by caller)
         ; PWS FS URI buffer (fuji_fs_uri_ptr()) contains the URI (already set by *FMOUNT)
-        ; Call the C function - pass flags in A (0 = read-write)
-        lda     #$00
+        ; A already contains live mount flags from *FMOUNT.
         jsr     fujibus_disk_mount
         rts
 

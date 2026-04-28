@@ -115,6 +115,14 @@ bin/b2-http.py paste --text "CLS"
 
 This can be useful for setting up common commands, e.g. FHOST/FIN/FMOUNT/*CAT.
 
+Mount policy behavior:
+
+- `*FIN` stores the URI in a Fuji slot and currently persists default slot policy `auto`
+- `*FMOUNT <slot> [drive]` performs a live mount using `auto`
+- `*FMOUNT <slot> [drive] RO` forces a read-only live mount
+- In `auto`, FujiNet may fall back to read-only if writable open is not permitted
+- When fallback happens, the ROM prints `Mounted read-only`
+
 ## Writing to memory
 
 Use the `poke` command to write to an address with the contents of a file.
