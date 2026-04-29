@@ -584,8 +584,8 @@ FOR I%=0 TO 2 STEP 2:P%=asmChecksum
     ORA ZP_LEN%+1
     BEQ calc_checksum_done
 
-  .calc_checksum_loop
     LDY #0
+  .calc_checksum_loop
     LDA (ZP_SRC%),Y
 
     CLC
