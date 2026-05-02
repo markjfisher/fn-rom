@@ -145,6 +145,7 @@
         .export  fuji_network_url_flag
         .export  fuji_network_buf_cnt
         .export  fuji_network_buf_cnt_hi
+        .export  fuji_network_flush_mode
         .export  fuji_bss
 
         .export  dfs_cat_s0_header
@@ -524,13 +525,14 @@ fuji_force_reset        = fuji_static_workspace + $2F  ; Force reset flag
 fuji_own_sws_indicator  = fuji_static_workspace + $30  ; Used to check if we currently own the SWS
 
 ; END OF STATE WE WILL SAVE TO PWS WHEN FILE SYSTEMS SWAP
+; (extended below — bump fuji_last_state_loc when adding to the saved region)
 
 ; Saved IRQ-disable state for temporarily enabling IRQs during FujiBus I/O.
 ; 0 = IRQs were enabled on entry, nonzero = IRQs were disabled on entry.
 ; Must not overlap with any MMFS-mapped fields; kept outside the MMFS copy range.
 fuji_saved_i            = fuji_static_workspace + $31
 
-; Network URL flag - set to nonzero when "://" is detected in filename during parsing
+; Network URL flag — set to nonzero when "://" is detected in filename during parsing
 ; Cleared at start of filename parsing. Checked by findv_entry to route to network open.
 fuji_network_url_flag   = fuji_static_workspace + $32
 
@@ -539,22 +541,23 @@ fuji_network_url_flag   = fuji_static_workspace + $32
 fuji_network_buf_cnt    = fuji_static_workspace + $33   ; low byte
 fuji_network_buf_cnt_hi = fuji_static_workspace + $34   ; high byte
 
+; Network write flush mode: 0 = buffer 256 bytes before flush (default),
+; 1 = immediate flush after each BPUT (for real-time/streaming connections).
+fuji_network_flush_mode = fuji_static_workspace + $35
+
 ; 2 byte buffer for stashing AX registers for saving result while restoring state.
-fuji_ax_save            = fuji_static_workspace + $32   ; 2 bytes, don't need to save it
+fuji_ax_save            = fuji_static_workspace + $36   ; 2 bytes, don't need to save it
 
 ; FINAL LOCATION CAN BE + $3F
 
 ; LAST location for the copy state in workspace_utils.s function to understand
-; Note this does not have to be all the values above, we have 10F1 to 10FF for general variables
-fuji_last_state_loc     = fuji_static_workspace + $30  ; effectively $10F0
+; So when the filing system is swapped (e.g. switching between fujinet and DFS), it's preserved and reloaded
+fuji_last_state_loc     = fuji_static_workspace + $35  ; effectively $10F5
+; Note: up to fuji_static_workspace + $3F (+$3F = $103F) is available
 
 
 ; Advanced disk guide describes how 1200-12FF is for open file 1
 ; 1300-13FF for open file 2, ...etc up to 1600-16FF for open file 5
-; in MMFS the channel can go from 1-7, so into 1800-18FF.
-; This doesn't seem right, as the PAGE in MMFS is 1900, with 2 pages allocated for private workspace (1700 to 1900)
-; which suggests only 5 files can be open.
-
 
 ; see SetupChannelInfoBlock_Yintch
 ; copies from &E08 to &1100, and &F08 to &1100+1 in a loop.

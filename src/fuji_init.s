@@ -206,13 +206,14 @@ setdefaults:
         lda     #'$'
         sta     fuji_default_dir
         sta     fuji_lib_dir
+
         lda     #$00
         sta     fuji_lib_drive
-        ldy     #$00
-        sty     fuji_default_drive
-        sty     fuji_open_channels
+        sta     fuji_default_drive
+        sta     fuji_open_channels
+        sta     fuji_network_flush_mode
 
-        dey                           ; Y=$FF
+        ldy     #$FF
         sty     fuji_cmd_enabled
         sty     fuji_fs_messages_on
         sty     fuji_error_flag
@@ -234,15 +235,18 @@ setdefaults:
         lda     #$00
         tay
         sta     (buffer_ptr),y
-        jsr     get_fuji_host_uri_addr_to_aws_tmp00
+        jsr     get_fuji_host_uri_addr_to_aws_tmp00     ; high byte of host uri is in A here, why are we storing that 
+
+        lda     #$00
         sta     (aws_tmp00),y
-        ldx     #$00
-        stx     fuji_current_fs_len
-        stx     fuji_current_dir_len
-        stx     fuji_current_host_len
+
+        sta     fuji_current_fs_len
+        sta     fuji_current_dir_len
+        sta     fuji_current_host_len
+
 
 initdfs_noreset:
-        jsr     tube_check_if_present   ; Tube present?
+        jsr     tube_check_if_present   ; Tube present? TODO: we don't react to this yet
 
         lda     #$FD                    ; Read hard/soft break value
         jsr     osbyte_X0YFF            ; X=0 soft break, X=1 power up reset, X=2 hard break

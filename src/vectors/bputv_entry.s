@@ -182,45 +182,50 @@ err_file_read_only:
 ; @network_bput — Network-aware byte write
 ; Buffers bytes in the channel buffer page and flushes via
 ; NET_CMD_WRITE when the buffer is full (256 bytes).
-; Write count stored per-channel in fuji_ch_1118,y.
+; Write buffer state per-channel (independent from read state):
+;   fuji_ch_write_count,y    — number of buffered bytes ($1A)
+;   fuji_ch_write_pos_low..hi — write stream position ($0A..$0C)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 network_bput:
-        ; A = byte to write
         sty     aws_tmp02               ; save intch
         pha                             ; save byte on stack
 
         ; Store byte at buffer[write_count]
         ldy     aws_tmp02
-        lda     fuji_ch_1118,y          ; write count (= buffer offset)
-        sta     aws_tmp00               ; AWS_TMP00 = offset in buffer
+        lda     fuji_ch_write_count,y   ; write count (= buffer offset)
+        sta     aws_tmp00
 
-        lda     fuji_ch_buf_page,y      ; buffer page
-        sta     aws_tmp01               ; AWS_TMP01 = buffer page
+        lda     fuji_ch_buf_page,y
+        sta     aws_tmp01
 
-        pla                             ; restore byte from stack
+        pla                             ; restore byte
         ldx     #$00
-        sta     (aws_tmp00,x)           ; store byte at buffer[write_count]
+        sta     (aws_tmp00,x)           ; store at buffer[write_count]
 
-        ; Increment write count
+        ; Increment write count and write position
         ldy     aws_tmp02
         tya
         tax
-        inc     fuji_ch_1118,x          ; write_count++
+        inc     fuji_ch_write_count,x   ; write_count++
 
-        ; Increment PTR (tracks write position)
-        inc     fuji_ch_bptr_low,x
+        inc     fuji_ch_write_pos_low,x
         bne     :+
-        inc     fuji_ch_bptr_mid,x
+        inc     fuji_ch_write_pos_mid,x
         bne     :+
-        inc     fuji_ch_bptr_hi,x
+        inc     fuji_ch_write_pos_hi,x
 :
 
-        ; If write count wrapped from 255 to 0, buffer is full — flush
-        lda     fuji_ch_1118,y
+        ; If write count wrapped from 255 to 0, buffer full — flush
+        lda     fuji_ch_write_count,y
         cmp     #$00
-        bne     @net_bput_exit          ; not full yet
+        beq     @do_flush
 
+        ; In immediate mode, flush after every BPUT
+        lda     fuji_network_flush_mode
+        beq     @net_bput_exit
+
+@do_flush:
         sty     aws_tmp02
         jsr     network_flush_write
         ldy     aws_tmp02
@@ -232,62 +237,50 @@ network_bput:
 ; network_flush_write — Flush buffered writes to network device
 ;   Input: Y = intch
 ;   Output: A = 1 on success, 0 on failure
-;   Clobbers: aws_tmp02
 
 network_flush_write:
-        ; Nothing to flush if write count is 0
-        lda     fuji_ch_1118,y
-        ora     fuji_ch_sect_cnt,y      ; also check if ANY bytes pending
+        lda     fuji_ch_write_count,y
         beq     @flush_done
 
-        ; Actually check just the write count byte
-        lda     fuji_ch_1118,y
-        beq     @flush_done
+        sta     aws_tmp12               ; save write count
 
-        ; Calculate offset = PTR - write_count
-        ; Save write_count
-        sta     aws_tmp12               ; save byte count
-        sty     aws_tmp02               ; save intch
-
-        ; PTR value is at fuji_ch_bptr_low/mid/hi
-        ; We want offset = PTR - write_count
-        ; Start with PTR value
-        lda     fuji_ch_bptr_low,y
+        ; Calculate offset = write_pos - write_count
+        ; write_pos is the absolute position AFTER the last byte written
+        ; The first buffered byte is at (write_pos - write_count)
+        lda     fuji_ch_write_pos_low,y
         sec
-        sbc     aws_tmp12               ; subtract write_count
+        sbc     aws_tmp12
         sta     aws_tmp06               ; offset low
-        lda     fuji_ch_bptr_mid,y
+        lda     fuji_ch_write_pos_mid,y
         sbc     #$00
         sta     aws_tmp07               ; offset mid
-        lda     fuji_ch_bptr_hi,y
+        lda     fuji_ch_write_pos_hi,y
         sbc     #$00
         sta     aws_tmp08               ; offset hi
         lda     #$00
-        sta     aws_tmp09               ; offset byte 3
+        sta     aws_tmp09
 
-        ; dataLen = write_count (from aws_tmp12)
+        ; dataLen = write_count
         lda     aws_tmp12
-        sta     aws_tmp02               ; dataLen low
+        sta     aws_tmp02
         lda     #$00
-        sta     aws_tmp03               ; dataLen high = 0
+        sta     aws_tmp03
 
-        ; save intch for after transaction
         sty     fuji_intch
 
         jsr     fuji_begin_transaction
         ldy     fuji_intch
         jsr     fujibus_network_write
-        pha                             ; save result
+        pha
         jsr     fuji_end_transaction
-        pla                             ; restore result
+        pla
 
         ldy     fuji_intch
 
-        ; Clear write buffer count on success
         cmp     #$01
         bne     @flush_done
         lda     #$00
-        sta     fuji_ch_1118,y
+        sta     fuji_ch_write_count,y
 
 @flush_done:
         rts

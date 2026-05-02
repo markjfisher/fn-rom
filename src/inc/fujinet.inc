@@ -171,4 +171,15 @@ FN_MAX_PACKET_SIZE = FUJI_PWS_PACKET_SIZE
 
 FN_PROTOCOL_VERSION = $01
 
+; Network channel write buffer state — stored in channel block bytes
+; that are unused for network channels (filename area and $1A):
+;   fuji_ch_write_pos_low/mid/hi at channel+$0A..$0C
+;   fuji_ch_write_count     at channel+$1A
+; These are separate from read buffer state ($18,$19,$1C,$1D,PTR at $14-$16)
+; so OPENUP can support independent read and write streams.
+fuji_ch_write_pos_low  = fuji_channel_start + $0A
+fuji_ch_write_pos_mid  = fuji_channel_start + $0B
+fuji_ch_write_pos_hi   = fuji_channel_start + $0C
+fuji_ch_write_count    = fuji_channel_start + $1A
+
 .endif

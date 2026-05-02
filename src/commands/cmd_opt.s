@@ -5,6 +5,7 @@
 ;   *OPT 1,Y - Message control (same as OPT 0)
 ;   *OPT 4,Y - Boot option (Y=0: L.!BOOT, Y=1: E.!BOOT, Y=2: !BOOT)
 ;   *OPT 5,Y - Disk trap option (disable *DISC/*DISK commands)
+;   *OPT 6,Y - Network flush mode (Y=0: buffered, Y≠0: immediate)
 
         .export fscv0_starOPT
 
@@ -30,9 +31,10 @@ fscv0_starOPT:
         beq     set_boot_option_yoption
         cmp     #$05
         beq     disk_trap_option
+        cmp     #$06
+        beq     set_net_flush_option        ; OPT 6: network flush mode
         cmp     #$02
         bcc     opts0_1                    ; If A<2
-
 err_bad_option:
         jsr     err_bad
         .byte   $CB
@@ -62,17 +64,6 @@ set_boot_option_yoption:
         and     #$30                       ; Mask boot option bits
         eor     dfs_cat_boot_option        ; XOR back to preserve other bits
         sta     dfs_cat_boot_option        ; Store modified header
-
-.ifdef FN_DEBUG
-        pha
-        jsr     print_string
-        .byte   "OPT: Boot opt, hdr: "
-        lda     dfs_cat_boot_option
-        jsr     print_hex
-        jsr     print_newline
-        pla
-.endif
-
         jmp     save_cat_to_disk           ; save cat
 
 disk_trap_option:
@@ -94,18 +85,17 @@ disk_trap_option:
 skip_set_bit6:
         sta     paged_rom_priv_ws,x    ; Store updated flags
 
-.ifdef FN_DEBUG
-        pha
-        lda     paged_rom_priv_ws,x
-        pha
-        jsr     print_string
-        .byte   "OPT: PWS flags now: "
-        nop
-        pla
-        jsr     print_hex
-        jsr     print_newline
-        pla
-.endif
+        rts
+
+; *OPT 6,Y — Network flush mode
+; Y=0: buffer mode (flush every 256 bytes, default)
+; Y≠0: immediate mode (flush after every BPUT)
+set_net_flush_option:
+        tya
+        beq     @flush_buffered
+        lda     #$01
+@flush_buffered:
+        sta     fuji_network_flush_mode
 
         rts
 

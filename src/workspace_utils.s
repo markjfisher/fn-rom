@@ -102,7 +102,7 @@ fuji_dir_path_ptr:
 
 ; FS URI storage address in aws_tmp00/aws_tmp01 (does not modify buffer_ptr)
 get_fuji_fs_uri_addr_to_aws_tmp00:
-        jsr     set_private_workspace_pointer_aws_tmp00
+        jsr     set_private_workspace_pointer_aws_tmp00         ; importantly sets high byte in aws_tmp01
         ; lower byte always 00 as it's a page boundary, so we can avoid an ADC
         lda     #<(FUJI_FS_URI_OFFSET)
         sta     aws_tmp00
@@ -114,7 +114,7 @@ get_fuji_fs_uri_addr_to_aws_tmp00:
 
 ; Host URI (*FHOST) storage address in aws_tmp00/aws_tmp01 (does not modify buffer_ptr)
 get_fuji_host_uri_addr_to_aws_tmp00:
-        jsr     set_private_workspace_pointer_aws_tmp00
+        jsr     set_private_workspace_pointer_aws_tmp00         ; importantly sets high byte in aws_tmp01
         ; lower byte always 00 as it's a page boundary, so we can avoid an ADC
         lda     #<(FUJI_HOST_URI_OFFSET)
         sta     aws_tmp00
