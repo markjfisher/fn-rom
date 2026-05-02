@@ -11,6 +11,7 @@
         .import channel_flags_set_bits
         .import channel_set_dir_drive_yintch
         .import check_channel_yhndl_exyintch_tya_cmpptr
+        .import tya_cmp_ptr_ext
         .import load_mem_block
         .import save_mem_block
         .import print_newline
@@ -44,15 +45,20 @@ bgetv_entry:
         jsr     remember_xy_only
         jsr     check_channel_yhndl_exyintch_tya_cmpptr         ; exits with Y=intch
 
-        ; NEW: Check for network channel by testing handle bytes
+        ; Check for network channel by testing handle bytes
+        ; (Z flag from PTR/EXT comparison is lost after this check)
         lda     fuji_ch_handle_low,y
         ora     fuji_ch_handle_high,y
         bne     @network_bget
 
-        bne     @bg_not_eof              ; If PTR<>EXT (disk file)
+        ; Disk channel — redo PTR/EXT comparison (Z flag was clobbered above)
+        jsr     tya_cmp_ptr_ext
+        bne     @bg_not_eof              ; If PTR<>EXT
         lda     fuji_ch_flg,y            ; Already at EOF?
         and     #$10
-        bne     @err_eof                 ; IF bit 4 set
+        beq     :+                      ; IF bit 4 NOT set, skip
+        jmp     @err_eof                 ; IF bit 4 set, jump via trampoline
+:
         lda     #$10
         jsr     channel_flags_set_bits   ; Set bit 4
         ldx     fuji_saved_x
@@ -86,59 +92,112 @@ bgetv_entry:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 @network_bget:
-        ; Check if buffer has unread data at current PTR offset
-        lda     fuji_ch_bptr_low,y      ; PTR low = offset within buffer
-        cmp     fuji_ch_1118,y          ; buffer count for this channel
-        bcc     @net_have_data          ; if PTR low < count, data available
+        ; Multi-byte buffered read from network stream.
+        ; Per-channel buffer state stored in channel block:
+        ;   $18 (fuji_ch_1118):    buf_start_low  — stream offset of buffer[0]
+        ;   $19 (fuji_ch_sect_cnt): buf_cnt        — bytes available in buffer (0 = empty)
+        ;   $1C (fuji_ch_sect_lo):  buf_start_mid  — mid byte of buffer start
+        ;   $1D (fuji_ch_sect_hi):  buf_start_hi   — high byte of buffer start
+        ;
+        ; Buffer index = PTR - buf_start. Since the buffer is ≤256 bytes,
+        ; and buf_start ≤ PTR ≤ buf_start + 256 within one fill, the
+        ; 8-bit subtraction PTR_low - buf_start_low gives the correct index.
 
-        ; Buffer exhausted — refill via NET_CMD_READ
         sty     aws_tmp02               ; save intch
 
-        ; Calculate aligned offset: clear low byte of PTR
-        lda     #$00
-        sta     aws_tmp06               ; offset low = 0 (aligned)
+        ; Check if buffer has data for current PTR position
+        lda     fuji_ch_bptr_low,y      ; PTR low
+        sec
+        sbc     fuji_ch_1118,y          ; subtract buf_start_low
+        cmp     fuji_ch_sect_cnt,y      ; compare with buf_cnt
+        bcc     @net_have_data          ; if index < buf_cnt, data available
+
+        ; Buffer exhausted — refill via NET_CMD_READ
+        ; offset = PTR (absolute byte position — no alignment)
+        lda     fuji_ch_bptr_low,y
+        sta     aws_tmp06
         lda     fuji_ch_bptr_mid,y
-        sta     aws_tmp07               ; offset mid
+        sta     aws_tmp07
         lda     fuji_ch_bptr_hi,y
-        sta     aws_tmp08               ; offset hi
+        sta     aws_tmp08
         lda     #$00
-        sta     aws_tmp09               ; offset byte 3
+        sta     aws_tmp09
 
         ; max_bytes = 256
         lda     #$00
-        sta     aws_tmp14               ; max_bytes low
+        sta     aws_tmp14
         lda     #$01
-        sta     aws_tmp15               ; max_bytes high
+        sta     aws_tmp15
 
         jsr     fuji_begin_transaction
 
-        ldy     aws_tmp02               ; restore intch
+        ldy     aws_tmp02
+        sty     fuji_intch              ; fuji_intch for fujibus_network_read
         jsr     fujibus_network_read
+        pha                             ; save return value (clobbered by end_transaction)
 
         jsr     fuji_end_transaction
 
+        pla                             ; restore return value
         cmp     #$01
         bne     @net_eof                ; read failed = EOF
 
-        ldy     aws_tmp02               ; restore intch
+        ldy     fuji_intch              ; reload intch (aws_tmp02 clobbered)
 
-        ; Store buffer count in channel block byte $18
+        ; Store buffer start offset and count in channel block
+        lda     fuji_ch_bptr_low,y
+        sta     fuji_ch_1118,y           ; buf_start_low
+        lda     fuji_ch_bptr_mid,y
+        sta     fuji_ch_sect_lo,y        ; buf_start_mid (repurpose sect_lo)
+        lda     fuji_ch_bptr_hi,y
+        sta     fuji_ch_sect_hi,y        ; buf_start_hi (repurpose sect_hi)
         lda     fuji_network_buf_cnt
-        sta     fuji_ch_1118,y
+        sta     fuji_ch_sect_cnt,y       ; buf_cnt (repurpose sect_cnt)
 
-        ; Check if we got any data
+        ; Check if any bytes were returned
         ora     fuji_network_buf_cnt_hi
-        beq     @net_eof                ; 0 bytes returned = EOF
+        beq     @net_eof                ; 0 bytes = EOF
+
+        ; Fall through to read the byte
 
 @net_have_data:
-        ; Read byte from buffer and increment PTR
-        jsr     load_then_inc_seq_ptr_yintch
-        lda     (aws_tmp10, x)          ; Byte from buffer
+        ; Read byte from buffer page at calculated index
+        lda     fuji_ch_bptr_low,y
+        sec
+        sbc     fuji_ch_1118,y           ; index = PTR_low - buf_start_low
+        sta     aws_tmp10                ; BA = buffer offset
 
+        lda     fuji_ch_buf_page,y
+        sta     aws_tmp11                ; BB = buffer page
+
+        ldx     #$00
+        lda     (aws_tmp10, x)           ; read the byte
+        pha                              ; save it
+
+        ; Increment PTR
+        tya
+        tax
+        inc     fuji_ch_bptr_low,x
+        bne     :+
+        inc     fuji_ch_bptr_mid,x
+        bne     :+
+        inc     fuji_ch_bptr_hi,x
+:
+        pla                              ; restore byte
         clc
-        rts                             ; C=0 => NOT EOF
+        rts
 
 @net_eof:
+        ; For network channels: advance PTR = EXT ($FFFFFF) so EOF# returns TRUE
+        ldy     fuji_intch
+        lda     fuji_ch_handle_low,y
+        ora     fuji_ch_handle_high,y
+        beq     @net_eof_exit
+        lda     #$FF
+        sta     fuji_ch_bptr_low,y
+        sta     fuji_ch_bptr_mid,y
+        sta     fuji_ch_bptr_hi,y
+@net_eof_exit:
         ldx     fuji_saved_x
         sec                             ; C=1 = EOF
         rts
