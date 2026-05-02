@@ -80,6 +80,7 @@
         .import report_error
         .import y_add7
         .import GSREAD
+        .import fuji_network_url_flag
 
         .include "fujinet.inc"
 
@@ -495,6 +496,10 @@ read_fspba_reset:
         jsr     set_curdir_drv_to_defaults      ; Set current directory and drive
 
 read_fspba:
+        ; Clear network URL flag at start of filename parsing
+        lda     #$00
+        sta     fuji_network_url_flag
+
         ; findv_openfile copies the filename location into aws_tmp10/11
         lda     aws_tmp10                       ; **Also creates copy at &C5 (MMFS line 458)
         sta     text_pointer
@@ -539,12 +544,24 @@ rdafsp_notcolon:
 @rdafsp_rdfnloop:
         sta     fuji_filename_buffer,x        ; Store filename character
         inx
+        ; Check for "://" pattern to detect network URLs
+        cpx     #$04                    ; Need at least 4 chars in buffer
+        bcc     @no_url                 ; (index 0 + 3 more for "://")
+        lda     fuji_filename_buffer-1,x  ; current char (just stored at x-1)
+        cmp     #'/'
+        bne     @no_url
+        lda     fuji_filename_buffer-2,x  ; previous char at x-2
+        cmp     #'/'
+        bne     @no_url
+        lda     fuji_filename_buffer-3,x  ; char at x-3
+        cmp     #':'
+        bne     @no_url
+        ; found "://" — mark as network URL
+        inc     fuji_network_url_flag
+@no_url:
         jsr     GSREAD_A                ; Get next character
         bcs     rdafsp_padx             ; If end of string
-        ; TODO: THIS IS WHERE A RESOURCE NAME FAILS AT THE MOMENT AS
-        ; https://foo.bar/baz IS LONGER THAN 7 CHARS
-        ; should we look for :// and treat it as something to process by fujinet?
-        cpx     #$40                    ; Max characters (was 7)
+        cpx     #$40                    ; Max characters (64 bytes)
         bne     @rdafsp_rdfnloop
         beq     err_bad_name            ; Too many characters
 
@@ -570,6 +587,11 @@ GSREAD_A:
 rdafsp_padall:
         ldx     #$01                    ; Pad all with spaces
 rdafsp_padx:
+        ; If network URL flag was set, save the URL length before padding
+        lda     fuji_network_url_flag
+        beq     @do_pad
+        stx     fuji_network_url_flag    ; overwrite flag with URL length
+@do_pad:
         lda     #' '                    ; Pad with spaces
 @rdafsp_padloop:
         sta     fuji_filename_buffer,x  ; Store space

@@ -142,6 +142,9 @@
         .export  fuji_ch_111A
 
         .export  fuji_ax_save
+        .export  fuji_network_url_flag
+        .export  fuji_network_buf_cnt
+        .export  fuji_network_buf_cnt_hi
         .export  fuji_bss
 
         .export  dfs_cat_s0_header
@@ -526,6 +529,15 @@ fuji_own_sws_indicator  = fuji_static_workspace + $30  ; Used to check if we cur
 ; 0 = IRQs were enabled on entry, nonzero = IRQs were disabled on entry.
 ; Must not overlap with any MMFS-mapped fields; kept outside the MMFS copy range.
 fuji_saved_i            = fuji_static_workspace + $31
+
+; Network URL flag - set to nonzero when "://" is detected in filename during parsing
+; Cleared at start of filename parsing. Checked by findv_entry to route to network open.
+fuji_network_url_flag   = fuji_static_workspace + $32
+
+; Network read buffer state: number of valid bytes currently buffered in channel buffer page
+; 2 bytes (u16le), used by bgetv_entry to know when to refill via NET_CMD_READ
+fuji_network_buf_cnt    = fuji_static_workspace + $33   ; low byte
+fuji_network_buf_cnt_hi = fuji_static_workspace + $34   ; high byte
 
 ; 2 byte buffer for stashing AX registers for saving result while restoring state.
 fuji_ax_save            = fuji_static_workspace + $32   ; 2 bytes, don't need to save it

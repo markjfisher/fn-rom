@@ -1,0 +1,454 @@
+; FujiBus Network Commands for BBC Micro
+; Implements network device commands using FujiBus protocol
+;
+; Wire Device ID: 0xFD (FN_DEVICE_NETWORK)
+;
+; Commands:
+;   0x01 - Open
+;   0x02 - Read
+;   0x03 - Write
+;   0x04 - Close
+
+        .export  fujibus_network_open
+        .export  fujibus_network_read
+        .export  fujibus_network_close
+
+        .import  fujibus_receive_packet
+        .import  fujibus_send_packet
+
+        .import  calc_checksum
+        .import  calc_checksum_continue
+
+        .include "fujinet.inc"
+
+
+; uint16_t fujibus_network_open(uint8_t method, uint8_t flags)
+;   Input:
+;     A = method (NET_METHOD_GET, etc)
+;     X = flags (e.g. NET_FLAG_ALLOW_EVICT)
+;     fuji_filename_buffer contains the URL (padded with spaces to 64 bytes)
+;     fuji_network_url_flag = URL length (number of non-space bytes)
+;   Output:
+;     A = network handle low byte, X = network handle high byte
+;     A=0, X=0 on failure
+;
+; Open request payload (at buffer+6):
+;   +0  version = $01
+;   +1  method
+;   +2  flags
+;   +3  urlLen (u16le)
+;   +5  url bytes (urlLen bytes)
+;   +5+urlLen  headerCount = 0 (u16le)
+;   +5+urlLen+2 bodyLenHint = 0 (u32le)
+;   +5+urlLen+6 respHeaderCount = 0 (u16le)
+
+fujibus_network_open:
+        stx     aws_tmp05               ; save flags
+        pha                             ; save method
+
+        ; get URL length from fuji_network_url_flag
+        lda     fuji_network_url_flag
+        sta     aws_tmp02               ; url_len
+        lda     #$00
+        sta     aws_tmp03               ; url_len high = 0
+
+        ; version
+        lda     #FN_PROTOCOL_VERSION
+        ldy     #$06
+        sta     (buffer_ptr),y
+
+        ; method
+        pla
+        iny                             ; y = 7
+        sta     (buffer_ptr),y
+
+        ; flags
+        lda     aws_tmp05
+        iny                             ; y = 8
+        sta     (buffer_ptr),y
+
+        ; urlLen (u16le) at buffer+9 — low byte first
+        lda     aws_tmp02               ; urlLen low byte
+        iny                             ; y = 9
+        sta     (buffer_ptr),y
+        lda     #$00                    ; urlLen high byte = 0 (URL < 256 chars)
+        iny                             ; y = 10
+        sta     (buffer_ptr),y
+
+        ; copy URL from fuji_filename_buffer to buffer+11
+        lda     buffer_ptr
+        clc
+        adc     #$0B
+        sta     cws_tmp2
+        lda     buffer_ptr+1
+        adc     #$00
+        sta     cws_tmp3
+
+        ldy     #$00
+@copy_url:
+        cpy     aws_tmp02
+        beq     @write_trailing
+        lda     fuji_filename_buffer,y
+        sta     (cws_tmp2),y
+        iny
+        bne     @copy_url
+
+@write_trailing:
+        ; URL end position = buffer+11+urlLen
+        tya
+        clc
+        adc     cws_tmp2
+        sta     cws_tmp6
+        lda     cws_tmp3
+        adc     #$00
+        sta     cws_tmp7
+
+        ; headerCount = 0 (u16le)
+        lda     #$00
+        ldy     #$00
+        sta     (cws_tmp6),y
+        iny
+        sta     (cws_tmp6),y
+
+        ; bodyLenHint = 0 (u32le)
+        iny
+        sta     (cws_tmp6),y
+        iny
+        sta     (cws_tmp6),y
+        iny
+        sta     (cws_tmp6),y
+        iny
+        sta     (cws_tmp6),y
+
+        ; respHeaderCount = 0 (u16le)
+        iny
+        sta     (cws_tmp6),y
+        iny
+        sta     (cws_tmp6),y
+
+        ; total payload length = 5 + urlLen + 2 + 4 + 2 = 13 + urlLen
+        lda     aws_tmp02
+        clc
+        adc     #13
+        sta     aws_tmp02
+        lda     #$00
+        sta     aws_tmp03
+
+        ; set FujiBus TX params
+        lda     #FN_DEVICE_NETWORK
+        sta     fuji_bus_tx_device
+
+        lda     #NET_CMD_OPEN
+        sta     fuji_bus_tx_command
+
+        lda     buffer_ptr
+        clc
+        adc     #$06
+        sta     fuji_bus_tx_payload_lo
+        lda     buffer_ptr+1
+        adc     #$00
+        sta     fuji_bus_tx_payload_hi
+
+        ldx     aws_tmp03
+        lda     aws_tmp02
+        jsr     fujibus_send_packet
+
+        ; receive response
+        jsr     fujibus_receive_packet
+
+        ; check for valid response
+        cpx     #$00
+        bne     @check_descriptor
+        cmp     #$00
+        beq     @fail
+
+@check_descriptor:
+        ; minimum length: 7 (FujiBus header) + 1 (version) + 1 (flags) + 2 (reserved) + 2 (handle) + 1 (proto_flags) = 14
+        cmp     #$0E
+        bcc     @fail
+
+        ; check descriptor byte
+        ldy     #$05
+        lda     (buffer_ptr),y
+        cmp     #$01
+        bne     @fail
+
+        ; check status code
+        iny                             ; y = 6
+        lda     (buffer_ptr),y
+        bne     @fail
+
+        ; check accepted flag in protocol payload
+        ldy     #NET_RESP_FLAGS
+        lda     (buffer_ptr),y
+        and     #NET_OPEN_FLAG_ACCEPTED
+        beq     @fail
+
+        ; extract handle (u16le at NET_RESP_HANDLE)
+        ldy     #NET_RESP_HANDLE
+        lda     (buffer_ptr),y
+        tax
+        iny
+        lda     (buffer_ptr),y
+        tay                             ; Y = handle high byte
+        txa                             ; A = handle low byte
+        pha
+        tya
+        tax                             ; X = handle high byte
+        pla                             ; A = handle low byte
+        rts
+
+@fail:
+        lda     #$00
+        tax
+        rts
+
+
+; uint16_t fujibus_network_read(uint16_t handle, uint32_t offset, uint16_t max_bytes)
+;   Input:
+;     fuji_ch_handle_low (y) = handle low byte from channel info
+;     fuji_ch_handle_high (y) = handle high byte from channel info
+;     aws_tmp06/07/08/09 = 32-bit offset (little-endian)
+;     aws_tmp14/15 = max_bytes (u16le)
+;     Y = intch (to read handle from channel block)
+;   Output:
+;     A = 1 on success, 0 on failure, data copied to channel buffer page
+;     fuji_ch_bptr_low/mid/hi updated to reflect buffer content
+;     fuji_network_buf_cnt = number of valid bytes in buffer
+;
+; Read request payload (at buffer+6):
+;   +0  version = $01
+;   +1  handle (u16le)
+;   +3  offset (u32le)
+;   +7  maxBytes (u16le)
+
+fujibus_network_read:
+        ; save intch (Y) before using Y as buffer write index
+        sty     aws_tmp00               ; save intch for handle reads
+
+        ; build payload at buffer+6
+        lda     #FN_PROTOCOL_VERSION
+        ldy     #$06
+        sta     (buffer_ptr),y
+
+        ; handle (u16le) — read handle from channel block using saved intch
+        ldy     aws_tmp00
+        lda     fuji_ch_handle_low,y
+        ldy     #$07
+        sta     (buffer_ptr),y
+        ldy     aws_tmp00
+        lda     fuji_ch_handle_high,y
+        ldy     #$08
+        sta     (buffer_ptr),y
+
+        ; offset (u32le) - from aws_tmp06..09
+        lda     aws_tmp06
+        ldy     #$09
+        sta     (buffer_ptr),y
+        lda     aws_tmp07
+        ldy     #$0A
+        sta     (buffer_ptr),y
+        lda     aws_tmp08
+        ldy     #$0B
+        sta     (buffer_ptr),y
+        lda     aws_tmp09
+        ldy     #$0C
+        sta     (buffer_ptr),y
+
+        ; maxBytes (u16le)
+        lda     aws_tmp14
+        ldy     #$0D
+        sta     (buffer_ptr),y
+        lda     aws_tmp15
+        ldy     #$0E
+        sta     (buffer_ptr),y
+
+        ; set FujiBus TX params
+        lda     #FN_DEVICE_NETWORK
+        sta     fuji_bus_tx_device
+
+        lda     #NET_CMD_READ
+        sta     fuji_bus_tx_command
+
+        lda     buffer_ptr
+        clc
+        adc     #$06
+        sta     fuji_bus_tx_payload_lo
+        lda     buffer_ptr+1
+        adc     #$00
+        sta     fuji_bus_tx_payload_hi
+
+        lda     #$09                    ; 9 bytes payload (1+2+4+2)
+        ldx     #$00
+        jsr     fujibus_send_packet
+
+        ; receive response
+        jsr     fujibus_receive_packet
+
+        ; check for valid response
+        cpx     #$00
+        bne     @check_descriptor
+        cmp     #$00
+        beq     @read_fail
+
+@check_descriptor:
+        ; minimum length: 7 + 12 = 19 bytes (FujiBus hdr + network protocol hdr)
+        cmp     #$13
+        bcc     @read_fail
+
+        ; check descriptor byte
+        ldy     #$05
+        lda     (buffer_ptr),y
+        cmp     #$01
+        bne     @read_fail
+
+        ; check status code
+        iny                             ; y = 6
+        lda     (buffer_ptr),y
+        bne     @read_fail
+
+        ; get dataLen from response (u16le at NET_RESP_DATALEN = buffer+17)
+        ldy     #NET_RESP_DATALEN
+        lda     (buffer_ptr),y
+        sta     aws_tmp02               ; dataLen low
+        iny
+        lda     (buffer_ptr),y
+        sta     aws_tmp03               ; dataLen high
+
+        ; store count for caller (u16le)
+        lda     aws_tmp02
+        sta     fuji_network_buf_cnt
+        lda     aws_tmp03
+        sta     fuji_network_buf_cnt_hi
+
+        ; copy data from buffer+19 to channel buffer page
+        ; channel buffer page is at fuji_ch_buf_page,y (where Y=intch was saved)
+        ldy     fuji_intch
+        lda     fuji_ch_buf_page,y
+        sta     aws_tmp01               ; dest high byte
+        lda     #$00
+        sta     aws_tmp00               ; dest low byte
+
+        ; source = buffer_ptr + NET_RESP_DATA (19)
+        lda     buffer_ptr
+        clc
+        adc     #NET_RESP_DATA
+        sta     cws_tmp2
+        lda     buffer_ptr+1
+        adc     #$00
+        sta     cws_tmp3
+
+        ldy     #$00
+@copy_data:
+        lda     aws_tmp02
+        ora     aws_tmp03
+        beq     @read_success
+
+        lda     (cws_tmp2),y
+        sta     (aws_tmp00),y
+
+        inc     cws_tmp2
+        bne     :+
+        inc     cws_tmp3
+:
+        inc     aws_tmp00
+        bne     :+
+        inc     aws_tmp01
+:
+        lda     aws_tmp02
+        bne     :+
+        dec     aws_tmp03
+:
+        dec     aws_tmp02
+        jmp     @copy_data
+
+@read_success:
+        lda     #$01
+        rts
+
+@read_fail:
+        lda     #$00
+        rts
+
+
+; bool fujibus_network_close(uint16_t handle)
+;   Input:
+;     fuji_ch_handle_low (y) = handle low byte
+;     fuji_ch_handle_high (y) = handle high byte
+;     Y = intch
+;   Output:
+;     A = 1 on success, 0 on failure
+;
+; Close request payload (at buffer+6):
+;   +0  version = $01
+;   +1  handle (u16le)
+
+fujibus_network_close:
+        ; save intch (Y) before using Y as buffer write index
+        sty     aws_tmp00               ; save intch for handle reads
+
+        ; version
+        lda     #FN_PROTOCOL_VERSION
+        ldy     #$06
+        sta     (buffer_ptr),y
+
+        ; handle (u16le) — read handle from channel block using saved intch
+        ldy     aws_tmp00
+        lda     fuji_ch_handle_low,y
+        ldy     #$07
+        sta     (buffer_ptr),y
+        ldy     aws_tmp00
+        lda     fuji_ch_handle_high,y
+        ldy     #$08
+        sta     (buffer_ptr),y
+
+        ; set FujiBus TX params
+        lda     #FN_DEVICE_NETWORK
+        sta     fuji_bus_tx_device
+
+        lda     #NET_CMD_CLOSE
+        sta     fuji_bus_tx_command
+
+        lda     buffer_ptr
+        clc
+        adc     #$06
+        sta     fuji_bus_tx_payload_lo
+        lda     buffer_ptr+1
+        adc     #$00
+        sta     fuji_bus_tx_payload_hi
+
+        lda     #$03                    ; 3 bytes payload
+        ldx     #$00
+        jsr     fujibus_send_packet
+
+        ; receive response
+        jsr     fujibus_receive_packet
+
+        ; check for valid response
+        cpx     #$00
+        bne     @check_descriptor
+        cmp     #$00
+        beq     @close_fail
+
+@check_descriptor:
+        ; minimum: 7 + 4 = 11 bytes
+        cmp     #$0B
+        bcc     @close_fail
+
+        ; check descriptor byte
+        ldy     #$05
+        lda     (buffer_ptr),y
+        cmp     #$01
+        bne     @close_fail
+
+        ; check status code
+        iny                             ; y = 6
+        lda     (buffer_ptr),y
+        bne     @close_fail
+
+        lda     #$01
+        rts
+
+@close_fail:
+        lda     #$00
+        rts

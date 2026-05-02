@@ -69,7 +69,7 @@ filev_entry:
 
         jsr     parameter_fsp
 
-        ; "B0/B1" is the zp pointer for indirect reading from the input parameter X/Y location
+        ; "B0/B1" == aws_tmp00/aws_tmp01 is the zp pointer for indirect reading from the input parameter X/Y location
         stx     aws_tmp00              ; XY -> parameter block
         stx     fuji_param_block_lo    ; Store for later use
         sty     aws_tmp01

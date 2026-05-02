@@ -99,6 +99,43 @@ FILE_CMD_READ_FILE     = $03
 FILE_CMD_WRITE_FILE    = $04
 FILE_CMD_RESOLVE_PATH  = $05
 
+; Network Commands (device 0xFD)
+NET_CMD_OPEN       = $01
+NET_CMD_READ       = $02
+NET_CMD_WRITE      = $03
+NET_CMD_CLOSE      = $04
+NET_CMD_INFO       = $05
+NET_CMD_INFO_READ  = $06
+
+; Network open method flags (used by the FujiNet device for HTTP semantics)
+NET_METHOD_GET     = $01
+NET_METHOD_POST    = $02
+NET_METHOD_PUT     = $03
+NET_METHOD_DELETE  = $04
+NET_METHOD_HEAD    = $05
+
+; Network open flags
+NET_FLAG_ALLOW_EVICT = $08
+
+; Network open response flags
+NET_OPEN_FLAG_ACCEPTED = $01
+
+; Network read response flags
+NET_READ_FLAG_EOF   = $01
+
+; Network protocol byte offsets within full response buffer
+; FujiBus wire: [0]=dev [1]=cmd [2,3]=len [4]=chk [5]=desc [6]=status [7+]=protocol payload
+NET_PAYLOAD_OFFSET        = 7
+
+; Shared response header offsets (protocol payload relative)
+NET_RESP_VERSION          = NET_PAYLOAD_OFFSET + 0   ; 7: 1 byte
+NET_RESP_FLAGS            = NET_PAYLOAD_OFFSET + 1   ; 8: 1 byte
+NET_RESP_RESERVED         = NET_PAYLOAD_OFFSET + 2   ; 9: 2 bytes
+NET_RESP_HANDLE           = NET_PAYLOAD_OFFSET + 4   ; 11: 2 bytes u16le
+NET_RESP_OFFSET_ECHO      = NET_PAYLOAD_OFFSET + 6   ; 13: 4 bytes u32le
+NET_RESP_DATALEN          = NET_PAYLOAD_OFFSET + 10  ; 17: 2 bytes u16le
+NET_RESP_DATA             = NET_PAYLOAD_OFFSET + 12  ; 19: variable
+
 ; Fuji Commands
 FUJI_CMD_GET_MOUNTS = $FD
 FUJI_CMD_SET_MOUNT  = $FC

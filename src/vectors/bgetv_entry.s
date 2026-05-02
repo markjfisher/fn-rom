@@ -19,6 +19,11 @@
         .import remember_axy
         .import remember_xy_only
         .import report_error_cb
+        .import fuji_begin_transaction
+        .import fuji_end_transaction
+        .import fujibus_network_read
+        .import fuji_network_buf_cnt
+        .import fuji_network_buf_cnt_hi
 
         .include "fujinet.inc"
 
@@ -36,12 +41,15 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 bgetv_entry:
-        ;dbg_string_axy "BGETV: "
-
         jsr     remember_xy_only
-        jsr     check_channel_yhndl_exyintch_tya_cmpptr         ; exits with comparison between PTR and EXT to check if we're at EOF, and Y=intch
+        jsr     check_channel_yhndl_exyintch_tya_cmpptr         ; exits with Y=intch
 
-        bne     @bg_not_eof              ; If PTR<>EXT
+        ; NEW: Check for network channel by testing handle bytes
+        lda     fuji_ch_handle_low,y
+        ora     fuji_ch_handle_high,y
+        bne     @network_bget
+
+        bne     @bg_not_eof              ; If PTR<>EXT (disk file)
         lda     fuji_ch_flg,y            ; Already at EOF?
         and     #$10
         bne     @err_eof                 ; IF bit 4 set
@@ -49,8 +57,6 @@ bgetv_entry:
         jsr     channel_flags_set_bits   ; Set bit 4
         ldx     fuji_saved_x
         lda     #$FE
-
-        ; dbg_string_axy "exiting bgetv_entry:"
 
         sec
         rts                              ; C=1=EOF
@@ -72,6 +78,70 @@ bgetv_entry:
 
         clc
         rts                             ; C=0 => NOT EOF
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; @network_bget - Network-aware byte read
+; For network channels, the buffer is refilled via NET_CMD_READ
+; when exhausted. Buffer count is stored in fuji_ch_1118,y.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+@network_bget:
+        ; Check if buffer has unread data at current PTR offset
+        lda     fuji_ch_bptr_low,y      ; PTR low = offset within buffer
+        cmp     fuji_ch_1118,y          ; buffer count for this channel
+        bcc     @net_have_data          ; if PTR low < count, data available
+
+        ; Buffer exhausted — refill via NET_CMD_READ
+        sty     aws_tmp02               ; save intch
+
+        ; Calculate aligned offset: clear low byte of PTR
+        lda     #$00
+        sta     aws_tmp06               ; offset low = 0 (aligned)
+        lda     fuji_ch_bptr_mid,y
+        sta     aws_tmp07               ; offset mid
+        lda     fuji_ch_bptr_hi,y
+        sta     aws_tmp08               ; offset hi
+        lda     #$00
+        sta     aws_tmp09               ; offset byte 3
+
+        ; max_bytes = 256
+        lda     #$00
+        sta     aws_tmp14               ; max_bytes low
+        lda     #$01
+        sta     aws_tmp15               ; max_bytes high
+
+        jsr     fuji_begin_transaction
+
+        ldy     aws_tmp02               ; restore intch
+        jsr     fujibus_network_read
+
+        jsr     fuji_end_transaction
+
+        cmp     #$01
+        bne     @net_eof                ; read failed = EOF
+
+        ldy     aws_tmp02               ; restore intch
+
+        ; Store buffer count in channel block byte $18
+        lda     fuji_network_buf_cnt
+        sta     fuji_ch_1118,y
+
+        ; Check if we got any data
+        ora     fuji_network_buf_cnt_hi
+        beq     @net_eof                ; 0 bytes returned = EOF
+
+@net_have_data:
+        ; Read byte from buffer and increment PTR
+        jsr     load_then_inc_seq_ptr_yintch
+        lda     (aws_tmp10, x)          ; Byte from buffer
+
+        clc
+        rts                             ; C=0 => NOT EOF
+
+@net_eof:
+        ldx     fuji_saved_x
+        sec                             ; C=1 = EOF
+        rts
 
 @err_eof:
         jsr     report_error_cb
@@ -166,4 +236,3 @@ channel_flags_clear_bits:
         sta     fuji_ch_flg,y
         clc
         rts
-

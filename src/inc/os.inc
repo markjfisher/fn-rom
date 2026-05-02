@@ -148,6 +148,9 @@ OS_INC = 1
         .import  fuji_ch_111A
 
         .import  fuji_ax_save
+        .import  fuji_network_url_flag
+        .import  fuji_network_buf_cnt
+        .import  fuji_network_buf_cnt_hi
         .import  fuji_bss
 
         .import  dfs_cat_s0_header
