@@ -60,10 +60,11 @@
         .import set_current_drive_adrive
         .import fuji_begin_transaction
         .import fuji_end_transaction
-        .import fujibus_network_open
-        .import fujibus_network_close
-        .import fuji_network_url_flag
-        .import fuji_network_buf_cnt
+        .import  fujibus_network_open
+        .import  fujibus_network_close
+        .import  fuji_network_url_flag
+        .import  fuji_network_buf_cnt
+        .import  network_flush_write
 
         .include "fujinet.inc"
 
@@ -219,6 +220,12 @@ close_network_channel:
         ; network close path
         ; Don't zero handle yet — fujibus_network_close reads it from channel buffer
         sty     aws_tmp02               ; save intch
+
+        ; Flush any buffered writes before closing
+        ldy     aws_tmp02
+        jsr     network_flush_write
+
+        ldy     aws_tmp02
         jsr     fuji_begin_transaction
         ldy     aws_tmp02               ; restore intch
         jsr     fujibus_network_close

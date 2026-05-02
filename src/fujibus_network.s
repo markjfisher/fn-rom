@@ -11,7 +11,9 @@
 
         .export  fujibus_network_open
         .export  fujibus_network_read
+        .export  fujibus_network_write
         .export  fujibus_network_close
+        .export  fujibus_write_copy_start
 
         .import  fujibus_receive_packet
         .import  fujibus_send_packet
@@ -370,6 +372,167 @@ fujibus_network_read:
         lda     #$00
         rts
 
+
+; bool fujibus_network_write(uint16_t handle, uint32_t offset, uint16_t dataLen)
+;   Input:
+;     aws_tmp02/03 = dataLen (u16le) — PRESERVED
+;     aws_tmp06/07/08/09 = 32-bit offset (little-endian)
+;     Y = intch (to read handle from channel block)
+;     Data at channel buffer page (fuji_ch_buf_page,y), offset 0
+;   Output:
+;     A = 1 on success, 0 on failure
+;
+; Write request payload (at buffer+6):
+;   +0  version = $01
+;   +1  handle (u16le)
+;   +3  offset (u32le)
+;   +7  dataLen (u16le)
+;   +9  data (dataLen bytes)
+
+fujibus_network_write:
+        sty     aws_tmp00               ; save intch
+
+        ; version
+        lda     #FN_PROTOCOL_VERSION
+        ldy     #$06
+        sta     (buffer_ptr),y
+
+        ; handle (u16le)
+        ldy     aws_tmp00
+        lda     fuji_ch_handle_low,y
+        ldy     #$07
+        sta     (buffer_ptr),y
+        ldy     aws_tmp00
+        lda     fuji_ch_handle_high,y
+        ldy     #$08
+        sta     (buffer_ptr),y
+
+        ; offset (u32le) — from aws_tmp06..09
+        lda     aws_tmp06
+        ldy     #$09
+        sta     (buffer_ptr),y
+        lda     aws_tmp07
+        ldy     #$0A
+        sta     (buffer_ptr),y
+        lda     aws_tmp08
+        ldy     #$0B
+        sta     (buffer_ptr),y
+        lda     aws_tmp09
+        ldy     #$0C
+        sta     (buffer_ptr),y
+
+        ; dataLen (u16le) — from input aws_tmp02/03
+        lda     aws_tmp02
+        ldy     #$0D
+        sta     (buffer_ptr),y
+        lda     aws_tmp03
+        ldy     #$0E
+        sta     (buffer_ptr),y
+
+        ; save original dataLen for payload size calculation
+        sta     aws_tmp15               ; high byte of total payload (aw_tmp15 was maxBytes high)
+        lda     aws_tmp02
+        ; total payload = 9 + dataLen
+        clc
+        adc     #$09
+        sta     aws_tmp14               ; low byte
+        lda     aws_tmp03
+        adc     #$00
+        sta     aws_tmp15               ; high byte
+
+        ; Copy data from channel buffer page (offset 0) to buffer+15
+fujibus_write_copy_start:
+        ldy     aws_tmp00               ; intch
+        sty     fuji_intch
+        lda     fuji_ch_buf_page,y
+        sta     aws_tmp01               ; source high byte (buffer page)
+        lda     #$00
+        sta     aws_tmp00               ; source low byte = 0
+
+        ; dest = buffer_ptr + 15
+        lda     buffer_ptr
+        clc
+        adc     #$0F
+        sta     cws_tmp2
+        lda     buffer_ptr+1
+        adc     #$00
+        sta     cws_tmp3
+
+        ldy     #$00
+@copy_wr_data:
+        lda     aws_tmp02
+        ora     aws_tmp03
+        beq     @send_write
+
+        lda     (aws_tmp00),y
+        sta     (cws_tmp2),y
+
+        inc     aws_tmp00
+        bne     :+
+        inc     aws_tmp01
+:
+        inc     cws_tmp2
+        bne     :+
+        inc     cws_tmp3
+:
+        lda     aws_tmp02
+        bne     :+
+        dec     aws_tmp03
+:
+        dec     aws_tmp02
+        jmp     @copy_wr_data
+
+@send_write:
+        ; set FujiBus TX params
+        lda     #FN_DEVICE_NETWORK
+        sta     fuji_bus_tx_device
+
+        lda     #NET_CMD_WRITE
+        sta     fuji_bus_tx_command
+
+        lda     buffer_ptr
+        clc
+        adc     #$06
+        sta     fuji_bus_tx_payload_lo
+        lda     buffer_ptr+1
+        adc     #$00
+        sta     fuji_bus_tx_payload_hi
+
+        ldx     aws_tmp15               ; payload size high
+        lda     aws_tmp14               ; payload size low
+        jsr     fujibus_send_packet
+
+        ; receive response
+        jsr     fujibus_receive_packet
+
+        ; check for valid response
+        cpx     #$00
+        bne     @wr_check_desc
+        cmp     #$00
+        beq     @wr_fail
+
+@wr_check_desc:
+        ; minimum: 7 + 6 + 4 = 17 bytes
+        cmp     #$11
+        bcc     @wr_fail
+
+        ; check descriptor byte
+        ldy     #$05
+        lda     (buffer_ptr),y
+        cmp     #$01
+        bne     @wr_fail
+
+        ; check status code
+        iny
+        lda     (buffer_ptr),y
+        bne     @wr_fail
+
+        lda     #$01
+        rts
+
+@wr_fail:
+        lda     #$00
+        rts
 
 ; bool fujibus_network_close(uint16_t handle)
 ;   Input:

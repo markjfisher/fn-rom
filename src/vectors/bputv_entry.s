@@ -8,6 +8,8 @@
         .export bp_entry
         .export ai_suggestion
         .export updext
+        .export network_flush_write
+        .export network_bput
 
         .import a_rolx4
         .import calc_buffer_sector_for_ptr
@@ -29,6 +31,11 @@
         .import print_newline
         .import save_cat_to_disk
         .import tya_cmp_ptr_ext
+        .import fuji_begin_transaction
+        .import fuji_end_transaction
+        .import fujibus_network_write
+        .import fuji_ch_handle_low
+        .import fuji_ch_handle_high
 
         .include "fujinet.inc"
 
@@ -49,11 +56,22 @@ bput_yintchan:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 bputv_entry:
-        ; dbg_string_axy "BPUTV: "
-        ; rts
-
         jsr     remember_axy
         jsr     check_channel_yhndl_exyintch
+
+        ; Save byte to write (A) before handle check clobbers it
+        pha
+
+        ; Check for network channel by testing handle bytes
+        lda     fuji_ch_handle_low,y
+        ora     fuji_ch_handle_high,y
+        beq     not_network             ; if not network, go disk path
+        pla                             ; restore byte for network_bput
+        jmp     network_bput
+not_network:
+        pla                             ; restore byte for bp_entry
+        jmp     bp_entry
+
 bp_entry:
         pha
         lda     fuji_channel_start,y
@@ -147,7 +165,6 @@ updext:
         bpl     @bp_setextloop
 
 ai_suggestion:
-        ; SUGGESTION: TO FIX:
         ldy     fuji_intch              ; CRITICAL: Restore Y=intch after loop!
 bp_exit:
         ; clc
@@ -160,3 +177,117 @@ err_file_read_only:
         jsr     report_error_cb
         .byte   $C1
         .byte   "Read only", 0
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; @network_bput — Network-aware byte write
+; Buffers bytes in the channel buffer page and flushes via
+; NET_CMD_WRITE when the buffer is full (256 bytes).
+; Write count stored per-channel in fuji_ch_1118,y.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+network_bput:
+        ; A = byte to write
+        sty     aws_tmp02               ; save intch
+        pha                             ; save byte on stack
+
+        ; Store byte at buffer[write_count]
+        ldy     aws_tmp02
+        lda     fuji_ch_1118,y          ; write count (= buffer offset)
+        sta     aws_tmp00               ; AWS_TMP00 = offset in buffer
+
+        lda     fuji_ch_buf_page,y      ; buffer page
+        sta     aws_tmp01               ; AWS_TMP01 = buffer page
+
+        pla                             ; restore byte from stack
+        ldx     #$00
+        sta     (aws_tmp00,x)           ; store byte at buffer[write_count]
+
+        ; Increment write count
+        ldy     aws_tmp02
+        tya
+        tax
+        inc     fuji_ch_1118,x          ; write_count++
+
+        ; Increment PTR (tracks write position)
+        inc     fuji_ch_bptr_low,x
+        bne     :+
+        inc     fuji_ch_bptr_mid,x
+        bne     :+
+        inc     fuji_ch_bptr_hi,x
+:
+
+        ; If write count wrapped from 255 to 0, buffer is full — flush
+        lda     fuji_ch_1118,y
+        cmp     #$00
+        bne     @net_bput_exit          ; not full yet
+
+        sty     aws_tmp02
+        jsr     network_flush_write
+        ldy     aws_tmp02
+
+@net_bput_exit:
+        rts
+
+
+; network_flush_write — Flush buffered writes to network device
+;   Input: Y = intch
+;   Output: A = 1 on success, 0 on failure
+;   Clobbers: aws_tmp02
+
+network_flush_write:
+        ; Nothing to flush if write count is 0
+        lda     fuji_ch_1118,y
+        ora     fuji_ch_sect_cnt,y      ; also check if ANY bytes pending
+        beq     @flush_done
+
+        ; Actually check just the write count byte
+        lda     fuji_ch_1118,y
+        beq     @flush_done
+
+        ; Calculate offset = PTR - write_count
+        ; Save write_count
+        sta     aws_tmp12               ; save byte count
+        sty     aws_tmp02               ; save intch
+
+        ; PTR value is at fuji_ch_bptr_low/mid/hi
+        ; We want offset = PTR - write_count
+        ; Start with PTR value
+        lda     fuji_ch_bptr_low,y
+        sec
+        sbc     aws_tmp12               ; subtract write_count
+        sta     aws_tmp06               ; offset low
+        lda     fuji_ch_bptr_mid,y
+        sbc     #$00
+        sta     aws_tmp07               ; offset mid
+        lda     fuji_ch_bptr_hi,y
+        sbc     #$00
+        sta     aws_tmp08               ; offset hi
+        lda     #$00
+        sta     aws_tmp09               ; offset byte 3
+
+        ; dataLen = write_count (from aws_tmp12)
+        lda     aws_tmp12
+        sta     aws_tmp02               ; dataLen low
+        lda     #$00
+        sta     aws_tmp03               ; dataLen high = 0
+
+        ; save intch for after transaction
+        sty     fuji_intch
+
+        jsr     fuji_begin_transaction
+        ldy     fuji_intch
+        jsr     fujibus_network_write
+        pha                             ; save result
+        jsr     fuji_end_transaction
+        pla                             ; restore result
+
+        ldy     fuji_intch
+
+        ; Clear write buffer count on success
+        cmp     #$01
+        bne     @flush_done
+        lda     #$00
+        sta     fuji_ch_1118,y
+
+@flush_done:
+        rts
