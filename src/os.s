@@ -141,12 +141,17 @@
         .export  fuji_ch_sect_cnt
         .export  fuji_ch_111A
 
+        .export  fuji_ch_write_pos_low
+        .export  fuji_ch_write_pos_mid
+        .export  fuji_ch_write_pos_hi
+        .export  fuji_ch_write_count
+
         .export  fuji_ax_save
+        .export  fuji_json_path_len
         .export  fuji_network_url_flag
         .export  fuji_network_buf_cnt
         .export  fuji_network_buf_cnt_hi
         .export  fuji_network_flush_mode
-        .export  fuji_bss
 
         .export  dfs_cat_s0_header
         .export  dfs_cat_s1_header
@@ -545,14 +550,19 @@ fuji_network_buf_cnt_hi = fuji_static_workspace + $34   ; high byte
 ; 1 = immediate flush after each BPUT (for real-time/streaming connections).
 fuji_network_flush_mode = fuji_static_workspace + $35
 
+; JSON query path length for network OPENIN requests. 0 = no pending query.
+; Transient command state, not part of saved FS workspace.
+fuji_json_path_len      = fuji_static_workspace + $36
+
 ; 2 byte buffer for stashing AX registers for saving result while restoring state.
-fuji_ax_save            = fuji_static_workspace + $36   ; 2 bytes, don't need to save it
+fuji_ax_save            = fuji_static_workspace + $37   ; 2 bytes, don't need to save it
+
 
 ; FINAL LOCATION CAN BE + $3F
 
 ; LAST location for the copy state in workspace_utils.s function to understand
 ; So when the filing system is swapped (e.g. switching between fujinet and DFS), it's preserved and reloaded
-fuji_last_state_loc     = fuji_static_workspace + $35  ; effectively $10F5
+fuji_last_state_loc     = fuji_static_workspace + $36  ; effectively $10F6
 ; Note: up to fuji_static_workspace + $3F (+$3F = $103F) is available
 
 
@@ -576,6 +586,12 @@ fuji_ch_1108            = fuji_channel_start + $08 ; name byte 5
 fuji_ch_1109            = fuji_channel_start + $09 ; size byte 1 (of 3)
 fuji_ch_110A            = fuji_channel_start + $0A ; name byte 6
 fuji_ch_110B            = fuji_channel_start + $0B ; size byte 2 (of 3)
+; Network channel write buffer state — repurposes $0A-$0C/$1A for network channels
+; (these bytes are used for filename/size in DFS disk channels but unused
+; for network channels)
+fuji_ch_write_pos_low  = fuji_channel_start + $0A
+fuji_ch_write_pos_mid  = fuji_channel_start + $0B
+fuji_ch_write_pos_hi   = fuji_channel_start + $0C
 fuji_ch_name7           = fuji_channel_start + $0C ; name byte 7 - high bit set means READ ONLY (findv_entry)
 fuji_ch_op              = fuji_channel_start + $0D ; "op" mixed byte
 fuji_ch_dir             = fuji_channel_start + $0E ; directory -> directory_param when setting drive from current channel info
@@ -593,6 +609,8 @@ fuji_ch_flg             = fuji_channel_start + $17  ; Channel flags; see below f
 fuji_ch_1118            = fuji_channel_start + $18  ; ??? UNUSED
 fuji_ch_sect_cnt        = fuji_channel_start + $19  ; Sector Count
 fuji_ch_111A            = fuji_channel_start + $1A  ; size byte 3 (of 3)
+; Network write buffer count — repurposes $1A for network channels
+fuji_ch_write_count    = fuji_channel_start + $1A
 fuji_ch_bitmask         = fuji_channel_start + $1B  ; Bit mask
 fuji_ch_sect_lo         = fuji_channel_start + $1C  ; buffer sector low
 fuji_ch_sect_hi         = fuji_channel_start + $1D  ; buffer sector high
@@ -624,26 +642,3 @@ fuji_ch_handle_high     = fuji_channel_start + $1F  ; handle for fujinet resourc
 ; fuji_unknown_11C0       = fuji_workspace + $01C0 ; this is channel 6 start block? If only 5 allowed, this is additional area I don't yet understand
 ; fuji_unknown_11D0       = fuji_workspace + $01D0 ; above + $10, seems like fuji_ch_bptr_low if this is a buffer, but could be part of the 11C0-11FF being for general usage...
 
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; BUFFERS - NEED TO REVIEW THEIR USAGE
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-; these should be the claimed pages from PWS (usually 1700-18FF)
-
-; Canonical host URI from *FHOST ResolvePath lives in PWS at FUJI_HOST_URI_OFFSET (second
-; 80-byte slot after the packet slice). Directory path for display is the suffix of that
-; string; length in fuji_current_dir_len (wire path_len); PATH = host base + (host_len - dir_len).
-; Use fuji_host_uri_ptr() / get_fuji_host_uri_addr_to_aws_tmp00.
-
-; FS URI scratch (80 bytes) in PWS — FUJI_FS_URI_OFFSET / fuji_fs_uri_ptr (working cwd for FLS/FIN).
-
-; FujiBus packet buffer: lives in private workspace (see FUJI_PWS_* in fujinet.inc).
-; Runtime base address is set in buffer_ptr (cws_tmp4/5) by set_fuji_data_buffer_ptr.
-
-; should be free from $13C0 to $1500
-
-
-; the start of where BSS should be defined for CC65, see fujinet-rom.cfg
-; this extends up to 1900 for room for temporary vars, and global C vars (trying not to use those - revisit this when we move to ".res" for allocating memory).
-fuji_bss                = fuji_workspace + $0500

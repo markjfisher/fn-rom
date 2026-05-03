@@ -147,12 +147,17 @@ OS_INC = 1
         .import  fuji_ch_sect_cnt
         .import  fuji_ch_111A
 
+        .import  fuji_ch_write_pos_low
+        .import  fuji_ch_write_pos_mid
+        .import  fuji_ch_write_pos_hi
+        .import  fuji_ch_write_count
+
         .import  fuji_ax_save
+        .import  fuji_json_path_len
         .import  fuji_network_url_flag
         .import  fuji_network_buf_cnt
         .import  fuji_network_buf_cnt_hi
         .import  fuji_network_flush_mode
-        .import  fuji_bss
 
         .import  dfs_cat_s0_header
         .import  dfs_cat_s1_header

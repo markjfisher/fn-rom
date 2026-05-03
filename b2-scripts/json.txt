@@ -1,0 +1,6 @@
+*FHOST tnfs://192.168.1.101/bbc/
+*FIN net.ssd
+*FMOUNT 0 0
+*.
+LOAD"JSON01"
+REM RUN

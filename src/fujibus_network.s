@@ -13,10 +13,12 @@
         .export  fujibus_network_read
         .export  fujibus_network_write
         .export  fujibus_network_close
+        .export  fujibus_network_json_query
         .export  fujibus_write_copy_start
 
         .import  fujibus_receive_packet
         .import  fujibus_send_packet
+        .import  get_fuji_json_path_addr_to_aws_tmp00
 
         .import  calc_checksum
         .import  calc_checksum_continue
@@ -613,5 +615,147 @@ fujibus_network_close:
         rts
 
 @close_fail:
+        lda     #$00
+        rts
+
+
+; bool fujibus_network_json_query(uint16_t handle)
+;   Input:
+;     fuji_ch_handle_low (y) = handle low byte
+;     fuji_ch_handle_high (y) = handle high byte
+;     Y = intch
+;     JSON path in PWS buffer (set by *FJSON via get_fuji_json_path_addr_to_aws_tmp00)
+;     fuji_json_path_len = length of JSON path string
+;   Output:
+;     A = 1 on success, 0 on failure
+;
+; JsonQuery request payload (at buffer+6):
+;   +0  version = $01
+;   +1  handle (u16le)
+;   +3  jsonPathLen (u16le)
+;   +5  jsonPath bytes (N)
+
+fujibus_network_json_query:
+        sty     aws_tmp00               ; save intch (for handle byte reading)
+        tya
+        pha                             ; push intch on stack (survives send/receive)
+
+        ; version
+        lda     #FN_PROTOCOL_VERSION
+        ldy     #$06
+        sta     (buffer_ptr),y
+
+        ; handle (u16le)
+        ldy     aws_tmp00
+        lda     fuji_ch_handle_low,y
+        ldy     #$07
+        sta     (buffer_ptr),y
+        ldy     aws_tmp00
+        lda     fuji_ch_handle_high,y
+        ldy     #$08
+        sta     (buffer_ptr),y
+
+        ; jsonPathLen (u16le)
+
+        ; jsonPathLen (u16le)
+        lda     fuji_json_path_len
+        ldy     #$09
+        sta     (buffer_ptr),y
+        lda     #$00
+        iny
+        sta     (buffer_ptr),y          ; high byte = 0
+        iny
+
+        ; Copy JSON path from PWS buffer to packet buffer
+        sty     aws_tmp02               ; save dest buffer index (Y = 11 after pathLen)
+        jsr     get_fuji_json_path_addr_to_aws_tmp00
+        ; aws_tmp00/01 = PWS + FUJI_JSON_PATH_OFFSET
+
+        ldx     #$00                    ; byte count
+@copy_path:
+        cpx     fuji_json_path_len
+        beq     @send_json_query
+
+        ; Read from PWS: advance pointer for each byte (can't use (zp),X)
+        ldy     #$00
+        lda     (aws_tmp00),y
+        pha                             ; save byte
+        ; Advance PWS pointer
+        lda     aws_tmp00
+        clc
+        adc     #$01
+        sta     aws_tmp00
+        lda     aws_tmp01
+        adc     #$00
+        sta     aws_tmp01
+        ; Write to packet buffer
+        ldy     aws_tmp02
+        pla
+        sta     (buffer_ptr),y
+        inc     aws_tmp02
+        inx
+        jmp     @copy_path
+
+@send_json_query:
+        ; set FujiBus TX params
+        lda     #FN_DEVICE_NETWORK
+        sta     fuji_bus_tx_device
+
+        lda     #NET_CMD_JSON_QUERY
+        sta     fuji_bus_tx_command
+
+        lda     buffer_ptr
+        clc
+        adc     #$06
+        sta     fuji_bus_tx_payload_lo
+        lda     buffer_ptr+1
+        adc     #$00
+        sta     fuji_bus_tx_payload_hi
+
+        ; payload size = 5 (ver+handle+pathLen) + jsonPathLen
+        lda     fuji_json_path_len
+        clc
+        adc     #$05
+        bcc     @payload_hi_zero
+        ldx     #$01
+        jmp     @send_jq
+@payload_hi_zero:
+        ldx     #$00
+@send_jq:
+        jsr     fujibus_send_packet
+
+        ; receive response
+        jsr     fujibus_receive_packet
+
+        ; check for valid response
+        cpx     #$00
+        bne     @jq_check_desc
+        cmp     #$00
+        beq     @jq_fail
+
+@jq_check_desc:
+        ; minimum: 7 + 1 + 1 + 2 + 2 + 2 = 15 bytes
+        cmp     #$0F
+        bcc     @jq_fail
+
+        ; check descriptor byte
+        ldy     #$05
+        lda     (buffer_ptr),y
+        cmp     #$01
+        bne     @jq_fail
+
+        ; check status code
+        iny
+        lda     (buffer_ptr),y
+        bne     @jq_fail
+
+        ; Result is in the packet buffer at buffer+6 onwards.
+        ; cmd_fjson reads resultSize and updates EXT/PTR there.
+        pla                             ; balance stack (intch was pushed at start)
+        lda     #$01
+        rts
+
+@jq_fail:
+        pla                             ; balance stack (intch was pushed at start)
         lda     #$00
         rts

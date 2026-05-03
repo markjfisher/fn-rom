@@ -4,9 +4,11 @@
         .export set_fuji_fs_uri_ptr
         .export fuji_fs_uri_ptr
         .export fuji_host_uri_ptr
+        .export fuji_json_path_ptr
         .export fuji_dir_path_ptr
         .export get_fuji_fs_uri_addr_to_aws_tmp00
         .export get_fuji_host_uri_addr_to_aws_tmp00
+        .export get_fuji_json_path_addr_to_aws_tmp00
 
         .import  remember_axy
         .import  fuji_current_host_len
@@ -73,6 +75,19 @@ fuji_host_uri_ptr:
         pla
         rts
 
+; uint8_t *fuji_json_path_ptr(void); return in A/X — PWS + FUJI_JSON_PATH_OFFSET
+fuji_json_path_ptr:
+        jsr     set_private_workspace_pointer_aws_tmp00
+        lda     aws_tmp00
+        clc
+        adc     #<(FUJI_JSON_PATH_OFFSET)
+        pha
+        lda     aws_tmp01
+        adc     #>(FUJI_JSON_PATH_OFFSET)
+        tax
+        pla
+        rts
+
 ; uint8_t *fuji_dir_path_ptr(void);  return in A/X
 ; PATH = suffix of canonical host URI: PWS host base + (host_len - dir_len).
 ; TODO: this can be improved, PWS is always on a boundary, so lower byte is 00
@@ -121,6 +136,17 @@ get_fuji_host_uri_addr_to_aws_tmp00:
         clc
         lda     aws_tmp01
         adc     #>(FUJI_HOST_URI_OFFSET)
+        sta     aws_tmp01
+        rts
+
+; JSON path storage address in aws_tmp00/aws_tmp01 (does not modify buffer_ptr)
+get_fuji_json_path_addr_to_aws_tmp00:
+        jsr     set_private_workspace_pointer_aws_tmp00
+        lda     #<(FUJI_JSON_PATH_OFFSET)
+        sta     aws_tmp00
+        clc
+        lda     aws_tmp01
+        adc     #>(FUJI_JSON_PATH_OFFSET)
         sta     aws_tmp01
         rts
 

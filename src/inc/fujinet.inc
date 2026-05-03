@@ -106,6 +106,7 @@ NET_CMD_WRITE      = $03
 NET_CMD_CLOSE      = $04
 NET_CMD_INFO       = $05
 NET_CMD_INFO_READ  = $06
+NET_CMD_JSON_QUERY = $07
 
 ; Network open method flags (used by the FujiNet device for HTTP semantics)
 NET_METHOD_GET     = $01
@@ -166,20 +167,14 @@ FUJI_FS_URI_BUFFER_SIZE = 80
 ; PWS layout after packet: [+280] working FS URI (*FIN, FLS cwd, disk mount);
 ; [+360] canonical host URI from *FHOST ResolvePath (PATH suffix uses host_len/dir_len).
 FUJI_FS_URI_OFFSET = 280
+FUJI_HOST_URI_BUFFER_SIZE = 80
 FUJI_HOST_URI_OFFSET = FUJI_FS_URI_OFFSET + FUJI_FS_URI_BUFFER_SIZE
+; 512-byte PWS leaves 72 bytes after packet + FS URI + host URI.
+; Reserve the remainder for transient JSON query strings used by *FJSON.
+FUJI_JSON_PATH_OFFSET = FUJI_HOST_URI_OFFSET + FUJI_HOST_URI_BUFFER_SIZE
+FUJI_JSON_PATH_BUFFER_SIZE = 72
 FN_MAX_PACKET_SIZE = FUJI_PWS_PACKET_SIZE
 
 FN_PROTOCOL_VERSION = $01
-
-; Network channel write buffer state — stored in channel block bytes
-; that are unused for network channels (filename area and $1A):
-;   fuji_ch_write_pos_low/mid/hi at channel+$0A..$0C
-;   fuji_ch_write_count     at channel+$1A
-; These are separate from read buffer state ($18,$19,$1C,$1D,PTR at $14-$16)
-; so OPENUP can support independent read and write streams.
-fuji_ch_write_pos_low  = fuji_channel_start + $0A
-fuji_ch_write_pos_mid  = fuji_channel_start + $0B
-fuji_ch_write_pos_hi   = fuji_channel_start + $0C
-fuji_ch_write_count    = fuji_channel_start + $1A
 
 .endif

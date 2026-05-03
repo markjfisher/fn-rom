@@ -47,6 +47,8 @@
         .import cmd_fs_funmount
         .import cmd_fs_fout
         .import cmd_fs_fdrive
+        .import cmd_fs_fjson
+        .import cmd_fs_fjson
         .import cmd_fs_freset
         .import cmd_help_fuji
         .import cmd_help_futils
@@ -145,6 +147,7 @@ cmd_table_futils:
         .byte   "UNMOUNT",   $80+$01    ; <drive>
         .byte   "OUT",       $80+$01    ; <drive>
         .byte   "RESET",     $80+$00    ; no parameter
+        .byte   "JSON",      $80        ; JSON Pointer path for network OPENIN (optional param)
         .byte   "TEST",      $80+$00    ; no parameter
         .byte   $00                     ; End of table
 
@@ -207,6 +210,7 @@ cmd_table_futils_cmds:
         .word   cmd_fs_funmount-1
         .word   cmd_fs_fout-1
         .word   cmd_fs_freset-1
+        .word   cmd_fs_fjson-1
         .word   cmd_ftest-1
         .word   not_cmd_futils-1
 

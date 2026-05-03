@@ -1,4 +1,4 @@
-REM filename: NETEST
+REM filename: netasm
 REM FujiNet network connectivity test using single asm send/receive transaction
 
 httpGetURL$="http://192.168.1.101:8080/get"
