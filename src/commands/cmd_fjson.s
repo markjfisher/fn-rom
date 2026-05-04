@@ -10,11 +10,6 @@
 ; and subsequent BGET# reads return only the matched value.
 
         .export  cmd_fs_fjson
-
-.export  _fjson_bad_channel
-.export  _fjson_bp_read_rsize
-.export  _fjson_bp_rsize_loaded
-.export  _fjson_bp_write_ext
 .export  _fjson_clear_channel
 .export  _fjson_clear_no_stash
 .export  _fjson_copy_loop
@@ -169,50 +164,10 @@ _fjson_ext_cont:
 
         jsr     set_fuji_data_buffer_ptr
         jsr     fujibus_network_json_query
-
-        ; Read resultSize from JsonQuery response BEFORE restoring intch
-        ; (resultSize read uses Y as loop counter)
-
-        ; response at buffer_ptr+7: version(1)+flags(1)+reserved(2)+handle(2)+resultSize(2)
-        ; resultSize is at buffer_ptr+13
-        lda     buffer_ptr
-        clc
-        adc     #$0D                    ; offset to resultSize low byte
-        sta     cws_tmp2
-        lda     buffer_ptr+1
-        adc     #$00
-        sta     cws_tmp3
-
-_fjson_bp_read_rsize:
-        ldy     #$00
-        lda     (cws_tmp2),y            ; resultSize low
-        sta     aws_tmp02               ; save low
-        iny
-        lda     (cws_tmp2),y            ; resultSize high
-        sta     aws_tmp03               ; save high
-
-_fjson_bp_rsize_loaded:
-        pla                             ; restore intch from stack
-        tay
-
-_fjson_bp_write_ext:
-        ; Update EXT
-        lda     aws_tmp02
-        sta     fuji_ch_ext_low,y
-        lda     aws_tmp03
-        sta     fuji_ch_ext_mid,y
-        lda     #$00
-        sta     fuji_ch_ext_hi,y
-
-        ; Reset PTR to 0
-        lda     #$00
-        sta     fuji_ch_bptr_low,y
-        sta     fuji_ch_bptr_mid,y
-        sta     fuji_ch_bptr_hi,y
-
-        ; Clear buffer count so BGET doesn't return stale data from previous query
-        sta     fuji_ch_sect_cnt,y
-
+        ; A = 1 on success, 0 on failure
+        ; EXT/PTR update is done inside fujibus_network_json_query
+_fjson_ext_done:
+        pla                             ; balance stack (intch was pushed)
         jmp     exit_user_ok
 
 _fjson_clear_channel:

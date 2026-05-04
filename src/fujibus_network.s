@@ -749,9 +749,33 @@ fujibus_network_json_query:
         lda     (buffer_ptr),y
         bne     @jq_fail
 
-        ; Result is in the packet buffer at buffer+6 onwards.
-        ; cmd_fjson reads resultSize and updates EXT/PTR there.
-        pla                             ; balance stack (intch was pushed at start)
+        ; Read resultSize from response (u16le at buffer+13)
+        ldy     #$0D
+        lda     (buffer_ptr),y          ; resultSize low
+        sta     aws_tmp02               ; save low
+        iny
+        lda     (buffer_ptr),y          ; resultSize high
+        sta     aws_tmp03               ; save high
+
+        ; Update EXT/PTR in channel block
+        pla                             ; restore intch from stack
+        tay
+        sty     fuji_intch              ; set for BGET's @net_eof handler
+
+        lda     aws_tmp02
+        sta     fuji_ch_ext_low,y
+        lda     aws_tmp03
+        sta     fuji_ch_ext_mid,y
+        lda     #$00
+        sta     fuji_ch_ext_hi,y
+
+        lda     #$00
+        sta     fuji_ch_bptr_low,y
+        sta     fuji_ch_bptr_mid,y
+        sta     fuji_ch_bptr_hi,y
+
+        sta     fuji_ch_sect_cnt,y      ; clear stale buffer count
+
         lda     #$01
         rts
 

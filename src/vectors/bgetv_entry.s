@@ -110,8 +110,42 @@ bgetv_entry:
         sec
         sbc     fuji_ch_1118,y          ; subtract buf_start_low
         cmp     fuji_ch_sect_cnt,y      ; compare with buf_cnt
-        bcc     @net_have_data          ; if index < buf_cnt, data available
+        bcc     @net_have_j             ; if index < buf_cnt, data available
 
+        ; Check if PTR >= EXT (already at EOF — don't send a Read)
+        lda     fuji_ch_bptr_hi,y
+        cmp     fuji_ch_ext_hi,y
+        bcc     @do_nr_1
+        bne     @net_eof_j              ; PTR_hi > EXT_hi → EOF
+        lda     fuji_ch_bptr_mid,y
+        cmp     fuji_ch_ext_mid,y
+        bcc     @do_nr_1                ; PTR_mid < EXT_mid → need to read
+        bne     @net_eof_j              ; PTR_mid > EXT_mid → EOF
+        lda     fuji_ch_bptr_low,y
+        cmp     fuji_ch_ext_low,y
+        bcs     @net_eof_j              ; PTR_low >= EXT_low → EOF
+@do_nr_1:
+        jmp     @do_net_read
+@net_eof_j:
+        ; Set PTR = EXT so EOF handler (PTR == EXT check) returns TRUE
+        lda     fuji_ch_ext_low,y
+        sta     fuji_ch_bptr_low,y
+        lda     fuji_ch_ext_mid,y
+        sta     fuji_ch_bptr_mid,y
+        lda     fuji_ch_ext_hi,y
+        sta     fuji_ch_bptr_hi,y
+        sty     fuji_intch
+        sec                             ; ensure C=1 for EOF
+        ldx     fuji_saved_x
+        rts
+
+@net_have_j:
+        jmp     @net_have_data
+
+@do_net_read:
+        ; Buffer exhausted — refill via NET_CMD_READ
+
+@net_read:
         ; Buffer exhausted — refill via NET_CMD_READ
         ; offset = PTR (absolute byte position — no alignment)
         lda     fuji_ch_bptr_low,y

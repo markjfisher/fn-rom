@@ -8,6 +8,10 @@ REM Uses httpbin service /get endpoint to fetch data
 X=OPENIN("http://192.168.1.101:8080/get")
 IF X=0 PRINT "No file":END
 
+CLS
+PRINT "Performing JSON"
+PRINT "queries against httpbin /get"
+PRINT
 PRINT "    Accept: "; FNget_json(X, "/headers/Accept")
 PRINT "      Host: "; FNget_json(X, "/headers/Host")
 PRINT "User Agent: "; FNget_json(X, "/headers/User-Agent")
