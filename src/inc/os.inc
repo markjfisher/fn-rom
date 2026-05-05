@@ -132,8 +132,6 @@ OS_INC = 1
         .import  gbpb_ctl_blk_mem_ptr_host
         .import  gbpb_seqptr
 
-        .import  fuji_buf_ws_tmp_buf
-
         .import  fuji_filev_hi_addr_buf
         .import  fuji_filev_load_hi
         .import  fuji_filev_exec_hi

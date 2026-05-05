@@ -126,8 +126,6 @@
         .export  gbpb_ctl_blk_mem_ptr_host
         .export  gbpb_seqptr
 
-        .export  fuji_buf_ws_tmp_buf
-
         .export  fuji_filev_hi_addr_buf
         .export  fuji_filev_load_hi
         .export  fuji_filev_exec_hi

@@ -514,6 +514,10 @@ network_open_file:
         sta     fuji_ch_ext_mid,y
         sta     fuji_ch_ext_hi,y
 
+        ; Restore bitmask (channel block clear at @clear_channel above zeros it)
+        lda     fuji_channel_flag_bit
+        sta     fuji_ch_bitmask,y
+
         ; begin transaction
         jsr     fuji_begin_transaction
 

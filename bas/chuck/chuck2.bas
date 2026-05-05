@@ -84,7 +84,7 @@ DEF PROCget_json(hndl%, path$)
    jsonValue?idx%=ch%
    idx%=idx%+1
   UNTIL e%=-1 OR idx%>=max_size%
-  jsonValueLen%=idx%-1
+  jsonValueLen%=idx%
   CLOSE# hndl%
 ENDPROC
 
