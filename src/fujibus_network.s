@@ -16,6 +16,18 @@
         .export  fujibus_network_json_query
         .export  fujibus_write_copy_start
 
+        .export  fnjq_build_request
+        .export  fnjq_copy_path
+        .export  fnjq_jq_check_desc
+        .export  fnjq_jq_check_len
+        .export  fnjq_jq_fail
+        .export  fnjq_jq_retry
+        .export  fnjq_jq_success
+        .export  fnjq_payload_hi_zero
+        .export  fnjq_send_jq
+        .export  fnjq_send_json_query
+        .export  fnjq_vsync_loop
+
         .import  fujibus_receive_packet
         .import  fujibus_send_packet
         .import  get_fuji_json_path_addr_to_aws_tmp00
@@ -637,20 +649,24 @@ fujibus_network_close:
 
 fujibus_network_json_query:
         sty     aws_tmp00               ; save intch (for handle byte reading)
+        sty     cws_tmp3                ; also save in location not clobbered by path copy
         tya
         pha                             ; push intch on stack (survives send/receive)
+        lda     #10                     ; max 10 retries (~0.5s each = 5s total)
+        sta     cws_tmp8
 
+fnjq_build_request:
         ; version
         lda     #FN_PROTOCOL_VERSION
         ldy     #$06
         sta     (buffer_ptr),y
 
-        ; handle (u16le)
-        ldy     aws_tmp00
+        ; handle (u16le) — use cws_tmp3 (preserved across path copy, unlike aws_tmp00)
+        ldy     cws_tmp3
         lda     fuji_ch_handle_low,y
         ldy     #$07
         sta     (buffer_ptr),y
-        ldy     aws_tmp00
+        ldy     cws_tmp3
         lda     fuji_ch_handle_high,y
         ldy     #$08
         sta     (buffer_ptr),y
@@ -672,9 +688,9 @@ fujibus_network_json_query:
         ; aws_tmp00/01 = PWS + FUJI_JSON_PATH_OFFSET
 
         ldx     #$00                    ; byte count
-@copy_path:
+fnjq_copy_path:
         cpx     fuji_json_path_len
-        beq     @send_json_query
+        beq     fnjq_send_json_query
 
         ; Read from PWS: advance pointer for each byte (can't use (zp),X)
         ldy     #$00
@@ -694,9 +710,9 @@ fujibus_network_json_query:
         sta     (buffer_ptr),y
         inc     aws_tmp02
         inx
-        jmp     @copy_path
+        jmp     fnjq_copy_path
 
-@send_json_query:
+fnjq_send_json_query:
         ; set FujiBus TX params
         lda     #FN_DEVICE_NETWORK
         sta     fuji_bus_tx_device
@@ -716,12 +732,12 @@ fujibus_network_json_query:
         lda     fuji_json_path_len
         clc
         adc     #$05
-        bcc     @payload_hi_zero
+        bcc     fnjq_payload_hi_zero
         ldx     #$01
-        jmp     @send_jq
-@payload_hi_zero:
+        jmp     fnjq_send_jq
+fnjq_payload_hi_zero:
         ldx     #$00
-@send_jq:
+fnjq_send_jq:
         jsr     fujibus_send_packet
 
         ; receive response
@@ -729,26 +745,57 @@ fujibus_network_json_query:
 
         ; check for valid response
         cpx     #$00
-        bne     @jq_check_desc
+        bne     fnjq_jq_check_desc
         cmp     #$00
-        beq     @jq_fail
+        beq     fnjq_jq_fail
 
-@jq_check_desc:
-        ; minimum: 7 + 1 + 1 + 2 + 2 + 2 = 15 bytes
-        cmp     #$0F
-        bcc     @jq_fail
+fnjq_jq_check_desc:
+        ; Save total length for later size validation
+        sta     aws_tmp02
 
-        ; check descriptor byte
+        ; Must be at least 7 bytes (FujiBus header)
+        cmp     #$07
+        bcc     fnjq_jq_fail
+
+        ; check descriptor byte (always in header at buffer+5)
         ldy     #$05
         lda     (buffer_ptr),y
         cmp     #$01
-        bne     @jq_fail
+        bne     fnjq_jq_fail
 
-        ; check status code
+        ; check status code (always in header at buffer+6)
         iny
         lda     (buffer_ptr),y
-        bne     @jq_fail
+        beq     fnjq_jq_check_len            ; 0 = success, verify full length
+        cmp     #$04                     ; 4 = NotReady: body not yet cached
+        beq     fnjq_jq_retry
+        bne     fnjq_jq_fail                 ; other error
 
+fnjq_jq_check_len:
+        ; Success response: minimum 7 + 1 + 1 + 2 + 2 + 2 = 15 bytes
+        lda     aws_tmp02               ; restore total length from earlier
+        cmp     #$0F
+        bcc     fnjq_jq_fail
+        beq     fnjq_jq_success         ; we had a success code before we checked the length, so we can jump to success now
+
+fnjq_jq_retry:
+        dec     cws_tmp8                ; decrement retry counter
+        beq     fnjq_jq_fail                ; timeout after 100 × 0.5s = 50s
+
+        ; Wait ~0.5 seconds (25 VSyncs at 50Hz) using OSBYTE &13
+        ldx     #25
+fnjq_vsync_loop:
+        txa
+        pha
+        lda     #$13
+        jsr     OSBYTE
+        pla
+        tax
+        dex
+        bne     fnjq_vsync_loop
+        jmp     fnjq_build_request      ; retry: rebuild and resend
+
+fnjq_jq_success:
         ; Read resultSize from response (u16le at buffer+13)
         ldy     #$0D
         lda     (buffer_ptr),y          ; resultSize low
@@ -779,7 +826,7 @@ fujibus_network_json_query:
         lda     #$01
         rts
 
-@jq_fail:
+fnjq_jq_fail:
         pla                             ; balance stack (intch was pushed at start)
         lda     #$00
         rts
