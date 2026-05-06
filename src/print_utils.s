@@ -164,15 +164,23 @@ err_continue:
         inx
         ; now grab the location of the error message
         jsr     inc_cws0708_and_load
+        ; any negative value after the string allows the function to continue. DO NOT WRITE THE NEG VALUE
+        bmi     write_00_print_return2           ; Bit 7 set, return, but the message isn't printed, just in $102
+
         sta     $0100,x
-        ; any negative value after the string allows the function to continue
-        bmi     print_return2           ; Bit 7 set, return
         ; otherwise we print until a 0 byte, and then BRK to command line
         bne     @errstr_loop
         ; jsr     tube_release  ; FUTURE: add this back in
 
         ; BOOM - return to command line
         jmp     $0100
+
+write_00_print_return2:
+        ; write a 00 like a normal error that doesn't return would, but return anyway
+        ; otherwise the -ve value causes print issue when we jump to 0100 manually
+        lda     #$00
+        sta     $0100,x
+        beq     print_return2
 
 print_nibble_print_string:
         jsr     print_nibble

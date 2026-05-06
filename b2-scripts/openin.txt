@@ -1,0 +1,6 @@
+X=OPENIN("http://192.168.1.101:8080/get")
+PRINT X
+BPUT#X, 65
+BPUT#X, 66
+BPUT#X, 67
+

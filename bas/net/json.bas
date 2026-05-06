@@ -12,11 +12,11 @@ CLS
 PRINT "Performing JSON"
 PRINT "queries against httpbin /get"
 PRINT
-PRINT "    Accept: "; FNget_json(X, "/headers/Accept")
-PRINT "      Host: "; FNget_json(X, "/headers/Host")
-PRINT "User Agent: "; FNget_json(X, "/headers/User-Agent")
-PRINT "    origin: "; FNget_json(X, "/origin")
-PRINT "       url: "; FNget_json(X, "/url")
+PRINT "   Accept: "; FNget_json(X, "/headers/Accept")
+PRINT "     Host: "; FNget_json(X, "/headers/Host")
+PRINT "UserAgent: "; FNget_json(X, "/headers/User-Agent")
+PRINT "   origin: "; FNget_json(X, "/origin")
+PRINT "      url: "; FNget_json(X, "/url")
 CLOSE# 0
 END
 

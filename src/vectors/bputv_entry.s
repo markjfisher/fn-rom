@@ -188,11 +188,9 @@ err_file_read_only:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 network_bput:
-        sty     aws_tmp02               ; save intch
         pha                             ; save byte on stack
 
         ; Store byte at buffer[write_count]
-        ldy     aws_tmp02
         lda     fuji_ch_write_count,y   ; write count (= buffer offset)
         sta     aws_tmp00
 
@@ -204,7 +202,6 @@ network_bput:
         sta     (aws_tmp00,x)           ; store at buffer[write_count]
 
         ; Increment write count and write position
-        ldy     aws_tmp02
         tya
         tax
         inc     fuji_ch_write_count,x   ; write_count++
@@ -223,33 +220,41 @@ network_bput:
 
         ; In immediate mode, flush after every BPUT
         lda     fuji_network_flush_mode
-        beq     @net_bput_exit
+        beq     net_bput_exit
 
 @do_flush:
-        sty     aws_tmp02
         jsr     network_flush_write
-        ldy     aws_tmp02
+        ; need to validate if the flush worked
+        bcc     no_err_flushing
+        jmp     $0100                                   ; already have the error message on the stack
 
-@net_bput_exit:
+no_err_flushing:
+        ldy     fuji_intch
+
+nfw_flush_done:
+net_bput_exit:
         rts
+
+
 
 
 ; network_flush_write — Flush buffered writes to network device
 ;   Input: Y = intch
-;   Output: A = 1 on success, 0 on failure
+;   Output: C=0 on success, C=1 on failure and write count is set to 0. writes a write fail messager before returning
 
 network_flush_write:
+        clc                             ; anticipate no error in case there's nothing to flush
         lda     fuji_ch_write_count,y
-        beq     @flush_done
+        beq     nfw_flush_done
 
-        sta     aws_tmp12               ; save write count
+        sta     aws_tmp02               ; save write count for network_write call
 
         ; Calculate offset = write_pos - write_count
         ; write_pos is the absolute position AFTER the last byte written
         ; The first buffered byte is at (write_pos - write_count)
         lda     fuji_ch_write_pos_low,y
         sec
-        sbc     aws_tmp12
+        sbc     aws_tmp02
         sta     aws_tmp06               ; offset low
         lda     fuji_ch_write_pos_mid,y
         sbc     #$00
@@ -260,27 +265,21 @@ network_flush_write:
         lda     #$00
         sta     aws_tmp09
 
-        ; dataLen = write_count
-        lda     aws_tmp12
-        sta     aws_tmp02
-        lda     #$00
-        sta     aws_tmp03
-
-        sty     fuji_intch
-
-        jsr     fuji_begin_transaction
-        ldy     fuji_intch
         jsr     fujibus_network_write
-        pha
-        jsr     fuji_end_transaction
-        pla
 
+        ; first reset the count to 0 as we have flushed either way
         ldy     fuji_intch
-
-        cmp     #$01
-        bne     @flush_done
         lda     #$00
         sta     fuji_ch_write_count,y
 
-@flush_done:
+        bcs     err_write_fail
+        ; returns with C=0 for flush write
+        rts
+
+err_write_fail:
+        jsr     report_error_cb
+        .byte   $C2
+        .byte   "Write err", $80
+        nop
+        sec
         rts

@@ -18,6 +18,7 @@
         .export findv_entry
         .export setup_channel_info_block_yintch
         .export channel_set_dir_drive_get_cat_entry_yintch
+        .export network_open_file
 
         .export findv_createfile
         .export findv_filefound
@@ -29,42 +30,44 @@
         .export close_file_buftodisk
         .export close_network_channel
 
+        .export nof_not_read
+        .export nof_is_read
+        .export nof_have_method
+        .export nof_have_channel
+        .export nof_clear_channel
+        .export nof_open_ok
+        .export nof_return_handle
+        .export nof_open_failed
+
         .export calling_createfile
         .export chklock_exit
         .export network_allocate_channel
+        .export no_flush_error
 
-        .import read_fspba_find_cat_entry
         .import a_rolx4
-        .import a_rolx5
         .import a_rorx4and3
         .import a_rorx5
-        .import channel_buffer_to_disk_yhandle
         .import channel_buffer_to_disk_yintch
         .import check_channel_yhndl_exyintch
         .import create_file_fsp
         .import err_disk
-        .import get_cat_firstentry80_fname
+        .import fuji_begin_transaction
+        .import fuji_end_transaction
+        .import fujibus_network_close
+        .import fujibus_network_open
         .import get_cat_firstentry80
+        .import get_cat_firstentry80_fname
         .import is_hndlin_use_yintch
         .import load_cur_drv_cat2
+        .import network_flush_write
         .import parameter_fsp
-        .import print_hex
-        .import print_newline
-        .import print_string
-        .import dump_memory_block
+        .import read_fspba_find_cat_entry
         .import read_fspba_reset
         .import remember_axy
         .import remember_xy_only
         .import report_error_cb
         .import save_cat_to_disk
         .import set_current_drive_adrive
-        .import fuji_begin_transaction
-        .import fuji_end_transaction
-        .import  fujibus_network_open
-        .import  fujibus_network_close
-        .import  fuji_network_url_flag
-        .import  fuji_network_buf_cnt
-        .import  network_flush_write
 
         .include "fujinet.inc"
 
@@ -84,7 +87,7 @@ close_all_files:
 @close_all_files_loop:
         clc
         adc     #$20
-        beq     close_all_files_exit
+        beq     close_all_files_exit                            ; why do we do $C0/$E0?
         tay
         jsr     close_file_yintch
         bne     @close_all_files_loop
@@ -179,10 +182,10 @@ close_files_yhandle:
         jsr     check_channel_yhndl_exyintch
 
 close_file_yintch:
-        pha
+        pha                             ; current intch, e.g. $20, $40, ...
         jsr     is_hndlin_use_yintch
         bcs     close_file_exit
-        ; NEW: check if this is a network channel (has handle)
+        ; check if this is a network channel (has handle)
         lda     fuji_ch_handle_low,y
         ora     fuji_ch_handle_high,y
         bne     close_network_channel
@@ -213,25 +216,23 @@ close_file_yintch:
         jsr     save_cat_to_disk
         ldy     fuji_intch
 close_file_buftodisk:
-        jsr     channel_buffer_to_disk_yintch   ; CRITICAL FIX: Y=intch, not handle!
+        jsr     channel_buffer_to_disk_yintch   ; Y=intch, not handle!
         jmp     close_file_exit
 
 close_network_channel:
         ; network close path
-        ; Don't zero handle yet — fujibus_network_close reads it from channel buffer
-        sty     aws_tmp02               ; save intch
-
         ; Flush any buffered writes before closing
-        ldy     aws_tmp02
         jsr     network_flush_write
+        ; if C=1, we failed to flush. Do we care? we need to continue closing.]
+        php                                     ; save status on stack
 
-        ldy     aws_tmp02
-        jsr     fuji_begin_transaction
-        ldy     aws_tmp02               ; restore intch
+        ; jsr     fuji_begin_transaction
+        ; on return from network close, C=0 => success, C=1 => fail
         jsr     fujibus_network_close
-        jsr     fuji_end_transaction
+        bcs     error_closing
+        ; jsr     fuji_end_transaction
 
-        ldy     aws_tmp02               ; restore intch
+        ldy     fuji_intch               ; restore intch
 
         ; clear the open bit
         lda     fuji_ch_bitmask,y
@@ -244,12 +245,31 @@ close_network_channel:
         sta     fuji_ch_handle_low,y
         sta     fuji_ch_handle_high,y
 
-        jmp     close_file_exit
+close_file_exit_plp:
+        plp                             ; was there an error flushing?
+        bcc     no_flush_error
+
+        ; stack already setup with flush error message, this resets the stack to "sane"
+        jmp     $0100
 
 close_file_exit:
+no_flush_error:
         ldx     fuji_saved_x
         pla
         rts
+
+error_closing:
+        ; balance the stack and check if we had error flushing as well as closing
+        plp
+        bcs     err_flushing_and_closing
+        jsr     report_error_cb
+        .byte   $C2
+        .byte   "Err closing", 0
+
+err_flushing_and_closing:
+        jsr     report_error_cb
+        .byte   $C3
+        .byte   "Err flushing and closing", 0
 
 findv_openfile:
         jsr     remember_xy_only        ; Save X, Y as A will be returned
@@ -257,20 +277,22 @@ findv_openfile:
         sty     aws_tmp11               ; (MMFS: STY &BB)
         sta     aws_tmp04               ; A=Operation
         bit     aws_tmp04
-        php                             ; Save flags
+        php                             ; Save flags, 7(N)->write, 6(V)->read from
         jsr     read_fspba_reset        ; Copies file name to fuji_filename_buffer (padding to 64 spaces), and to pws_tmp05-pws_tmp11
-        ; NEW: check if this is a network URL (contains "://")
+
+        ; check if this is a network URL (contains "://")
         lda     fuji_network_url_flag
-        beq     :+
+        beq     not_url
         jmp     network_open_file       ; If non-zero, route to network open
-:
+
+not_url:
         jsr     parameter_fsp           ; puts $FF into wild star and wild hash
         jsr     get_cat_firstentry80
         bcs     findv_filefound         ; If file found
         lda     #$00
-        plp
+        plp                             ; result from bit aws_tmp04, i.e. bit 7->N, bit 6->V.
 calling_createfile:
-        bvc     findv_createfile        ; If not read only = write only
+        bvc     findv_createfile        ; V clear means not reading, i.e. write only
         ; A=0=file not found
         rts                             ; EXIT
 
@@ -328,6 +350,15 @@ err_file_open:
         .byte   $C2
         .byte   "Open",0
 
+convert_intch_to_buf_page:
+        lda     fuji_intch              ; A=intch (3 high bits)
+        tay
+        jsr     a_rorx5                 ; scale down to 1-7, C will be 0
+        adc     #$11                    ; convert to $12 to $18 (although channel is only 1-5, so page becomes $12 to $16)
+        sta     fuji_ch_buf_page,y      ; Buffer page high address for this block, i.e. the memory page we give OS to use for file data
+        rts
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; SetupChannelInfoBlock_Yintch
 ; Sets up channel information block for opened file
@@ -355,11 +386,8 @@ setup_channel_info_block_yintch:
         dex
         bne     @chnlblock_loop2
 
-        lda     fuji_intch              ; A=intch (3 high bits)
-        tay
-        jsr     a_rorx5                 ; scale down to 1-7, C will be 0
-        adc     #$11                    ; convert to $12 to $18 (although channel is only 1-5, so page becomes $12 to $16)
-        sta     fuji_ch_buf_page,y      ; Buffer page high address for this block, i.e. the memory page we give OS to use for file data
+        jsr     convert_intch_to_buf_page
+
         lda     fuji_channel_flag_bit
         sta     fuji_ch_bitmask,y       ; Mask bit
         ora     fuji_open_channels
@@ -456,20 +484,21 @@ network_open_file:
         ; OPENIN ($40)  → GET  (read-only)
         ; OPENOUT ($80) → PUT  (write-only)
         ; OPENUP ($C0)  → POST (bidirectional, e.g. TCP streams)
-        lda     aws_tmp04
-        and     #$C0
-        cmp     #$40
-        bne     @not_openin
+
+        ; we have N,V in stack set for write only and read only (both = update)
+        ; we know we have at least 1 bit set
+        plp                             ; restore the argument flags
+        bvc     nof_not_read
+        bpl     nof_is_read
+        lda     #NET_METHOD_POST        ; both NV set
+        bne     nof_have_method
+nof_not_read:
+        lda     #NET_METHOD_PUT         ; only have N set
+        bne     nof_have_method
+nof_is_read:
         lda     #NET_METHOD_GET
-        bne     @have_method
-@not_openin:
-        cmp     #$80
-        bne     @not_openout
-        lda     #NET_METHOD_PUT
-        bne     @have_method
-@not_openout:
-        lda     #NET_METHOD_POST
-@have_method:
+
+nof_have_method:
         sta     aws_tmp02               ; save method
         lda     #NET_FLAG_ALLOW_EVICT
         sta     aws_tmp03               ; save flags
@@ -477,35 +506,26 @@ network_open_file:
         ; allocate a channel slot
         jsr     network_allocate_channel
         ldy     fuji_intch
-        bne     @have_channel
-        plp
+        bne     nof_have_channel
         jmp     err_toomanyfilesopen
 
-@have_channel:
+nof_have_channel:
         ; mark channel as open
         lda     fuji_channel_flag_bit
         ora     fuji_open_channels
         sta     fuji_open_channels
 
         ; Clear channel block and set up buffer page
-        lda     fuji_intch
-        tay
+        ldy     fuji_intch
         lda     #$00
         ldx     #$1F
-@clear_channel:
+nof_clear_channel:
         sta     fuji_channel_start,y
         iny
         dex
-        bpl     @clear_channel
+        bpl     nof_clear_channel
 
-        ; re-get Y=intch
-        ldy     fuji_intch
-
-        ; set up buffer page for this channel (like disk, so bget can use it)
-        tya
-        jsr     a_rorx5                 ; scale down to 1-5
-        adc     #$11                    ; buffer page $12-$16 (same as disk channels)
-        sta     fuji_ch_buf_page,y
+        jsr     convert_intch_to_buf_page
 
         ; Set EXT to $FFFFFF so EOF# returns FALSE for stream of unknown length
         ; PTR starts at 0, so PTR < EXT is always true until actual EOF
@@ -514,7 +534,7 @@ network_open_file:
         sta     fuji_ch_ext_mid,y
         sta     fuji_ch_ext_hi,y
 
-        ; Restore bitmask (channel block clear at @clear_channel above zeros it)
+        ; Restore bitmask (channel block clear at nof_clear_channel above zeros it)
         lda     fuji_channel_flag_bit
         sta     fuji_ch_bitmask,y
 
@@ -528,11 +548,11 @@ network_open_file:
 
         ; check result
         cpx     #$00
-        bne     @open_ok
+        bne     nof_open_ok
         cmp     #$00
-        beq     @open_failed
+        beq     nof_open_failed
 
-@open_ok:
+nof_open_ok:
         ; store network handle in channel buffer
         ldy     fuji_intch
         sta     fuji_ch_handle_low,y
@@ -545,13 +565,13 @@ network_open_file:
         ; set read-only marker for OPENIN
         lda     aws_tmp04
         and     #$40
-        beq     @return_handle
+        beq     nof_return_handle
         ; mark as read-only (bit 7 of first name byte)
         lda     fuji_channel_start,y
         ora     #$80
         sta     fuji_channel_start,y
 
-@return_handle:
+nof_return_handle:
         ; clear network URL flag
         lda     #$00
         sta     fuji_network_url_flag
@@ -560,10 +580,9 @@ network_open_file:
         tya
         jsr     a_rorx5
         ora     #filehndl
-        plp                             ; balance the php from findv_openfile
         rts
 
-@open_failed:
+nof_open_failed:
         jsr     fuji_end_transaction
 
         ; clear the open bit
@@ -598,22 +617,21 @@ network_allocate_channel:
         lda     #$08                    ; start with channel 5 mask (%0000 1000)
         sta     fuji_channel_flag_bit
         ldy     #$A0                    ; start with channel 5 offset
-@nac_loop:
+nac_loop:
         lda     fuji_channel_flag_bit
         bit     fuji_open_channels
-        beq     @nac_found              ; channel not open, use it
+        beq     nac_found               ; channel not open, use it
         tya
         sec
         sbc     #$20                    ; try next channel down
         tay
         asl     fuji_channel_flag_bit   ; shift mask left
-        bne     @nac_loop               ; if mask not zero, keep looking
+        bne     nac_loop               ; if mask not zero, keep looking
         ; no channels available: fuji_intch stays 0
         rts
-@nac_found:
+nac_found:
         sty     fuji_intch
         rts
-
 
 is_file_open_continue:
         txa
@@ -680,6 +698,7 @@ fop_cmpfn_loop:
 fop_channelnotopen:
         sty     fuji_intch              ; save the attempted intch, it's allocated to a new channel if no name matches
         sta     fuji_channel_flag_bit   ; store the Channel Flag Bit Mask, it indicates the channel number where %1000 0000 would be channel 1, %0100 0000 would be channel 2, ...
+
 fop_nothisfile:
         sec
         lda     aws_tmp03

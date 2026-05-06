@@ -601,26 +601,13 @@ rdafsp_padx:
 
         ; why do we copy the name here? we can't do this with resource names like web addresses
         ; I think this is needed as a "cache" of the filename for various functions, e.g. *COPY, *RENAME, etc
-        ; For now it's probably safe to leave this as is
+        ; For now it's probably safe to leave this as is, as we'll ignore these bytes if it is a URL
         ldx     #$06                    ; Copy from fuji_filename_buffer ($1000) to $C5
 @rdafsp_copyloop:
         lda     fuji_filename_buffer,x
         sta     pws_tmp05,x
         dex
         bpl     @rdafsp_copyloop
-
-; .ifdef FN_DEBUG
-;         jsr     print_string
-;         .byte   "Parsed filename: "
-;         ldx     #$00
-; @debug_filename_loop:
-;         lda     fuji_filename_buffer,x
-;         jsr     print_char
-;         inx
-;         cpx     #$07
-;         bne     @debug_filename_loop
-;         jsr     print_newline
-; .endif
 
         rts
 
@@ -736,15 +723,15 @@ conv_hndl18:
         ; i.e. (0) 000a 0bcd -> (0) bcd0 000a, where the brackets is the Carry flag, and as starting bit 3 is "0", C becomes 0 when value is $11-$17, but $08 manufactures an error Carry.
         jsr     a_rolx5
         tay                             ; ch0=$00, ch1=$20, ch2=$40
-        pla                             ; ch3=$60...ch7=$E0
+        pla                             ; ch3=$60, ch4=$80, ch5=$A0
         rts                             ; c=1 if not valid
 
 is_hndlin_use_yintch:
         ; Check if file handle is in use
         ; Based on MMFS IsHndlinUse_Yintch (line 5051)
-        pha                             ; Save A
+        pha                             ; Save A, which is the current YINTCH - NOT NEEDED, noone relies on A after return
         stx     fuji_saved_x            ; Save X to fuji_saved_x
-        tya
+        tya                             ; ??? These already are the same
         and     #$E0                    ; mask highest 3 bits (%1110 0000)
         sta     fuji_intch              ; Save the masked intch so we can restore it later, and rely on it
         beq     hndlinuse_notused_c1    ; channel 0 is always not used according to this.

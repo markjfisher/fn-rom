@@ -389,12 +389,12 @@ fujibus_network_read:
 
 ; bool fujibus_network_write(uint16_t handle, uint32_t offset, uint16_t dataLen)
 ;   Input:
-;     aws_tmp02/03 = dataLen (u16le) — PRESERVED
+;     aws_tmp02 = dataLen (u8) — PRESERVED
 ;     aws_tmp06/07/08/09 = 32-bit offset (little-endian)
 ;     Y = intch (to read handle from channel block)
 ;     Data at channel buffer page (fuji_ch_buf_page,y), offset 0
 ;   Output:
-;     A = 1 on success, 0 on failure
+;     C = 0 on success, 1 on failure
 ;
 ; Write request payload (at buffer+6):
 ;   +0  version = $01
@@ -404,7 +404,8 @@ fujibus_network_read:
 ;   +9  data (dataLen bytes)
 
 fujibus_network_write:
-        sty     aws_tmp00               ; save intch
+        tya
+        tax                             ; move intch into X for indexing
 
         ; version
         lda     #FN_PROTOCOL_VERSION
@@ -412,56 +413,58 @@ fujibus_network_write:
         sta     (buffer_ptr),y
 
         ; handle (u16le)
-        ldy     aws_tmp00
-        lda     fuji_ch_handle_low,y
-        ldy     #$07
+        lda     fuji_ch_handle_low,x
+        iny                             ; y=7
         sta     (buffer_ptr),y
-        ldy     aws_tmp00
-        lda     fuji_ch_handle_high,y
-        ldy     #$08
+        lda     fuji_ch_handle_high,x
+        iny                             ; y=8
         sta     (buffer_ptr),y
 
         ; offset (u32le) — from aws_tmp06..09
         lda     aws_tmp06
-        ldy     #$09
+        iny                             ; y=9
         sta     (buffer_ptr),y
         lda     aws_tmp07
-        ldy     #$0A
+        iny                             ; y=10 (A)
         sta     (buffer_ptr),y
         lda     aws_tmp08
-        ldy     #$0B
+        iny                             ; y=11 (B)
         sta     (buffer_ptr),y
         lda     aws_tmp09
-        ldy     #$0C
+        iny                             ; y=12 (C)
         sta     (buffer_ptr),y
 
-        ; dataLen (u16le) — from input aws_tmp02/03
+        ; dataLen (u8) — from input aws_tmp02, extended to 16 bit
         lda     aws_tmp02
-        ldy     #$0D
+        iny                             ; y=13 (D)
         sta     (buffer_ptr),y
-        lda     aws_tmp03
-        ldy     #$0E
+        lda     #$00                    ; high byte of byte count is always 00
+        iny                             ; y=14 (E)
         sta     (buffer_ptr),y
+        ; OPTIMIZATION: store 00 in source low byte while A=0
+        sta     aws_tmp00
 
         ; save original dataLen for payload size calculation
         sta     aws_tmp15               ; high byte of total payload (aw_tmp15 was maxBytes high)
-        lda     aws_tmp02
+
+        lda     aws_tmp02               ; reload the data length
         ; total payload = 9 + dataLen
         clc
         adc     #$09
         sta     aws_tmp14               ; low byte
-        lda     aws_tmp03
-        adc     #$00
-        sta     aws_tmp15               ; high byte
+        bcc     fujibus_write_copy_start
+        lda     #$01
+        sta     aws_tmp15               ; high byte, can never be larger than 255+9
 
         ; Copy data from channel buffer page (offset 0) to buffer+15
 fujibus_write_copy_start:
-        ldy     aws_tmp00               ; intch
-        sty     fuji_intch
+        ldy     fuji_intch
         lda     fuji_ch_buf_page,y
         sta     aws_tmp01               ; source high byte (buffer page)
-        lda     #$00
-        sta     aws_tmp00               ; source low byte = 0
+
+        ; THIS IS DONE ABOVE WHILE A=0
+        ; lda     #$00
+        ; sta     aws_tmp00               ; source low byte = 0
 
         ; dest = buffer_ptr + 15
         lda     buffer_ptr
@@ -472,29 +475,22 @@ fujibus_write_copy_start:
         adc     #$00
         sta     cws_tmp3
 
-        ldy     #$00
+        ; at this point, we can only have a count of $FF max in tmp02/03
+        ; it cannot be 00 meaning there are 00 bytes, as we've already checked the write
+        ; count in fuji_ch_write_count, which is a single byte, so we can safely
+        ; just set y to aws_tmp02, loop over all bytes with y as counter
+        ; this reduces 16 bit copy of 33 bytes to about 13
+        ldy     aws_tmp02
 @copy_wr_data:
-        lda     aws_tmp02
-        ora     aws_tmp03
+        cpy     #$00
         beq     @send_write
+
+        dey                             ; y in range (0, tmp_aws02-1)
 
         lda     (aws_tmp00),y
         sta     (cws_tmp2),y
-
-        inc     aws_tmp00
-        bne     :+
-        inc     aws_tmp01
-:
-        inc     cws_tmp2
-        bne     :+
-        inc     cws_tmp3
-:
-        lda     aws_tmp02
-        bne     :+
-        dec     aws_tmp03
-:
-        dec     aws_tmp02
-        jmp     @copy_wr_data
+        ; carry is set from the cpy, as it's always greater than 00 until we have to exit
+        bcs     @copy_wr_data
 
 @send_write:
         ; set FujiBus TX params
@@ -541,11 +537,11 @@ fujibus_write_copy_start:
         lda     (buffer_ptr),y
         bne     @wr_fail
 
-        lda     #$01
+        clc
         rts
 
 @wr_fail:
-        lda     #$00
+        sec
         rts
 
 ; bool fujibus_network_close(uint16_t handle)
@@ -554,15 +550,14 @@ fujibus_write_copy_start:
 ;     fuji_ch_handle_high (y) = handle high byte
 ;     Y = intch
 ;   Output:
-;     A = 1 on success, 0 on failure
+;     C = 0 on success, 1 on failure
 ;
 ; Close request payload (at buffer+6):
 ;   +0  version = $01
 ;   +1  handle (u16le)
 
 fujibus_network_close:
-        ; save intch (Y) before using Y as buffer write index
-        sty     aws_tmp00               ; save intch for handle reads
+        ldx     fuji_intch
 
         ; version
         lda     #FN_PROTOCOL_VERSION
@@ -570,13 +565,11 @@ fujibus_network_close:
         sta     (buffer_ptr),y
 
         ; handle (u16le) — read handle from channel block using saved intch
-        ldy     aws_tmp00
-        lda     fuji_ch_handle_low,y
-        ldy     #$07
+        lda     fuji_ch_handle_low,x
+        iny                                     ; y=7
         sta     (buffer_ptr),y
-        ldy     aws_tmp00
-        lda     fuji_ch_handle_high,y
-        ldy     #$08
+        lda     fuji_ch_handle_high,x
+        iny                                     ; y=8
         sta     (buffer_ptr),y
 
         ; set FujiBus TX params
@@ -623,11 +616,11 @@ fujibus_network_close:
         lda     (buffer_ptr),y
         bne     @close_fail
 
-        lda     #$01
+        clc
         rts
 
 @close_fail:
-        lda     #$00
+        sec
         rts
 
 
