@@ -34,6 +34,7 @@
         .import fujibus_network_read
         .import fuji_network_buf_cnt
         .import fuji_network_buf_cnt_hi
+        .import vblank
 
         .include "fujinet.inc"
 
@@ -185,19 +186,11 @@ nwbg_read_retry:
         cmp     #$02
         bne     nwbg_read_done
 
-        ; NotReady: wait 25 VSyncs (0.5s), then retry up to 10 times.
+        ; NotReady: wait 25 VSyncs (0.5s), then retry up to 4 times.
         dec     aws_tmp12
         beq     nwbg_net_eof            ; timeout behaves as EOF for BASIC
         ldx     #25
-nwbg_vsync_loop:
-        txa
-        pha
-        lda     #$13
-        jsr     OSBYTE
-        pla
-        tax
-        dex
-        bne     nwbg_vsync_loop
+        jsr     vblank
         jmp     nwbg_read_retry
 
 nwbg_read_done:

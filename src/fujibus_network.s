@@ -16,21 +16,10 @@
         .export  fujibus_network_json_query
         .export  fujibus_write_copy_start
 
-        .export  fnjq_build_request
-        .export  fnjq_copy_path
-        .export  fnjq_jq_check_desc
-        .export  fnjq_jq_check_len
-        .export  fnjq_jq_fail
-        .export  fnjq_jq_retry
-        .export  fnjq_jq_success
-        .export  fnjq_payload_hi_zero
-        .export  fnjq_send_jq
-        .export  fnjq_send_json_query
-        .export  fnjq_vsync_loop
-
         .import  fujibus_receive_packet
         .import  fujibus_send_packet
         .import  get_fuji_json_path_addr_to_aws_tmp00
+        .import  vblank
 
         .import  calc_checksum
         .import  calc_checksum_continue
@@ -790,17 +779,9 @@ fnjq_jq_retry:
         dec     cws_tmp8                ; decrement retry counter
         beq     fnjq_jq_fail                ; timeout after 100 × 0.5s = 50s
 
-        ; Wait ~0.5 seconds (25 VSyncs at 50Hz) using OSBYTE &13
+        ; Wait ~0.5 seconds (25 VSyncs at 50Hz)
         ldx     #25
-fnjq_vsync_loop:
-        txa
-        pha
-        lda     #$13
-        jsr     OSBYTE
-        pla
-        tax
-        dex
-        bne     fnjq_vsync_loop
+        jsr     vblank
         jmp     fnjq_build_request      ; retry: rebuild and resend
 
 fnjq_jq_success:
