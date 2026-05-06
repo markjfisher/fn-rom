@@ -11,7 +11,6 @@
         .export network_bget
         .export nwbg_no_data_available
         .export nwbg_net_eof_j
-        .export nwbg_do_net_read
         .export nwbg_net_read
         .export nwbg_net_have_data
         .export nwbg_net_eof
@@ -131,15 +130,16 @@ nwbg_no_data_available:
         ; Check if PTR >= EXT (already at EOF — don't send a Read)
         lda     fuji_ch_bptr_hi,y
         cmp     fuji_ch_ext_hi,y
-        bcc     nwbg_do_net_read
+        bcc     nwbg_net_read
         bne     nwbg_net_eof_j              ; PTR_hi > EXT_hi → EOF
         lda     fuji_ch_bptr_mid,y
         cmp     fuji_ch_ext_mid,y
-        bcc     nwbg_do_net_read                ; PTR_mid < EXT_mid → need to read
+        bcc     nwbg_net_read                ; PTR_mid < EXT_mid → need to read
         bne     nwbg_net_eof_j              ; PTR_mid > EXT_mid → EOF
         lda     fuji_ch_bptr_low,y
         cmp     fuji_ch_ext_low,y
         bcs     nwbg_net_eof_j              ; PTR_low >= EXT_low → EOF
+        bcc     nwbg_net_read
 
 nwbg_net_eof_j:
         ; Set PTR = EXT so EOF handler (PTR == EXT check) returns TRUE
@@ -153,9 +153,6 @@ nwbg_net_eof_j:
         sec                             ; ensure C=1 for EOF
         ; ldx     fuji_saved_x
         rts
-
-nwbg_do_net_read:
-        ; Buffer exhausted — refill via NET_CMD_READ
 
 nwbg_net_read:
         ; Buffer exhausted — refill via NET_CMD_READ

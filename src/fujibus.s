@@ -59,7 +59,8 @@ fujibus_send_packet:
         lda     fuji_bus_tx_command
         sta     (buffer_ptr),y
 
-        jmp     fujibus_send_packet_impl
+        ; fall through to impl
+        ; jmp     fujibus_send_packet_impl
 
 
 ; Internal: aws_tmp02/03 = paylen, aws_tmp00/01 = payload ptr, buffer [0],[1] = dev/cmd
