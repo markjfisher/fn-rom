@@ -228,7 +228,7 @@ fujibus_network_open:
 ;     aws_tmp14/15 = max_bytes (u16le)
 ;     Y = intch (to read handle from channel block)
 ;   Output:
-;     A = 1 on success, 0 on failure, data copied to channel buffer page
+;     C = 0 on success, 1 on failure, data copied to channel buffer page
 ;     fuji_ch_bptr_low/mid/hi updated to reflect buffer content
 ;     fuji_network_buf_cnt = number of valid bytes in buffer
 ;
@@ -240,7 +240,9 @@ fujibus_network_open:
 
 fujibus_network_read:
         ; save intch (Y) before using Y as buffer write index
-        sty     aws_tmp00               ; save intch for handle reads
+        ; sty     aws_tmp00               ; save intch for handle reads
+        tya
+        tax                     ; move yintch into X for indexing
 
         ; build payload at buffer+6
         lda     #FN_PROTOCOL_VERSION
@@ -248,35 +250,33 @@ fujibus_network_read:
         sta     (buffer_ptr),y
 
         ; handle (u16le) — read handle from channel block using saved intch
-        ldy     aws_tmp00
-        lda     fuji_ch_handle_low,y
-        ldy     #$07
+        lda     fuji_ch_handle_low,x
+        iny                             ; y = 7
         sta     (buffer_ptr),y
-        ldy     aws_tmp00
-        lda     fuji_ch_handle_high,y
-        ldy     #$08
+        lda     fuji_ch_handle_high,x
+        iny                             ; y = 8
         sta     (buffer_ptr),y
 
         ; offset (u32le) - from aws_tmp06..09
         lda     aws_tmp06
-        ldy     #$09
+        iny                             ; y = 9
         sta     (buffer_ptr),y
         lda     aws_tmp07
-        ldy     #$0A
+        iny                             ; y = 10 (A)
         sta     (buffer_ptr),y
         lda     aws_tmp08
-        ldy     #$0B
+        iny                             ; y = 11 (B)
         sta     (buffer_ptr),y
         lda     aws_tmp09
-        ldy     #$0C
+        iny                             ; y = 12 (C)
         sta     (buffer_ptr),y
 
         ; maxBytes (u16le)
         lda     aws_tmp14
-        ldy     #$0D
+        iny                             ; y = 13 (D)
         sta     (buffer_ptr),y
         lda     aws_tmp15
-        ldy     #$0E
+        iny                             ; y = 14 (E)
         sta     (buffer_ptr),y
 
         ; set FujiBus TX params
@@ -379,11 +379,11 @@ fujibus_network_read:
         jmp     @copy_data
 
 @read_success:
-        lda     #$01
+        clc
         rts
 
 @read_fail:
-        lda     #$00
+        sec
         rts
 
 
