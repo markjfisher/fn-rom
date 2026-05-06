@@ -172,19 +172,37 @@ nwbg_net_read:
         lda     #$01
         sta     aws_tmp15
 
-        ; jsr     fuji_begin_transaction
+        ; Retry NotReady up to 4 times, waiting 25 VSyncs (0.5s) each time.
+        ; This keeps transient transport latency out of BASIC programs.
+        lda     #4
+        sta     aws_tmp12
+        sty     fuji_intch              ; preserve intch across OSBYTE wait/retry loop
 
-        ; ldy     aws_tmp02
-        ; sty     fuji_intch              ; fuji_intch for fujibus_network_read
+nwbg_read_retry:
+        ldy     fuji_intch              ; restore intch before each read attempt
         jsr     fujibus_network_read
-        ; pha                             ; save return value (clobbered by end_transaction)
-
-        ; jsr     fuji_end_transaction
-
-        ; pla                             ; restore return value
-        ; cmp     #$01
         ldy     fuji_intch              ; reload intch (aws_tmp02 clobbered)
-        bcs     nwbg_net_eof                ; read failed = EOF
+        cmp     #$02
+        bne     nwbg_read_done
+
+        ; NotReady: wait 25 VSyncs (0.5s), then retry up to 10 times.
+        dec     aws_tmp12
+        beq     nwbg_net_eof            ; timeout behaves as EOF for BASIC
+        ldx     #25
+nwbg_vsync_loop:
+        txa
+        pha
+        lda     #$13
+        jsr     OSBYTE
+        pla
+        tax
+        dex
+        bne     nwbg_vsync_loop
+        jmp     nwbg_read_retry
+
+nwbg_read_done:
+        cmp     #$01
+        bne     nwbg_net_eof            ; hard failure = EOF
 
 
         ; Store buffer start offset and count in channel block

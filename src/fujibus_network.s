@@ -228,7 +228,7 @@ fujibus_network_open:
 ;     aws_tmp14/15 = max_bytes (u16le)
 ;     Y = intch (to read handle from channel block)
 ;   Output:
-;     C = 0 on success, 1 on failure, data copied to channel buffer page
+;     A = 1 on success, 2 on NotReady, 0 on failure/EOF
 ;     fuji_ch_bptr_low/mid/hi updated to reflect buffer content
 ;     fuji_network_buf_cnt = number of valid bytes in buffer
 ;
@@ -308,9 +308,11 @@ fujibus_network_read:
         beq     @read_fail
 
 @check_descriptor:
-        ; minimum length: 7 + 12 = 19 bytes (FujiBus hdr + network protocol hdr)
-        cmp     #$13
+        ; Need at least FujiBus header so descriptor/status are present
+        cmp     #$07
         bcc     @read_fail
+
+        sta     aws_tmp05               ; save total packet length
 
         ; check descriptor byte
         ldy     #$05
@@ -321,7 +323,16 @@ fujibus_network_read:
         ; check status code
         iny                             ; y = 6
         lda     (buffer_ptr),y
+        beq     @check_read_length       ; success
+        cmp     #$04                    ; NotReady
+        beq     @read_not_ready
         bne     @read_fail
+
+@check_read_length:
+        lda     aws_tmp05
+        ; minimum length: 7 + 12 = 19 bytes (FujiBus hdr + network protocol hdr)
+        cmp     #$13
+        bcc     @read_fail
 
         ; get dataLen from response (u16le at NET_RESP_DATALEN = buffer+17)
         ldy     #NET_RESP_DATALEN
@@ -379,11 +390,15 @@ fujibus_network_read:
         jmp     @copy_data
 
 @read_success:
-        clc
+        lda     #$01
+        rts
+
+@read_not_ready:
+        lda     #$02
         rts
 
 @read_fail:
-        sec
+        lda     #$00
         rts
 
 
