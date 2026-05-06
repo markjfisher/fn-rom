@@ -548,7 +548,8 @@ fuji_network_buf_cnt_hi = fuji_static_workspace + $34   ; high byte
 ; 1 = immediate flush after each BPUT (for real-time/streaming connections).
 fuji_network_flush_mode = fuji_static_workspace + $35
 
-; JSON query path length for network OPENIN requests. 0 = no pending query.
+; Translation selector length for network OPENIN requests.
+; Non-zero currently implies JSON translation with the selector stored in PWS.
 ; Transient command state, not part of saved FS workspace.
 fuji_json_path_len      = fuji_static_workspace + $36
 
@@ -639,4 +640,3 @@ fuji_ch_handle_high     = fuji_channel_start + $1F  ; handle for fujinet resourc
 ; in MM32.asm, 11C0-11DF is marked as "drive table", so I'm guessing 11C0-11FF is spare memory
 ; fuji_unknown_11C0       = fuji_workspace + $01C0 ; this is channel 6 start block? If only 5 allowed, this is additional area I don't yet understand
 ; fuji_unknown_11D0       = fuji_workspace + $01D0 ; above + $10, seems like fuji_ch_bptr_low if this is a buffer, but could be part of the 11C0-11FF being for general usage...
-

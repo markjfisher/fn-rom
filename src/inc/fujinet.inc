@@ -106,7 +106,7 @@ NET_CMD_WRITE      = $03
 NET_CMD_CLOSE      = $04
 NET_CMD_INFO       = $05
 NET_CMD_INFO_READ  = $06
-NET_CMD_JSON_QUERY = $07
+NET_CMD_TRANSLATE_CONFIGURE = $07
 
 ; Network open method flags (used by the FujiNet device for HTTP semantics)
 NET_METHOD_GET     = $01

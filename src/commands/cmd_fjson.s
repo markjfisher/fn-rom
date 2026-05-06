@@ -1,7 +1,7 @@
-; *FJSON — JSON query on an open network channel
+; *FJSON — configure JSON translation on an open network channel
 ;
 ; Usage:
-;   *FJSON <channel> <path>  — send JSON query on BASIC channel 0-5, path is JSON Pointer
+;   *FJSON <channel> <path>  — configure JSON translation on BASIC channel 0-5
 ;   *FJSON <path>           — set JSON path for future query (no query sent)
 ;   *FJSON                  — clear pending JSON path
 ;
@@ -39,7 +39,7 @@
         .import  num_params
         .import  param_get_string
         .import  set_fuji_data_buffer_ptr
-        .import  fujibus_network_json_query
+        .import  fujibus_network_translate_configure
 
         .include "fujinet.inc"
 
@@ -163,9 +163,9 @@ _fjson_store_done:
 _fjson_ext_cont:
 
         jsr     set_fuji_data_buffer_ptr
-        jsr     fujibus_network_json_query
+        jsr     fujibus_network_translate_configure
         ; A = 1 on success, 0 on failure
-        ; EXT/PTR update is done inside fujibus_network_json_query
+        ; EXT/PTR update is done inside fujibus_network_translate_configure
 _fjson_ext_done:
         pla                             ; balance stack (intch was pushed)
         jmp     exit_user_ok

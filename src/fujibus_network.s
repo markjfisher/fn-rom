@@ -13,7 +13,7 @@
         .export  fujibus_network_read
         .export  fujibus_network_write
         .export  fujibus_network_close
-        .export  fujibus_network_json_query
+        .export  fujibus_network_translate_configure
         .export  fujibus_write_copy_start
 
         .import  fujibus_receive_packet
@@ -46,6 +46,10 @@
 ;   +5+urlLen  headerCount = 0 (u16le)
 ;   +5+urlLen+2 bodyLenHint = 0 (u32le)
 ;   +5+urlLen+6 respHeaderCount = 0 (u16le)
+;   +5+urlLen+8 translationType (u8)
+;   +5+urlLen+9 translationFlags (u8)
+;   +5+urlLen+10 selectorLen (u16le)
+;   +5+urlLen+12 selector bytes (N)
 
 fujibus_network_open:
         stx     aws_tmp05               ; save flags
@@ -131,12 +135,72 @@ fujibus_network_open:
         iny
         sta     (cws_tmp6),y
 
-        ; total payload length = 5 + urlLen + 2 + 4 + 2 = 13 + urlLen
+        ; translationType / translationFlags / selectorLen
+        lda     fuji_json_path_len
+        beq     @open_no_translation
+
+        lda     #$01                    ; Json
+        iny
+        sta     (cws_tmp6),y
+        lda     #$00                    ; translation flags
+        iny
+        sta     (cws_tmp6),y
+        lda     fuji_json_path_len      ; selectorLen low
+        iny
+        sta     (cws_tmp6),y
+        lda     #$00                    ; selectorLen high
+        iny
+        sta     (cws_tmp6),y
+
+        ; copy selector from PWS to packet buffer
+        lda     cws_tmp6
+        clc
+        adc     #$0B                    ; selector starts after 11 bytes of trailing fields
+        sta     cws_tmp2
+        lda     cws_tmp7
+        adc     #$00
+        sta     cws_tmp3
+
+        jsr     get_fuji_json_path_addr_to_aws_tmp00
+        ldx     #$00
+@copy_selector:
+        cpx     fuji_json_path_len
+        beq     @open_calc_length
+        ldy     #$00
+        lda     (aws_tmp00),y
+        sta     (cws_tmp2),y
+        inc     aws_tmp00
+        bne     :+
+        inc     aws_tmp01
+:
+        inc     cws_tmp2
+        bne     :+
+        inc     cws_tmp3
+:
+        inx
+        jmp     @copy_selector
+
+@open_no_translation:
+        lda     #$00
+        iny
+        sta     (cws_tmp6),y           ; translationType=None
+        iny
+        sta     (cws_tmp6),y           ; translationFlags=0
+        iny
+        sta     (cws_tmp6),y           ; selectorLen low
+        iny
+        sta     (cws_tmp6),y           ; selectorLen high
+
+@open_calc_length:
+        ; total payload length = 5 + urlLen + 2 + 4 + 2 + 1 + 1 + 2 + selectorLen
+        ;                      = 17 + urlLen + selectorLen
         lda     aws_tmp02
         clc
-        adc     #13
+        adc     #17
+        adc     fuji_json_path_len
         sta     aws_tmp02
         lda     #$00
+        adc     #$00
         sta     aws_tmp03
 
         ; set FujiBus TX params
@@ -628,7 +692,7 @@ fujibus_network_close:
         rts
 
 
-; bool fujibus_network_json_query(uint16_t handle)
+; bool fujibus_network_translate_configure(uint16_t handle)
 ;   Input:
 ;     fuji_ch_handle_low (y) = handle low byte
 ;     fuji_ch_handle_high (y) = handle high byte
@@ -638,13 +702,15 @@ fujibus_network_close:
 ;   Output:
 ;     A = 1 on success, 0 on failure
 ;
-; JsonQuery request payload (at buffer+6):
+; TranslateConfigure request payload (at buffer+6):
 ;   +0  version = $01
 ;   +1  handle (u16le)
-;   +3  jsonPathLen (u16le)
-;   +5  jsonPath bytes (N)
+;   +3  translationType (u8)
+;   +4  translationFlags (u8)
+;   +5  selectorLen (u16le)
+;   +7  selector bytes (N)
 
-fujibus_network_json_query:
+fujibus_network_translate_configure:
         sty     aws_tmp00               ; save intch (for handle byte reading)
         sty     cws_tmp3                ; also save in location not clobbered by path copy
         tya
@@ -668,11 +734,15 @@ fnjq_build_request:
         ldy     #$08
         sta     (buffer_ptr),y
 
-        ; jsonPathLen (u16le)
-
-        ; jsonPathLen (u16le)
-        lda     fuji_json_path_len
+        ; translationType / translationFlags / selectorLen
+        lda     #$01                    ; Json
         ldy     #$09
+        sta     (buffer_ptr),y
+        lda     #$00                    ; translationFlags
+        iny
+        sta     (buffer_ptr),y
+        lda     fuji_json_path_len
+        iny
         sta     (buffer_ptr),y
         lda     #$00
         iny
@@ -687,7 +757,7 @@ fnjq_build_request:
         ldx     #$00                    ; byte count
 fnjq_copy_path:
         cpx     fuji_json_path_len
-        beq     fnjq_send_json_query
+        beq     fnjq_send_translate_configure
 
         ; Read from PWS: advance pointer for each byte (can't use (zp),X)
         ldy     #$00
@@ -709,12 +779,12 @@ fnjq_copy_path:
         inx
         jmp     fnjq_copy_path
 
-fnjq_send_json_query:
+fnjq_send_translate_configure:
         ; set FujiBus TX params
         lda     #FN_DEVICE_NETWORK
         sta     fuji_bus_tx_device
 
-        lda     #NET_CMD_JSON_QUERY
+        lda     #NET_CMD_TRANSLATE_CONFIGURE
         sta     fuji_bus_tx_command
 
         lda     buffer_ptr
@@ -725,10 +795,10 @@ fnjq_send_json_query:
         adc     #$00
         sta     fuji_bus_tx_payload_hi
 
-        ; payload size = 5 (ver+handle+pathLen) + jsonPathLen
+        ; payload size = 7 (ver+handle+type+flags+selectorLen) + selectorLen
         lda     fuji_json_path_len
         clc
-        adc     #$05
+        adc     #$07
         bcc     fnjq_payload_hi_zero
         ldx     #$01
         jmp     fnjq_send_jq
@@ -769,9 +839,9 @@ fnjq_jq_check_desc:
         bne     fnjq_jq_fail                 ; other error
 
 fnjq_jq_check_len:
-        ; Success response: minimum 7 + 1 + 1 + 2 + 2 + 2 = 15 bytes
+        ; Success response: minimum 7 + 1 + 1 + 2 + 2 + 4 = 17 bytes
         lda     aws_tmp02               ; restore total length from earlier
-        cmp     #$0F
+        cmp     #$11
         bcc     fnjq_jq_fail
         beq     fnjq_jq_success         ; we had a success code before we checked the length, so we can jump to success now
 
@@ -785,13 +855,22 @@ fnjq_jq_retry:
         jmp     fnjq_build_request      ; retry: rebuild and resend
 
 fnjq_jq_success:
-        ; Read resultSize from response (u16le at buffer+13)
+        ; Read translatedSize from response (u32le at buffer+13)
         ldy     #$0D
-        lda     (buffer_ptr),y          ; resultSize low
+        lda     (buffer_ptr),y          ; size low
         sta     aws_tmp02               ; save low
         iny
-        lda     (buffer_ptr),y          ; resultSize high
+        lda     (buffer_ptr),y          ; size mid
         sta     aws_tmp03               ; save high
+        iny
+        lda     (buffer_ptr),y          ; size high
+        sta     aws_tmp04
+        iny
+        lda     (buffer_ptr),y          ; size upper24-31, ignored unless non-zero
+        beq     :+
+        lda     #$FF
+        sta     aws_tmp04
+:
 
         ; Update EXT/PTR in channel block
         pla                             ; restore intch from stack
@@ -802,7 +881,7 @@ fnjq_jq_success:
         sta     fuji_ch_ext_low,y
         lda     aws_tmp03
         sta     fuji_ch_ext_mid,y
-        lda     #$00
+        lda     aws_tmp04
         sta     fuji_ch_ext_hi,y
 
         lda     #$00
