@@ -167,6 +167,8 @@ _fjson_ext_cont:
         ; A = 1 on success, 0 on failure
         ; EXT/PTR update is done inside fujibus_network_translate_configure
 _fjson_ext_done:
+        lda     #$00
+        sta     fuji_json_path_len      ; immediate translate should not affect future OPEN requests
         pla                             ; balance stack (intch was pushed)
         jmp     exit_user_ok
 

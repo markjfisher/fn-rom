@@ -169,7 +169,7 @@ fujibus_network_open:
         ; copy selector from PWS to packet buffer
         lda     cws_tmp6
         clc
-        adc     #$0F                    ; selector starts after respHeaderCount + extFlags + translation block header
+        adc     #$10                    ; selector starts after respHeaderCount + extFlags + translation block header
         sta     cws_tmp2
         lda     cws_tmp7
         adc     #$00
