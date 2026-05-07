@@ -27,6 +27,7 @@
         .import cmd_fs_enable
         .import cmd_fs_ex
         .import cmd_fs_fboot
+        .import cmd_fs_fcd
         .import cmd_fs_fhost
         .import cmd_test
         ; .import cmd_fs_fls
@@ -137,6 +138,7 @@ cmd_table_futils:
         .byte   (cmd_table_futils_cmds - cmd_table_fujifs_cmds) / 2 - 1
 
         .byte   "BOOT",      $80+$07    ; <dno>/<dsp>
+        .byte   "CD",        $80+$7E    ; (<path>)
         .byte   "FS",        $80+$74    ; <uri>
         .byte   "HOST",      $80+$74    ; (num) <path>
         .byte   "DRIVE",     $80+$00    ; list mounted FujiNet drives
@@ -200,6 +202,7 @@ cmd_table_help_cmds:
 ; OLD: cmdaddr4
 cmd_table_futils_cmds:
         .word   cmd_fs_fboot-1
+        .word   cmd_fs_fcd-1
         .word   cmd_fs_fhost-1
         .word   cmd_fs_fhost-1
         .word   cmd_fs_fdrive-1

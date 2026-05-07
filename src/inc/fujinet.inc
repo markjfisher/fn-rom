@@ -166,8 +166,9 @@ FN_PARAMS_OFFSET = 4
 FUJI_PWS_PACKET_OFFSET = 0
 FUJI_PWS_PACKET_SIZE = 280
 FUJI_FS_URI_BUFFER_SIZE = 80
-; PWS layout after packet: [+280] working FS URI (*FIN, FLS cwd, disk mount);
-; [+360] canonical host URI from *FHOST ResolvePath (PATH suffix uses host_len/dir_len).
+; PWS layout after packet: [+280] working FS URI scratch buffer used for FileDevice
+; requests such as *FIN and *FLS packet assembly; [+360] canonical current URI used
+; by *FHOST/*FCD/*FLS as the source of truth for the current location.
 FUJI_FS_URI_OFFSET = 280
 FUJI_HOST_URI_BUFFER_SIZE = 80
 FUJI_HOST_URI_OFFSET = FUJI_FS_URI_OFFSET + FUJI_FS_URI_BUFFER_SIZE

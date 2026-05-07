@@ -166,20 +166,29 @@ frt_recv_ok:
         cmp     #$03
         bne     frt_fail
 
-        ldy     #$0C
-        lda     (buffer_ptr),y
-        bne     frt_fail
+        ; ResolvePath response:
+        ;   +7  version
+        ;   +8  flags
+        ;   +9  reserved (u16)
+        ;   +11 resolvedUriLen (u16)
+        ;   +13 resolvedUri bytes
+        ;   +13+resolvedUriLen displayPathLen (u16)
+        ;   +15+resolvedUriLen displayPath bytes
 
         ldy     #$0B
-        lda     (buffer_ptr),y
+        lda     (buffer_ptr),y          ; resolvedUriLen low
+        sta     fuji_current_fs_len
+        iny
+        lda     (buffer_ptr),y          ; resolvedUriLen high
+        bne     frt_fail
+
+        lda     fuji_current_fs_len
         cmp     #FUJI_FS_URI_BUFFER_SIZE
         bcs     frt_fail
 
-        sta     fuji_current_fs_len
-
         lda     buffer_ptr
         clc
-        adc     #$0D
+        adc     #$0D                    ; start of resolvedUri bytes
         sta     cws_tmp2
         lda     buffer_ptr+1
         adc     #$00
@@ -201,6 +210,29 @@ frt_nul_term:
         bcs     frt_success
         lda     #$00
         sta     (aws_tmp00),y
+
+        ; Read displayPathLen (u16le) immediately after resolvedUri bytes.
+        lda     cws_tmp2
+        clc
+        adc     fuji_current_fs_len
+        sta     cws_tmp2
+        lda     cws_tmp3
+        adc     #$00
+        sta     cws_tmp3
+
+        ldy     #$00
+        lda     (cws_tmp2),y            ; displayPathLen low
+        sta     fuji_current_dir_len
+        iny
+        lda     (cws_tmp2),y            ; displayPathLen high
+        bne     frt_fail
+
+        lda     fuji_current_dir_len
+        cmp     fuji_current_fs_len
+        bcc     frt_success
+        beq     frt_success
+        lda     #$00
+        sta     fuji_current_dir_len
 
 frt_success:
         clc

@@ -4,18 +4,17 @@
         .export  fcd_print_current_path
         .export  fcd_print_cws_tmp2_x
 
-        .import  err_bad
+        .import  report_error
         .import  err_no_host
         .import  exit_user_ok
         .import  flist_resolve_target
-        .import  fuji_dir_path_ptr
+        .import  fhost_ensure_host_trailing_slash
         .import  get_fuji_fs_uri_addr_to_aws_tmp00
         .import  get_fuji_host_uri_addr_to_aws_tmp00
         .import  param_count
         .import  param_get_string
         .import  print_char
         .import  print_newline
-        .import  set_fuji_data_buffer_ptr
 
         .include "fujinet.inc"
 
@@ -35,37 +34,36 @@
 ;------------------------------------------------------------------------------
 cmd_fs_fcd:
         jsr     param_count
-        bcs     fcd_set_path
-
-        jsr     fcd_print_current_path
-        jmp     exit_user_ok
+        bcc     fcd_show_current
 
 fcd_set_path:
         lda     fuji_current_host_len
         bne     :+
         jmp     err_no_host
-:
+:       
         clc
         jsr     param_get_string
         sta     fuji_filename_len
 
-        jsr     set_fuji_data_buffer_ptr
         jsr     flist_resolve_target
-        bcc     :+
-        jmp     fcd_err_bad_directory
-:
+        bcc     fcd_resolved_ok
+
+        jsr     report_error
+        .byte   $CB
+        .byte   "Bad string", 0
+
+fcd_resolved_ok:
         jsr     fcd_commit_resolved_path
         jsr     fcd_print_current_path
         jmp     exit_user_ok
 
-fcd_err_bad_directory:
-        jsr     err_bad
-        .byte   $CB
-        .byte   "directory", 0
+fcd_show_current:
+        jsr     fcd_print_current_path
+        jmp     exit_user_ok
 
 ;------------------------------------------------------------------------------
-; Commit the resolved FS URI from flist_resolve_target into host state.
-; buffer_ptr still addresses the ResolvePath response packet.
+; Copy the resolved URI from working FS storage into the canonical host buffer.
+; This keeps one authoritative current URI for FHOST/FCD/FLS.
 ;------------------------------------------------------------------------------
 fcd_commit_resolved_path:
         jsr     get_fuji_fs_uri_addr_to_aws_tmp00
@@ -80,54 +78,21 @@ fcd_commit_resolved_path:
         sta     fuji_current_host_len
 
         ldy     #$00
-@copy_host:
+@copy_uri:
         cpy     fuji_current_host_len
-        beq     @host_copied
+        beq     @nul_term
         lda     (aws_tmp06),y
         sta     (aws_tmp00),y
         iny
-        bne     @copy_host
+        bne     @copy_uri
 
-@host_copied:
-        cpy     #FUJI_FS_URI_BUFFER_SIZE
-        bcs     @path_len_ptr
+@nul_term:
+        cpy     #FUJI_HOST_URI_BUFFER_SIZE
+        bcs     @done
         lda     #$00
         sta     (aws_tmp00),y
-
-@path_len_ptr:
-        lda     buffer_ptr
-        clc
-        adc     #$0D
-        sta     cws_tmp2
-        lda     buffer_ptr+1
-        adc     #$00
-        sta     cws_tmp3
-
-        lda     cws_tmp2
-        clc
-        adc     fuji_current_host_len
-        sta     cws_tmp2
-        lda     cws_tmp3
-        adc     #$00
-        sta     cws_tmp3
-
-        ldy     #$00
-        lda     (cws_tmp2),y
-        sta     cws_tmp1
-        iny
-        lda     (cws_tmp2),y
-        bne     @clear_dir_len
-
-        lda     cws_tmp1
-        cmp     fuji_current_host_len
-        bcc     @store_dir_len
-        beq     @store_dir_len
-
-@clear_dir_len:
-        lda     #$00
-
-@store_dir_len:
-        sta     fuji_current_dir_len
+@done:
+        jsr     fhost_ensure_host_trailing_slash
         rts
 
 ;------------------------------------------------------------------------------
@@ -137,9 +102,20 @@ fcd_print_current_path:
         lda     fuji_current_dir_len
         beq     @done
 
-        jsr     fuji_dir_path_ptr
+        jsr     get_fuji_host_uri_addr_to_aws_tmp00
+        lda     fuji_current_host_len
+        sec
+        sbc     fuji_current_dir_len
+        bcs     @suffix_off_ok
+        lda     #$00
+@suffix_off_ok:
+        clc
+        adc     aws_tmp00
         sta     cws_tmp2
-        stx     cws_tmp3
+        lda     aws_tmp01
+        adc     #$00
+        sta     cws_tmp3
+
         lda     fuji_current_dir_len
         tax
         jsr     fcd_print_cws_tmp2_x

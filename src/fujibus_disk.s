@@ -25,6 +25,7 @@
         .import  fujibus_write_slip_stream_dual
         .import  calc_checksum
         .import  calc_checksum_continue
+        .import  fhost_ensure_host_trailing_slash
 
         .import  get_fuji_fs_uri_addr_to_aws_tmp00
         .import  get_fuji_host_uri_addr_to_aws_tmp00
@@ -617,50 +618,77 @@ fujibus_resolve_path:
         cmp     #FN_PROTOCOL_VERSION
         bne     @rp_fail
 
+        ; ResolvePath response:
+        ;   +7  version
+        ;   +8  flags
+        ;   +9  reserved (u16)
+        ;   +11 resolvedUriLen (u16)
+        ;   +13 resolvedUri bytes
+        ;   +13+resolvedUriLen displayPathLen (u16)
+        ;   +15+resolvedUriLen displayPath bytes
+
         ldy     #$0B
-        lda     (buffer_ptr),y
+        lda     (buffer_ptr),y          ; resolvedUriLen low
         sta     fuji_current_host_len
+        iny
+        lda     (buffer_ptr),y          ; resolvedUriLen high
+        bne     @rp_fail
+
+        lda     fuji_current_host_len
+        cmp     #FUJI_HOST_URI_BUFFER_SIZE
+        bcs     @rp_fail
 
         lda     buffer_ptr
         clc
-        adc     #$0D
+        adc     #$0D                    ; start of resolvedUri bytes
         sta     cws_tmp2
         lda     buffer_ptr+1
         adc     #$00
         sta     cws_tmp3
 
         jsr     get_fuji_host_uri_addr_to_aws_tmp00
+
         ldy     #$00
 @copy_resolved_uri:
         cpy     fuji_current_host_len
-        beq     @get_dir_len
+        beq     @nul_terminate_host_uri
         lda     (cws_tmp2),y
         sta     (aws_tmp00),y
         iny
         bne     @copy_resolved_uri
 
-@get_dir_len:
-        ; path_len u16le immediately after URI bytes in RX packet
-        lda     (cws_tmp2),y
-        sta     fuji_current_dir_len
-
-        ; Display path is the suffix of the resolved URI (same bytes as wire path);
-        ; fuji_dir_path_ptr() = host_uri + (host_len - dir_len). Clamp if inconsistent.
-        lda     fuji_current_dir_len
-        cmp     fuji_current_host_len
-        beq     @dir_len_ok
-        bcc     @dir_len_ok
-        lda     #$00
-        sta     fuji_current_dir_len
-@dir_len_ok:
-        ; Optional NUL after URI for C-style use when host_len < 80
-        jsr     get_fuji_host_uri_addr_to_aws_tmp00
-        ldy     fuji_current_host_len
-        cpy     #80
-        bcs     @rp_success
+@nul_terminate_host_uri:
+        cpy     #FUJI_HOST_URI_BUFFER_SIZE
+        bcs     @get_dir_len_ptr
         lda     #$00
         sta     (aws_tmp00),y
 
+@get_dir_len_ptr:
+        lda     cws_tmp2
+        clc
+        adc     fuji_current_host_len
+        sta     cws_tmp2
+        lda     cws_tmp3
+        adc     #$00
+        sta     cws_tmp3
+
+        ldy     #$00
+        lda     (cws_tmp2),y            ; displayPathLen low
+        sta     fuji_current_dir_len
+        iny
+        lda     (cws_tmp2),y            ; displayPathLen high
+        beq     @dir_len_validate
+        jmp     @rp_fail
+
+@dir_len_validate:
+        lda     fuji_current_dir_len
+        cmp     fuji_current_host_len
+        beq     @rp_success
+        bcc     @rp_success
+        lda     #$00
+        sta     fuji_current_dir_len
+
 @rp_success:
+        jsr     fhost_ensure_host_trailing_slash
         lda     #$01
         rts

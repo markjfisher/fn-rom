@@ -4,11 +4,11 @@
 
         .export  cfl_after_name
         .export  cfl_compact_skip
-        .export  cfl_copy_uri
+        ; cfl_copy_uri removed: no-arg path now uses current fs uri directly
         .export  cfl_done_ok
         .export  cfl_entry_loop
         .export  cfl_flist_one_page
-        .export  cfl_len_ok
+        ; cfl_len_ok removed: no-arg path now uses current fs uri directly
         .export  cfl_no_slash
         .export  cfl_page_loop
         .export  cfl_pr_chars
@@ -18,7 +18,7 @@
         .export  cfl_tx_uri_done
         .export  cfl_uri_len_from_nul
         .export  cfl_uri_len_ok
-        .export  cfl_zterm
+        ; cfl_zterm removed: no-arg path now uses current fs uri directly
 
         .import  err_bad
         .import  err_no_host
@@ -76,13 +76,10 @@ cfl_no_param:
         lda     fuji_current_host_len
         cmp     #FLIST_URI_BUFFER_SIZE
         bcs     err_bad_flist_path
-
-cfl_len_ok:
         sta     fuji_current_fs_len
 
         ; fs_uri into aws_tmp02/03
         jsr     get_fuji_fs_uri_addr_to_aws_tmp00
-        ; A contains high byte already
         sta     aws_tmp03
         lda     aws_tmp00
         sta     aws_tmp02
@@ -90,7 +87,7 @@ cfl_len_ok:
         ; host_uri into aws_tmp00/01
         jsr     get_fuji_host_uri_addr_to_aws_tmp00
 
-        ; copy fuji_current_fs_len bytes from host_uri into fs_uri
+        ; copy canonical current URI into working fs uri buffer
         ldy     #$00
 cfl_copy_uri:
         cpy     fuji_current_fs_len

@@ -2,10 +2,10 @@
         .export  cmd_fs_fhost
 
         ; exports for debug
+        .export  fhost_ensure_host_trailing_slash
         .export  fhost_copy_and_resolve
 
         .import  exit_user_ok
-        .import  fuji_dir_path_ptr
         .import  fuji_host_uri_ptr
         .import  fuji_resolve_path
         .import  param_count
@@ -68,9 +68,19 @@ fhost_show_current:
         lda     fuji_current_dir_len
         beq     @path_none
 
-        jsr     fuji_dir_path_ptr
+        jsr     fuji_host_uri_ptr
+        lda     fuji_current_host_len
+        sec
+        sbc     fuji_current_dir_len
+        bcs     @path_suffix_ok
+        lda     #$00
+@path_suffix_ok:
+        clc
+        adc     cws_tmp2
         sta     cws_tmp2
-        stx     cws_tmp3
+        lda     cws_tmp3
+        adc     #$00
+        sta     cws_tmp3
         lda     fuji_current_dir_len
         tax
         jsr     print_cws_tmp2_x
@@ -127,16 +137,7 @@ fhost_copy_and_resolve:
         dex
         bne     @copy
 @copy_done:
-        ; ensure host ends with trailing "/"
-        cmp     #'/'
-        beq     @slash_present
-
-        ; add the slash
-        lda     #'/'
-        sta     (aws_tmp02),y
-        inc     fuji_current_host_len
-
-@slash_present:
+        jsr     fhost_ensure_host_trailing_slash
         ; call fujinet to resolve the given path
         jsr     fuji_resolve_path
         cmp     #$00
@@ -153,6 +154,44 @@ fhost_copy_and_resolve:
         jsr     report_error
         .byte   $CB
         .byte   "Could not set host URI", 0
+
+;------------------------------------------------------------------------------
+; Ensure canonical host URI ends with '/' when representing a directory.
+; Uses host URI buffer and fuji_current_host_len; if fuji_current_dir_len is non-zero,
+; extend it as well when appending the slash.
+;------------------------------------------------------------------------------
+fhost_ensure_host_trailing_slash:
+        lda     fuji_current_host_len
+        beq     @done
+
+        jsr     fuji_host_uri_ptr
+        sta     aws_tmp02
+        stx     aws_tmp03
+
+        ldy     fuji_current_host_len
+        dey
+        lda     (aws_tmp02),y
+        cmp     #'/'
+        beq     @done
+
+        iny
+        cpy     #FUJI_HOST_URI_BUFFER_SIZE
+        bcs     @done
+        lda     #'/'
+        sta     (aws_tmp02),y
+        iny
+        cpy     #FUJI_HOST_URI_BUFFER_SIZE
+        bcs     :+
+        lda     #$00
+        sta     (aws_tmp02),y
+:
+        inc     fuji_current_host_len
+        lda     fuji_current_dir_len
+        beq     @done
+        inc     fuji_current_dir_len
+
+@done:
+        rts
 
 ; STRINGS
         .segment "RODATA"

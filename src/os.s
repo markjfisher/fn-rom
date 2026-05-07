@@ -511,15 +511,19 @@ fuji_file_offset        = fuji_static_workspace + $20  ; File offset (3 bytes)
 fuji_block_size         = fuji_static_workspace + $23  ; Block size (2 bytes)
 fuji_current_sector     = fuji_static_workspace + $25  ; Current sector being accessed (2 bytes)
 
-; Current filesystem selection state for URI-based commands
-fuji_current_fs_len     = fuji_static_workspace + $27  ; Current filesystem URI length (host + path)
-fuji_current_dir_len    = fuji_static_workspace + $28  ; Current directory length
+; Current filesystem selection state for URI-based commands.
+; fuji_current_host_len is the authoritative canonical URI length for the current
+; location. fuji_current_fs_len tracks the scratch working FS URI buffer length used
+; during request assembly (e.g. *FLS/*FIN). fuji_current_dir_len is the display-path
+; suffix length within the canonical current URI.
+fuji_current_fs_len     = fuji_static_workspace + $27  ; Working FS URI scratch length
+fuji_current_dir_len    = fuji_static_workspace + $28  ; Current display path length
 ; this doesn't look like it's used: is it a dupe of fuji_disk_slot?
 fuji_current_mount_slot = fuji_static_workspace + $29  ; Current FujiNet persisted mount slot (0-based)
 fuji_resolve_path_flags = fuji_static_workspace + $2A  ; ResolvePath response: bit0=isDir, bit1=exists (set by fuji_file_resolve_path)
 fuji_disk_slot          = fuji_static_workspace + $2B  ; current fujinet mount slot for defaults, 0-based internally, 1 based on the wire
 fuji_disk_flags         = fuji_static_workspace + $2C  ; flags for disk
-fuji_current_host_len   = fuji_static_workspace + $2D  ; Current filesystem URI length
+fuji_current_host_len   = fuji_static_workspace + $2D  ; Canonical current URI length
 
 fuji_filename_len       = fuji_static_workspace + $2E  ; the filename part of the FS URI input by *FIN
 
@@ -640,3 +644,9 @@ fuji_ch_handle_high     = fuji_channel_start + $1F  ; handle for fujinet resourc
 ; in MM32.asm, 11C0-11DF is marked as "drive table", so I'm guessing 11C0-11FF is spare memory
 ; fuji_unknown_11C0       = fuji_workspace + $01C0 ; this is channel 6 start block? If only 5 allowed, this is additional area I don't yet understand
 ; fuji_unknown_11D0       = fuji_workspace + $01D0 ; above + $10, seems like fuji_ch_bptr_low if this is a buffer, but could be part of the 11C0-11FF being for general usage...
+
+; PWS usage: (e.g. if set to 1700)
+; Start: $1700, length $0118 (280): Packet buffer for all requests/responses
+; Start: $1818, length $0050 ( 80): Working FS URI
+; Start: $1868, length $0050 ( 80): Canonical host URI from ResolvePath
+; Start: $18B8, length $0048 ( 72): Translation Path Buffer (e.g. JSON)
