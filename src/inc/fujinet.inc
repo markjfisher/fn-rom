@@ -108,6 +108,8 @@ NET_CMD_INFO       = $05
 NET_CMD_INFO_READ  = $06
 NET_CMD_TRANSLATE_CONFIGURE = $07
 
+NET_OPEN_EXT_TRANSLATION = $00000001
+
 ; Network open method flags (used by the FujiNet device for HTTP semantics)
 NET_METHOD_GET     = $01
 NET_METHOD_POST    = $02

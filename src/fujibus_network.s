@@ -46,10 +46,12 @@
 ;   +5+urlLen  headerCount = 0 (u16le)
 ;   +5+urlLen+2 bodyLenHint = 0 (u32le)
 ;   +5+urlLen+6 respHeaderCount = 0 (u16le)
-;   +5+urlLen+8 translationType (u8)
-;   +5+urlLen+9 translationFlags (u8)
-;   +5+urlLen+10 selectorLen (u16le)
-;   +5+urlLen+12 selector bytes (N)
+;   [optional] +5+urlLen+8 openExtFlags (u32le)
+;   if NET_OPEN_EXT_TRANSLATION:
+;     +5+urlLen+12 translationType (u8)
+;     +5+urlLen+13 translationFlags (u8)
+;     +5+urlLen+14 selectorLen (u16le)
+;     +5+urlLen+16 selector bytes (N)
 
 fujibus_network_open:
         stx     aws_tmp05               ; save flags
@@ -135,9 +137,21 @@ fujibus_network_open:
         iny
         sta     (cws_tmp6),y
 
-        ; translationType / translationFlags / selectorLen
+        ; optional open extension block for translation
         lda     fuji_json_path_len
         beq     @open_no_translation
+
+        lda     #<NET_OPEN_EXT_TRANSLATION
+        iny
+        sta     (cws_tmp6),y            ; openExtFlags byte 0
+        lda     #>NET_OPEN_EXT_TRANSLATION
+        iny
+        sta     (cws_tmp6),y            ; openExtFlags byte 1
+        lda     #$00
+        iny
+        sta     (cws_tmp6),y            ; openExtFlags byte 2
+        iny
+        sta     (cws_tmp6),y            ; openExtFlags byte 3
 
         lda     #$01                    ; Json
         iny
@@ -155,7 +169,7 @@ fujibus_network_open:
         ; copy selector from PWS to packet buffer
         lda     cws_tmp6
         clc
-        adc     #$0B                    ; selector starts after 11 bytes of trailing fields
+        adc     #$0F                    ; selector starts after respHeaderCount + extFlags + translation block header
         sta     cws_tmp2
         lda     cws_tmp7
         adc     #$00
@@ -181,23 +195,18 @@ fujibus_network_open:
         jmp     @copy_selector
 
 @open_no_translation:
-        lda     #$00
-        iny
-        sta     (cws_tmp6),y           ; translationType=None
-        iny
-        sta     (cws_tmp6),y           ; translationFlags=0
-        iny
-        sta     (cws_tmp6),y           ; selectorLen low
-        iny
-        sta     (cws_tmp6),y           ; selectorLen high
-
 @open_calc_length:
-        ; total payload length = 5 + urlLen + 2 + 4 + 2 + 1 + 1 + 2 + selectorLen
-        ;                      = 17 + urlLen + selectorLen
+        ; total payload length without extension = 5 + urlLen + 2 + 4 + 2 = 13 + urlLen
+        ; translation extension adds: 4 extFlags + 1 + 1 + 2 + selectorLen = 8 + selectorLen
         lda     aws_tmp02
         clc
-        adc     #17
+        adc     #13
+        ldx     fuji_json_path_len
+        beq     :+
+        clc
+        adc     #8
         adc     fuji_json_path_len
+:       
         sta     aws_tmp02
         lda     #$00
         adc     #$00
