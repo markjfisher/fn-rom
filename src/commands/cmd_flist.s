@@ -45,11 +45,15 @@ FLIST_PAGE_SIZE         = 10
 ; Host file_commands.h: kListFlagCompactOmitMetadata | kListFlagSortByName
 FLIST_LIST_FLAGS        = $03
 
-
 ;------------------------------------------------------------------------------
 ; uint8_t cmd_fs_flist(void)
 ;------------------------------------------------------------------------------
 cmd_fs_flist:
+        lda     fuji_current_fs_len
+        sta     aws_tmp04
+        lda     fuji_current_dir_len
+        sta     aws_tmp05
+
         lda     fuji_current_host_len
         bne     parse_flist_params
         jmp     err_no_host
@@ -64,7 +68,7 @@ parse_flist_params:
 
         jsr     set_fuji_data_buffer_ptr
         jsr     flist_resolve_target
-        bcc     cfl_start_list
+        bcc     cfl_start_list_restore
 
         ; fall through to error
 err_bad_flist_path:
@@ -76,6 +80,7 @@ cfl_no_param:
         lda     fuji_current_host_len
         cmp     #FLIST_URI_BUFFER_SIZE
         bcs     err_bad_flist_path
+
         sta     fuji_current_fs_len
 
         ; fs_uri into aws_tmp02/03
@@ -101,9 +106,8 @@ cfl_zterm:
         lda     #$00
         sta     (aws_tmp02),y
 
-cfl_start_list:
+cfl_start_list_restore:
         ; ListDirectory start_index (16-bit). Must not live in cws_tmp6/7 ($AD/$AE):
-
         lda     #$00
         sta     pws_tmp04
         sta     pws_tmp05
@@ -134,6 +138,11 @@ cfl_page_ok:
         bne     cfl_page_loop
 
 cfl_done_ok:
+        lda     aws_tmp04
+        sta     fuji_current_fs_len
+        lda     aws_tmp05
+        sta     fuji_current_dir_len
+
         jmp     exit_user_ok
 
 

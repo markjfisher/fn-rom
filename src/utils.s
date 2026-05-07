@@ -22,6 +22,9 @@
         .export  y_add8
         .export  vblank
 
+        .export  save_aws_to_stack
+        .export  restore_aws_from_stack
+
         .export tube_claim
         .export tube_release
         .export tube_release_no_check
@@ -243,3 +246,23 @@ tube_release_no_check:
 
 trelease_exit:
         rts
+
+; save_aws_to_stack:
+;         ; save 16 aws values to stack, what could go wrong...
+;         ldx     #15
+; loop_save:
+;         lda     aws_tmp00, x
+;         pha
+;         dex
+;         bpl     loop_save
+;         rts
+
+; restore_aws_from_stack:
+;         ldx     #0
+; loop_restore:
+;         pla
+;         sta     aws_tmp00,x
+;         inx
+;         cpx     #16
+;         bne     loop_restore
+;         rts
