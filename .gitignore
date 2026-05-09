@@ -16,3 +16,4 @@ debug_*.txt
 /.vscode/
 
 __pycache__/
+.cursor/
