@@ -1,4 +1,0 @@
-*FHOST tnfs://192.168.1.101/bbc/
-*FIN chuck.ssd
-*FMOUNT 0 0
-LOAD"CHUCK2"

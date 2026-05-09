@@ -78,7 +78,7 @@ This is useful if you have ROM loaded, and are also debugging an compiled applic
 
 There are extensive scripts for interacting with the b2 process via its own http interface.
 
-See [b2-http.py](bin/b2-http.py) which has a help option to describe the various commands it can do.
+See [b2-http.py](scripts/b2-http.py) which has a help option to describe the various commands it can do.
 
 Here's a breakdown of the more common ones.
 
@@ -91,7 +91,7 @@ Typically start will be 7c00, but if the screen has scrolled at all, then it wil
 If you are in different modes, you will need to adjust the other parameters.
 
 ```
-❯ ./bin/b2-http.py screen --start 7c00 --wrap-adjustment 5000 --screen-size 1024
+❯ ./scripts/b2-http.py screen --start 7c00 --wrap-adjustment 5000 --screen-size 1024
 ```
 
 This will output something like:
@@ -109,8 +109,8 @@ BASIC
 
 There are 2 modes for this, either pasting the contents of a file, or from the supplied text:
 ```
-bin/b2-http.py paste --file b2-scripts/bwc.txt
-bin/b2-http.py paste --text "CLS"
+scripts/b2-http.py paste --file b2-scripts/bwc.txt
+scripts/b2-http.py paste --text "CLS"
 ```
 
 This can be useful for setting up common commands, e.g. FHOST/FIN/FMOUNT/*CAT.
@@ -131,8 +131,8 @@ This can be useful for fast loading binary files directly into memory for testin
 Combined with `paste` you can load and execute a binary file very quickly:
 
 ```bash
-bin/b2-http.py poke 1900 /path/to/some.bin && \
-  bin/b2-http.py paste --text "CALL &1900"
+scripts/b2-http.py poke 1900 /path/to/some.bin && \
+  scripts/b2-http.py paste --text "CALL &1900"
 ```
 
 This was particularly powerful for applications going into E00 with no filing system to load the file in the first place. Just directly write to memory and execute it.
@@ -143,7 +143,7 @@ This was particularly powerful for applications going into E00 with no filing sy
 The 'end' address can be a length, decimal unless `0x` is part of the number:
 
 ```
-❯ ./bin/b2-http.py peek -o /tmp/7c00.bin 7c00 +0x100
+❯ ./scripts/b2-http.py peek -o /tmp/7c00.bin 7c00 +0x100
 
 ❯ hexdump -C /tmp/7c00.bin
 00000000  20 20 20 20 20 20 20 20  20 20 20 20 20 20 20 20  |                |

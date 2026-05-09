@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Run BASIC programs inside b2 via bin/b2-http.py: paste commands, then optional
+Run BASIC programs inside b2 via scripts/b2-http.py: paste commands, then optional
 checks (screen text, peek memory vs expected bytes). Steps are YAML.
 
 Example:

@@ -109,7 +109,7 @@ $(PROGRAM_TGT): $(BUILD_DIR)/$(PROGRAM_TGT) | $(BUILD_DIR)
 ssd: $(PROGRAM_TGT) | $(BUILD_DIR) $(BUILD_DIR)/ssd
 	rm -f $(BUILD_DIR)/ssd/*
 	cp $(BUILD_DIR)/$(PROGRAM_TGT) $(BUILD_DIR)/ssd/FUJIROM
-	./bin/create_ssd.py -i $(BUILD_DIR)/ssd -o $(BUILD_DIR)/fujinet.ssd -a 0x8000
+	./scripts/create_ssd.py -i $(BUILD_DIR)/ssd -o $(BUILD_DIR)/fujinet.ssd -a 0x8000
 
 
 # Use "./" in front of all dirs being removed as a simple safety guard to

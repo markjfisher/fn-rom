@@ -30,7 +30,7 @@ make clean ssd
 
 # Creating SSD images from folder contents
 
-The script [create_ssd.py](bin/create_ssd.py) can be used to make SSD images from a folder's contents.
+The script [create_ssd.py](scripts/create_ssd.py) can be used to make SSD images from a folder's contents.
 
 For binary files (not having extension ".bas"), it will store them directly on the disk, and set a load/execute
 address according to the parameters passed to the script. There is a limitation that all applications will share the same
@@ -43,10 +43,10 @@ You need [basictool](https://github.com/ZornsLemma/basictool) and [dfstool](http
 An example to create the "net" example basic files into "net.ssd" is:
 
 ```bash
-bin/create_ssd.py -i bas/net -o net.ssd
+scripts/create_ssd.py -i bas/net -o net.ssd
 ```
 
-See the help for the script with `bin/create_ssd.py -h`
+See the help for the script with `scripts/create_ssd.py -h`
 
 ## Converting BAS files
 

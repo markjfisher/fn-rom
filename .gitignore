@@ -17,3 +17,5 @@ debug_*.txt
 
 __pycache__/
 .cursor/
+
+/b2-scripts/
