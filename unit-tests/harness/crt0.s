@@ -3,7 +3,7 @@
         .export     init_harness
         .export     end_init_harness
 
-        .import     fscv_entry
+        .import     h_fscv_entry
 
         .include    "fnrom.inc"
 
@@ -15,9 +15,9 @@ halt:
 .segment "CODE"
 init_harness:
         ; setup FSCV
-        lda     #<fscv_entry
+        lda     #<h_fscv_entry
         sta     $021E
-        lda     #>fscv_entry
+        lda     #>h_fscv_entry
         sta     $021F
 
         ; call init_fuji as though ROM was built

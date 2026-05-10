@@ -2,46 +2,94 @@
 ; Minimal test harness MOS: OSBYTE entry compatible with BBC JSR/JMP $FFF4.
 ;
 ; Optional: force CTRL for &76 tests
-;   memory write $osbyte76_fake_keyboard 0x80
+;   memory write $osbyte_76_fake_keyboard 0x80
 ;
-        .export  osbyte76_fake_keyboard
+        .export  osbyte_76_fake_keyboard
         .export  osbyte_entry
-        .export  osbyte8f_claim_type
+        .export  osbyte_8f_claim_type
         .export  osbyte_break_type
+        .export  osbyte_saveX
 
+        .export  osbyte_76
+        .export  osbyte_8f
+        .export  osbyte_a8
+        .export  osbyte_ea
+        .export  osbyte_fd
 
         .segment "CODE"
 
-osbyte76_fake_keyboard:
+osbyte_76_fake_keyboard:
         .byte   0               ; bit7 = CTRL for OSBYTE &76
 
-osbyte8f_claim_type:
+osbyte_8f_claim_type:
         .byte   0               ; capture the claimed type for testing
 
 
 osbyte_break_type:
         .byte   1               ; set to 0 for soft, 1 for power up, 2 for hard
 
-; this will need to be converted to a table. far too many to do
-osbyte_entry:
-        cmp     #$76
-        beq     osbyte_76
-        cmp     #$A8
-        beq     osbyte_a8
-        cmp     #$8F
-        beq     osbyte_8f
-        cmp     #$EA
-        beq     osbyte_ea
-        cmp     #$FD
-        beq     osbyte_fd
+osbyte_saveX:
+        .byte   0
 
-        ; Default: unknown OSBYTE - stop the emulator so we can inspect the command that needs implementing
-        brk
+; Preserve MOS parameters, dispatch by A (OSBYTE number) via RTS trampoline
+osbyte_entry:
+        stx     osbyte_saveX
+        tax
+        lda     osbyte_table_hi,x
+        pha
+        lda     osbyte_table_lo,x
+        pha
+        ; restore A and X
+        txa
+        ldx     osbyte_saveX
+        rts
+
+; Default: unimplemented OSBYTE — replace table slot when adding a handler
+osbyte_unimplemented:
+        rts
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; OSBYTE dispatch tables (256 entries, address minus 1 for RTS trick)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+osbyte_table_lo:
+.repeat 256, cmd
+        .if     cmd = $76
+        .byte   .lobyte(osbyte_76 - 1)
+        .elseif cmd = $a8
+        .byte   .lobyte(osbyte_a8 - 1)
+        .elseif cmd = $8f
+        .byte   .lobyte(osbyte_8f - 1)
+        .elseif cmd = $ea
+        .byte   .lobyte(osbyte_ea - 1)
+        .elseif cmd = $fd
+        .byte   .lobyte(osbyte_fd - 1)
+        .else
+        .byte   .lobyte(osbyte_unimplemented - 1)
+        .endif
+.endrepeat
+
+osbyte_table_hi:
+.repeat 256, cmd
+        .if     cmd = $76
+        .byte   .hibyte(osbyte_76 - 1)
+        .elseif cmd = $a8
+        .byte   .hibyte(osbyte_a8 - 1)
+        .elseif cmd = $8f
+        .byte   .hibyte(osbyte_8f - 1)
+        .elseif cmd = $ea
+        .byte   .hibyte(osbyte_ea - 1)
+        .elseif cmd = $fd
+        .byte   .hibyte(osbyte_fd - 1)
+        .else
+        .byte   .hibyte(osbyte_unimplemented - 1)
+        .endif
+.endrepeat
 
 ; AUG: A preserved, X bit7 set if CTRL pressed, Y undefined
 osbyte_76:
         pha
-        lda     osbyte76_fake_keyboard
+        lda     osbyte_76_fake_keyboard
         and     #$80
         tax                     ; X = $00 or $80
         iny                     ; amend Y so it isn't the same as entry to fake it being "undefined"
@@ -63,15 +111,15 @@ osbyte_a8:
 ;          X=0 if a paged ROM claimed the service request
 ;          A is preserved, C is undefined
 osbyte_8f:
-        stx     osbyte8f_claim_type
+        stx     osbyte_8f_claim_type
 
         ; invert C so it's never the same as it starts as, just to create some undefined behaviour
-        bcc     do_sec_8f
+        bcc     @do_sec_8f
         clc
-        bcc     after_swap_c
-do_sec_8f:
+        bcc     @after_swap_c
+@do_sec_8f:
         sec
-after_swap_c:
+@after_swap_c:
         ; This jumps into the handle_service function of the ROM ($8003) with
         ; A = claim type (e.g. 0F, 0A), X = ROM (0e), Y is untouched in entire run
         txa

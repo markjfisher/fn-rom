@@ -76,8 +76,6 @@ cmd_fs_disc:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 cmd_fs_fuji:
-        dbg_string_axy "CMD_FS_FUJI: "
-
         ; Initialize FujiNet filing system (following MMFS CMD_CARD pattern)
         lda     #$FF                    ; Set A=$FF to indicate not a boot file
 
