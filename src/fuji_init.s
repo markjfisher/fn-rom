@@ -154,12 +154,6 @@ init_fuji:
 
         jsr     claim_static_workspace
 
-.ifdef FN_DEBUG
-        jsr     print_string
-        .byte   "Rest. ws", $0D
-        nop
-.endif
-
         ldy     #$00                  ; ** Restore copy of data
 @copyfromPWStoSWS_loop:
         lda     (aws_tmp00),y         ; from private wsp
@@ -199,10 +193,6 @@ initdfs_reset:
 
 ; Set to defaults
 setdefaults:
-.ifdef FN_DEBUG
-        jsr     print_string
-        .byte   "defs", $0D
-.endif
         lda     #'$'
         sta     fuji_default_dir
         sta     fuji_lib_dir

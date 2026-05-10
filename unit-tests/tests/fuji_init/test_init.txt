@@ -1,0 +1,17 @@
+///////////////////////////////
+marker $$ test *FIN foo.ssd $$
+///////////////////////////////
+
+memory load rom #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+memory load atari "${UNIT_TEST_DIR}/harness/harness.xex"
+symbols load "${UNIT_TEST_DIR}/harness/build/harness.lbl"
+
+memory protect ro #0xFF00 0x0100
+
+registers flush
+
+// initialise the ROM
+run $init_harness until CP = $end_init_harness
+
+assert CP = 0x0000

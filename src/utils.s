@@ -22,9 +22,6 @@
         .export  y_add8
         .export  vblank
 
-        .export  save_aws_to_stack
-        .export  restore_aws_from_stack
-
         .export tube_claim
         .export tube_release
         .export tube_release_no_check

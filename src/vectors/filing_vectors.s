@@ -62,8 +62,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 fscv_entry:
-        dbg_string_axy "FSCV_ENTRY: "
-
         cmp     #$0C                    ; we handle commands $00 to $0B, or 0-11
         bcs     unknown_op
         stx     aws_tmp05               ; Save X

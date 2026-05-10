@@ -1,0 +1,6 @@
+name: run *FIN ROM command to slot a disk
+
+target: none
+compiler: cc65
+
+test_script: test_fin.txt 

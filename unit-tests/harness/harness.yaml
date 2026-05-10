@@ -1,0 +1,16 @@
+name: BBC Harness built when using soft65c02_unit
+
+target: none
+compiler: cc65
+
+src_files:
+  - ./crt0.s
+  - ./stubs.s
+  - ./osbyte_stub.s
+  - ./fscv_stub.s
+  - ./mos_vectors.s
+
+asm_include_paths:
+  - ./
+
+config_file: ./harness.ld65.cfg
