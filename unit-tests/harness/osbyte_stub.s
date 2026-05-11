@@ -4,11 +4,10 @@
 ; Optional: force CTRL for &76 tests
 ;   memory write $osbyte_76_fake_keyboard 0x80
 ;
+        .export  h_osbyte_entry
         .export  osbyte_76_fake_keyboard
-        .export  osbyte_entry
         .export  osbyte_8f_claim_type
         .export  osbyte_break_type
-        .export  osbyte_saveX
 
         .export  osbyte_76
         .export  osbyte_8f
@@ -29,10 +28,10 @@ osbyte_break_type:
         .byte   1               ; set to 0 for soft, 1 for power up, 2 for hard
 
 osbyte_saveX:
-        .byte   0
+        .byte   0               ; somewhere to stash X that isn't the stack
 
 ; Preserve MOS parameters, dispatch by A (OSBYTE number) via RTS trampoline
-osbyte_entry:
+h_osbyte_entry:
         stx     osbyte_saveX
         tax
         lda     osbyte_table_hi,x
@@ -46,7 +45,8 @@ osbyte_entry:
 
 ; Default: unimplemented OSBYTE — replace table slot when adding a handler
 osbyte_unimplemented:
-        rts
+        ; causes emulator to stop
+        brk
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; OSBYTE dispatch tables (256 entries, address minus 1 for RTS trick)
@@ -73,10 +73,10 @@ osbyte_table_hi:
 .repeat 256, cmd
         .if     cmd = $76
         .byte   .hibyte(osbyte_76 - 1)
-        .elseif cmd = $a8
-        .byte   .hibyte(osbyte_a8 - 1)
         .elseif cmd = $8f
         .byte   .hibyte(osbyte_8f - 1)
+        .elseif cmd = $a8
+        .byte   .hibyte(osbyte_a8 - 1)
         .elseif cmd = $ea
         .byte   .hibyte(osbyte_ea - 1)
         .elseif cmd = $fd
@@ -96,13 +96,6 @@ osbyte_76:
         pla                     ; restore A
         rts
 
-; AUG: A preserved, C undefined. X = $9F, Y = $0D for OS 1.2 ($0D9F)
-; uses the "NEW VALUE = (OLD VALUE AND Y) EOR X", so X00YFF just reads.
-; just going to return D9F
-osbyte_a8:
-        ldx     #$9F
-        ldy     #$0D
-        rts
 
 ; Issue paged ROM service request
 ; Entry: X=service type, Y=argument for service.
@@ -125,6 +118,14 @@ osbyte_8f:
         txa
         ldx     #$0E            ; TODO: make this configurable? It's the ROM number
         jmp     $8003
+
+; AUG: A preserved, C undefined. X = $9F, Y = $0D for OS 1.2 ($0D9F)
+; uses the "NEW VALUE = (OLD VALUE AND Y) EOR X", so X00YFF just reads.
+; just going to return D9F
+osbyte_a8:
+        ldx     #$9F
+        ldy     #$0D
+        rts
 
 ; tube check
 osbyte_ea:

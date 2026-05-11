@@ -5,6 +5,7 @@ test/
 *.ssd
 *.dsd
 /*.hex
+*.xex
 
 /scratch/
 
