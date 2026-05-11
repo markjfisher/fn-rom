@@ -3,14 +3,17 @@ name: BBC Harness built when using soft65c02_unit
 target: none
 compiler: cc65
 
-src_files:
-  - ./crt0.s
-  - ./stubs.s
-  - ./osbyte_stub.s
-  - ./fscv_stub.s
-  - ./mos_vectors.s
+config_file: ./cfg/harness.ld65.cfg
 
+src_files:
+  - ./src/crt0.s
+  - ./src/osbyte_stub.s
+  - ./src/mos_vectors.s
+  - ./src/fscv_stub.s
+  - ./src/stubs.s
+
+ld_flags:
+
+# fnrom.inc is created in the current folder
 asm_include_paths:
   - ./
-
-config_file: ./harness.ld65.cfg

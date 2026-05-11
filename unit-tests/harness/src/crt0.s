@@ -1,4 +1,3 @@
-        .export     __STARTUP__ : absolute = 1
         .export     halt
         .export     init_harness
         .export     end_init_harness

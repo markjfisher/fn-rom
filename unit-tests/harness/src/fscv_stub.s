@@ -1,6 +1,6 @@
-        .export h_fscv_entry
+        .export  h_fscv_entry
 
-        .include    "harness.inc"
+        .include "fnrom.inc"
 
 h_fscv_entry:
         lda     #$0e

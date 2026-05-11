@@ -2,12 +2,15 @@
 
 # set the env variables
 . ./test_env.sh
-echo $WS_ROOT
 
-# build the harness
+# build the ROM
+make clean ssd
+
+# create the include file for the harness to use ROM locations
 cd unit-tests/harness
-. ./build.sh
+./create_rom_inc.sh
 
 # run the tests
 cd -
-soft65c02_tester -i unit-tests/tests/fuji_init/test_init.txt
+
+soft65c02_unit -v -i unit-tests/tests/fuji_init/test_fuji_init.yaml

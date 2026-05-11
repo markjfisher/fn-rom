@@ -1,6 +1,1 @@
-*.o
-*.map
-*.bin
-build/
-
 fnrom.inc
