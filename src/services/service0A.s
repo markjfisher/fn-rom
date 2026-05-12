@@ -15,16 +15,17 @@
 service0A_claim_statworkspace:
         ; Another ROM wants the static workspace
         ; We need to save our state to private workspace if we own it
-
-        dbg_string_axy "service0A: "
-
         jsr     remember_axy
 
-        ; Do I own sws? Check if pws is "full" - why isn't this using fuji_own_sws_indicator?
-        ; This uses 17D4 (if PWS is 1700), but fuji_force_reset is 10EF, so not the same thing.
-        jsr     set_private_workspace_pointer_aws_tmp00
-        ldy     #$D4                    ; fuji_force_reset+1 offset, this is the "I OWN SWS INDICATOR flag"
+        ; Do I own sws? Check if pws is "full"
 
+        ; perm_flags+1 offset, this is the "I OWN SWS INDICATOR flag", mirrored in fuji_own_sws_indicator... why? not used here
+        lda     #<(FUJI_PWS_PERM_FLAGS_OFFSET+1)
+        sta     aws_tmp00
+        lda     #>(FUJI_PWS_PERM_FLAGS_OFFSET+1)
+        sta     aws_tmp01
+
+        ldy     #$00
         lda     (aws_tmp00),y           ; Check if pws is "full"
         bpl     @exit                   ; If pws "full" then sws is not mine
 
@@ -32,15 +33,14 @@ service0A_claim_statworkspace:
         ldy     #$00                    ; Handle 0 = all files
         jsr     channel_buffer_to_disk_yhandle
 
-        ; Save static to private workspace
+        ; Save static to private workspace, preserves aws_tmp00/01
         jsr     save_static_to_private_workspace
 
         ; Mark pws as "empty"
-        ldy     #$D4
-        lda     #$00                    ; PWSP+$D4=0 = PWSP "empty"
+        lda     #$00
+        tay                             ; mark "i own" flag as 00
         sta     (aws_tmp00),y
 
-        ; Change A in stack to 0 (like MMFS)
         tsx                             ; RememberAXY called earlier
         sta     $0105,x                 ; changes value of A in stack to 0
 

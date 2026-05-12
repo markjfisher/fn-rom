@@ -152,14 +152,11 @@ get_fuji_json_path_addr_to_aws_tmp00:
 
 ; Copy valuable data from static workspace (sws) to private workspace (pws)
 ; (sws data 10C0-10XX (uses fuji_last_state_loc), and 1100-11BF)
+; DO WE NEED TO COPY force_reset and i_own?
+; claim_static_workspace in fuji_init.s saves values to them
 save_static_to_private_workspace:
         ; Preserves A/X/Y on exit, so Y (currently pointing to fuji_own_sws_indicator) is preserved
         jsr     remember_axy
-
-.ifdef FN_DEBUG
-        jsr     print_string
-        .byte   "Saving workspace", $0D
-.endif
 
         ; Save current workspace pointer
         lda     aws_tmp00
@@ -175,7 +172,7 @@ save_static_to_private_workspace:
         lda     fuji_static_workspace - $C0, y  ; Static workspace high part
         bcs     @stat_y_gtreq_c0
 @stat_y_less_c0:
-        lda     $1100,y                 ; Static workspace low part
+        lda     fuji_channel_start,y            ; Static workspace low part
 @stat_y_gtreq_c0:
         sta     (aws_tmp00),y
         iny

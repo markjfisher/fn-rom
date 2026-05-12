@@ -161,21 +161,25 @@ FN_HEADER_SIZE = 6
 FN_PARAMS_OFFSET = 4
 ; Private workspace (PWS) layout for FujiBus: packet buffer at PWS+0.
 ; Plan: first 256 bytes were reserved for the packet slice; remaining PWS for strings.
-; Disk read decodes ~274 bytes (header + 256-byte sector)
+; Disk read decodes 274 bytes (7+11 + 256-byte sector)
 ; at PWS+0 until responses are streamed or split.
 FUJI_PWS_PACKET_OFFSET = 0
-FUJI_PWS_PACKET_SIZE = 280
+FUJI_PWS_PACKET_SIZE = 274
+FUJI_PWS_PERM_FLAGS_SIZE = 6
 FUJI_FS_URI_BUFFER_SIZE = 80
-; PWS layout after packet: [+280] working FS URI scratch buffer used for FileDevice
-; requests such as *FIN and *FLS packet assembly; [+360] canonical current URI used
-; by *FHOST/*FCD/*FLS as the source of truth for the current location.
-FUJI_FS_URI_OFFSET = 280
 FUJI_HOST_URI_BUFFER_SIZE = 80
+FUJI_JSON_PATH_BUFFER_SIZE = 72
+
+; PWS layout after packet: 
+; [+274] 6 byte flags area, fuji_force_reset and fuji_own_sws_indicator use 2
+; [+280] working FS URI scratch buffer used for FileDevice requests such as *FIN and *FLS packet assembly
+; [+360] canonical current URI used by *FHOST/*FCD/*FLS as the source of truth for the current location.
+FUJI_PWS_PERM_FLAGS_OFFSET = FUJI_PWS_PACKET_OFFSET + FUJI_PWS_PACKET_SIZE
+FUJI_FS_URI_OFFSET = FUJI_PWS_PERM_FLAGS_OFFSET + FUJI_PWS_PERM_FLAGS_SIZE
 FUJI_HOST_URI_OFFSET = FUJI_FS_URI_OFFSET + FUJI_FS_URI_BUFFER_SIZE
 ; 512-byte PWS leaves 72 bytes after packet + FS URI + host URI.
 ; Reserve the remainder for transient JSON query strings used by *FJSON.
 FUJI_JSON_PATH_OFFSET = FUJI_HOST_URI_OFFSET + FUJI_HOST_URI_BUFFER_SIZE
-FUJI_JSON_PATH_BUFFER_SIZE = 72
 FN_MAX_PACKET_SIZE = FUJI_PWS_PACKET_SIZE
 
 FN_PROTOCOL_VERSION = $01

@@ -2,7 +2,7 @@
 marker $$ test fujinet init $$
 ///////////////////////////////
 
-
+; --------------------------------------------------
 ; load fujinet rom
 memory load rom #0x8000 "${WS_ROOT}/build/fujinet.rom"
 symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
@@ -24,6 +24,9 @@ registers flush
 run $init_harness until (CP = $end_init_harness OR cycle_count > 5000)
 assert CP = $end_init_harness $$completed code correctly$$
 assert cycle_count <= 1800    $$cycles within accpeptable limit from previous runs$$
+; --------------------------------------------------
+
+; Bootstrap done, run tests to prove init worked as expected
 
 ; check the vectors were setup
 memory show #0x0210 0x10
@@ -56,3 +59,15 @@ assert #0x0DC9 -> $findv_entry  $$findv_entry$$
 assert #0x0DCB = 0x0E           $$ROM E$$
 assert #0x0DCC -> $fscv_entry   $$fscv_entry$$
 assert #0x0DCE = 0x0E           $$ROM E$$
+
+; check initial state of some variables
+assert $fuji_drive_disk_map + 0 = 0xFF  $$drive 0 unset$$
+assert $fuji_drive_disk_map + 1 = 0xFF  $$drive 1 unset$$
+assert $fuji_drive_disk_map + 2 = 0xFF  $$drive 2 unset$$
+assert $fuji_drive_disk_map + 3 = 0xFF  $$drive 3 unset$$
+
+assert $fuji_current_fs_len   = 0x00 $$init fs_len$$
+assert $fuji_current_dir_len  = 0x00 $$init dir_len$$
+assert $fuji_current_host_len = 0x00 $$init host_len$$
+
+assert $fuji_tube_preset      = 0xFF $$tube not present (0xFF)$$

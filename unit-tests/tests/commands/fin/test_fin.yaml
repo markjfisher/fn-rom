@@ -1,6 +1,6 @@
 name: run *FIN ROM command to slot a disk
 
-target: none
-compiler: cc65
+configs:
+  - ${UNIT_TEST_DIR}/harness/harness.yaml
 
 test_script: test_fin.txt 

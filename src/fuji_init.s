@@ -1,19 +1,22 @@
 ; FujiNet file system initialization
 ; Translated from MMFS mmfs100.asm lines 2943-3139
 
-        .export init_fuji
-        .export set_private_workspace_pointer_aws_tmp00
-        .export boot_options
         .export autoboot
+        .export boot_options
         .export cmd_fs_disc
         .export cmd_fs_fuji
+        .export init_fuji
+        .export set_private_workspace_pointer_aws_tmp00
 
         ; for debugging and tracing
-        .export not_opt0
-        .export initdfs_noreset
-        .export setdefaults
+        .export claim_static_workspace
         .export go_fscv
         .export initdfs_exit
+        .export initdfs_noreset
+        .export initdfs_reset
+        .export not_opt0
+        .export setdefaults
+        .export skip_autoload
 
         .import a_rorx4
         .import channel_flags_clear_bits
@@ -60,8 +63,6 @@ autoboot:
         bcc     init_fuji
 
 cmd_fs_disc:
-        dbg_string_axy "CMD_FS_DISC: "
-
         ; Following MMFS CMD_DISC pattern (lines 2928-2941)
         ; Check bit 6 of PagedROM_PrivWorkspaces to see if DISC/DISK should pass to DFS
 
@@ -121,7 +122,6 @@ init_fuji:
 
         ; The fix for getting the simple LOAD/RUN working was not setting this to FF, but instead not using E00 as a buffer for fetching data
         sty     current_cat             ; set to "0" in ascii
-        ; sty     current_cat+1           ; this has the comment "?" in MMFS src... who knows why? Can't see this being used, removing it
 
         ; FS URI / DIR path buffers (PWS) and their lengths (SWS) are not cleared here:
         ; on soft break the MOS keeps private workspace, so host/path state should survive.
@@ -140,6 +140,9 @@ init_fuji:
 
         jsr     set_private_workspace_pointer_aws_tmp00
 
+
+        ; -------------------------------
+        ; REFACTOR TO USE PWS FLAGS
         ldy     #<fuji_force_reset
         lda     (aws_tmp00),y         ; A=PWSP + offset (-ve=soft break)
 

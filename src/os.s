@@ -646,7 +646,12 @@ fuji_ch_handle_high     = fuji_channel_start + $1F  ; handle for fujinet resourc
 ; fuji_unknown_11D0       = fuji_workspace + $01D0 ; above + $10, seems like fuji_ch_bptr_low if this is a buffer, but could be part of the 11C0-11FF being for general usage...
 
 ; PWS usage: (e.g. if set to 1700)
-; Start: $1700, length $0118 (280): Packet buffer for all requests/responses
+; Start: $1700, length $0118 (274): Packet buffer for all requests/responses
+; start: $1812, length $0006 (  6): PWS flags (need 2 initially for fuji_force_reset, fuji_own_sws_indicator)
 ; Start: $1818, length $0050 ( 80): Working FS URI
 ; Start: $1868, length $0050 ( 80): Canonical host URI from ResolvePath
 ; Start: $18B8, length $0048 ( 72): Translation Path Buffer (e.g. JSON)
+
+; but the static workspace is written to 1700-17ff when "saving" the workspace
+; the most important bytes being the force_reset/i_own bytes that init_fuji reads
+; to decide if we are active or should be reset

@@ -1,8 +1,5 @@
 name: run initial fuji setup and check vectors all setup
 
-target: none
-compiler: cc65
-
 configs:
   - ${UNIT_TEST_DIR}/harness/harness.yaml
 
