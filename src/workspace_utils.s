@@ -4,17 +4,16 @@
         .export set_fuji_fs_uri_ptr
         .export fuji_fs_uri_ptr
         .export fuji_host_uri_ptr
-        .export fuji_json_path_ptr
         .export fuji_dir_path_ptr
         .export get_fuji_fs_uri_addr_to_aws_tmp00
         .export get_fuji_host_uri_addr_to_aws_tmp00
         .export get_fuji_json_path_addr_to_aws_tmp00
+        .export set_private_workspace_pointer_aws_tmp00
 
         .import  remember_axy
         .import  fuji_current_host_len
         .import  fuji_current_dir_len
         .import  print_string
-        .import  set_private_workspace_pointer_aws_tmp00
         .import  return_with_a0
         .import  close_all_files
         .import  close_files_yhandle
@@ -75,19 +74,6 @@ fuji_host_uri_ptr:
         pla
         rts
 
-; uint8_t *fuji_json_path_ptr(void); return in A/X — PWS + FUJI_JSON_PATH_OFFSET
-fuji_json_path_ptr:
-        jsr     set_private_workspace_pointer_aws_tmp00
-        lda     aws_tmp00
-        clc
-        adc     #<(FUJI_JSON_PATH_OFFSET)
-        pha
-        lda     aws_tmp01
-        adc     #>(FUJI_JSON_PATH_OFFSET)
-        tax
-        pla
-        rts
-
 ; uint8_t *fuji_dir_path_ptr(void);  return in A/X
 ; PATH = suffix of canonical host URI: PWS host base + (host_len - dir_len).
 ; TODO: this can be improved, PWS is always on a boundary, so lower byte is 00
@@ -115,40 +101,29 @@ fuji_dir_path_ptr:
         pla
         rts
 
-; FS URI storage address in aws_tmp00/aws_tmp01 (does not modify buffer_ptr)
+get_fuji_pws_flags_to_aws_tmp00:
+        lda     #<(FUJI_PWS_PERM_FLAGS_OFFSET)
+        ldy     #>(FUJI_PWS_PERM_FLAGS_OFFSET)
+        jmp     set_private_workspace_pointer_aws_tmp00_with_offset_AY
+
+; FS URI storage address in aws_tmp00/aws_tmp01
 get_fuji_fs_uri_addr_to_aws_tmp00:
-        jsr     set_private_workspace_pointer_aws_tmp00         ; importantly sets high byte in aws_tmp01
-        ; lower byte always 00 as it's a page boundary, so we can avoid an ADC
         lda     #<(FUJI_FS_URI_OFFSET)
-        sta     aws_tmp00
-        clc
-        lda     aws_tmp01
-        adc     #>(FUJI_FS_URI_OFFSET)
-        sta     aws_tmp01
-        rts
+        ldy     #>(FUJI_FS_URI_OFFSET)
+        jmp     set_private_workspace_pointer_aws_tmp00_with_offset_AY
 
-; Host URI (*FHOST) storage address in aws_tmp00/aws_tmp01 (does not modify buffer_ptr)
+; Host URI (*FHOST) storage address in aws_tmp00/aws_tmp01
 get_fuji_host_uri_addr_to_aws_tmp00:
-        jsr     set_private_workspace_pointer_aws_tmp00         ; importantly sets high byte in aws_tmp01
-        ; lower byte always 00 as it's a page boundary, so we can avoid an ADC
         lda     #<(FUJI_HOST_URI_OFFSET)
-        sta     aws_tmp00
-        clc
-        lda     aws_tmp01
-        adc     #>(FUJI_HOST_URI_OFFSET)
-        sta     aws_tmp01
-        rts
+        ldy     #>(FUJI_HOST_URI_OFFSET)
+        jmp     set_private_workspace_pointer_aws_tmp00_with_offset_AY
 
-; JSON path storage address in aws_tmp00/aws_tmp01 (does not modify buffer_ptr)
+; JSON path storage address in aws_tmp00/aws_tmp01
 get_fuji_json_path_addr_to_aws_tmp00:
-        jsr     set_private_workspace_pointer_aws_tmp00
         lda     #<(FUJI_JSON_PATH_OFFSET)
-        sta     aws_tmp00
-        clc
-        lda     aws_tmp01
-        adc     #>(FUJI_JSON_PATH_OFFSET)
-        sta     aws_tmp01
-        rts
+        ldy     #>(FUJI_JSON_PATH_OFFSET)
+        jmp     set_private_workspace_pointer_aws_tmp00_with_offset_AY
+
 
 ; Copy valuable data from static workspace (sws) to private workspace (pws)
 ; (sws data 10C0-10XX (uses fuji_last_state_loc), and 1100-11BF)
@@ -184,4 +159,26 @@ save_static_to_private_workspace:
         sta     aws_tmp01
         pla
         sta     aws_tmp00
+        rts
+
+set_private_workspace_pointer_aws_tmp00:
+        lda     #$00
+        sta     aws_tmp00
+
+set_private_workspace_pointer_high_only:
+        ldx     paged_ram_copy
+        lda     paged_rom_priv_ws, x
+        and     #$3F                            ; not master. TODO: fix when we do multiple machine types
+        sta     aws_tmp01
+        rts
+
+set_private_workspace_pointer_aws_tmp00_with_offset_AY:
+        pha     ; put low offset into stack while we do base pointer
+        jsr     set_private_workspace_pointer_high_only
+        pla     ; fetch low offset, PWSP is always on a page, so set it directly into tmp00
+        sta     aws_tmp00
+        clc
+        tya                     ; high offset is in Y
+        adc     aws_tmp01
+        sta     aws_tmp01
         rts

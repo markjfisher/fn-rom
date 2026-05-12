@@ -24,7 +24,6 @@
         .import  err_no_host
         .import  exit_user_ok
         .import  flist_resolve_target
-        .import  fuji_host_uri_ptr
         .import  fujibus_receive_packet
         .import  fujibus_send_packet
         .import  get_fuji_fs_uri_addr_to_aws_tmp00

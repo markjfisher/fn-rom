@@ -43,6 +43,12 @@ service02_claim_privworkspace:
         beq     @samepage                ; If same as before
 
         ; TODO: change this to the new PWS FLAGS location
+        lda     #<(FUJI_PWS_PERM_FLAGS_OFFSET+1)
+        sta     aws_tmp00
+        lda     #>(FUJI_PWS_PERM_FLAGS_OFFSET+1)
+        sta     aws_tmp01
+
+
         ldy     #<fuji_force_reset
         sta     (aws_tmp00),y
         ; END TODO

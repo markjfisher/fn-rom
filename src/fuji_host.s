@@ -116,9 +116,7 @@ fuji_set_host_data:
         jmp     fujibus_resolve_path
 
 fuji_get_host_data:
-        ; TODO: do we need to do anything here when change to a single string and offsets for path?
-        ; I don't see the need for host_uri anymore
-        ; For serial, the host is stored in PWS (fuji_host_uri_ptr / FUJI_CURRENT_HOST_LEN)
+        ; For serial, the host is stored in PWS
         ; No FujiNet command needed - just return success
         lda     #$01
         rts

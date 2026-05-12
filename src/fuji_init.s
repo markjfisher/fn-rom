@@ -6,7 +6,6 @@
         .export cmd_fs_disc
         .export cmd_fs_fuji
         .export init_fuji
-        .export set_private_workspace_pointer_aws_tmp00
 
         ; for debugging and tracing
         .export claim_static_workspace
@@ -25,6 +24,7 @@
         .import osbyte_X0YFF
         .import print_string
         .import return_with_a0
+        .import set_private_workspace_pointer_aws_tmp00
         .import tube_check_if_present
         .import vectors_table
 
@@ -275,15 +275,6 @@ not_opt0:
 
 go_fscv:
         jmp     (FSCV)
-
-set_private_workspace_pointer_aws_tmp00:
-        lda     #$00
-        sta     aws_tmp00
-        ldx     paged_ram_copy
-        lda     paged_rom_priv_ws, x
-        and     #$3F                            ; not master. TODO: fix when we do multiple machine types
-        sta     aws_tmp01
-        rts
 
 claim_static_workspace:
         ldx     #$0A

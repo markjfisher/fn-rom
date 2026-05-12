@@ -525,7 +525,7 @@ fujibus_disk_write_sector:
         rts
 
 ; bool fujibus_resolve_path(void)
-
+; this is wrapped in a transaction, which sets buffer_ptr to PWS
 fujibus_resolve_path:
 
         lda     #FN_PROTOCOL_VERSION

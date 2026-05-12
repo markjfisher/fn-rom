@@ -115,32 +115,6 @@ set_text_pointer_yx:
         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; Calculate CRC7
-; Exit: A=CRC7, X=0, Y=FF
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-; calculate_crc7:
-;         ldy     #<(CHECK_CRC7 - VID - 1)
-;         lda     #$00
-; @loop1:
-;         eor     VID,y
-;         asl     a
-;         ldx     #$07
-; @loop2:
-;         bcc     @c7b7z1
-;         eor     #$12
-; @c7b7z1:
-;         asl     a
-;         dex
-;         bne     @loop2
-;         bcc     @c7b7z2
-;         eor     #$12
-; @c7b7z2:
-;         dey
-;         bpl     @loop1
-;         ora     #$01
-;         rts
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Tube check if present
 ; Exit: A=0 if tube present, $FF if not
 
@@ -243,23 +217,3 @@ tube_release_no_check:
 
 trelease_exit:
         rts
-
-; save_aws_to_stack:
-;         ; save 16 aws values to stack, what could go wrong...
-;         ldx     #15
-; loop_save:
-;         lda     aws_tmp00, x
-;         pha
-;         dex
-;         bpl     loop_save
-;         rts
-
-; restore_aws_from_stack:
-;         ldx     #0
-; loop_restore:
-;         pla
-;         sta     aws_tmp00,x
-;         inx
-;         cpx     #16
-;         bne     loop_restore
-;         rts

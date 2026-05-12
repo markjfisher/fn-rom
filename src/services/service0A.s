@@ -19,10 +19,13 @@ service0A_claim_statworkspace:
 
         ; Do I own sws? Check if pws is "full"
 
-        ; perm_flags+1 offset, this is the "I OWN SWS INDICATOR flag", mirrored in fuji_own_sws_indicator... why? not used here
+        jsr     set_private_workspace_pointer_aws_tmp00
+        ; perm_flags+1 offset, this is the "I OWN SWS INDICATOR/PWS full flag", mirrored in fuji_own_sws_indicator... why? not used here
         lda     #<(FUJI_PWS_PERM_FLAGS_OFFSET+1)
         sta     aws_tmp00
+        clc
         lda     #>(FUJI_PWS_PERM_FLAGS_OFFSET+1)
+        adc     aws_tmp01
         sta     aws_tmp01
 
         ldy     #$00
