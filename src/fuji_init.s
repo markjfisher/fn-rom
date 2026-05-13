@@ -20,6 +20,8 @@
         .import a_rorx4
         .import channel_flags_clear_bits
         .import extendedvectors_table
+        .import get_fuji_fs_uri_addr_to_aws_tmp00
+        .import get_fuji_host_uri_addr_to_aws_tmp00
         .import load_cur_drv_cat
         .import osbyte_X0YFF
         .import print_string
@@ -27,12 +29,6 @@
         .import set_private_workspace_pointer_aws_tmp00
         .import tube_check_if_present
         .import vectors_table
-
-        .import fuji_fs_uri_ptr
-        .import get_fuji_host_uri_addr_to_aws_tmp00
-
-        .import fuji_current_fs_len
-        .import fuji_current_host_len
 
 .ifdef FUJINET_INTERFACE_DUMMY
         .import fuji_init_ram_filesystem
@@ -222,15 +218,12 @@ setdefaults:
         sta     fuji_drive_disk_map+3   ; Drive 3
 
         ; Power-on / hard break only: empty FS + host URI in PWS; zero lengths in SWS
-        jsr     fuji_fs_uri_ptr
-        sta     buffer_ptr
-        stx     buffer_ptr+1
-
+        jsr     get_fuji_fs_uri_addr_to_aws_tmp00
         lda     #$00
         tay
-        sta     (buffer_ptr),y
-        jsr     get_fuji_host_uri_addr_to_aws_tmp00     ; high byte of host uri is in A here, why are we storing that 
+        sta     (aws_tmp00),y
 
+        jsr     get_fuji_host_uri_addr_to_aws_tmp00     ; high byte of host uri is in A here, why are we storing that 
         lda     #$00
         sta     (aws_tmp00),y
 
