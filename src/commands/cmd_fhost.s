@@ -12,7 +12,7 @@
         .import  param_get_string
         .import  print_char
         .import  print_newline
-        .import  print_string_ax
+        .import  print_string
         .import  report_error
 
         .include "fujinet.inc"
@@ -40,9 +40,8 @@ cmd_fs_fhost:
 ; Show HOST (canonical URI in PWS) and PATH (suffix per host_len/dir_len)
 ;------------------------------------------------------------------------------
 fhost_show_current:
-        lda     #<str_fhost_host
-        ldx     #>str_fhost_host
-        jsr     print_string_ax
+        jsr     print_string
+        .byte   "HOST: "
 
         lda     fuji_current_host_len
         beq     @host_none
@@ -61,9 +60,8 @@ fhost_show_current:
 @after_host:
         jsr     print_newline
 
-        lda     #<str_fhost_path
-        ldx     #>str_fhost_path
-        jsr     print_string_ax
+        jsr     print_string
+        .byte   "PATH: "
 
         lda     fuji_current_dir_len
         beq     @path_none
@@ -94,9 +92,9 @@ fhost_show_current:
 
 ;------------------------------------------------------------------------------
 print_none_str:
-        lda     #<str_fhost_none
-        ldx     #>str_fhost_none
-        jmp     print_string_ax
+        jsr     print_string
+        .byte   "(none)", $80
+        rts
 
 ; Print X bytes from (cws_tmp2); X should be <= 80
 ; exits with Z=1
@@ -192,13 +190,3 @@ fhost_ensure_host_trailing_slash:
 
 @done:
         rts
-
-; STRINGS
-        .segment "RODATA"
-
-str_fhost_host:
-        .byte   "HOST: ", $a0
-str_fhost_path:
-        .byte   "PATH: ", $a0
-str_fhost_none:
-        .byte   "(none)", $a0

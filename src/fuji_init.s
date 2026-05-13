@@ -28,7 +28,7 @@
         .import tube_check_if_present
         .import vectors_table
 
-        .import set_fuji_fs_uri_ptr
+        .import fuji_fs_uri_ptr
         .import get_fuji_host_uri_addr_to_aws_tmp00
 
         .import fuji_current_fs_len
@@ -222,7 +222,10 @@ setdefaults:
         sta     fuji_drive_disk_map+3   ; Drive 3
 
         ; Power-on / hard break only: empty FS + host URI in PWS; zero lengths in SWS
-        jsr     set_fuji_fs_uri_ptr     ; sets buffer_ptr to fs_uri
+        jsr     fuji_fs_uri_ptr
+        sta     buffer_ptr
+        stx     buffer_ptr+1
+
         lda     #$00
         tay
         sta     (buffer_ptr),y
