@@ -67,11 +67,6 @@
         .import y_add8
         .import y_sub8
 
-.ifdef FUJINET_INTERFACE_DUMMY
-.endif
-.ifdef FN_DEBUG
-.endif
-
         .include "fujinet.inc"
 
         .segment "CODE"
@@ -198,7 +193,6 @@ cd_writedest_cat_nodel:
 create_file_2:
         sta     pws_tmp04
 
-.ifndef FUJINET_INTERFACE_DUMMY
         ; Non-empty cat: MMFS seed (0,$02) lets the first gap check succeed without ever
         ; entering cfile_loop — pws_tmp03 stays $02. Seed first free sector after last file.
         ldy     dfs_cat_num_x8
@@ -218,20 +212,6 @@ create_file_2:
         ldy     dfs_cat_num_x8
         cpy     #$F8
         bcc     getfirstblock_yoffset
-.else
-        ; DUMMY DISK: Use tracked sector allocation (bypasses gap-finding)
-        ; Call dummy implementation to get next available sector
-        jsr     get_next_available_sector ; Returns sector in A and pws_tmp03
-        sta     pws_tmp03
-
-        ; Proceed directly to file insertion
-        ldy     dfs_cat_num_x8
-        cpy     #$F8
-        bcs     err_cat_full            ; If catalog full
-        ; Set aws_tmp00 to catalog end (where we'll insert)
-        sty     aws_tmp00
-        jmp     cfile_insertfileloop
-.endif
 
 err_cat_full:
         jsr     report_error_cb
@@ -374,16 +354,6 @@ seed_first_free_after_last_file:
 
 delete_cat_entry_yfileoffset:
         jsr     check_file_not_locked_or_open_y
-
-.ifdef FUJINET_INTERFACE_DUMMY
-        ; For dummy interface: Free the sector(s) used by this file
-        ; Get the file's start sector and free it
-        pha                             ; Save A
-        lda     dfs_cat_file_sect,y     ; Get start sector (with flags)
-        and     #$7F                    ; Mask off lock bit
-        jsr     free_ram_sector         ; Mark sector as free for reuse
-        pla                             ; Restore A
-.endif
 
 ; move everything up by 1 row from the y'th row
 @del_cat_loop:

@@ -20,8 +20,8 @@ The architecture must support multiple deployment configurations:
 │                     FujiNet ROM (fn-rom)                        │
 │  ┌──────────────┐  ┌──────────────┐  ┌────────────────────┐     │
 │  │ High Level   │  │ Mid Level    │  │ Low Level          │     │
-│  │ (MMFS compat)│→ │ (fuji_fs.s)  │→ │ (fuji_serial.s or  │     │
-│  │ fs_functions │  │              │  │  fuji_dummy.s)     │     │
+│  │ (MMFS compat)│→ │ (fuji_fs.s)  │→ │ (fuji_serial.s)    │     │
+│  │ fs_functions │  │              │  │                    │     │
 │  └──────────────┘  └──────────────┘  └────────────────────┘     │
 │                                              ↓                  │
 │                                       [Serial Protocol]         │
@@ -481,7 +481,6 @@ sta $FE08
 ## Related Documents
 
 - [Architecture Overview](ARCHITECTURE.md)
-- [MMFS Implementation Notes](fuji_dummy_analysis.md)
 - Phase test plans (PHASE*.md)
 
 ## Revision History

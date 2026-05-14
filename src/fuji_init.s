@@ -60,9 +60,6 @@
         .import tube_check_if_present
         .import vectors_table
 
-.ifdef FUJINET_INTERFACE_DUMMY
-.endif
-
         .include "fujinet.inc"
 
         .segment "RO_EARLY"
@@ -228,11 +225,6 @@ setdefaults:
         sty     fuji_cmd_enabled
         sty     fuji_fs_messages_on
         sty     fuji_error_flag
-
-        ; Initialize RAM filesystem for file creation/writing
-.ifdef FUJINET_INTERFACE_DUMMY
-        jsr     fuji_init_ram_filesystem
-.endif
         
         ; Initialize drive-to-disk mapping (all unmounted)
         lda     #$FF                    ; $FF = no disk mounted

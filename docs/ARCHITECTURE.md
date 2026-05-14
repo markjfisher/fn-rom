@@ -32,8 +32,8 @@ The system follows a strict three-layer architecture to maintain separation of c
 │  Hardware Implementation Layer                              │
 │  - fuji_read_block_data() / fuji_write_block_data()         │
 │  - fuji_read_catalog_data() / fuji_write_catalog_data()     │
-│  - Physical I/O operations (serial, user port, dummy)       │
-│  Files: fuji_dummy.s, fuji_serial.s, fuji_userport.s        │
+│  - Physical I/O operations (serial, user port)              │
+│  Files: fuji_serial.s, fuji_userport.s                      │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -221,7 +221,7 @@ This adapter lives in `vectors/filev/fuji_execute_block_rw.s` but is only called
 
 When adding new hardware operations, follow this pattern:
 
-1. **Add low-level function to hardware implementation** (e.g., `fuji_dummy.s`):
+1. **Add low-level function to hardware implementation**:
 ```assembly
 fuji_new_operation_data:
     ; Implement hardware-specific operation

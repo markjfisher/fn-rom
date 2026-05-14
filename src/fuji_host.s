@@ -34,7 +34,7 @@ fuji_resolve_path:
         
         ; Call hardware-specific implementation
         jsr     fuji_begin_transaction  ; Protect &BC-&CB
-        jsr     fuji_resolve_path_data  ; Hardware-specific (dummy/serial)
+        jsr     fuji_resolve_path_data
         pha                             ; Save return value (bool)
         jsr     fuji_end_transaction    ; Restore &BC-&CB
         pla                             ; Restore return value
@@ -54,7 +54,7 @@ fuji_set_host:
         
         ; Call hardware-specific implementation
         jsr     fuji_begin_transaction  ; Protect &BC-&CB
-        jsr     fuji_set_host_data      ; Hardware-specific (dummy/serial)
+        jsr     fuji_set_host_data
         pha                             ; Save return value (bool)
         jsr     fuji_end_transaction    ; Restore &BC-&CB
         pla                             ; Restore return value
@@ -74,34 +74,12 @@ fuji_get_host:
         
         ; Call hardware-specific implementation
         jsr     fuji_begin_transaction  ; Protect &BC-&CB
-        jsr     fuji_get_host_data       ; Hardware-specific (dummy/serial)
+        jsr     fuji_get_host_data
         pha                             ; Save return value (bool)
         jsr     fuji_end_transaction    ; Restore &BC-&CB
         pla                             ; Restore return value
         
         rts
-
-.ifdef FUJINET_INTERFACE_DUMMY
-
-; Dummy interface - no-op implementations
-fuji_resolve_path_data:
-        ; Dummy: just return success
-        lda     #$01
-        rts
-
-fuji_set_host_data:
-        ; Dummy: just return success
-        lda     #$01
-        rts
-
-fuji_get_host_data:
-        ; Dummy: clear the host
-        lda     #$00
-        sta     fuji_current_host_len
-        lda     #$01
-        rts
-
-.endif
 
 .ifdef FUJINET_INTERFACE_SERIAL
 

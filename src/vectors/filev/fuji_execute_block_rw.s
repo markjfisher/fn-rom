@@ -86,7 +86,6 @@ fuji_execute_block_rw:
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; fuji_read_file_block - Read file block from network
-; Uses dummy implementation for testing
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 fuji_read_file_block:
@@ -97,12 +96,6 @@ fuji_read_file_block:
         sta     data_ptr
         lda     fuji_buffer_addr+1
         sta     data_ptr+1
-
-        ; For dummy implementation, we'll read from our static sector data
-        ; In a real implementation, this would:
-        ; 1. Calculate which sector(s) to read based on fuji_file_offset
-        ; 2. Send network command to FujiNet device
-        ; 3. Receive data and copy to buffer
 
         jsr     fuji_read_block_data
         bcs     @read_error
@@ -115,7 +108,6 @@ fuji_read_file_block:
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; fuji_write_file_block - Write file block to network
-; Uses dummy implementation for testing
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 fuji_write_file_block:
@@ -127,13 +119,6 @@ fuji_write_file_block:
         lda     fuji_buffer_addr+1
         sta     data_ptr+1
 
-        ; For dummy implementation, we'll just acknowledge the write
-        ; In a real implementation, this would:
-        ; 1. Calculate which sector(s) to write based on fuji_file_offset
-        ; 2. Send network command to FujiNet device with data
-        ; 3. Handle network response and errors
-
-        ; For now, just call our dummy interface
         jsr     fuji_write_block_data
         bcs     @write_error
         lda     #$01

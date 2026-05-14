@@ -20,8 +20,6 @@
 ; Note: MMFS does NOT load the catalog here. It's loaded lazily later
 ; via CheckCurDrvCat when the catalog is actually needed.
 ;
-; For the dummy interface, fuji_dummy.s reads current_drv ($CD) directly
-; when needed, so no special handling required here.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 cmd_fs_drive:
