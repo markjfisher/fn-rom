@@ -48,8 +48,6 @@
 service09_help:
         jsr     remember_axy       ; Preserve A, X, Y
 
-        dbg_string_axy "service09: "
-
         ; Check if this is just *HELP (no arguments)
         ; Y contains offset to first non-space char
         lda     (text_pointer),y         ; Get character at (text_pointer)+Y
@@ -72,18 +70,12 @@ service09_help:
 
 service04_unrec_command:
         jsr     remember_axy
-
-        dbg_string_axy "service04: "
-
         ldx     #cmdtab_offset_fs        ; Start with file system commands
 
 check_command:
         jmp     unrec_command_text_pointer
 
 not_cmd_fs:
-
-        dbg_string_axy "NOT_CMD_FS: "
-
         ldx     #cmdtab_offset_utils    ; Try UTILS commands
         bne     check_command           ; Always branch
 
@@ -93,9 +85,6 @@ not_cmd_fs:
         jmp     morehelp
 
 not_cmd_fujifs:
-
-        dbg_string_axy "NOT_CMD_FUJIFS: "
-
         ldx     #cmdtab_offset_futils
         jsr     GSINIT_A
         lda     (text_pointer),y
@@ -120,8 +109,6 @@ fscv3_unreccommand:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 unrec_command_text_pointer:
-        dbg_string_axy "unrec_tp: "
-
         lda     cmd_table_fujifs, x
         sta     aws_tmp14
         tya                             ; Save Y (command line position)
@@ -188,7 +175,6 @@ unrec_command_text_pointer:
         rts                             ; Jump to function
 
 cmd_help_futils:
-        dbg_string_axy "cmd_help_futils: "
         tya
         ldx     #cmdtab_offset_futils
         ldy     #cmdtab_futils_cmds_size
@@ -197,7 +183,6 @@ do_print_help_table:
 
 ; THIS NEEDS TO BE IMPLEMENTED CORRECTLY TO DISPLAY THE *HELP UTILS COMMANDS
 cmd_help_utils:
-        dbg_string_axy "cmd_help_utils: "
         tya
         ldx     #cmdtab_offset_utils
         ldy     #cmdtab_utils_cmds_size

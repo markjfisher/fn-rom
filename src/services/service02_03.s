@@ -116,5 +116,3 @@ service03_autoboot:
 
 jmp_autoboot:
         jmp     autoboot
-
-        rts

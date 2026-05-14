@@ -60,8 +60,6 @@ channel_buffer_to_disk_yhandle:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 argsv_entry:
-        dbg_string_axy "ARGSV: "
-
         jsr     remember_axy
         cmp     #$FF
         beq     channel_buffer_to_disk_yhandle_a0  ; If file(s) to media

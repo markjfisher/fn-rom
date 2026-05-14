@@ -5,6 +5,8 @@ disk: openbas.ssd
 paste:
   - 'PRINT "Running openbas tests"'
   - '*CAT'
+  - '*FHOST'
+  - '*FLS'
 
 steps:
   - name: opin01

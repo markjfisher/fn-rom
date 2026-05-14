@@ -7,6 +7,7 @@
         .export get_fuji_host_uri_addr_to_aws_tmp00
         .export get_fuji_json_path_addr_to_aws_tmp00
         .export set_private_workspace_pointer_aws_tmp00
+        .export set_private_workspace_pointer_high_only
 
         .import  remember_axy
         .import  fuji_current_host_len
@@ -22,10 +23,10 @@
 
 ; Set buffer_ptr to PWS (FujiBus RX/TX packet buffer is at location 0).
 set_fuji_data_buffer_ptr:
-        jsr     set_private_workspace_pointer_high_only ; leaves A with high byte
-        sta     buffer_ptr+1
-        lda     #$00
-        sta     buffer_ptr
+        ; jsr     set_private_workspace_pointer_high_only ; leaves A with high byte
+        ; sta     buffer_ptr+1
+        ; lda     #$00
+        ; sta     buffer_ptr
         rts
 
 fuji_fs_uri_ptr:

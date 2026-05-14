@@ -24,8 +24,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 fscv10_starINFO:
-        dbg_string_axy "FSCV10_STARINFO: "
-
         jsr     set_text_pointer_yx
         lda     #<(cmd_table_info - cmd_table_fujifs - 1) ; aws_tmp15 (BF) needs to point to the INFO command
         sta     aws_tmp15               ; equivalent of .param_syntax_error_if_null

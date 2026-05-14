@@ -23,14 +23,10 @@
 
 ; fscv2_4_11_starRUN - Handle *RUN command (MMFS line 2114-2208)
 fscv2_4_11_starRUN:
-        ; dbg_string_axy "FSCV2_4_11_STARRUN: "
-
         ; Set up text pointer (MMFS line 2115)
         jsr     set_text_pointer_yx
 
 not_cmd_futils:
-        dbg_string_axy "*RUN/NOT_CMD_FUTILS: "
-
         ; Set up text pointer and workspace
         lda     #$FF
         sta     aws_tmp14              ; &BE -> aws_tmp14 (use file's load address)

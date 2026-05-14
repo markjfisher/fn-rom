@@ -61,9 +61,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 filev_entry:
-        dbg_string_axy "FILEV: "
-        ; rts
-
         jsr     remember_xy_only        ; Save X,Y only - A is the return value!
         pha
 

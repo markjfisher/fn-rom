@@ -23,8 +23,6 @@
         .include "fujinet.inc"
 
 fscv0_starOPT:
-        dbg_string_axy "OPT: "
-
         jsr     remember_axy
         txa
         cmp     #$04
@@ -71,8 +69,6 @@ disk_trap_option:
         ; Bit 6 of PagedROM_PrivWorkspaces = disable *DISC, *DISK commands
         ; Y=0: *DISC/*DISK work like *FUJI (bit 6 clear)
         ; Y=1: *DISC/*DISK pass to DFS (bit 6 set)
-
-        dbg_string_axy "OPT: Disk trap, check Y: "
 
         tya                            ; A = Y (*OPT 5,Y value), sets Z if Y was 0
         php                            ; Save Y=0 flag

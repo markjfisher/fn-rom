@@ -76,10 +76,7 @@ fscv_entry:
 
         ; we love a good rts jump, this is also used as a generic rts in table
 just_rts:
-        rts
-
 unknown_op:
-        dbg_string_axy "FSCV_UNKNOWN_OP: "
         rts
 
 
@@ -98,8 +95,6 @@ gbpbv_entry:
 
         stx     fuji_gbpbv_blk_save_ptr
         sty     fuji_gbpbv_blk_save_ptr+1
-
-        dbg_string_axy "GBPBV: "
 
         tay
         jmp     fastgb
@@ -192,8 +187,6 @@ gbpbv_table3:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 fscv_os_about_to_proc_cmd:
-        dbg_string_axy "FSCV8_OS_CMD: "
-
         ; Set fuji_cmd_enabled flag
         bit     fuji_cmd_enabled
         bmi     parameter_fsp
@@ -211,13 +204,6 @@ parameter_afsp:
         sta     fuji_wild_star
         lda     #'#'
         bne     param_out
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; FSCV_PLACEHOLDER - Placeholder for all FSCV operations
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-fscv_placeholder:
-        dbg_string_axy "FSCV_PLACEHOLDER: "
         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

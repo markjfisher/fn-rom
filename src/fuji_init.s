@@ -27,6 +27,7 @@
         .import print_string
         .import return_with_a0
         .import set_private_workspace_pointer_aws_tmp00
+        .import set_private_workspace_pointer_high_only
         .import tube_check_if_present
         .import vectors_table
 
@@ -134,7 +135,10 @@ init_fuji:
         ; then copy pws to sws
         ; else reset fs to defaults.
 
-        jsr     set_private_workspace_pointer_aws_tmp00
+        jsr     set_private_workspace_pointer_high_only
+        sta     buffer_ptr+1
+        lda     #$00
+        sta     buffer_ptr
 
 
         ; -------------------------------

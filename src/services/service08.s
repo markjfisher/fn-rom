@@ -9,7 +9,4 @@
         .segment "CODE"
 
 service08_unrec_osword:
-
-        dbg_string_axy "service08: "
-
         rts

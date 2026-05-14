@@ -83,8 +83,6 @@ print_help_table:
 
 ; this is equivalent of CMD_NOTHELPTBL
 not_cmd_help:
-        ; dbg_string_axy "NOT_CMD_HELP: "
-
         jsr     GSINIT_A
         bne     @not_cmd_help_loop
         rts

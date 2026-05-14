@@ -45,8 +45,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 fscv5_starCAT:
-        ; dbg_string_axy "FSCV5_STARCAT: "
-
         jsr     set_text_pointer_yx
         jsr     param_optional_drive_no         ; we need to check if this works with FujiNet impl
         jsr     fuji_read_catalog
@@ -55,6 +53,9 @@ fscv5_starCAT:
         sty     cws_tmp1
         iny
         sty     cws_tmp3
+
+        lda     cws_tmp4
+        pha
 
 cat_titleloop:
         lda     dfs_cat_s0_title,y
@@ -142,7 +143,11 @@ cat_sortloop1:
         bcc     cat_printfilename
         lda     #$FF
         sta     current_cat
-        jmp     print_newline
+        jsr     print_newline
+        pla
+        sta     cws_tmp4
+        rts
+
 cat_getnextunmarkedfile_loop:
         jsr     y_add8
 cat_getnextunmarkedfileY:

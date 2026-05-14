@@ -608,7 +608,6 @@ fuji_write_block_data:
         iny
         bne     @write_loop             ; Copy full page
 
-        ; dbg_string_axy "WROTE to sector: "
         lda     #1                      ; Success
         rts
 
