@@ -46,7 +46,7 @@ fuji_mount_disk:
         ; Call hardware-specific mount implementation
         jsr     fuji_begin_transaction  ; Protect &BC-&CB
         pla                             ; Restore live mount flags for hardware-specific mount
-        jsr     fuji_mount_disk_data    ; Hardware-specific (dummy/serial)
+        jsr     fuji_mount_disk_data
         pha                             ; Save return value (bool)
         jsr     fuji_end_transaction    ; Restore &BC-&CB
         pla                             ; Restore return value
@@ -98,7 +98,7 @@ fuji_set_slot:
         
         ; Call hardware-specific set slot implementation
         jsr     fuji_begin_transaction  ; Protect &BC-&CB
-        jsr     fuji_set_mount_slot_data ; Hardware-specific (dummy/serial)
+        jsr     fuji_set_mount_slot_data
         pha                             ; Save return value (bool)
         jsr     fuji_end_transaction    ; Restore &BC-&CB
         pla                             ; Restore return value
@@ -122,7 +122,7 @@ fuji_get_slot:
         
         ; Call hardware-specific get slot implementation
         jsr     fuji_begin_transaction  ; Protect &BC-&CB
-        jsr     fuji_get_mount_slot_data ; Hardware-specific (dummy/serial)
+        jsr     fuji_get_mount_slot_data
         pha                             ; Save return value (bool)
         jsr     fuji_end_transaction    ; Restore &BC-&CB
         pla                             ; Restore return value

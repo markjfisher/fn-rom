@@ -46,6 +46,16 @@ MAX_BBC_DRIVE  := 3
 FMOUNT_FLAG_FORCE_RO := DISK_MOUNT_FLAG_READONLY
 
 
+err_fmount_syntax:
+        jsr     report_error
+        .byte   $CB
+        .byte   "FMOUNT slot [drive] [RO]", 0
+
+err_fmount_bad_mode:
+        jsr     report_error
+        .byte   $CB
+        .byte   "Mode must be RO", 0
+
 ;------------------------------------------------------------------------------
 ; Main entry — same layout as cmd_fin.s (parse, FujiBus, exit_user_ok)
 ;------------------------------------------------------------------------------
@@ -58,9 +68,9 @@ cmd_fs_fmount:
 
         jsr     num_params
         cmp     #$01
-        bcc     @syntax_jump
+        bcc     err_fmount_syntax
         cmp     #$04
-        bcs     @syntax_jump
+        bcs     err_fmount_syntax
         sta     cws_tmp7                ; number of params
 
         lda     #$00
@@ -91,26 +101,19 @@ cmd_fs_fmount:
         jsr     param_get_string
         tax                             ; length
         cpx     #$02
-        bne     @bad_mode_jump
+        bne     err_fmount_bad_mode
 
         lda     fuji_filename_buffer
         and     #$DF                    ; uppercase
         cmp     #'R'
-        bne     @bad_mode_jump
+        bne     err_fmount_bad_mode
         lda     fuji_filename_buffer+1
         and     #$DF
         cmp     #'O'
-        bne     @bad_mode_jump
+        bne     err_fmount_bad_mode
 
         lda     #FMOUNT_FLAG_FORCE_RO
         sta     fuji_channel_scratch
-        bne     @done                   ; always
-
-@syntax_jump:
-        jmp     err_fmount_syntax
-
-@bad_mode_jump:
-        jmp     err_fmount_bad_mode
 
 @done:
         jsr     fuji_get_slot
@@ -204,15 +207,7 @@ err_bad_disk_mount:
         .byte   $CB
         .byte   "Failed to mount disk", 0
 
-err_fmount_bad_mode:
-        jsr     report_error
-        .byte   $CB
-        .byte   "Mode must be RO", 0
 
-err_fmount_syntax:
-        jsr     report_error
-        .byte   $CB
-        .byte   "Syntax: FMOUNT slot [drive] [RO]", 0
 
 str_fmount_readonly:
         .byte   "Mounted read-only", 0

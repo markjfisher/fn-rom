@@ -145,8 +145,7 @@ init_fuji:
         dex
         bne     @extendedvec_loop
 
-        ; The fix for getting the simple LOAD/RUN working was not setting this to FF, but instead not using E00 as a buffer for fetching data
-        sty     current_cat             ; set to "0" in ascii
+        sty     current_cat             ; set to "0" in ascii, as Y has increment from $1B to $30
 
         ; FS URI / DIR path buffers (PWS) and their lengths (SWS) are not cleared here:
         ; on soft break the MOS keeps private workspace, so host/path state should survive.
@@ -163,6 +162,7 @@ init_fuji:
         ; then copy pws to sws
         ; else reset fs to defaults.
 
+        ; Set buffer_ptr to PWS
         jsr     set_private_workspace_pointer_high_only
         sta     buffer_ptr+1
         lda     #$00
@@ -195,14 +195,6 @@ init_fuji:
 @copyfromPWS2:
         dey
         bne     @copyfromPWStoSWS_loop
-
-        ; beq     setdefaults
-
-        ; TODO: does this have a place in FN?
-
-        ; jsr     calculate_crc7
-        ; cmp     CHECK_CRC7
-        ; bne     setdefaults
 
         lda     #$A0                  ; Refresh channel block info
 @setchans_loop:
@@ -307,7 +299,7 @@ go_fscv:
 claim_static_workspace:
         ldx     #$0A
         lda     #$8F
-        jsr     OSBYTE                          ; issue service request &A
+        jsr     OSBYTE                          ; issue service request &A, tell OS we are claiming static workspace.
 
         jsr     set_private_workspace_pointer_aws_tmp00
         ldy     #<fuji_force_reset

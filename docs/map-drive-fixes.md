@@ -6,64 +6,9 @@ This note is for continuing work in a fresh agent session.
 
 ### What the overall work is trying to achieve
 
-There are two parallel goals:
-
 1. fix the BBC drive to FujiNet mount-slot mapping so BBC drives behave like real removable drives
-2. reduce ROM usage by rewriting large cc65-generated C code back into 6502 assembly
 
 The mapping fixes are currently documented here and intentionally deferred until enough ROM space has been reclaimed.
-
-### Why the mapping fixes were deferred
-
-The original implementation work was hitting ROM limits. Several straightforward fixes for the drive map logic worked conceptually, but overflowed the ROM.
-
-Because of that, the immediate priority changed to:
-
-- identify the largest C-generated objects in the ROM
-- port them back to assembly
-- then apply the drive-map fixes once there is enough headroom
-
-### Current ROM-reduction work already performed
-
-We targeted `fujibus_disk_c.c` first because it was one of the largest C objects in the ROM. This is complete and has saved about 2400 bytes.
-
-### Current state at handoff
-
-- `fn-rom` builds successfully after the `fujibus_disk` assembly rewrite
-- the drive-map fixes in this document are still not applied
-- the assembly rewrite still needs runtime validation by re-testing all commands such as `*FHOST`
-- FujiNet-side raw-frame logging is currently present to help debug malformed BBC packets
-
-### If continuing from here
-
-Suggested next steps:
-
-1. Now `fujibus_disk.s` rewrite is proven stable, continue porting other large C objects to ASM
-2. after enough ROM is recovered, return to the drive-map fixes described below
-
-### Largs C objects analysis
-
-```
-❯ grep -F -A2 '_c.o:' build/fujinet.rom.map
-fujibus_c.o:
-    CODE              Offs=001EDF  Size=000402  Align=00001  Fill=0000
-fujibus_fuji_c.o:
-    CODE              Offs=002FDA  Size=00019A  Align=00001  Fill=0000
-cmd_fhost_c.o:
-    CODE              Offs=003174  Size=000151  Align=00001  Fill=0000
-    RODATA            Offs=0001B7  Size=000015  Align=00001  Fill=0000
-cmd_fin_c.o:
-    CODE              Offs=0032C5  Size=0000F2  Align=00001  Fill=0000
-cmd_flist_c.o:
-    CODE              Offs=0033B7  Size=0006B4  Align=00001  Fill=0000
-cmd_fmount_c.o:
-    CODE              Offs=003A6B  Size=000079  Align=00001  Fill=0000
-```
-
-The following are our next targets:
-
-- `fujibus_flist_c`: 0x6B4
-- `fujibus_c`: 0x402
 
 ### Other useful context
 
@@ -77,20 +22,19 @@ The rest of this document captures those mapping issues and the intended fix pla
 
 ## Purpose
 
-This document captures the drive mapping issues discovered in `fn-rom` and the changes we want to make later, once ROM space has been recovered from the C-to-ASM rewrite work.
+This document captures the drive mapping issues discovered in `fn-rom` and the changes we want to make.
 
 The goal is to make BBC drive selection behave like a real floppy setup:
 
-- an unmounted BBC drive should not silently show a disk
+- an unmounted BBC drive should use the first fujinet slot if one has previously been configured
 - `*FMOUNT <slot> <drive>` should store the correct mapping
 - all disk I/O should go through the BBC drive -> FujiNet slot map
 
 ## Relevant state
 
-- `fuji_drive_disk_map` at `$10DB` to `$10DE`
-- `FUJI_DRIVE_DISK_MAP` in C
-- `current_drv` at `$CD`
-- `fuji_disk_slot` / `FUJI_DISK_SLOT` at `$10ED`
+- `fuji_drive_disk_map` defined in os.s
+- `current_drv`
+- `fuji_disk_slot`
 
 Intended meaning:
 
@@ -104,12 +48,11 @@ Intended meaning:
 After FujiNet initialization:
 
 - `fuji_drive_disk_map` should be `FF FF FF FF`
-- `*CAT:0` should fail because nothing is mounted to BBC drive 0
-- no disk catalog should be shown until `*FMOUNT` maps a FujiNet slot to that BBC drive
+- when nothing is mounted in BBC drive 0 `*CAT:0` should automount slot 0 if it has an entry
 
-After `*FMOUNT 1 0`:
+After `*FMOUNT 0 0`:
 
-- BBC drive 0 should map to FujiNet slot 1
+- BBC drive 0 should map to FujiNet slot 0 (first index)
 - `fuji_drive_disk_map` should become `01 FF FF FF`
 - `*CAT:0` should read through that mapping and show the mounted disk
 
@@ -128,15 +71,6 @@ This part is correct.
 
 ### 2. `*FMOUNT` stores the wrong value in the map
 
-In `src/commands/cmd_fmount_c.c` the code currently does:
-
-```c
-aws_tmp08 = FUJI_DISK_SLOT;
-```
-
-`FUJI_DISK_SLOT` is a pointer macro to address `$10ED`, not the slot byte value.  
-With cc65 this ends up storing the low byte of the address, which is `$ED`.
-
 Then `src/fuji_mount.s` writes `aws_tmp08` into `fuji_drive_disk_map[current_drv]`.
 
 That explains why the map becomes:
@@ -147,17 +81,11 @@ instead of:
 
 - `01 FF FF FF`
 
-for `*FMOUNT 1 0`.
+for `*FMOUNT 0 0`.
 
 ### 3. Disk reads and writes bypass the drive map
 
 The serial FujiBus disk path currently reads the slot directly from `FUJI_DISK_SLOT`, not from `fuji_drive_disk_map[current_drv]`.
-
-Files:
-
-- `src/fujibus_disk_c.c`
-- `src/fuji_serial.s`
-- `src/fuji_fs.s`
 
 This means a request like `*CAT:0` can still talk to whatever slot value happens to be sitting in `FUJI_DISK_SLOT`, even when the BBC drive is unmapped.
 
@@ -204,23 +132,6 @@ This should apply to:
 
 ### Change 1: fix `*FMOUNT` so it stores the slot value
 
-Current broken code:
-
-- `src/commands/cmd_fmount_c.c`
-- `src/fuji_mount.s`
-
-Wanted change:
-
-- stop assigning `aws_tmp08 = FUJI_DISK_SLOT`
-- either:
-  - change the C to write the slot byte value, e.g. `aws_tmp08 = *FUJI_DISK_SLOT`, or
-  - better, stop depending on `aws_tmp08` here and have `fuji_mount_disk` read `fuji_disk_slot` directly
-
-Preferred direction:
-
-- make `fuji_mount_disk` record `fuji_disk_slot`
-- remove the extra temporary handoff through `aws_tmp08`
-
 ### Change 2: make the map authoritative for disk I/O
 
 Before any disk transaction, resolve:
@@ -244,8 +155,6 @@ Best architectural location is likely one small shared helper in assembly, used 
 - `fuji_write_catalog`
 - `fuji_read_mem_block`
 - `fuji_write_mem_block`
-
-This is preferable to duplicating the logic in multiple C functions.
 
 ### Change 3: add an unmapped-drive guard before catalog load is considered valid
 
@@ -278,25 +187,7 @@ The exact string is less important than the behavior:
 - no silent fallback
 - no accidental access to another mounted disk
 
-Given ROM pressure, prefer reusing an existing error path instead of adding a new inline string.
-
-## ROM-space notes
-
-During investigation, straightforward fixes were prototyped but caused ROM overflow.
-
-The expensive versions were:
-
-- adding new inline error strings
-- duplicating mapping checks in multiple places
-- moving too much logic into C helpers
-
-For the later implementation, we should prefer:
-
-- one small assembly helper to resolve `current_drv -> fuji_disk_slot`
-- reuse of existing error handlers
-- avoiding new C logic where a few assembly instructions are enough
-
-## Suggested implementation order after ROM reduction
+## Suggested implementation order
 
 1. Fix the `*FMOUNT` storage bug first.
 2. Add one shared helper that resolves the current BBC drive to a FujiNet slot.

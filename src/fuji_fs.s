@@ -13,18 +13,25 @@
         .export fuji_read_mem_block
         .export fuji_write_mem_block
 
+        .importzp aws_tmp12
+
+        .importzp data_ptr
+
         .import err_disk
+        .import fuji_buf_ws_tmp_buf
+        .import fuji_drive_disk_map
         .import fuji_execute_block_rw
         .import fuji_read_block_data
         .import fuji_read_catalog_data
         .import fuji_read_disc_title_data
+        .import fuji_saved_i
+        .import fuji_state
         .import fuji_write_block_data
         .import fuji_write_catalog_data
         .import remember_axy
         .import set_fuji_data_buffer_ptr
 
         .include "fujinet.inc"
-        .include "os.inc"
 
         .segment "CODE"
 
@@ -103,12 +110,6 @@ fuji_read_catalog:
 
         ; For FujiNet, we need to request the disc catalog from the network
         ; This is NOT reading physical sectors - it's requesting directory info
-        ; TODO: Implement network request for disc catalog
-        ; For now, this is a placeholder that would:
-        ; 1. Send "GET_CATALOGUE" command to FujiNet
-        ; 2. Receive 512-byte catalog data
-        ; 3. Store it in the buffer at 0x0E00-0x0FFF
-
         jsr     fuji_read_catalog_data
         jmp     fuji_end_transaction
 
@@ -128,12 +129,6 @@ fuji_write_catalog:
 
         ; For FujiNet, we need to send the updated catalog to the network
         ; This is NOT writing physical sectors - it's updating directory info
-        ; TODO: Implement network request to update disc catalog
-        ; For now, this is a placeholder that would:
-        ; 1. Send "PUT_CATALOG" command to FujiNet
-        ; 2. Send 512-byte catalog data from buffer 0x0E00-0x0FFF
-        ; 3. Confirm successful update
-
         jsr     fuji_write_catalog_data
         jmp     fuji_end_transaction
 
@@ -152,12 +147,6 @@ fuji_read_disc_title:
 
         ; For FujiNet, we need to request just the disc title
         ; This is NOT reading a physical sector - it's requesting title info
-        ; TODO: Implement network request for disc title
-        ; For now, this is a placeholder that would:
-        ; 1. Send "GET_DISC_TITLE" command to FujiNet
-        ; 2. Receive disc title string (up to 16 chars)
-        ; 3. Store it in the buffer at 0x1000-0x100F
-
         jsr     fuji_read_disc_title_data
         rts
 
@@ -207,10 +196,6 @@ fuji_begin_transaction:
 
         ; Initialize if needed
         jsr     init_state
-        bcs     @init_failed
-
-        ; Check device status
-        jsr     fuji_check_device_status
         bcs     @init_failed
 
 @already_init:
