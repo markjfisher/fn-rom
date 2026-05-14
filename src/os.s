@@ -80,7 +80,6 @@
         .export  fuji_disk_flags
         .export  fuji_current_host_len
         .export  fuji_filename_len
-        .export  fuji_own_sws_indicator
 
         .export  fuji_last_state_loc
 
@@ -527,7 +526,6 @@ fuji_filename_len       = fuji_static_workspace + $2C  ; the filename part of th
 
 ; These 2 need to be in this order, as there is an optimization to use INY to index the owns sws indicator flag
 fuji_force_reset        = fuji_static_workspace + $2D  ; Force reset flag
-fuji_own_sws_indicator  = fuji_static_workspace + $2E  ; Used to check if we currently own the SWS
 
 ; END OF STATE WE WILL SAVE TO PWS WHEN FILE SYSTEMS SWAP
 ; (extended below — bump fuji_last_state_loc when adding to the saved region)
@@ -535,35 +533,35 @@ fuji_own_sws_indicator  = fuji_static_workspace + $2E  ; Used to check if we cur
 ; Saved IRQ-disable state for temporarily enabling IRQs during FujiBus I/O.
 ; 0 = IRQs were enabled on entry, nonzero = IRQs were disabled on entry.
 ; Must not overlap with any MMFS-mapped fields; kept outside the MMFS copy range.
-fuji_saved_i            = fuji_static_workspace + $2F
+fuji_saved_i            = fuji_static_workspace + $2E
 
 ; Network URL flag — set to nonzero when "://" is detected in filename during parsing
 ; Cleared at start of filename parsing. Checked by findv_entry to route to network open.
-fuji_network_url_flag   = fuji_static_workspace + $30
+fuji_network_url_flag   = fuji_static_workspace + $2F
 
 ; Network read buffer state: number of valid bytes currently buffered in channel buffer page
 ; 2 bytes (u16le), used by bgetv_entry to know when to refill via NET_CMD_READ
-fuji_network_buf_cnt    = fuji_static_workspace + $31   ; low byte
-fuji_network_buf_cnt_hi = fuji_static_workspace + $32   ; high byte
+fuji_network_buf_cnt    = fuji_static_workspace + $30   ; low byte
+fuji_network_buf_cnt_hi = fuji_static_workspace + $31   ; high byte
 
 ; Network write flush mode: 0 = buffer 256 bytes before flush (default),
 ; 1 = immediate flush after each BPUT (for real-time/streaming connections).
-fuji_network_flush_mode = fuji_static_workspace + $33
+fuji_network_flush_mode = fuji_static_workspace + $32
 
 ; Translation selector length for network OPENIN requests.
 ; Non-zero currently implies JSON translation with the selector stored in PWS.
 ; Transient command state, not part of saved FS workspace.
-fuji_json_path_len      = fuji_static_workspace + $34
+fuji_json_path_len      = fuji_static_workspace + $33
 
 ; 2 byte buffer for stashing AX registers for saving result while restoring state.
-fuji_ax_save            = fuji_static_workspace + $35   ; 2 bytes, don't need to save it
+fuji_ax_save            = fuji_static_workspace + $34   ; 2 bytes, don't need to save it
 
 
 ; FINAL LOCATION CAN BE + $3F
 
 ; LAST location for the copy state in workspace_utils.s function to understand
 ; So when the filing system is swapped (e.g. switching between fujinet and DFS), it's preserved and reloaded
-fuji_last_state_loc     = fuji_static_workspace + $34  ; effectively $10F4
+fuji_last_state_loc     = fuji_static_workspace + $33  ; effectively $10F3
 ; Note: up to fuji_static_workspace + $3F (+$3F = $103F) is available
 
 
