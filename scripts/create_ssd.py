@@ -387,11 +387,11 @@ def create_ssd(
         print(f"Error: No files found in '{input_dir}'")
         sys.exit(1)
 
-    print("Creating SSD disk image...")
-    print(f"  Disc title: {disc_title}")
-    print(f"  Input directory: {input_dir}")
-    print(f"  Output SSD: {output_ssd}")
-    print(f"  Non-BASIC load/exec (no .inf): {load_bbc} / {exec_bbc}")
+    print("📄 Creating SSD disk image...")
+    print(f"💡  Disc title: {disc_title}")
+    print(f"💡  Input directory: {input_dir}")
+    print(f"💡  Output SSD: {output_ssd}")
+    print(f"💡  Non-BASIC load/exec (no .inf): {load_bbc} / {exec_bbc}")
 
     print(f"\nFound {len(paired_with_inf)} file(s) with companion .inf:")
     for f in paired_with_inf:

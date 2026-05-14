@@ -1,0 +1,20 @@
+group: BBC / FS / RUN
+
+disk: ctests.ssd
+
+paste:
+  - 'PRINT "Running C application tests"'
+  - '*CAT'
+  - '*FHOST'
+  - '*FLS'
+
+steps:
+  - name: ct1
+    paste:
+      - '*RUN CT1'
+    delay_seconds: 5.0
+    checks:
+      - screen:
+          expect:
+            regex:
+              - 'Testing C apps from FujiNet'

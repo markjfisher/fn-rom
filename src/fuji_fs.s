@@ -11,9 +11,12 @@
         .export fuji_write_catalog
         .export fuji_write_mem_block
 
+        .importzp aws_tmp12
+
         .importzp data_ptr
 
         .import err_disk
+        .import fuji_buf_ws_tmp_buf
         .import fuji_drive_disk_map
         .import fuji_execute_block_rw
         .import fuji_read_catalog_data
@@ -139,14 +142,14 @@ fuji_begin_transaction:
 
         jsr     set_fuji_data_buffer_ptr
 
-; TODO: do we need this? Tests seem to pass when we don't do it
-;         ; Save workspace variables - this is saving $BC-$CB (aws_tmp12-15 & pws_tmp00-11) into 1090-109f
-;         ldx     #$0F
-; @save_loop:
-;         lda     aws_tmp12,x
-;         sta     fuji_buf_ws_tmp_buf,x
-;         dex
-;         bpl     @save_loop
+        ; Save workspace variables - this is saving $BC-$CB (aws_tmp12-15 & pws_tmp00-11) into 1090-109f
+        ; At least *RUN fails if this isn't done. ARCHITECTURE doc suggests which values are needed to be restored.
+        ldx     #$0F
+@save_loop:
+        lda     aws_tmp12,x
+        sta     fuji_buf_ws_tmp_buf,x
+        dex
+        bpl     @save_loop
 
         ; Check if FujiNet initialized
         bit     fuji_state
@@ -170,15 +173,14 @@ fuji_begin_transaction:
 
 fuji_end_transaction:
 
-; TODO: do we need this? Tests seem to pass when we don't do it
         ; Restore workspace variables from 1090-109F into BC-CB
         ; we don't reach into 10A0
-;         ldx     #$0F
-; @restore_loop:
-;         lda     fuji_buf_ws_tmp_buf,x
-;         sta     aws_tmp12,x
-;         dex
-;         bpl     @restore_loop
+        ldx     #$0F
+@restore_loop:
+        lda     fuji_buf_ws_tmp_buf,x
+        sta     aws_tmp12,x
+        dex
+        bpl     @restore_loop
 
         ; Restore original IRQ-disable state without disturbing other flags
         ; (e.g. carry from the wrapped operation).
