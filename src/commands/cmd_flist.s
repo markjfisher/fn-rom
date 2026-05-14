@@ -20,20 +20,53 @@
         .export  cfl_uri_len_ok
         ; cfl_zterm removed: no-arg path now uses current fs uri directly
 
-        .import  err_bad
-        .import  err_no_host
-        .import  exit_user_ok
-        .import  flist_resolve_target
-        .import  fujibus_receive_packet
-        .import  fujibus_send_packet
-        .import  get_fuji_fs_uri_addr_to_aws_tmp00
-        .import  get_fuji_host_uri_addr_to_aws_tmp00
-        .import  param_count
-        .import  param_get_string
-        .import  print_char
-        .import  print_newline
-        .import  report_error
-        .import  set_fuji_data_buffer_ptr
+        .importzp aws_tmp00
+        .importzp aws_tmp01
+        .importzp aws_tmp02
+        .importzp aws_tmp03
+        .importzp aws_tmp04
+        .importzp aws_tmp05
+        .importzp aws_tmp06
+        .importzp aws_tmp07
+        .importzp aws_tmp08
+        .importzp aws_tmp09
+        .importzp aws_tmp12
+        .importzp aws_tmp13
+        .importzp pws_tmp04
+        .importzp pws_tmp05
+        .importzp pws_tmp06
+        .importzp pws_tmp07
+        .importzp pws_tmp08
+        .importzp pws_tmp09
+        .importzp cws_tmp1
+        .importzp cws_tmp2
+        .importzp cws_tmp3
+        .importzp cws_tmp8
+
+        .importzp buffer_ptr
+        .importzp fuji_bus_tx_command
+        .importzp fuji_bus_tx_device
+        .importzp fuji_bus_tx_payload_hi
+        .importzp fuji_bus_tx_payload_lo
+
+        .import err_bad
+        .import err_no_host
+        .import exit_user_ok
+        .import flist_resolve_target
+        .import fuji_current_dir_len
+        .import fuji_current_fs_len
+        .import fuji_current_host_len
+        .import fuji_filename_len
+        .import fujibus_receive_packet
+        .import fujibus_send_packet
+        .import get_fuji_fs_uri_addr_to_aws_tmp00
+        .import get_fuji_host_uri_addr_to_aws_tmp00
+        .import param_count
+        .import param_get_string
+        .import print_char
+        .import print_newline
+        .import report_error
+        .import set_fuji_data_buffer_ptr
 
         .include "fujinet.inc"
 

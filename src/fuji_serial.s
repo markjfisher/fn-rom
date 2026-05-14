@@ -25,18 +25,28 @@
         ; other functions for debug
         ; .export fuji_send_cf
 
+        .importzp aws_tmp08
+        .importzp aws_tmp09
+        .importzp aws_tmp14
+        .importzp aws_tmp15
+
+        .importzp buffer_ptr
+        .importzp data_ptr
+
         .import err_bad
-        .import remember_axy
-        .import restore_output_to_screen
-
-
-        ; Import FujiBus C functions - use underscore prefix for C calls
+        .import fuji_block_size
+        .import fuji_current_sector
+        .import fuji_file_offset
         .import fujibus_disk_mount
-        .import fujibus_set_mount_slot
-        .import fujibus_get_mount_slot
         .import fujibus_disk_read_sector
         .import fujibus_disk_read_sector_partial
         .import fujibus_disk_write_sector
+        .import fujibus_get_mount_slot
+        .import fujibus_set_mount_slot
+        .import remember_axy
+        .import restore_output_to_screen
+
+        ; Import FujiBus C functions - use underscore prefix for C calls
 
 
         .include "fujinet.inc"

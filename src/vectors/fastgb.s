@@ -1,18 +1,17 @@
         .export  fastgb
         .export  gbpb_load_blkptr
 
-        .import  cmp_ptr_ext
-        .import  gbpbv_table3
-        .import  channel_buffer_to_disk_yintch
-        .import  channel_flags_clear_bits
-        .import  channel_set_dir_drive_get_cat_entry_yintch
-        .import  load_mem_block
-        .import  save_mem_block
-
-        .import  a_rolx4
-        .import  a_rolx5
-        .import  updext
-        .import  upgbpb
+        .import a_rolx4
+        .import a_rolx5
+        .import channel_buffer_to_disk_yintch
+        .import channel_flags_clear_bits
+        .import channel_set_dir_drive_get_cat_entry_yintch
+        .import cmp_ptr_ext
+        .import gbpbv_table3
+        .import load_mem_block
+        .import save_mem_block
+        .import updext
+        .import upgbpb
 
         .include "os.inc"
 

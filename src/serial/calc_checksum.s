@@ -10,7 +10,12 @@
         .export  calc_checksum
         .export  calc_checksum_continue
 
-        .import  inc_word_aws_tmp00_dec_word_aws_tmp02
+        .importzp aws_tmp00
+        .importzp aws_tmp02
+        .importzp aws_tmp03
+        .importzp aws_tmp04
+
+        .import inc_word_aws_tmp00_dec_word_aws_tmp02
 
         .include "fujinet.inc"
 

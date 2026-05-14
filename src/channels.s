@@ -10,6 +10,17 @@
 
         .include "fujinet.inc"
 
+        .importzp pws_tmp02
+        .importzp pws_tmp03
+
+        .import fuji_ch_bptr_hi
+        .import fuji_ch_bptr_mid
+        .import fuji_ch_flg
+        .import fuji_ch_op
+        .import fuji_ch_sec_start
+        .import fuji_ch_sect_hi
+        .import fuji_ch_sect_lo
+
         .segment "CODE"
 
 calc_buffer_sector_for_ptr:

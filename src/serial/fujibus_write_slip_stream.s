@@ -1,8 +1,19 @@
         .export  fujibus_write_slip_stream
         .export  fujibus_write_slip_stream_dual
 
-        .import  setup_serial_19200
-        .import  restore_output_to_screen
+        .importzp aws_tmp00
+        .importzp aws_tmp01
+        .importzp aws_tmp02
+        .importzp aws_tmp03
+        .importzp aws_tmp04
+        .importzp aws_tmp06
+        .importzp aws_tmp07
+        .importzp aws_tmp08
+        .importzp aws_tmp09
+
+        .import OSWRCH
+        .import restore_output_to_screen
+        .import setup_serial_19200
 
         .include "fujinet.inc"
 

@@ -28,11 +28,23 @@
         .export  dump_memory_block
 .endif
 
-        .import  a_rorx4
-        .import  clear_exec_spool_file_handle
-        .import  osbyte_X0YFF
-        .import  remember_axy
-        .import  remember_xy_only
+        .importzp aws_tmp00
+        .importzp aws_tmp01
+        .importzp aws_tmp02
+        .importzp aws_tmp03
+        .importzp cws_tmp7
+        .importzp cws_tmp8
+
+        .import OSASCI
+        .import OSBYTE
+        .import OSWRCH
+        .import a_rorx4
+        .import clear_exec_spool_file_handle
+        .import current_cat
+        .import fuji_error_flag
+        .import osbyte_X0YFF
+        .import remember_axy
+        .import remember_xy_only
 
         .include "fujinet.inc"
 

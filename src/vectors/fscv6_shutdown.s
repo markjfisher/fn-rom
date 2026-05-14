@@ -7,7 +7,6 @@
         .import remember_axy
 
 .ifdef FN_DEBUG
-        .import print_string
 .endif
 
         .include "fujinet.inc"

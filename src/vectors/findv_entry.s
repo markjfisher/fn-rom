@@ -44,15 +44,62 @@
         .export network_allocate_channel
         .export no_flush_error
 
+        .importzp aws_tmp02
+        .importzp aws_tmp03
+        .importzp aws_tmp04
+        .importzp aws_tmp05
+        .importzp aws_tmp10
+        .importzp aws_tmp11
+        .importzp aws_tmp12
+        .importzp aws_tmp14
+        .importzp aws_tmp15
+        .importzp pws_tmp03
+        .importzp pws_tmp05
+
+        .importzp current_drv
+        .importzp directory_param
+
+        .import OSBYTE
         .import a_rolx4
         .import a_rorx4and3
         .import a_rorx5
         .import channel_buffer_to_disk_yintch
         .import check_channel_yhndl_exyintch
         .import create_file_fsp
+        .import dfs_cat_cycle
+        .import dfs_cat_file_dir
+        .import dfs_cat_file_name
+        .import dfs_cat_file_op
+        .import dfs_cat_file_s0_start
+        .import dfs_cat_file_s1_start
+        .import dfs_cat_file_size
         .import err_disk
         .import fuji_begin_transaction
+        .import fuji_cat_file_offset
+        .import fuji_ch_1109
+        .import fuji_ch_110B
+        .import fuji_ch_111A
+        .import fuji_ch_bitmask
+        .import fuji_ch_buf_page
+        .import fuji_ch_dir
+        .import fuji_ch_ext_hi
+        .import fuji_ch_ext_low
+        .import fuji_ch_ext_mid
+        .import fuji_ch_flg
+        .import fuji_ch_handle_high
+        .import fuji_ch_handle_low
+        .import fuji_ch_name7
+        .import fuji_ch_op
+        .import fuji_ch_sect_cnt
+        .import fuji_channel_flag_bit
+        .import fuji_channel_scratch
+        .import fuji_channel_start
         .import fuji_end_transaction
+        .import fuji_filev_exec_hi
+        .import fuji_filev_hi_addr_buf
+        .import fuji_intch
+        .import fuji_network_url_flag
+        .import fuji_open_channels
         .import fujibus_network_close
         .import fujibus_network_open
         .import get_cat_firstentry80

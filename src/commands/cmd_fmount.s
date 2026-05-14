@@ -6,19 +6,31 @@
         .export  err_failed_to_mount
         .export  mount_ok
 
-        .import  err_bad_mount_slot
-        .import  exit_user_ok
-        .import  set_fuji_data_buffer_ptr
-        .import  fuji_fs_uri_ptr
-        .import  fuji_get_slot
-        .import  fuji_mount_disk
-        .import  num_params
-        .import  param_get_num
-        .import  param_get_string
-        .import  param_optional_drive_no
-        .import  print_newline
-        .import  print_string_ax
-        .import  report_error
+        .importzp aws_tmp08
+        .importzp cws_tmp2
+        .importzp cws_tmp3
+        .importzp cws_tmp6
+        .importzp cws_tmp7
+
+        .importzp buffer_ptr
+
+        .import err_bad_mount_slot
+        .import exit_user_ok
+        .import fuji_channel_scratch
+        .import fuji_current_fs_len
+        .import fuji_disk_slot
+        .import fuji_filename_buffer
+        .import fuji_fs_uri_ptr
+        .import fuji_get_slot
+        .import fuji_mount_disk
+        .import num_params
+        .import param_get_num
+        .import param_get_string
+        .import param_optional_drive_no
+        .import print_newline
+        .import print_string_ax
+        .import report_error
+        .import set_fuji_data_buffer_ptr
 
         .include "fujinet.inc"
 

@@ -1,8 +1,8 @@
         .export  cmd_ftest
 
-        .import  print_hex
-        .import  print_string
-        .import  print_newline
+        .import print_hex
+        .import print_newline
+        .import print_string
 
         .include "fujinet.inc"
 

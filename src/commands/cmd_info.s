@@ -5,12 +5,12 @@
         .export cmd_fs_info
         .export cmd_info_loop
 
+        .importzp aws_tmp15
+
         .import cmd_table_info
         .import fuji_read_catalog
         .import get_cat_nextentry
         .import parameter_afsp_param_syntax_error_if_null_getcatentry_fsptxtp
-        .import print_axy
-        .import print_string
         .import prt_infoline_yoffset
         .import set_text_pointer_yx
 

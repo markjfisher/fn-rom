@@ -5,15 +5,25 @@
         .export  fhost_ensure_host_trailing_slash
         .export  fhost_copy_and_resolve
 
-        .import  exit_user_ok
-        .import  fuji_host_uri_ptr
-        .import  fuji_resolve_path
-        .import  param_count
-        .import  param_get_string
-        .import  print_char
-        .import  print_newline
-        .import  print_string
-        .import  report_error
+        .importzp aws_tmp02
+        .importzp aws_tmp03
+        .importzp cws_tmp2
+        .importzp cws_tmp3
+
+        .import exit_user_ok
+        .import fuji_channel_scratch
+        .import fuji_current_dir_len
+        .import fuji_current_host_len
+        .import fuji_filename_buffer
+        .import fuji_filename_len
+        .import fuji_host_uri_ptr
+        .import fuji_resolve_path
+        .import param_count
+        .import param_get_string
+        .import print_char
+        .import print_newline
+        .import print_string
+        .import report_error
 
         .include "fujinet.inc"
 

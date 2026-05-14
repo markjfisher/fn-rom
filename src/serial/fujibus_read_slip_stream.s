@@ -1,9 +1,21 @@
         .export  fujibus_read_slip_stream
 
-        .import  check_rs423_buffer
-        .import  read_rs423_char
-        .import  setup_serial_19200
-        .import  restore_output_to_screen
+        .importzp aws_tmp04
+        .importzp aws_tmp05
+        .importzp aws_tmp08
+        .importzp aws_tmp09
+        .importzp aws_tmp10
+        .importzp aws_tmp11
+        .importzp cws_tmp1
+        .importzp cws_tmp6
+        .importzp cws_tmp7
+
+        .importzp buffer_ptr
+
+        .import check_rs423_buffer
+        .import read_rs423_char
+        .import restore_output_to_screen
+        .import setup_serial_19200
 
         .include "fujinet.inc"
 

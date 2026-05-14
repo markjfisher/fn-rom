@@ -17,15 +17,16 @@
 
         .export fscv_os_about_to_proc_cmd
 
-        .import remember_axy
-        .import return_with_a0
+        .importzp aws_tmp05
 
         .import argsv_entry
         .import bgetv_entry
         .import bputv_entry
+        .import fastgb
         .import filev_entry
         .import findv_entry
         .import fscv0_starOPT
+        .import fscv10_starINFO
         .import fscv1_eof_yhndl
         .import fscv2_4_11_starRUN
         .import fscv3_unreccommand
@@ -33,22 +34,21 @@
         .import fscv6_shutdown_filing_system
         .import fscv7_hndlrange
         .import fscv9_star_ex
-        .import fscv10_starINFO
-
-        .import gbpb_gosub
-        .import gbpb_put_bytes
-        .import gbpb_getbyte_savebyte
+        .import fuji_cmd_enabled
+        .import fuji_gbpbv_blk_save_ptr
+        .import fuji_wild_hash
+        .import fuji_wild_star
         .import gbpb5_get_mediatitle
         .import gbpb6_rd_cur_dir_device
         .import gbpb7_rd_cur_lib_device
         .import gbpb8_rd_file_cur_dir
-
-        .import fastgb
-
+        .import gbpb_getbyte_savebyte
+        .import gbpb_gosub
+        .import gbpb_put_bytes
+        .import gbpb_tube
+        .import remember_axy
+        .import return_with_a0
         .import tube_release_no_check
-
-        .import print_axy
-        .import print_string
 
         .include "fujinet.inc"
 

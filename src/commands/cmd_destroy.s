@@ -6,6 +6,7 @@
 
         .import check_for_disk_change
         .import delete_cat_entry_adjust_ptr
+        .import dfs_cat_file_dir
         .import get_cat_firstentry80
         .import get_cat_nextentry
         .import go_yn

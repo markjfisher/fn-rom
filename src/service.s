@@ -5,16 +5,18 @@
 
         .export  service_table                     ; export to get in lbl file for debugging
 
-        .import  service01_claim_absworkspace
-        .import  service02_claim_privworkspace
-        .import  service03_autoboot
-        .import  service04_unrec_command
-        .import  service08_unrec_osword
-        .import  service09_help
-        .import  service0A_claim_statworkspace
-        .import  cmd_fs_fuji
+        .importzp paged_ram_copy
 
-        .import  remember_axy
+        .import cmd_fs_fuji
+        .import paged_rom_priv_ws
+        .import remember_axy
+        .import service01_claim_absworkspace
+        .import service02_claim_privworkspace
+        .import service03_autoboot
+        .import service04_unrec_command
+        .import service08_unrec_osword
+        .import service09_help
+        .import service0A_claim_statworkspace
 
         .include "fujinet.inc"
 

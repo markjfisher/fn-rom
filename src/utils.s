@@ -26,7 +26,18 @@
         .export tube_release
         .export tube_release_no_check
 
-        .import  remember_axy
+        .importzp aws_tmp00
+        .importzp aws_tmp01
+        .importzp aws_tmp02
+        .importzp aws_tmp03
+
+        .importzp text_pointer
+
+        .import GSINIT
+        .import OSBYTE
+        .import fuji_tube_present
+        .import remember_axy
+        .import tube_code
 
         .include "fujinet.inc"
 

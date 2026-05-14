@@ -9,7 +9,9 @@
         .export check_rs423_buffer
         .export read_rs423_char
 
-        .import err_bad_response
+        .importzp cws_tmp1
+
+        .import OSBYTE
 
         .include "fujinet.inc"
 

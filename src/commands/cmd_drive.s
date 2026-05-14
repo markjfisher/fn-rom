@@ -3,6 +3,7 @@
 
         .export cmd_fs_drive
 
+        .import fuji_default_drive
         .import param_drive_no_syntax
 
         .include "fujinet.inc"

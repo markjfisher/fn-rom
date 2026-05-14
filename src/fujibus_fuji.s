@@ -4,13 +4,22 @@
         .export  fujibus_get_mount_slot
         .export  fujibus_set_mount_slot
 
-        .import  fujibus_send_packet
-        .import  fujibus_receive_packet
-        .import  set_fuji_data_buffer_ptr
-        .import  get_fuji_fs_uri_addr_to_aws_tmp00
+        .importzp aws_tmp00
+        .importzp cws_tmp2
+        .importzp cws_tmp3
 
-        .import  fuji_disk_slot
-        .import  fuji_current_fs_len
+        .importzp buffer_ptr
+        .importzp fuji_bus_tx_command
+        .importzp fuji_bus_tx_device
+        .importzp fuji_bus_tx_payload_hi
+        .importzp fuji_bus_tx_payload_lo
+
+        .import fuji_current_fs_len
+        .import fuji_disk_slot
+        .import fujibus_receive_packet
+        .import fujibus_send_packet
+        .import get_fuji_fs_uri_addr_to_aws_tmp00
+        .import set_fuji_data_buffer_ptr
 
         .include "fujinet.inc"
 

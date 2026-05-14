@@ -70,7 +70,7 @@ ASFLAGS += --asm-include-dir $(SRCDIR) --asm-include-dir $(SRCDIR)/inc
 CFLAGS += --include-dir $(SRCDIR) --include-dir $(SRCDIR)/inc
 
 .SUFFIXES:
-.PHONY: all clean release $(DISK_TASKS) $(BUILD_TASKS) $(PROGRAM_TGT) ssd
+.PHONY: all clean release $(DISK_TASKS) $(BUILD_TASKS) $(PROGRAM_TGT) ssd clean-imports
 
 all: $(PROGRAM_TGT)
 
@@ -110,6 +110,13 @@ ssd: $(PROGRAM_TGT) | $(BUILD_DIR) $(BUILD_DIR)/ssd
 	rm -f $(BUILD_DIR)/ssd/*
 	cp $(BUILD_DIR)/$(PROGRAM_TGT) $(BUILD_DIR)/ssd/FUJIROM
 	./scripts/create_ssd.py -i $(BUILD_DIR)/ssd -o $(BUILD_DIR)/fujinet.ssd -a 0x8000
+
+# Strip and rebuild .import / .importzp for each src/**/*.s using the same cl65
+# flags as a normal object build (via `make -n -B`) and import_layout rules.
+# Optional: make clean-imports CLEAN_IMPORTS_ARGS='--dry-run src/commands/cmd_cat.s'
+clean-imports:
+	@mkdir -p build
+	@CURRENT_TARGET=$(CURRENT_TARGET) BUILD_INTERFACE=$(BUILD_INTERFACE) python3 scripts/clean_imports.py $(CLEAN_IMPORTS_ARGS)
 
 
 # Use "./" in front of all dirs being removed as a simple safety guard to

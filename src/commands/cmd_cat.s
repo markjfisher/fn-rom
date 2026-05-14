@@ -17,16 +17,33 @@
         ; .export cat_titlelo
         ; .export end_title
 
+        .importzp cws_tmp1
+        .importzp cws_tmp3
+        .importzp cws_tmp4
+
+        .importzp current_drv
+
         .import a_rorx4
+        .import current_cat
+        .import dfs_cat_boot_option
+        .import dfs_cat_cycle
+        .import dfs_cat_file_dir
+        .import dfs_cat_file_name
+        .import dfs_cat_num_x8
+        .import dfs_cat_s0_title
+        .import dfs_cat_s1_title
+        .import fuji_cmd_cat_buf_8
+        .import fuji_default_dir
+        .import fuji_default_drive
+        .import fuji_lib_dir
+        .import fuji_lib_drive
         .import fuji_read_catalog
         .import param_optional_drive_no
         .import print_2_spaces_spl
-        .import print_axy
         .import print_char
         .import print_decimal
         .import print_fullstop
         .import print_newline
-        .import print_space
         .import print_string
         .import prt_filename_yoffset
         .import prt_y_spaces
@@ -34,7 +51,6 @@
         .import ucasea2
         .import y_add7
         .import y_add8
-
 
         .include "fujinet.inc"
 

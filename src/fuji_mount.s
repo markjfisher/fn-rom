@@ -8,14 +8,17 @@
         .export fuji_set_slot
         .export fuji_get_slot
 
+        .importzp aws_tmp08
+
+        .importzp current_drv
+
+        .import fuji_begin_transaction
+        .import fuji_drive_disk_map
+        .import fuji_end_transaction
+        .import fuji_get_mount_slot_data
         .import fuji_mount_disk_data
         .import fuji_set_mount_slot_data
-        .import fuji_get_mount_slot_data
-        .import fuji_begin_transaction
-        .import fuji_end_transaction
-        .import remember_axy
         .import remember_xy_only
-        .import fuji_disk_slot
 
         .include "fujinet.inc"
 

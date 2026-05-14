@@ -12,10 +12,8 @@
 
         .import fuji_begin_transaction
         .import fuji_end_transaction
-        .import remember_axy
+        .import fujibus_resolve_path
         .import remember_xy_only
-        .import fuji_disk_slot
-        .import fuji_current_host_len
 
         .include "fujinet.inc"
 
@@ -108,7 +106,6 @@ fuji_get_host_data:
 .ifdef FUJINET_INTERFACE_SERIAL
 
 ; Serial interface - call C implementation
-        .import fujibus_resolve_path
 
 ; For serial, set host is the same as resolve path (validates and stores)
 fuji_resolve_path_data:

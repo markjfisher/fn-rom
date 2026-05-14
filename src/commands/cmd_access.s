@@ -5,9 +5,12 @@
 
         .export cmd_fs_access
 
+        .importzp cws_tmp3
+
         .import GSINIT_A
         .import GSREAD_A
         .import check_file_not_open_y
+        .import dfs_cat_file_dir
         .import err_bad
         .import get_cat_entry
         .import get_cat_nextentry

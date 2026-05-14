@@ -16,7 +16,7 @@
 .ifndef FUJINET_INC
 FUJINET_INC = 1
 
-        .include "os.inc"
+        ;.include "os.inc"
         .include "macros.inc"
 
 

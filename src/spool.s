@@ -1,7 +1,9 @@
         .export  clear_exec_spool_file_handle
 
-        .import  conv_yhndl_intch_exyintch
-        .import  osbyte_X0YFF
+        .import OSBYTE
+        .import conv_yhndl_intch_exyintch
+        .import fuji_intch
+        .import osbyte_X0YFF
 
         .include "fujinet.inc"
 

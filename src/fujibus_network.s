@@ -16,13 +16,50 @@
         .export  fujibus_network_translate_configure
         .export  fujibus_write_copy_start
 
-        .import  fujibus_receive_packet
-        .import  fujibus_send_packet
-        .import  get_fuji_json_path_addr_to_aws_tmp00
-        .import  vblank
+        .importzp aws_tmp00
+        .importzp aws_tmp01
+        .importzp aws_tmp02
+        .importzp aws_tmp03
+        .importzp aws_tmp04
+        .importzp aws_tmp05
+        .importzp aws_tmp06
+        .importzp aws_tmp07
+        .importzp aws_tmp08
+        .importzp aws_tmp09
+        .importzp aws_tmp14
+        .importzp aws_tmp15
+        .importzp cws_tmp2
+        .importzp cws_tmp3
+        .importzp cws_tmp6
+        .importzp cws_tmp7
+        .importzp cws_tmp8
 
-        .import  calc_checksum
-        .import  calc_checksum_continue
+        .importzp buffer_ptr
+        .importzp fuji_bus_tx_command
+        .importzp fuji_bus_tx_device
+        .importzp fuji_bus_tx_payload_hi
+        .importzp fuji_bus_tx_payload_lo
+
+        .import fuji_ch_bptr_hi
+        .import fuji_ch_bptr_low
+        .import fuji_ch_bptr_mid
+        .import fuji_ch_buf_page
+        .import fuji_ch_ext_hi
+        .import fuji_ch_ext_low
+        .import fuji_ch_ext_mid
+        .import fuji_ch_handle_high
+        .import fuji_ch_handle_low
+        .import fuji_ch_sect_cnt
+        .import fuji_filename_buffer
+        .import fuji_intch
+        .import fuji_json_path_len
+        .import fuji_network_buf_cnt
+        .import fuji_network_buf_cnt_hi
+        .import fuji_network_url_flag
+        .import fujibus_receive_packet
+        .import fujibus_send_packet
+        .import get_fuji_json_path_addr_to_aws_tmp00
+        .import vblank
 
         .include "fujinet.inc"
 

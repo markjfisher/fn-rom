@@ -7,24 +7,51 @@
         .export copy_data_block
         .export cd_swapvars
 
-        .import parameter_afsp
-        .import param_syntax_error_if_null
-        .import read_fsp_text_pointer
-        .import get_cat_entry
-        .import prt_info_msg_yoffset
-        .import get_cat_nextentry
-        .import param_drive_no_syntax
+        .importzp aws_tmp06
+        .importzp aws_tmp10
+        .importzp aws_tmp11
+        .importzp aws_tmp12
+        .importzp aws_tmp13
+        .importzp aws_tmp15
+        .importzp pws_tmp00
+        .importzp pws_tmp01
+        .importzp pws_tmp02
+        .importzp pws_tmp03
+        .importzp pws_tmp04
+        .importzp pws_tmp05
+        .importzp pws_tmp06
+        .importzp pws_tmp07
+        .importzp pws_tmp08
+        .importzp pws_tmp09
+
+        .importzp current_drv
+        .importzp directory_param
+
+        .import OSBYTE
+        .import a_rorx4and3
+        .import create_file_3
+        .import dfs_cat_file_load_addr
+        .import dfs_cat_file_name
         .import err_bad_drive
-        .import print_string
+        .import fuji_cmd_copy_buf_17
+        .import fuji_dest_drive
+        .import fuji_page
+        .import fuji_ram_buffer_size
+        .import fuji_source_drive
+        .import get_cat_entry
+        .import get_cat_nextentry
+        .import load_cur_drv_cat2
+        .import load_mem_block
+        .import param_drive_no_syntax
+        .import param_syntax_error_if_null
+        .import parameter_afsp
         .import print_hex
         .import print_newline
-        .import create_file_3
-        .import load_mem_block
+        .import print_string
+        .import prt_info_msg_yoffset
+        .import read_fsp_text_pointer
         .import save_mem_block
         .import set_load_addr_to_host
-        .import load_cur_drv_cat2
-        .import a_rorx4and3
-        .import OSBYTE
 
         .include "fujinet.inc"
 

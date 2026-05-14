@@ -16,11 +16,17 @@
         .export osfile_update_execaddr_xoffset
         .export osfile_updatelock
 
+        .importzp aws_tmp00
+
         .import check_file_exists
         .import check_file_not_locked
         .import check_file_not_open_y
         .import create_file_fsp
         .import delete_cat_entry_yfileoffset
+        .import dfs_cat_file_dir
+        .import dfs_cat_file_exec_addr
+        .import dfs_cat_file_load_addr
+        .import dfs_cat_file_op
         .import fuji_write_mem_block
         .import read_file_attribs_to_b0_yoffset
         .import remember_axy

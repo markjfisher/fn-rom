@@ -6,11 +6,21 @@
         .export fuji_read_file_block
         .export fuji_write_file_block
 
+        .importzp aws_tmp12
+        .importzp aws_tmp13
+        .importzp pws_tmp00
+        .importzp pws_tmp01
+        .importzp pws_tmp02
+        .importzp pws_tmp03
+
+        .importzp data_ptr
+
+        .import fuji_block_size
+        .import fuji_buffer_addr
+        .import fuji_file_offset
         .import fuji_read_block_data
         .import fuji_write_block_data
         .import remember_axy
-        .import print_axy
-        .import print_string
 
         .include "fujinet.inc"
 

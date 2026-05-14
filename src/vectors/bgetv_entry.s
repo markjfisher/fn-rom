@@ -16,24 +16,49 @@
         .export nwbg_net_eof
         .export nwbg_net_eof_exit
 
+        .importzp aws_tmp06
+        .importzp aws_tmp07
+        .importzp aws_tmp08
+        .importzp aws_tmp09
+        .importzp aws_tmp10
+        .importzp aws_tmp11
+        .importzp aws_tmp12
+        .importzp aws_tmp13
+        .importzp aws_tmp14
+        .importzp aws_tmp15
+        .importzp pws_tmp00
+        .importzp pws_tmp01
+        .importzp pws_tmp02
+        .importzp pws_tmp03
+
         .import calc_buffer_sector_for_ptr
         .import channel_flags_set_bits
         .import channel_set_dir_drive_yintch
         .import check_channel_yhndl_exyintch_tya_cmpptr
-        .import tya_cmp_ptr_ext
-        .import load_mem_block
-        .import save_mem_block
-        .import print_newline
-        .import print_string
-        .import print_hex
-        .import remember_axy
-        .import remember_xy_only
-        .import report_error_cb
-        .import fuji_begin_transaction
-        .import fuji_end_transaction
-        .import fujibus_network_read
+        .import fuji_ch_1118
+        .import fuji_ch_bptr_hi
+        .import fuji_ch_bptr_low
+        .import fuji_ch_bptr_mid
+        .import fuji_ch_buf_page
+        .import fuji_ch_ext_hi
+        .import fuji_ch_ext_low
+        .import fuji_ch_ext_mid
+        .import fuji_ch_flg
+        .import fuji_ch_handle_high
+        .import fuji_ch_handle_low
+        .import fuji_ch_sect_cnt
+        .import fuji_ch_sect_hi
+        .import fuji_ch_sect_lo
+        .import fuji_error_flag
+        .import fuji_filev_load_hi
+        .import fuji_intch
         .import fuji_network_buf_cnt
         .import fuji_network_buf_cnt_hi
+        .import fujibus_network_read
+        .import load_mem_block
+        .import remember_xy_only
+        .import report_error_cb
+        .import save_mem_block
         .import vblank
 
         .include "fujinet.inc"

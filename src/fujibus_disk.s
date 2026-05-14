@@ -18,17 +18,40 @@
         .export  fujibus_disk_write_sector
         .export  fujibus_resolve_path
 
-        .import  fujibus_receive_packet
-        .import  fujibus_send_packet
+        .importzp aws_tmp00
+        .importzp aws_tmp01
+        .importzp aws_tmp02
+        .importzp aws_tmp03
+        .importzp aws_tmp06
+        .importzp aws_tmp07
+        .importzp aws_tmp08
+        .importzp aws_tmp09
+        .importzp aws_tmp14
+        .importzp cws_tmp1
+        .importzp cws_tmp2
+        .importzp cws_tmp3
+        .importzp cws_tmp7
 
-        .import  fujibus_write_slip_stream
-        .import  fujibus_write_slip_stream_dual
-        .import  calc_checksum
-        .import  calc_checksum_continue
-        .import  fhost_ensure_host_trailing_slash
+        .importzp buffer_ptr
+        .importzp data_ptr
+        .importzp fuji_bus_tx_command
+        .importzp fuji_bus_tx_device
+        .importzp fuji_bus_tx_payload_hi
+        .importzp fuji_bus_tx_payload_lo
 
-        .import  get_fuji_fs_uri_addr_to_aws_tmp00
-        .import  get_fuji_host_uri_addr_to_aws_tmp00
+        .import calc_checksum
+        .import calc_checksum_continue
+        .import fhost_ensure_host_trailing_slash
+        .import fuji_current_dir_len
+        .import fuji_current_fs_len
+        .import fuji_current_host_len
+        .import fuji_current_sector
+        .import fuji_disk_slot
+        .import fujibus_receive_packet
+        .import fujibus_send_packet
+        .import fujibus_write_slip_stream_dual
+        .import get_fuji_fs_uri_addr_to_aws_tmp00
+        .import get_fuji_host_uri_addr_to_aws_tmp00
 
         .include "fujinet.inc"
 

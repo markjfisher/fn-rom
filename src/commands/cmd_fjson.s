@@ -33,13 +33,23 @@
 .export  _fjson_store_idx
 .export  _fjson_two_params
 
-        .import  check_channel_yhndl_exyintch
-        .import  exit_user_ok
-        .import  get_fuji_json_path_addr_to_aws_tmp00
-        .import  num_params
-        .import  param_get_string
-        .import  set_fuji_data_buffer_ptr
-        .import  fujibus_network_translate_configure
+        .importzp aws_tmp00
+        .importzp aws_tmp03
+        .importzp aws_tmp04
+        .importzp aws_tmp10
+
+        .importzp text_pointer
+
+        .import check_channel_yhndl_exyintch
+        .import exit_user_ok
+        .import fuji_filename_buffer
+        .import fuji_filename_len
+        .import fuji_json_path_len
+        .import fujibus_network_translate_configure
+        .import get_fuji_json_path_addr_to_aws_tmp00
+        .import num_params
+        .import param_get_string
+        .import set_fuji_data_buffer_ptr
 
         .include "fujinet.inc"
 

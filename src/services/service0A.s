@@ -1,12 +1,13 @@
 ; Service call 0A - Claim static workspace
         .export  service0A_claim_statworkspace
 
-        .import  print_axy
-        .import  print_string
-        .import  remember_axy
-        .import  set_private_workspace_pointer_aws_tmp00
-        .import  channel_buffer_to_disk_yhandle
-        .import  save_static_to_private_workspace
+        .importzp aws_tmp00
+        .importzp aws_tmp01
+
+        .import channel_buffer_to_disk_yhandle
+        .import remember_axy
+        .import save_static_to_private_workspace
+        .import set_private_workspace_pointer_aws_tmp00
 
         .include "fujinet.inc"
 

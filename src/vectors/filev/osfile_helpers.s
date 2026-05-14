@@ -20,10 +20,43 @@
         .export set_load_addr_to_host
         .export set_param_block_pointer_b0
 
+        .importzp aws_tmp00
+        .importzp aws_tmp01
+        .importzp aws_tmp06
+        .importzp aws_tmp10
+        .importzp aws_tmp12
+        .importzp aws_tmp13
+        .importzp pws_tmp00
+        .importzp pws_tmp01
+        .importzp pws_tmp02
+        .importzp pws_tmp03
+        .importzp pws_tmp04
+        .importzp pws_tmp05
+
+        .importzp current_drv
+        .importzp directory_param
+
         .import a_rorx4and3
         .import a_rorx6and3
         .import check_file_not_locked_or_open_y
+        .import dfs_cat_boot_option
+        .import dfs_cat_file_op
+        .import dfs_cat_file_s0_start
+        .import dfs_cat_file_s1_start
+        .import dfs_cat_file_sect
+        .import dfs_cat_file_size
+        .import dfs_cat_num_x8
+        .import dfs_cat_s0_header
+        .import dfs_cat_s1_header
+        .import dfs_cat_sect_count
         .import err_disk
+        .import fuji_filev_end_hi
+        .import fuji_filev_exec_hi
+        .import fuji_filev_hi_addr_buf
+        .import fuji_filev_load_hi
+        .import fuji_filev_start_hi
+        .import fuji_param_block_hi
+        .import fuji_param_block_lo
         .import get_cat_firstentry80
         .import get_cat_firstentry80_fname
         .import load_cur_drv_cat2
@@ -33,15 +66,10 @@
         .import save_cat_to_disk
         .import y_add8
         .import y_sub8
+
 .ifdef FUJINET_INTERFACE_DUMMY
-        .import get_next_available_sector
-        .import free_ram_sector
 .endif
 .ifdef FN_DEBUG
-        .import print_axy
-        .import print_string
-        .import print_hex
-        .import print_newline
 .endif
 
         .include "fujinet.inc"

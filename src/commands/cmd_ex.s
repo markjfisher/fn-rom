@@ -6,6 +6,7 @@
 
         .import GSINIT_A
         .import cmd_info_loop
+        .import fuji_filename_buffer
         .import get_cat_entry
         .import parameter_afsp
         .import rdafsp_padall

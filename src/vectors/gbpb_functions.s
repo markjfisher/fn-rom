@@ -6,24 +6,51 @@
         .export  gbpb8_rd_file_cur_dir
         .export  gbpb_gosub
 
-        .import  remember_axy
-        .import  is_alpha_char
-        .import  a_rorx4
-        .import  y_add8
+        .importzp aws_tmp00
+        .importzp aws_tmp04
+        .importzp aws_tmp06
+        .importzp aws_tmp08
+        .importzp aws_tmp09
 
-        .import  argsv_rdseqptr_or_filelen
-        .import  argsv_write_seq_pointer
-        .import  set_curdirdrv_to_defaults_check_cur_drv_cat
+        .importzp current_drv
+        .importzp directory_param
 
-        .import  tube_claim
-
-        .import  gbpb_load_blkptr
-        .import  gbpbv_table_hi
-        .import  gbpbv_table_lo
-        .import  gbpbv_table3
-
-        .import  bgetv_entry
-        .import  bputv_entry
+        .import TUBE_R3_DATA
+        .import a_rorx4
+        .import argsv_rdseqptr_or_filelen
+        .import argsv_write_seq_pointer
+        .import bgetv_entry
+        .import bputv_entry
+        .import dfs_cat_boot_option
+        .import dfs_cat_cycle
+        .import dfs_cat_file_dir
+        .import dfs_cat_file_s0_start
+        .import dfs_cat_num_x8
+        .import dfs_cat_s0_title
+        .import dfs_cat_s1_title
+        .import fuji_default_dir
+        .import fuji_default_drive
+        .import fuji_gbpbv_tube_op
+        .import fuji_lib_dir
+        .import fuji_lib_drive
+        .import fuji_param_block_hi
+        .import fuji_param_block_lo
+        .import fuji_tube_present
+        .import gbpb_buf_0c
+        .import gbpb_ctl_blk_mem_ptr_host
+        .import gbpb_file_handle
+        .import gbpb_load_blkptr
+        .import gbpb_seqptr
+        .import gbpb_tube
+        .import gbpbv_table3
+        .import gbpbv_table_hi
+        .import gbpbv_table_lo
+        .import is_alpha_char
+        .import remember_axy
+        .import set_curdirdrv_to_defaults_check_cur_drv_cat
+        .import tube_claim
+        .import tube_code
+        .import y_add8
 
         .include "fujinet.inc"
 

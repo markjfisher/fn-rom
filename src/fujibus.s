@@ -3,9 +3,25 @@
 
         .include "fujinet.inc"
 
+        .importzp aws_tmp00
+        .importzp aws_tmp01
+        .importzp aws_tmp02
+        .importzp aws_tmp03
+        .importzp aws_tmp04
+        .importzp aws_tmp05
+        .importzp aws_tmp08
+        .importzp aws_tmp09
+        .importzp aws_tmp10
+        .importzp aws_tmp11
+
+        .importzp buffer_ptr
+        .importzp fuji_bus_tx_command
+        .importzp fuji_bus_tx_device
+        .importzp fuji_bus_tx_payload_hi
+        .importzp fuji_bus_tx_payload_lo
+
         .import calc_checksum
-        .import restore_output_to_screen
-        .import setup_serial_19200
+        .import fuji_ax_save
         .import fujibus_read_slip_stream
         .import fujibus_write_slip_stream
 

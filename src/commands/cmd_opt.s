@@ -9,13 +9,15 @@
 
         .export fscv0_starOPT
 
+        .importzp paged_ram_copy
+
         .import a_rolx4
+        .import dfs_cat_boot_option
         .import err_bad
+        .import fuji_fs_messages_on
+        .import fuji_network_flush_mode
         .import load_cur_drv_cat
-        .import print_axy
-        .import print_hex
-        .import print_newline
-        .import print_string
+        .import paged_rom_priv_ws
         .import remember_axy
         .import save_cat_to_disk
         .import set_curdir_drv_to_defaults

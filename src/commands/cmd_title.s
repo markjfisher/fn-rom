@@ -5,11 +5,16 @@
         .export cmd_fs_title
         .export set_disk_title_chr_xpos
 
-        .import param_syntax_error_if_null
-        .import set_curdrv_to_default
-        .import load_cur_drv_cat2
-        .import save_cat_to_disk
+        .importzp directory_param
+
         .import GSREAD_A
+        .import dfs_cat_s0_header
+        .import dfs_cat_s1_header
+        .import fuji_default_dir
+        .import load_cur_drv_cat2
+        .import param_syntax_error_if_null
+        .import save_cat_to_disk
+        .import set_curdrv_to_default
 
         .include "fujinet.inc"
 

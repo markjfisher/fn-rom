@@ -9,6 +9,10 @@
         .export channel_buffer_to_disk_yhandle_a0
         .export channel_buffer_to_disk_yhandle
 
+        .importzp aws_tmp06
+        .importzp aws_tmp07
+        .importzp aws_tmp08
+
         .import bput_yintchan
         .import channel_flags_clear_bits
         .import channel_flags_set_bit7
@@ -18,8 +22,23 @@
         .import close_files_yhandle
         .import err_file_locked
         .import err_file_read_only
-        .import print_axy
-        .import print_string
+        .import fuji_ch_bptr_hi
+        .import fuji_ch_bptr_low
+        .import fuji_ch_bptr_mid
+        .import fuji_ch_dir
+        .import fuji_ch_ext_hi
+        .import fuji_ch_ext_low
+        .import fuji_ch_ext_mid
+        .import fuji_ch_name7
+        .import fuji_ch_op
+        .import fuji_ch_sec_start
+        .import fuji_ch_sect_hi
+        .import fuji_ch_sect_lo
+        .import fuji_channel_scratch
+        .import fuji_intch
+        .import fuji_open_channels
+        .import fuji_text_ptr_hi
+        .import fuji_text_ptr_offset
         .import remember_axy
         .import return_with_a0
         .import tya_cmp_ptr_ext

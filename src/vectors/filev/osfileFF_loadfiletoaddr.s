@@ -7,21 +7,20 @@
         .export load_mem_block_ex
         .export load_mem_block
 
+        .importzp aws_tmp10
+        .importzp aws_tmp12
+        .importzp aws_tmp14
+        .importzp pws_tmp02
+
+        .import dfs_cat_file_op
+        .import dfs_cat_file_s1_start
         .import exec_addr_hi2
         .import fuji_read_mem_block
-        .import fuji_read_catalog
         .import get_cat_entry_fspba
         .import load_addr_hi2
-        .import print_axy
-        .import print_hex
-        .import print_newline
-        .import print_string
         .import prt_info_msg_yoffset
         .import read_file_attribs_to_b0_yoffset
         .import set_param_block_pointer_b0
-
-        .import fuji_read_catalog
-
 
         .include "fujinet.inc"
 

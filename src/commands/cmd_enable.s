@@ -6,6 +6,8 @@
 
         .include "fujinet.inc"
 
+        .import fuji_cmd_enabled
+
         .segment "CODE"
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

@@ -4,16 +4,22 @@
 
         .export cmd_fs_rename
 
-        .import parameter_fsp
-        .import param_syntax_error_if_null
-        .import read_fsp_text_pointer
-        .import get_cat_entry
+        .importzp pws_tmp04
+        .importzp pws_tmp05
+
+        .importzp current_drv
+
         .import check_file_not_locked_or_open_y
+        .import dfs_cat_s0_title
+        .import err_bad_drive
+        .import get_cat_entry
         .import get_cat_firstentry80
+        .import param_syntax_error_if_null
+        .import parameter_fsp
+        .import read_fsp_text_pointer
+        .import report_error_cb
         .import save_cat_to_disk
         .import y_add8
-        .import err_bad_drive
-        .import report_error_cb
 
         .include "fujinet.inc"
 

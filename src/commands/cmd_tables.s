@@ -21,20 +21,25 @@
         .import cmd_fs_copy
         .import cmd_fs_delete
         .import cmd_fs_destroy
-        .import cmd_fs_disc
         .import cmd_fs_dir
+        .import cmd_fs_disc
         .import cmd_fs_drive
         .import cmd_fs_enable
         .import cmd_fs_ex
         .import cmd_fs_fboot
         .import cmd_fs_fcd
+        .import cmd_fs_fdrive
         .import cmd_fs_fhost
-        .import cmd_test
-        ; .import cmd_fs_fls
+        .import cmd_fs_fin
+        .import cmd_fs_fjson
         .import cmd_fs_flist
+        .import cmd_fs_fmount
         .import cmd_fs_form
+        .import cmd_fs_fout
         .import cmd_fs_free
+        .import cmd_fs_freset
         .import cmd_fs_fuji
+        .import cmd_fs_funmount
         .import cmd_fs_info
         .import cmd_fs_lib
         .import cmd_fs_map
@@ -42,15 +47,7 @@
         .import cmd_fs_title
         .import cmd_fs_verify
         .import cmd_fs_wipe
-
-        .import cmd_fs_fin
-        .import cmd_fs_fmount
-        .import cmd_fs_funmount
-        .import cmd_fs_fout
-        .import cmd_fs_fdrive
-        .import cmd_fs_fjson
-        .import cmd_fs_fjson
-        .import cmd_fs_freset
+        .import cmd_ftest
         .import cmd_help_fuji
         .import cmd_help_futils
         .import cmd_help_utils
@@ -61,7 +58,9 @@
         .import not_cmd_help
         .import not_cmd_utils
 
-        .import cmd_ftest
+        ; .import cmd_fs_fls
+
+
 
 ; These all come after the HEADER in the ROM.
 ; and ensures all the strings are in the same page as each other.

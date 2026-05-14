@@ -4,18 +4,29 @@
         .export fscv2_4_11_starRUN
         .export not_cmd_futils
 
+        .importzp aws_tmp10
+        .importzp aws_tmp11
+        .importzp aws_tmp14
+
+        .importzp current_drv
+        .importzp directory_param
+        .importzp text_pointer
+
         .import LoadFile_Ycatoffset
-        .import get_cat_firstentry81
-        .import read_fspba_reset
-        .import read_fspba
+        .import OSCLI
         .import a_rorx6and3
+        .import dfs_cat_file_exec_addr
+        .import dfs_cat_file_op
         .import err_bad
-        .import print_string
-        .import print_axy
-        .import print_hex
-        .import print_newline
+        .import fuji_filename_buffer
+        .import fuji_lib_dir
+        .import fuji_lib_drive
+        .import fuji_text_ptr_hi
+        .import fuji_text_ptr_offset
+        .import get_cat_firstentry81
+        .import read_fspba
+        .import read_fspba_reset
         .import set_text_pointer_yx
-        .import dump_memory_block
 
         .include "fujinet.inc"
 

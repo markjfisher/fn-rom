@@ -4,17 +4,29 @@
         .export  fcd_print_current_path
         .export  fcd_print_cws_tmp2_x
 
-        .import  report_error
-        .import  err_no_host
-        .import  exit_user_ok
-        .import  flist_resolve_target
-        .import  fhost_ensure_host_trailing_slash
-        .import  get_fuji_fs_uri_addr_to_aws_tmp00
-        .import  get_fuji_host_uri_addr_to_aws_tmp00
-        .import  param_count
-        .import  param_get_string
-        .import  print_char
-        .import  print_newline
+        .importzp aws_tmp00
+        .importzp aws_tmp01
+        .importzp aws_tmp06
+        .importzp aws_tmp07
+        .importzp cws_tmp2
+        .importzp cws_tmp3
+
+        .import err_no_host
+        .import exit_user_ok
+        .import fhost_ensure_host_trailing_slash
+        .import flist_resolve_target
+        .import fuji_channel_scratch
+        .import fuji_current_dir_len
+        .import fuji_current_fs_len
+        .import fuji_current_host_len
+        .import fuji_filename_len
+        .import get_fuji_fs_uri_addr_to_aws_tmp00
+        .import get_fuji_host_uri_addr_to_aws_tmp00
+        .import param_count
+        .import param_get_string
+        .import print_char
+        .import print_newline
+        .import report_error
 
         .include "fujinet.inc"
 

@@ -4,12 +4,15 @@
 
         .export cmd_fs_wipe
 
+        .importzp aws_tmp06
+
+        .import check_for_disk_change
+        .import confirm_yn_colon
+        .import delete_cat_entry_adjust_ptr
+        .import dfs_cat_file_dir
+        .import get_cat_nextentry
         .import parameter_afsp_param_syntax_error_if_null_getcatentry_fsptxtp
         .import prt_filename_yoffset
-        .import confirm_yn_colon
-        .import get_cat_nextentry
-        .import check_for_disk_change
-        .import delete_cat_entry_adjust_ptr
         .import save_cat_to_disk
 
         .include "fujinet.inc"

@@ -11,7 +11,15 @@
         .export network_flush_write
         .export network_bput
 
-        .import a_rolx4
+        .importzp aws_tmp00
+        .importzp aws_tmp01
+        .importzp aws_tmp02
+        .importzp aws_tmp06
+        .importzp aws_tmp07
+        .importzp aws_tmp08
+        .importzp aws_tmp09
+        .importzp aws_tmp10
+
         .import calc_buffer_sector_for_ptr
         .import channel_buffer_rw_yintch_c1read
         .import channel_buffer_to_disk_yintch
@@ -20,22 +28,31 @@
         .import channel_set_dir_drive_yintch
         .import check_channel_yhndl_exyintch
         .import cmp_ptr_ext
-        .import dfs_cat_boot_option
+        .import dfs_cat_file_op
         .import dfs_cat_file_size
         .import err_file_locked
+        .import fuji_cat_file_offset
+        .import fuji_ch_111A
+        .import fuji_ch_bptr_low
+        .import fuji_ch_buf_page
+        .import fuji_ch_ext_low
+        .import fuji_ch_flg
+        .import fuji_ch_handle_high
+        .import fuji_ch_handle_low
+        .import fuji_ch_sect_cnt
+        .import fuji_ch_write_count
+        .import fuji_ch_write_pos_hi
+        .import fuji_ch_write_pos_low
+        .import fuji_ch_write_pos_mid
+        .import fuji_channel_start
         .import fuji_intch
+        .import fuji_network_flush_mode
+        .import fujibus_network_write
         .import load_then_inc_seq_ptr_yintch
         .import remember_axy
         .import report_error_cb
-        .import print_string
-        .import print_newline
         .import save_cat_to_disk
         .import tya_cmp_ptr_ext
-        .import fuji_begin_transaction
-        .import fuji_end_transaction
-        .import fujibus_network_write
-        .import fuji_ch_handle_low
-        .import fuji_ch_handle_high
 
         .include "fujinet.inc"
 

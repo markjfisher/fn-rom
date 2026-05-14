@@ -1,6 +1,10 @@
         .export cmd_fs_dir
         .export cmd_fs_lib
 
+        .importzp directory_param
+
+        .import fuji_default_dir
+        .import fuji_default_drive
         .import read_dir_drv_parameters
 
         .include "fujinet.inc"

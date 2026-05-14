@@ -3,10 +3,10 @@
 
         .export cmd_fs_delete
 
-        .import parameter_fsp
-        .import param_syntax_error_if_null_getcatentry_fsptxtp
-        .import prt_info_msg_yoffset
         .import delete_cat_entry_yfileoffset
+        .import param_syntax_error_if_null_getcatentry_fsptxtp
+        .import parameter_fsp
+        .import prt_info_msg_yoffset
         .import save_cat_to_disk
 
         .segment "CODE"

@@ -7,6 +7,8 @@
 OSBYTE_USER_FLAG        = $01   ; Set user flag
 
 
+        .import OSBYTE
+
 exit_user_ok:
         ldx     #$00
 

@@ -5,6 +5,9 @@
         .export go_yn
         .export confirm_yn_colon
 
+        .import OSBYTE
+        .import OSRDCH
+        .import fuji_cmd_enabled
         .import osbyte_0f_flush_inbuf2
         .import print_char
         .import print_newline

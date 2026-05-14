@@ -1,11 +1,6 @@
 ; Service call 01 - Claim absolute workspace
         .export service01_claim_absworkspace
 
-        .import  print_axy
-        .import  print_string
-
-        .include "fujinet.inc"
-
         .segment "CODE"
 
 service01_claim_absworkspace:

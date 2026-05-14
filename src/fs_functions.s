@@ -1,3 +1,4 @@
+        .export GSREAD_A
         .export check_channel_yhndl_exyintch
         .export check_channel_yhndl_exyintch_tya_cmpptr
         .export cmp_ptr_ext
@@ -13,14 +14,16 @@
         .export get_cat_firstentry80_fname
         .export get_cat_firstentry81
         .export get_cat_nextentry
-        .export GSREAD_A
         .export is_hndlin_use_yintch
         .export jmp_syntax
         .export load_cur_drv_cat
         .export load_cur_drv_cat2
         .export num_params
+        .export param_count
+        .export param_count_a
         .export param_drive_no_bad_drive
         .export param_drive_no_syntax
+        .export param_drive_or_default
         .export param_get_num
         .export param_get_string
         .export param_optional_drive_no
@@ -35,55 +38,76 @@
         .export read_dir_drv_parameters
         .export read_dir_drv_parameters2
         .export read_file_attribs_to_b0_yoffset
+        .export read_fsp_text_pointer
         .export read_fspba
         .export read_fspba_reset
-        .export read_fsp_text_pointer
         .export save_cat_to_disk
-        .export set_curdirdrv_to_defaults_check_cur_drv_cat
         .export set_curdir_drv_to_defaults
+        .export set_curdirdrv_to_defaults_check_cur_drv_cat
         .export set_curdrv_to_default
         .export set_current_drive_adrive
         .export tya_cmp_ptr_ext
         .export y_sub8
-        .export param_count
-        .export param_count_a
-        .export param_drive_or_default
+
+        .importzp aws_tmp00
+        .importzp aws_tmp01
+        .importzp aws_tmp06
+        .importzp aws_tmp07
+        .importzp aws_tmp09
+        .importzp aws_tmp10
+        .importzp aws_tmp11
+        .importzp pws_tmp05
+
+        .importzp current_drv
+        .importzp directory_param
+        .importzp text_pointer
 
         .import GSINIT_A
+        .import GSREAD
         .import a_rolx5
         .import a_rorx5
-        .import fuji_write_catalog
         .import clear_exec_spool_file_handle
-        .import d_match
-        .import d_match_init
+        .import current_cat
+        .import dfs_cat_cycle
+        .import dfs_cat_file_dir
+        .import dfs_cat_file_name
+        .import dfs_cat_num_x8
         .import err_bad
         .import err_disk
-        .import fuji_mount_disk
+        .import fuji_ch_bptr_hi
+        .import fuji_ch_bptr_low
+        .import fuji_ch_bptr_mid
+        .import fuji_ch_ext_hi
+        .import fuji_ch_ext_low
+        .import fuji_ch_ext_mid
+        .import fuji_default_dir
+        .import fuji_default_drive
+        .import fuji_filename_buffer
+        .import fuji_fs_messages_on
+        .import fuji_getcat_buf_8
+        .import fuji_intch
+        .import fuji_network_url_flag
+        .import fuji_open_channels
         .import fuji_read_catalog
-        .import get_disk_first_all_x
-        .import get_disk_next
+        .import fuji_wild_hash
+        .import fuji_wild_star
+        .import fuji_write_catalog
         .import is_alpha_char
         .import parameter_afsp
         .import print_2_spaces_spl
-        .import print_axy
         .import print_char
-        .import print_decimal
         .import print_fullstop
         .import print_hex
         .import print_newline
         .import print_nibble
         .import print_space_spl
-        .import print_string
         .import prtcmd_at_bc_add_1
         .import prtcmd_prtchr
         .import remember_axy
         .import report_error
         .import y_add7
-        .import GSREAD
-        .import fuji_network_url_flag
 
         .include "fujinet.inc"
-
 
 ; Direct translation of MMFS line 620-630
 parameter_afsp_param_syntax_error_if_null_getcatentry_fsptxtp:

@@ -6,7 +6,26 @@
         .export cmd_fs_free
         .export cmd_fs_map
 
+        .importzp aws_tmp11
+        .importzp aws_tmp12
+        .importzp aws_tmp13
+        .importzp aws_tmp14
+        .importzp aws_tmp15
+        .importzp pws_tmp00
+        .importzp pws_tmp01
+        .importzp pws_tmp02
+        .importzp pws_tmp04
+        .importzp pws_tmp05
+        .importzp pws_tmp06
+
+        .import OSNEWL
+        .import OSWRCH
         .import a_rorx4and3
+        .import dfs_cat_boot_option
+        .import dfs_cat_cycle
+        .import dfs_cat_num_x8
+        .import dfs_cat_sect_count
+        .import fuji_filename_buffer
         .import load_cur_drv_cat2
         .import param_optional_drive_no
         .import print_bcd_spl

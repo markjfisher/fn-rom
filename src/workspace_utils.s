@@ -9,13 +9,16 @@
         .export set_private_workspace_pointer_aws_tmp00
         .export set_private_workspace_pointer_high_only
 
-        .import  remember_axy
-        .import  fuji_current_host_len
-        .import  fuji_current_dir_len
-        .import  print_string
-        .import  return_with_a0
-        .import  close_all_files
-        .import  close_files_yhandle
+        .importzp aws_tmp00
+        .importzp aws_tmp01
+
+        .importzp paged_ram_copy
+
+        .import fuji_channel_start
+        .import fuji_last_state_loc
+        .import fuji_static_workspace
+        .import paged_rom_priv_ws
+        .import remember_axy
 
         .include "fujinet.inc"
 

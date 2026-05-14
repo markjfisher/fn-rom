@@ -13,16 +13,15 @@
         .export fuji_read_mem_block
         .export fuji_write_mem_block
 
-        .import print_string
         .import err_disk
+        .import fuji_execute_block_rw
+        .import fuji_read_block_data
+        .import fuji_read_catalog_data
+        .import fuji_read_disc_title_data
+        .import fuji_write_block_data
+        .import fuji_write_catalog_data
         .import remember_axy
         .import set_fuji_data_buffer_ptr
-        .import fuji_read_block_data
-        .import fuji_write_block_data
-        .import fuji_read_catalog_data
-        .import fuji_write_catalog_data
-        .import fuji_read_disc_title_data
-        .import fuji_execute_block_rw
 
         .include "fujinet.inc"
         .include "os.inc"

@@ -8,28 +8,21 @@
         .export not_cmd_fs
         .export not_cmd_fujifs
 
+        .importzp aws_tmp14
+        .importzp aws_tmp15
+
+        .importzp text_pointer
+
         .import GSINIT_A
         .import GSREAD_A
-        .import cmd_table_fs
-        .import cmd_table_fs_cmds
-        .import cmd_table_fujifs
-        .import cmd_table_fujifs_cmds
-        .import cmd_table_futils
-        .import cmd_table_futils_cmds
-        .import cmd_table_help
-        .import cmd_table_help_cmds
-        .import cmd_table_utils
-        .import cmd_table_utils_cmds
         .import is_alpha_char
         .import morehelp
         .import not_cmd_futils
         .import print_help_table
-        .import print_string
         .import remember_axy
         .import set_text_pointer_yx
 
 .ifdef FN_DEBUG
-        .import print_axy
 .endif
 
         .include "fujinet.inc"

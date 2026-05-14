@@ -17,13 +17,42 @@
         .export setdefaults
         .export skip_autoload
 
+        .importzp aws_tmp00
+        .importzp aws_tmp01
+        .importzp aws_tmp03
+
+        .importzp buffer_ptr
+        .importzp current_drv
+        .importzp paged_ram_copy
+
+        .import FSCV
+        .import OSBYTE
+        .import OSCLI
         .import a_rorx4
         .import channel_flags_clear_bits
+        .import current_cat
+        .import dfs_cat_boot_option
         .import extendedvectors_table
+        .import fuji_cmd_enabled
+        .import fuji_current_dir_len
+        .import fuji_current_fs_len
+        .import fuji_current_host_len
+        .import fuji_default_dir
+        .import fuji_default_drive
+        .import fuji_drive_disk_map
+        .import fuji_error_flag
+        .import fuji_force_reset
+        .import fuji_fs_messages_on
+        .import fuji_lib_dir
+        .import fuji_lib_drive
+        .import fuji_network_flush_mode
+        .import fuji_open_channels
+        .import fuji_own_sws_indicator
         .import get_fuji_fs_uri_addr_to_aws_tmp00
         .import get_fuji_host_uri_addr_to_aws_tmp00
         .import load_cur_drv_cat
         .import osbyte_X0YFF
+        .import paged_rom_priv_ws
         .import print_string
         .import return_with_a0
         .import set_private_workspace_pointer_aws_tmp00
@@ -32,7 +61,6 @@
         .import vectors_table
 
 .ifdef FUJINET_INTERFACE_DUMMY
-        .import fuji_init_ram_filesystem
 .endif
 
         .include "fujinet.inc"

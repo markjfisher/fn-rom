@@ -4,11 +4,13 @@
 
         .export filev_entry
 
-        .import parameter_fsp
-        .import print_axy
-        .import print_string
-        .import remember_xy_only
-        .import osfileFF_loadfiletoaddr
+        .importzp aws_tmp00
+        .importzp aws_tmp01
+
+        .import copy_vars_b0ba
+        .import copy_word_b0ba
+        .import fuji_param_block_hi
+        .import fuji_param_block_lo
         .import osfile0_savememblock
         .import osfile1_updatecat
         .import osfile2_wrloadaddr
@@ -16,8 +18,9 @@
         .import osfile4_wrattribs
         .import osfile5_rdcatinfo
         .import osfile6_delfile
-        .import copy_vars_b0ba
-        .import copy_word_b0ba
+        .import osfileFF_loadfiletoaddr
+        .import parameter_fsp
+        .import remember_xy_only
 
         .include "fujinet.inc"
 

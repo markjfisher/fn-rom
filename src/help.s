@@ -5,21 +5,22 @@
         .export prtcmd_at_bc_add_1
         .export prtcmd_prtchr
 
+        .importzp aws_tmp07
+        .importzp aws_tmp08
+        .importzp aws_tmp09
+        .importzp aws_tmp15
+
+        .import GSINIT_A
+        .import GSREAD_A
         .import a_rorx4
-        .import print_string_ax
-        .import print_axy
+        .import parameter_table
         .import print_char
         .import print_newline
-        .import print_string
+        .import print_string_ax
         .import remember_axy
         .import rom_title
         .import rom_version_string
         .import unrec_command_text_pointer
-        .import GSINIT_A
-        .import GSREAD_A
-
-        .import parameter_table
-
 
         .include "fujinet.inc"
 

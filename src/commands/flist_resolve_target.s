@@ -14,10 +14,28 @@
         .export  frt_recv_ok
         .export  frt_success
 
-        .import  fujibus_receive_packet
-        .import  fujibus_send_packet
-        .import  get_fuji_fs_uri_addr_to_aws_tmp00
-        .import  get_fuji_host_uri_addr_to_aws_tmp00
+        .importzp aws_tmp00
+        .importzp cws_tmp1
+        .importzp cws_tmp2
+        .importzp cws_tmp3
+        .importzp cws_tmp6
+        .importzp cws_tmp7
+        .importzp cws_tmp8
+
+        .importzp buffer_ptr
+        .importzp fuji_bus_tx_command
+        .importzp fuji_bus_tx_device
+        .importzp fuji_bus_tx_payload_hi
+        .importzp fuji_bus_tx_payload_lo
+
+        .import fuji_current_dir_len
+        .import fuji_current_fs_len
+        .import fuji_current_host_len
+        .import fuji_filename_len
+        .import fujibus_receive_packet
+        .import fujibus_send_packet
+        .import get_fuji_fs_uri_addr_to_aws_tmp00
+        .import get_fuji_host_uri_addr_to_aws_tmp00
 
         .include "fujinet.inc"
 

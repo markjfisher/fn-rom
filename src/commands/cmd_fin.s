@@ -6,15 +6,25 @@
         .export  err_no_host
         .export  err_bad_mount_slot
 
-        .import  err_bad
-        .import  exit_user_ok
-        .import  fuji_fs_uri_ptr
-        .import  fuji_set_slot
-        .import  get_fuji_host_uri_addr_to_aws_tmp00
-        .import  param_count_a
-        .import  param_get_num
-        .import  param_get_string
-        .import  report_error
+        .importzp aws_tmp00
+        .importzp cws_tmp2
+        .importzp cws_tmp3
+
+        .import err_bad
+        .import exit_user_ok
+        .import fuji_channel_scratch
+        .import fuji_current_fs_len
+        .import fuji_current_host_len
+        .import fuji_disk_slot
+        .import fuji_filename_buffer
+        .import fuji_filename_len
+        .import fuji_fs_uri_ptr
+        .import fuji_set_slot
+        .import get_fuji_host_uri_addr_to_aws_tmp00
+        .import param_count_a
+        .import param_get_num
+        .import param_get_string
+        .import report_error
 
         .include "fujinet.inc"
 

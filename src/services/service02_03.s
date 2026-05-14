@@ -6,12 +6,19 @@
         .export service02_claim_privworkspace
         .export service03_autoboot
 
-        .import  autoboot
-        .import  osbyte_X0YFF
-        .import  print_axy
-        .import  print_string
-        .import  remember_axy
-        .import  save_static_to_private_workspace
+        .importzp aws_tmp00
+        .importzp aws_tmp01
+        .importzp aws_tmp03
+
+        .importzp paged_ram_copy
+
+        .import OSBYTE
+        .import autoboot
+        .import fuji_force_reset
+        .import osbyte_X0YFF
+        .import paged_rom_priv_ws
+        .import remember_axy
+        .import save_static_to_private_workspace
 
         .include "fujinet.inc"
 
