@@ -1,25 +1,8 @@
         .export fscv5_starCAT
 
-        ;; exports for debugging
-        ; .export cat_curdirloop
-        ; .export cat_curdirnext
-        ; .export cat_exit
-        ; .export cat_getnextunmarkedfile_loop
-        ; .export cat_getnextunmarkedfileY
-        ; .export cat_newline
-        ; .export cat_printfilename
-        ; .export cat_printfn
-        ; .export cat_printoptionnameloop
-        ; .export cat_samedir
-        ; .export cat_skipspaces
-        ; .export cat_sortloop1
-        ; .export cat_titleloop
-        ; .export cat_titlelo
-        ; .export end_title
-
         .importzp aws_tmp06
-        .importzp cws_tmp1
-        .importzp cws_tmp3
+        .importzp aws_tmp07
+        .importzp aws_tmp08
 
         .importzp current_drv
 
@@ -66,9 +49,9 @@ fscv5_starCAT:
         jsr     fuji_read_catalog
 
         ldy     #$FF
-        sty     cws_tmp1
+        sty     aws_tmp07
         iny
-        sty     cws_tmp3
+        sty     aws_tmp08
 
 cat_titleloop:
         lda     dfs_cat_s0_title,y
@@ -205,10 +188,10 @@ cat_printfn:
         ora     #$80
         sta     dfs_cat_file_name,y
         lda     fuji_cmd_cat_buf_8 + 7
-        cmp     cws_tmp3
+        cmp     aws_tmp08
         beq     cat_samedir
-        ldx     cws_tmp3
-        sta     cws_tmp3
+        ldx     aws_tmp08
+        sta     aws_tmp08
         bne     cat_samedir
         jsr     print_newline           ; 2 newlines after default dir
 cat_newline:
@@ -216,13 +199,13 @@ cat_newline:
         ldy     #$FF
         bne     cat_skipspaces
 cat_samedir:
-        ldy     cws_tmp1
+        ldy     aws_tmp07
         bne     cat_newline
         ldy     #$05                    ; print column gap
         jsr     prt_y_spaces
 cat_skipspaces:
         iny
-        sty     cws_tmp1
+        sty     aws_tmp07
         ldy     aws_tmp06
         jsr     print_2_spaces_spl
         jsr     prt_filename_yoffset
