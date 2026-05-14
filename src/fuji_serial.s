@@ -64,8 +64,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 fuji_read_block_data:
-        jsr     remember_axy
-
         ; C3/C2 carries the DFS start sector. The low two bits of the mixed
         ; byte are the upper sector bits; the upper nibble encodes file length
         ; high bits, which we currently ignore here.
@@ -127,8 +125,6 @@ fuji_read_block_data:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 fuji_write_block_data:
-        jsr     remember_axy
-
         lda     fuji_file_offset
         sta     fuji_current_sector
         lda     fuji_file_offset+1
@@ -326,7 +322,7 @@ fuji_read_disc_title_data:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 fuji_mount_disk_data:
-        ; Mount disk using FujiBus - call the C function
+        ; Mount disk using FujiBus
         ; aws_tmp08 contains the slot number (already set by caller)
         ; PWS FS URI buffer (fuji_fs_uri_ptr()) contains the URI (already set by *FMOUNT)
         ; A already contains live mount flags from *FMOUNT.

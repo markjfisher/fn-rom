@@ -69,7 +69,6 @@
 
         .export  fuji_drive_disk_map
         .export  fuji_state
-        .export  fuji_buffer_addr
         .export  fuji_file_offset
         .export  fuji_block_size
         .export  fuji_current_sector
@@ -504,32 +503,31 @@ fuji_drive_disk_map     = fuji_static_workspace + $19  ; 4 bytes: drives 0-3, 10
 
 ; FujiNet state variables (using unused workspace locations)
 fuji_state              = fuji_static_workspace + $1D  ; Device state
-fuji_buffer_addr        = fuji_static_workspace + $1E  ; Buffer address (2 bytes)
-fuji_file_offset        = fuji_static_workspace + $20  ; File offset (3 bytes)
+fuji_file_offset        = fuji_static_workspace + $1E  ; File offset (3 bytes)
 
 ; FujiNet file operation workspace variables
-fuji_block_size         = fuji_static_workspace + $23  ; Block size (2 bytes)
-fuji_current_sector     = fuji_static_workspace + $25  ; Current sector being accessed (2 bytes)
+fuji_block_size         = fuji_static_workspace + $21  ; Block size (2 bytes)
+fuji_current_sector     = fuji_static_workspace + $23  ; Current sector being accessed (2 bytes)
 
 ; Current filesystem selection state for URI-based commands.
 ; fuji_current_host_len is the authoritative canonical URI length for the current
 ; location. fuji_current_fs_len tracks the scratch working FS URI buffer length used
 ; during request assembly (e.g. *FLS/*FIN). fuji_current_dir_len is the display-path
 ; suffix length within the canonical current URI.
-fuji_current_fs_len     = fuji_static_workspace + $27  ; Working FS URI scratch length
-fuji_current_dir_len    = fuji_static_workspace + $28  ; Current display path length
+fuji_current_fs_len     = fuji_static_workspace + $25  ; Working FS URI scratch length
+fuji_current_dir_len    = fuji_static_workspace + $26  ; Current display path length
 ; this doesn't look like it's used: is it a dupe of fuji_disk_slot?
-fuji_current_mount_slot = fuji_static_workspace + $29  ; Current FujiNet persisted mount slot (0-based)
-fuji_resolve_path_flags = fuji_static_workspace + $2A  ; ResolvePath response: bit0=isDir, bit1=exists (set by fuji_file_resolve_path)
-fuji_disk_slot          = fuji_static_workspace + $2B  ; current fujinet mount slot for defaults, 0-based internally, 1 based on the wire
-fuji_disk_flags         = fuji_static_workspace + $2C  ; flags for disk
-fuji_current_host_len   = fuji_static_workspace + $2D  ; Canonical current URI length
+fuji_current_mount_slot = fuji_static_workspace + $27  ; Current FujiNet persisted mount slot (0-based)
+fuji_resolve_path_flags = fuji_static_workspace + $28  ; ResolvePath response: bit0=isDir, bit1=exists (set by fuji_file_resolve_path)
+fuji_disk_slot          = fuji_static_workspace + $29  ; current fujinet mount slot for defaults, 0-based internally, 1 based on the wire
+fuji_disk_flags         = fuji_static_workspace + $2A  ; flags for disk
+fuji_current_host_len   = fuji_static_workspace + $2B  ; Canonical current URI length
 
-fuji_filename_len       = fuji_static_workspace + $2E  ; the filename part of the FS URI input by *FIN
+fuji_filename_len       = fuji_static_workspace + $2C  ; the filename part of the FS URI input by *FIN
 
 ; These 2 need to be in this order, as there is an optimization to use INY to index the owns sws indicator flag
-fuji_force_reset        = fuji_static_workspace + $2F  ; Force reset flag
-fuji_own_sws_indicator  = fuji_static_workspace + $30  ; Used to check if we currently own the SWS
+fuji_force_reset        = fuji_static_workspace + $2D  ; Force reset flag
+fuji_own_sws_indicator  = fuji_static_workspace + $2E  ; Used to check if we currently own the SWS
 
 ; END OF STATE WE WILL SAVE TO PWS WHEN FILE SYSTEMS SWAP
 ; (extended below — bump fuji_last_state_loc when adding to the saved region)
@@ -537,35 +535,35 @@ fuji_own_sws_indicator  = fuji_static_workspace + $30  ; Used to check if we cur
 ; Saved IRQ-disable state for temporarily enabling IRQs during FujiBus I/O.
 ; 0 = IRQs were enabled on entry, nonzero = IRQs were disabled on entry.
 ; Must not overlap with any MMFS-mapped fields; kept outside the MMFS copy range.
-fuji_saved_i            = fuji_static_workspace + $31
+fuji_saved_i            = fuji_static_workspace + $2F
 
 ; Network URL flag — set to nonzero when "://" is detected in filename during parsing
 ; Cleared at start of filename parsing. Checked by findv_entry to route to network open.
-fuji_network_url_flag   = fuji_static_workspace + $32
+fuji_network_url_flag   = fuji_static_workspace + $30
 
 ; Network read buffer state: number of valid bytes currently buffered in channel buffer page
 ; 2 bytes (u16le), used by bgetv_entry to know when to refill via NET_CMD_READ
-fuji_network_buf_cnt    = fuji_static_workspace + $33   ; low byte
-fuji_network_buf_cnt_hi = fuji_static_workspace + $34   ; high byte
+fuji_network_buf_cnt    = fuji_static_workspace + $31   ; low byte
+fuji_network_buf_cnt_hi = fuji_static_workspace + $32   ; high byte
 
 ; Network write flush mode: 0 = buffer 256 bytes before flush (default),
 ; 1 = immediate flush after each BPUT (for real-time/streaming connections).
-fuji_network_flush_mode = fuji_static_workspace + $35
+fuji_network_flush_mode = fuji_static_workspace + $33
 
 ; Translation selector length for network OPENIN requests.
 ; Non-zero currently implies JSON translation with the selector stored in PWS.
 ; Transient command state, not part of saved FS workspace.
-fuji_json_path_len      = fuji_static_workspace + $36
+fuji_json_path_len      = fuji_static_workspace + $34
 
 ; 2 byte buffer for stashing AX registers for saving result while restoring state.
-fuji_ax_save            = fuji_static_workspace + $37   ; 2 bytes, don't need to save it
+fuji_ax_save            = fuji_static_workspace + $35   ; 2 bytes, don't need to save it
 
 
 ; FINAL LOCATION CAN BE + $3F
 
 ; LAST location for the copy state in workspace_utils.s function to understand
 ; So when the filing system is swapped (e.g. switching between fujinet and DFS), it's preserved and reloaded
-fuji_last_state_loc     = fuji_static_workspace + $36  ; effectively $10F6
+fuji_last_state_loc     = fuji_static_workspace + $34  ; effectively $10F4
 ; Note: up to fuji_static_workspace + $3F (+$3F = $103F) is available
 
 

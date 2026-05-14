@@ -38,12 +38,6 @@ fscv10_starINFO:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 cmd_fs_info:
-.ifdef FN_DEBUG
-        jsr     print_string
-        .byte   "CMD_FS_INFO: "
-        nop
-        jsr     print_axy
-.endif  
         ; Load catalog first
         jsr     fuji_read_catalog
         jsr     parameter_afsp_param_syntax_error_if_null_getcatentry_fsptxtp

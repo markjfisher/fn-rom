@@ -3,8 +3,6 @@
 ; Replaces MMFS hardware-specific exec_block_rw
 
         .export fuji_execute_block_rw
-        .export fuji_read_file_block
-        .export fuji_write_file_block
 
         .importzp aws_tmp12
         .importzp aws_tmp13
@@ -16,11 +14,9 @@
         .importzp data_ptr
 
         .import fuji_block_size
-        .import fuji_buffer_addr
         .import fuji_file_offset
         .import fuji_read_block_data
         .import fuji_write_block_data
-        .import remember_axy
 
         .include "fujinet.inc"
 
@@ -34,14 +30,13 @@
 fuji_execute_block_rw:
         ; Store operation type
         pha
-        ; sta     fuji_operation_type
 
         ; Get buffer address from workspace (set by LoadFile_Ycatoffset)
         ; &BC-&BD contain the buffer address (load address)
         lda     aws_tmp12                ; &BC (buffer address low)
-        sta     fuji_buffer_addr
+        sta     data_ptr
         lda     aws_tmp13                ; &BD (buffer address high)
-        sta     fuji_buffer_addr+1
+        sta     data_ptr+1
 
         ; Get start sector from workspace variables (set by calc_buffer_sector_for_ptr)
         ; Channel buffer system uses pws_tmp02/pws_tmp03 for sector info
@@ -66,64 +61,16 @@ fuji_execute_block_rw:
 
         ; Execute network operation
         pla
-        ; lda     fuji_operation_type
         cmp     #$85                     ; Read operation
-        beq     @fuji_read_block
-        cmp     #$A5                     ; Write operation
-        beq     @fuji_write_block
+        bne     @not_read
+        jmp     fuji_read_block_data
 
+@not_read:
+        cmp     #$A5                     ; Write operation
+        bne     @not_write
+        jmp     fuji_write_block_data
+
+@not_write:
         ; Unknown operation
         lda     #$FF                     ; Error code
-        rts
-
-@fuji_read_block:
-        jsr     fuji_read_file_block
-        rts
-
-@fuji_write_block:
-        jsr     fuji_write_file_block
-        rts
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; fuji_read_file_block - Read file block from network
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-fuji_read_file_block:
-        jsr     remember_axy
-
-        ; Set data_ptr to point to the buffer address
-        lda     fuji_buffer_addr
-        sta     data_ptr
-        lda     fuji_buffer_addr+1
-        sta     data_ptr+1
-
-        jsr     fuji_read_block_data
-        bcs     @read_error
-        lda     #$01
-        rts
-
-@read_error:
-        lda     #$00
-        rts
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; fuji_write_file_block - Write file block to network
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-fuji_write_file_block:
-        jsr     remember_axy
-
-        ; Set data_ptr to point to the buffer address
-        lda     fuji_buffer_addr
-        sta     data_ptr
-        lda     fuji_buffer_addr+1
-        sta     data_ptr+1
-
-        jsr     fuji_write_block_data
-        bcs     @write_error
-        lda     #$01
-        rts
-
-@write_error:
-        lda     #$00
         rts

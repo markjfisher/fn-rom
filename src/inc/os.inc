@@ -75,7 +75,6 @@ OS_INC = 1
 
         .import  fuji_drive_disk_map
         .import  fuji_state
-        .import  fuji_buffer_addr
         .import  fuji_file_offset
         .import  fuji_block_size
         .import  fuji_current_sector
