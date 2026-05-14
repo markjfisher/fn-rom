@@ -29,7 +29,7 @@
 ; bool fujibus_get_mount_slot(void)
 ;   A=1 success, A=0 failure, X=0
 fujibus_get_mount_slot:
-        jsr     set_fuji_data_buffer_ptr
+        ; jsr     set_fuji_data_buffer_ptr
 
         ldy     #$06
         lda     fuji_disk_slot
@@ -60,7 +60,7 @@ fujibus_get_mount_slot:
 ; bool fujibus_set_mount_slot(void)
 ;   Payload at buffer+6: slot, flags $01, uri_len, uri..., mode_len, mode 'auto'
 fujibus_set_mount_slot:
-        jsr     set_fuji_data_buffer_ptr
+        ; jsr     set_fuji_data_buffer_ptr
 
         ldy     #$06
         lda     fuji_disk_slot

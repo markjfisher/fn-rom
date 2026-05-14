@@ -132,7 +132,7 @@ mount_ok:
         stx     cws_tmp3
 
         ; set buffer_ptr/aws_tmp00/01 to PWS location
-        jsr     set_fuji_data_buffer_ptr
+        ; jsr     set_fuji_data_buffer_ptr
 
         ; After FujiBus hdr + status [5],[6]: GetMount record is
         ; [7]=slot, [8]=flags(bit0=enabled), [9]=uri_len, [10..]=uri,

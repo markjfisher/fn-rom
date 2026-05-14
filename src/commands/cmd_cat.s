@@ -17,9 +17,9 @@
         ; .export cat_titlelo
         ; .export end_title
 
+        .importzp aws_tmp06
         .importzp cws_tmp1
         .importzp cws_tmp3
-        .importzp cws_tmp4
 
         .importzp current_drv
 
@@ -69,9 +69,6 @@ fscv5_starCAT:
         sty     cws_tmp1
         iny
         sty     cws_tmp3
-
-        lda     cws_tmp4
-        pha
 
 cat_titleloop:
         lda     dfs_cat_s0_title,y
@@ -142,11 +139,11 @@ cat_printoptionnameloop:
         ldy     #$00
 cat_curdirloop:
         cpy     dfs_cat_num_x8
-        bcs     cat_sortloop1                  ; if end of catalog, exit
+        bcs     cat_sortloop1                   ; if end of catalog, exit
         lda     dfs_cat_file_dir,y
         eor     fuji_default_dir
         and     #$5F
-        bne     cat_curdirnext                 ; if not current directory, skip
+        bne     cat_curdirnext                  ; if not current directory, skip
         lda     dfs_cat_file_dir,y              ; set directory to null
         and     #$80                            ; keep locked flag (bit 7)
         sta     dfs_cat_file_dir,y
@@ -159,10 +156,8 @@ cat_sortloop1:
         bcc     cat_printfilename
         lda     #$FF
         sta     current_cat
-        jsr     print_newline
-        pla
-        sta     cws_tmp4
-        rts
+        ; EXIT with a final new line.
+        jmp     print_newline
 
 cat_getnextunmarkedfile_loop:
         jsr     y_add8
@@ -175,9 +170,7 @@ cat_exit:
         rts
 
 cat_printfilename:
-        ; cws_tmp4 aliases buffer_ptr lo; FujiBus already finished after fuji_read_catalog.
-        ; Listing loop does not call fuji_begin_transaction, so this is only scratch here.
-        sty     cws_tmp4
+        sty     aws_tmp06
         ldx     #$00
 @cat_copyfnloop:
         lda     dfs_cat_file_name,y
@@ -207,7 +200,7 @@ cat_printfilename:
         jsr     y_add8
         bcs     @cat_comparefnloop1
 cat_printfn:
-        ldy     cws_tmp4
+        ldy     aws_tmp06
         lda     dfs_cat_file_name,y
         ora     #$80
         sta     dfs_cat_file_name,y
@@ -230,7 +223,7 @@ cat_samedir:
 cat_skipspaces:
         iny
         sty     cws_tmp1
-        ldy     cws_tmp4
+        ldy     aws_tmp06
         jsr     print_2_spaces_spl
         jsr     prt_filename_yoffset
         jmp     cat_sortloop1

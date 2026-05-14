@@ -172,7 +172,7 @@ _fjson_store_done:
         jmp     _fjson_done                   ; if path was cleared, skip
 _fjson_ext_cont:
 
-        jsr     set_fuji_data_buffer_ptr
+        ; jsr     set_fuji_data_buffer_ptr
         jsr     fujibus_network_translate_configure
         ; A = 1 on success, 0 on failure
         ; EXT/PTR update is done inside fujibus_network_translate_configure

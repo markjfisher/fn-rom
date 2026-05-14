@@ -140,7 +140,7 @@ fuji_begin_transaction:
         sta     fuji_saved_i
         cli
 
-        jsr     set_fuji_data_buffer_ptr
+        ; jsr     set_fuji_data_buffer_ptr
 
         ; Save workspace variables - this is saving $BC-$CB (aws_tmp12-15 & pws_tmp00-11) into 1090-109f
         ; At least *RUN fails if this isn't done. ARCHITECTURE doc suggests which values are needed to be restored.

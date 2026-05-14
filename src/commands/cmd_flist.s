@@ -98,7 +98,7 @@ parse_flist_params:
         jsr     param_get_string
         sta     fuji_filename_len
 
-        jsr     set_fuji_data_buffer_ptr
+        ; jsr     set_fuji_data_buffer_ptr
         jsr     flist_resolve_target
         bcc     cfl_start_list_restore
 
@@ -184,7 +184,7 @@ cfl_done_ok:
 ;         pws_tmp09 = more pages (0/1); buffer_ptr aliases cws_tmp4/cws_tmp5 only.
 ;------------------------------------------------------------------------------
 cfl_flist_one_page:
-        jsr     set_fuji_data_buffer_ptr
+        ; jsr     set_fuji_data_buffer_ptr
 
         lda     fuji_current_fs_len
         sta     cws_tmp8
