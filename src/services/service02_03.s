@@ -14,7 +14,7 @@
 
         .import OSBYTE
         .import autoboot
-        .import fuji_force_reset
+        .import get_fuji_pws_flags_to_aws_tmp00
         .import osbyte_X0YFF
         .import paged_rom_priv_ws
         .import remember_axy
@@ -49,17 +49,12 @@ service02_claim_privworkspace:
         cpy     aws_tmp01                ; Private workspace may have moved!
         beq     @samepage                ; If same as before
 
-        ; TODO: change this to the new PWS FLAGS location
-        lda     #<(FUJI_PWS_PERM_FLAGS_OFFSET+1)
-        sta     aws_tmp00
-        lda     #>(FUJI_PWS_PERM_FLAGS_OFFSET+1)
-        sta     aws_tmp01
 
-
-        ldy     #<fuji_force_reset
-        sta     (aws_tmp00),y
-        ; END TODO
-
+        ; FLAGS PWS area into aws_tmp00, set force and i_own/empty to FF
+        jsr     get_fuji_pws_flags_to_aws_tmp00
+        lda     #$00
+        tay
+        sta     (aws_tmp00), y          ; set force_reset flag to 0 (must reset)
 
 @samepage:
         ; Read hard/soft BREAK
@@ -68,15 +63,18 @@ service02_claim_privworkspace:
         dex                              ; X=FF=soft,0=power up,1=hard
 
         txa                              ; A=FF=soft,0=power up,1=hard
+        pha                             ; save result
 
-        ; TODO: change this to the new PWS FLAGS location
-        ldy     #<fuji_force_reset
+        ; FLAGS PWS area into aws_tmp00, set force and i_own/empty to FF
+        jsr     get_fuji_pws_flags_to_aws_tmp00
+        ldy     #$00
+        pla                             ; get A back
+
         and     (aws_tmp00),y
         sta     (aws_tmp00),y            ; So, PWSP:fuji_force_reset is +ve if: power up, hard reset or PSWP page has changed
 
         php
-        ; OPTIMIZATION - requires fuji_own_sws_indicator to be after fuji_force_reset in memory
-        iny                              ; This is the location after force reset, used for the "I Own SWS" indicator, FF = empty, 00 = full
+        iny                              ; PWSP: empty/i_own
         plp
         bpl     @notsoft                 ; If not soft break
 

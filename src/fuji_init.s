@@ -47,9 +47,9 @@
         .import fuji_lib_drive
         .import fuji_network_flush_mode
         .import fuji_open_channels
-        .import fuji_own_sws_indicator
         .import get_fuji_fs_uri_addr_to_aws_tmp00
         .import get_fuji_host_uri_addr_to_aws_tmp00
+        .import get_fuji_pws_flags_to_aws_tmp00
         .import load_cur_drv_cat
         .import osbyte_X0YFF
         .import paged_rom_priv_ws
@@ -165,24 +165,22 @@ init_fuji:
         lda     #$00
         sta     buffer_ptr
 
+        ; set aws_tmp00/01 to FLAGS location
+        jsr     get_fuji_pws_flags_to_aws_tmp00
+        ldy     #$00
+        lda     (aws_tmp00), y          ; fuji_force_reset, 00 = do reset, FF = no reset
+        bpl     initdfs_reset
 
-        ; -------------------------------
-        ; REFACTOR TO USE PWS FLAGS
-        ldy     #<fuji_force_reset
-        lda     (aws_tmp00),y         ; A=PWSP + offset (-ve=soft break)
-
-        bpl     initdfs_reset         ; Branch if power up or hard break
-
-        ldy     #<fuji_own_sws_indicator
-        lda     (aws_tmp00),y         ; A=PWSP indicator location
-
-        bmi     initdfs_noreset       ; Branch if PWSP "empty"
+        iny                             ; y = 1, "pws full" flag, or "fuji_own_sws_indicator"
+        lda     (aws_tmp00), y
+        bmi     initdfs_noreset         ; if PWS is "empty", after a copy, this is set to 00, before it's FF (empty)
 
         jsr     claim_static_workspace
 
+        jsr     set_private_workspace_pointer_aws_tmp00
         ldy     #$00                  ; ** Restore copy of data
 @copyfromPWStoSWS_loop:
-        lda     (aws_tmp00),y         ; from private wsp
+        lda     (aws_tmp00),y         ; from PWS
         cpy     #$C0                  ; to static wsp
         bcc     @copyfromPWS1
         sta     $1000,y
@@ -293,8 +291,9 @@ claim_static_workspace:
         lda     #$8F
         jsr     OSBYTE                          ; issue service request &A, tell OS we are claiming static workspace.
 
-        jsr     set_private_workspace_pointer_aws_tmp00
-        ldy     #<fuji_force_reset
+        ; FLAGS PWS area into aws_tmp00, set force and i_own/empty to FF
+        jsr     get_fuji_pws_flags_to_aws_tmp00
+        ldy     #$00
         lda     #$FF
         sta     (aws_tmp00),y                   ; Data valid in SWS
         sta     fuji_force_reset

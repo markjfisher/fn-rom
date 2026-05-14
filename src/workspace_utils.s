@@ -6,6 +6,7 @@
         .export get_fuji_fs_uri_addr_to_aws_tmp00
         .export get_fuji_host_uri_addr_to_aws_tmp00
         .export get_fuji_json_path_addr_to_aws_tmp00
+        .export get_fuji_pws_flags_to_aws_tmp00
         .export set_private_workspace_pointer_aws_tmp00
         .export set_private_workspace_pointer_high_only
 
