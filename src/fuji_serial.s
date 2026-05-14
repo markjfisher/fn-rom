@@ -17,14 +17,6 @@
         .export fuji_write_catalog_data
         .export fuji_write_block_data
 
-        ; FUJI functions
-        ; .export fuji_execute_get_hosts
-        ; .export fuji_execute_set_host_url_n
-        ; .export fuji_execute_reset
-
-        ; other functions for debug
-        ; .export fuji_send_cf
-
         .importzp aws_tmp08
         .importzp aws_tmp09
         .importzp aws_tmp14
@@ -43,7 +35,6 @@
         .import fujibus_disk_write_sector
         .import fujibus_get_mount_slot
         .import fujibus_set_mount_slot
-        .import remember_axy
         .import restore_output_to_screen
 
         ; Import FujiBus C functions - use underscore prefix for C calls
@@ -57,10 +48,6 @@
 ; FUJI_READ_BLOCK_DATA - Read data block from FujiNet device
 ; Input: data_ptr points to buffer, other parameters in workspace
 ; Output: Data read into buffer, Carry=0 if success, Carry=1 if error
-;
-; This should only be called via fuji_read_block, which starts a
-; transaction, and sets the buffer_ptr, otherwise you have to ensure
-; buffer_ptr is setup correctly first. That is the start of PWS ($1700)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 fuji_read_block_data:

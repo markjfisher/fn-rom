@@ -2,31 +2,24 @@
 ; High-level disk operations equivalent to MMC.asm
 ; Adapted for network operations via FujiNet
 
-        .export fuji_read_block
-        .export fuji_write_block
-        .export fuji_read_catalog
-        .export fuji_write_catalog
-        .export fuji_read_disc_title
         .export fuji_begin_transaction
-        .export fuji_end_transaction
         .export fuji_check_device_status
+        .export fuji_end_transaction
+        .export fuji_read_catalog
+        .export fuji_read_disc_title
         .export fuji_read_mem_block
+        .export fuji_write_catalog
         .export fuji_write_mem_block
-
-        .importzp aws_tmp12
 
         .importzp data_ptr
 
         .import err_disk
-        .import fuji_buf_ws_tmp_buf
         .import fuji_drive_disk_map
         .import fuji_execute_block_rw
-        .import fuji_read_block_data
         .import fuji_read_catalog_data
         .import fuji_read_disc_title_data
         .import fuji_saved_i
         .import fuji_state
-        .import fuji_write_block_data
         .import fuji_write_catalog_data
         .import remember_axy
         .import set_fuji_data_buffer_ptr
@@ -67,27 +60,6 @@ init_state:
         jsr     err_disk
         .byte   $FF
         .byte   "FujiNet device not responding", 0
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; FUJI_READ_BLOCK - Read data block from network
-; at loc. datptr, sec, seccount & byteslastsec define block
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-fuji_read_block:
-        jsr     remember_axy
-        jsr     fuji_begin_transaction
-        jsr     fuji_read_block_data
-        jmp     fuji_end_transaction
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; FUJI_WRITE_BLOCK - Write data block to network
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-fuji_write_block:
-        jsr     remember_axy
-        jsr     fuji_begin_transaction
-        jsr     fuji_write_block_data
-        jmp     fuji_end_transaction
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; fuji_read_catalog - Read the disc catalog (512-byte directory)
@@ -150,17 +122,6 @@ fuji_read_disc_title:
         jsr     fuji_read_disc_title_data
         rts
 
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; device_reset - reset routine for specific devices
-; This will need to be implemented externally and included via build
-; at some point, for now it's a TODO: placeholder
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-device_reset:
-        rts
-
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; FUJI_BEGIN_TRANSACTION - Begin FujiNet transaction
 ; this is the equivalent of MMC_BEGIN1 which stores data into 1090-109f for _MM32_
@@ -178,17 +139,14 @@ fuji_begin_transaction:
 
         jsr     set_fuji_data_buffer_ptr
 
-        ; Save workspace variables - this is saving $BC-$CB (aws_tmp12-15 & pws_tmp00-11) into 1090-109f
-        ldx     #$0F
-@save_loop:
-        lda     aws_tmp12,x
-        sta     fuji_buf_ws_tmp_buf,x
-        dex
-        bpl     @save_loop
-
-        ; TODO: In MMFS2 it does a "MMC_DEVICE_RESET" here, which is a chance for the device implementation to reset
-        ; e.g. UserPort, elkplus1, ... or MemoryMapped (which just does RTS)
-        jsr     device_reset
+; TODO: do we need this? Tests seem to pass when we don't do it
+;         ; Save workspace variables - this is saving $BC-$CB (aws_tmp12-15 & pws_tmp00-11) into 1090-109f
+;         ldx     #$0F
+; @save_loop:
+;         lda     aws_tmp12,x
+;         sta     fuji_buf_ws_tmp_buf,x
+;         dex
+;         bpl     @save_loop
 
         ; Check if FujiNet initialized
         bit     fuji_state
@@ -211,16 +169,16 @@ fuji_begin_transaction:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 fuji_end_transaction:
+
+; TODO: do we need this? Tests seem to pass when we don't do it
         ; Restore workspace variables from 1090-109F into BC-CB
         ; we don't reach into 10A0
-        ; TODO: Verify why we don't do all the fields. could we save more state?
-        ; Is this very MMFS specific?
-        ldx     #$0F
-@restore_loop:
-        lda     fuji_buf_ws_tmp_buf,x
-        sta     aws_tmp12,x
-        dex
-        bpl     @restore_loop
+;         ldx     #$0F
+; @restore_loop:
+;         lda     fuji_buf_ws_tmp_buf,x
+;         sta     aws_tmp12,x
+;         dex
+;         bpl     @restore_loop
 
         ; Restore original IRQ-disable state without disturbing other flags
         ; (e.g. carry from the wrapped operation).
@@ -271,16 +229,3 @@ fuji_write_mem_block:
         jsr     fuji_end_transaction     ; Restore &BC-&CB
         lda     #1                       ; Success
         rts
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; DATA LAYER FUNCTIONS
-; These are implemented in fuji_serial.s (or other interface modules)
-; The function names are implementation-agnostic
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-; These functions are implemented in the interface layer:
-; - fuji_read_block_data
-; - fuji_write_block_data  
-; - fuji_read_catalog_data
-; - fuji_write_catalog_data
-; - fuji_read_disc_title_data

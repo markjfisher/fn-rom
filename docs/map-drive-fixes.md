@@ -149,8 +149,6 @@ If mapped:
 
 Best architectural location is likely one small shared helper in assembly, used by:
 
-- `fuji_read_block`
-- `fuji_write_block`
 - `fuji_read_catalog`
 - `fuji_write_catalog`
 - `fuji_read_mem_block`

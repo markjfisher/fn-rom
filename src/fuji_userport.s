@@ -12,13 +12,6 @@
         .export fuji_write_block_data
         .export fuji_write_catalog_data
 
-        ; FUJI functions
-        .export fuji_execute_reset
-        .export fuji_execute_set_host_url_n
-
-        .import remember_axy
-        .import err_disk
-
         .include "fujinet.inc"
 
         .segment "CODE"
@@ -30,8 +23,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 fuji_read_block_data:
-        jsr     remember_axy
-
         ; TODO: Implement User Port communication to read block
         ; 1. Send read command to FujiNet via User Port
         ; 2. Send block parameters (sector, count, etc.)
@@ -49,8 +40,6 @@ fuji_read_block_data:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 fuji_write_block_data:
-        jsr     remember_axy
-
         ; TODO: Implement User Port communication to write block
         ; 1. Send write command to FujiNet via User Port
         ; 2. Send block parameters (sector, count, etc.)
@@ -68,8 +57,6 @@ fuji_write_block_data:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 fuji_read_catalog_data:
-        jsr     remember_axy
-
         ; TODO: Implement User Port communication to read catalog
         ; 1. Send "GET_CATALOGUE" command to FujiNet via User Port
         ; 2. Receive 512-byte catalog data
@@ -87,8 +74,6 @@ fuji_read_catalog_data:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 fuji_write_catalog_data:
-        jsr     remember_axy
-
         ; TODO: Implement User Port communication to write catalog
         ; 1. Send "PUT_CATALOGUE" command to FujiNet via User Port
         ; 2. Send 512-byte catalog data from buffer at data_ptr
@@ -106,8 +91,6 @@ fuji_write_catalog_data:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 fuji_read_disc_title_data:
-        jsr     remember_axy
-
         ; TODO: Implement User Port communication to read disc title
         ; 1. Send "GET_DISC_TITLE" command to FujiNet via User Port
         ; 2. Receive disc title string (up to 16 chars)
@@ -116,13 +99,6 @@ fuji_read_disc_title_data:
 
         ; For now, just return success
         clc
-        rts
-
-
-fuji_execute_set_host_url_n:
-        rts
-
-fuji_execute_reset:
         rts
 
 .endif  ; FUJINET_INTERFACE_USERPORT

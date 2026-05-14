@@ -21,7 +21,6 @@ The system follows a strict three-layer architecture to maintain separation of c
 ┌─────────────────────────────────────────────────────────────┐
 │  Hardware Interface Layer (Transaction Management)          │
 │  - fuji_read_catalog() / fuji_write_catalog()               │
-│  - fuji_read_block() / fuji_write_block()                   │
 │  - fuji_read_mem_block() / fuji_write_mem_block()           │
 │  - fuji_begin_transaction() / fuji_end_transaction()        │
 │  File: fuji_fs.s                                            │
@@ -119,8 +118,6 @@ All functions that touch hardware MUST be in `fuji_fs.s` and MUST manage transac
 |----------|---------|--------------|
 | `fuji_read_catalog` | Read disk catalog (512 bytes) | ✅ Yes |
 | `fuji_write_catalog` | Write disk catalog | ✅ Yes |
-| `fuji_read_block` | Read data block (for general use) | ✅ Yes |
-| `fuji_write_block` | Write data block (for general use) | ✅ Yes |
 | `fuji_read_mem_block` | Read memory block (OSFILE operations) | ✅ Yes |
 | `fuji_write_mem_block` | Write memory block (OSFILE operations) | ✅ Yes |
 | `fuji_begin_transaction` | Save &BC-&CB to workspace | N/A |
