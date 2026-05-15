@@ -22,10 +22,11 @@
         .import fuji_read_catalog_data
         .import fuji_read_disc_title_data
         .import fuji_saved_i
+        .import fuji_set_disk_slot_from_mapping_or_error
         .import fuji_state
         .import fuji_write_catalog_data
         .import remember_axy
-        .import set_fuji_data_buffer_ptr
+        .import remember_xy_only
 
         .include "fujinet.inc"
 
@@ -71,10 +72,11 @@ init_state:
 ; - Bytes 248-255: Disc title (last 8 chars, if title > 8 chars)
 ; - Bytes 8-247: File directory entries (8 bytes each)
 ; - Each file entry: filename, load/exec addresses, length, attributes
+; Exit: A=FF for error, 00 for ok.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 fuji_read_catalog:
-        jsr     remember_axy
+        jsr     remember_xy_only
         jsr     fuji_begin_transaction
 
         ; Set up catalog buffer at page 0x0E (512 bytes)
@@ -83,11 +85,20 @@ fuji_read_catalog:
         lda     #$0E                    ; Catalogue buffer at page 0x0E
         sta     data_ptr+1
 
-        ; For FujiNet, we need to request the disc catalog from the network
-        ; This is NOT reading physical sectors - it's requesting directory info
+        ; look up the current drive's slot from table, and save it to fuji_disk_slot.
+        ; The returned result is the slot number that was read.
+        ; If there is no slot allocated, then we return FF in A (from the slot number), and no read is performed
+        jsr     fuji_set_disk_slot_from_mapping_or_error
+        bmi     @error_no_slot
         jsr     fuji_read_catalog_data
-        jmp     fuji_end_transaction
 
+        ; fall through to exit
+        lda     #$00
+@error_no_slot:
+        pha
+        jsr     fuji_end_transaction
+        pla
+        rts
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; fuji_write_catalog - Write the disc catalog back to network
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

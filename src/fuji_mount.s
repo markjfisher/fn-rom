@@ -2,17 +2,18 @@
 ; Implements drive-to-disk-image mapping (like MMFS *DIN command)
 ; This is part of the Hardware Interface Layer (fuji_fs.s equivalent)
 
-        .export fuji_mount_disk
-        .export fuji_unmount_disk
-        .export fuji_get_mounted_disk
-        .export fuji_set_slot
         .export fuji_get_slot
+        .export fuji_mount_disk
+        .export fuji_set_disk_slot_from_mapping_or_error
+        .export fuji_set_slot
+        .export fuji_unmount_disk
 
         .importzp aws_tmp08
 
         .importzp current_drv
 
         .import fuji_begin_transaction
+        .import fuji_disk_slot
         .import fuji_drive_disk_map
         .import fuji_end_transaction
         .import fuji_get_mount_slot_data
@@ -67,15 +68,15 @@ fuji_unmount_disk:
         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; fuji_get_mounted_disk - Get which disk is mounted in current drive
-;
-; Entry: current_drv = drive number (0-3)
-; Exit:  A = disk image number (or $FF if none mounted)
+; fuji_set_disk_slot_from_mapping_or_error - Get which fujinet SLOT is mounted in current drive
+; N=1 means no slot was set in mappings, fuji_disk_slot was set to FF
+; N=0 means fuji_disk_slot was correctly set
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-fuji_get_mounted_disk:
+fuji_set_disk_slot_from_mapping_or_error:
         ldx     current_drv
         lda     fuji_drive_disk_map,x
+        sta     fuji_disk_slot                  ; this will change to FF if no slot from FIN
         rts
 
 ;//////////////////////////////////////////////////////////////////////

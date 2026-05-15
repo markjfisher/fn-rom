@@ -1,3 +1,4 @@
+        .export err_cat
         .export fscv5_starCAT
 
         .importzp aws_tmp06
@@ -30,6 +31,7 @@
         .import print_string
         .import prt_filename_yoffset
         .import prt_y_spaces
+        .import report_error
         .import set_text_pointer_yx
         .import ucasea2
         .import y_add7
@@ -39,14 +41,20 @@
 
 .code
 
+err_cat:
+        jsr     report_error
+        .byte   $CB
+        .byte   "No disk", 0
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; FSCV5_STARCAT - Handle *CAT command
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 fscv5_starCAT:
         jsr     set_text_pointer_yx
-        jsr     param_optional_drive_no         ; we need to check if this works with FujiNet impl
+        jsr     param_optional_drive_no
         jsr     fuji_read_catalog
+        bmi     err_cat
 
         ldy     #$FF
         sty     aws_tmp07

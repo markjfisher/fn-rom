@@ -73,6 +73,7 @@
         .import dfs_cat_file_name
         .import dfs_cat_num_x8
         .import err_bad
+        .import err_cat
         .import err_disk
         .import fuji_ch_bptr_hi
         .import fuji_ch_bptr_low
@@ -405,6 +406,7 @@ load_cur_drv_cat2:
 load_cur_drv_cat:
         ; Load catalog from FujiNet interface (equivalent to OW7F_Execute_and_ReportIfDiskFault)
         jsr     fuji_read_catalog
+        bmi     err_reading_cat
 
         ; Mark catalog as loaded for current drive (equivalent to MMFS line 7322-7323)
         ; why does this work? isnt' current_cat "0" rather than 0?
@@ -412,6 +414,9 @@ write_current_drv_to_cat:
         lda     current_drv
         sta     current_cat
         rts
+
+err_reading_cat:
+        jmp     err_cat
 
 ; read a generic string, non optional, error if empty
 ; and save into fuji_filename_buffer
