@@ -14,6 +14,8 @@
         .export  cfl_flist_one_page
         .export  cfl_is_long_keyword
         .export  cfl_long_entry
+        .export  cfl_print_u64le
+        .export  cfl_print_u16_le
         .export  cfl_no_slash
         .export  cfl_page_loop
         .export  cfl_pr_chars
@@ -36,8 +38,10 @@
         .importzp aws_tmp07
         .importzp aws_tmp08
         .importzp aws_tmp09
+        .importzp aws_tmp10
         .importzp aws_tmp12
         .importzp aws_tmp13
+        .importzp pws_tmp02
         .importzp pws_tmp04
         .importzp pws_tmp05
         .importzp pws_tmp06
@@ -77,6 +81,7 @@
         .import print_newline
         .import print_space
         .import print_string
+        .import print_string_ax
         .import report_error
 
         .include "fujinet.inc"
@@ -559,12 +564,14 @@ cfl_no_slash:
 cfl_long_entry:
         lda     cws_tmp8
         beq     cfl_long_file
-        jsr     print_string
-        .byte   "DIR ", 0
+        lda     #<cfl_str_dir
+        ldx     #>cfl_str_dir
+        jsr     print_string_ax
         jmp     cfl_long_kind_done
 cfl_long_file:
-        jsr     print_string
-        .byte   "FILE ", 0
+        lda     #<cfl_str_file
+        ldx     #>cfl_str_file
+        jsr     print_string_ax
 cfl_long_kind_done:
         lda     aws_tmp00
         clc
@@ -582,8 +589,15 @@ cfl_long_kind_done:
         adc     aws_tmp09
         sta     aws_tmp09
 
-        ldy     #$00
+        lda     aws_tmp08
+        pha
+        lda     aws_tmp09
+        pha
         jsr     cfl_print_u64le
+        pla
+        sta     aws_tmp09
+        pla
+        sta     aws_tmp08
 
         jsr     print_space
 
@@ -595,8 +609,15 @@ cfl_long_kind_done:
         adc     #$00
         sta     aws_tmp09
 
-        ldy     #$00
+        lda     aws_tmp08
+        pha
+        lda     aws_tmp09
+        pha
         jsr     cfl_print_u64le
+        pla
+        sta     aws_tmp09
+        pla
+        sta     aws_tmp08
 
         jsr     print_space
 
@@ -623,21 +644,45 @@ cfl_long_name:
 
 cfl_long_name_done:
         jsr     cfl_print_crlf
+        jmp     cfl_entry_advance
 
 ;------------------------------------------------------------------------------
 cfl_print_crlf:
         jmp     print_newline
 
 cfl_entry_advance:
-        ; aws_tmp08/09 already point just past this entry's name (see cfl_pr_chars).
+        lda     fuji_channel_scratch
+        bne     cfl_entry_advance_long
+
+        ; Compact: aws_tmp08/09 point just past this entry's name (cfl_pr_chars).
         lda     aws_tmp08
         sta     aws_tmp00
         lda     aws_tmp09
         sta     aws_tmp01
+        jmp     cfl_dec_entry_count
 
-        ; Long entries include u64 size + u64 mtime after the name.
-        lda     fuji_channel_scratch
-        beq     cfl_dec_entry_count
+cfl_entry_advance_long:
+        ; Long: next = entry + 2 + nameLen + 16 (u64 size + u64 mtime).
+        ; cws_tmp1 is zero after the name loop; read nameLen from the entry.
+        ldy     #1
+        lda     (aws_tmp00),y
+        sta     pws_tmp02
+
+        lda     aws_tmp00
+        clc
+        adc     #$02
+        sta     aws_tmp00
+        lda     aws_tmp01
+        adc     #$00
+        sta     aws_tmp01
+
+        lda     pws_tmp02
+        clc
+        adc     aws_tmp00
+        sta     aws_tmp00
+        lda     aws_tmp01
+        adc     #$00
+        sta     aws_tmp01
 
         lda     aws_tmp00
         clc
@@ -657,81 +702,118 @@ cfl_dec_entry_count:
         jmp     cfl_entry_loop
 
 
-; Binary u64 scratch follows the 20-digit BCD block in fuji_filename_buffer.
+; Binary u64 scratch at fuji_filename_buffer + CFL_U64_BIN.
 CFL_U64_BIN = $14
-CFL_U64_BCD_DIGITS = $14
 
 ;------------------------------------------------------------------------------
 ; Print unsigned 64-bit little-endian value at (aws_tmp08),Y as decimal.
-; Uses fuji_filename_buffer[0..19] for BCD and [20..27] for the binary value.
+; Uses a fast 16-bit path when the upper dword is zero (typical file sizes).
 ;------------------------------------------------------------------------------
 cfl_print_u64le:
-        sty     aws_tmp14
+        tya
+        pha
 
-        ldy     #$00
-cfl_u64_copy:
+        ldy     #$02
+cfl_u64_chk_hi:
         lda     (aws_tmp08),y
-        sta     fuji_filename_buffer + CFL_U64_BIN,y
+        bne     cfl_u64_large
         iny
         cpy     #$08
-        bcc     cfl_u64_copy
-
-        ldx     #CFL_U64_BCD_DIGITS - 1
-        lda     #$00
-cfl_u64_clear:
-        sta     fuji_filename_buffer,x
-        dex
-        bpl     cfl_u64_clear
-
-        ldx     #$40
-cfl_u64_shift:
-        lda     fuji_filename_buffer + CFL_U64_BIN
-        asl     a
-        sta     fuji_filename_buffer + CFL_U64_BIN
-        rol     fuji_filename_buffer + CFL_U64_BIN + 1
-        rol     fuji_filename_buffer + CFL_U64_BIN + 2
-        rol     fuji_filename_buffer + CFL_U64_BIN + 3
-        rol     fuji_filename_buffer + CFL_U64_BIN + 4
-        rol     fuji_filename_buffer + CFL_U64_BIN + 5
-        rol     fuji_filename_buffer + CFL_U64_BIN + 6
-        rol     fuji_filename_buffer + CFL_U64_BIN + 7
+        bcc     cfl_u64_chk_hi
 
         ldy     #$00
-cfl_u64_bcd:
-        lda     fuji_filename_buffer,y
-        rol     a
-        cmp     #$0A
-        bcc     cfl_u64_bcd_ok
-        sbc     #$0A
-cfl_u64_bcd_ok:
-        sta     fuji_filename_buffer,y
+        lda     (aws_tmp08),y
+        sta     aws_tmp02
         iny
-        cpy     #CFL_U64_BCD_DIGITS
-        bcc     cfl_u64_bcd
+        lda     (aws_tmp08),y
+        sta     aws_tmp03
+        jsr     cfl_print_u16_le
+        jmp     cfl_u64_done
 
-        dex
-        bne     cfl_u64_shift
-
-        lda     #$00
-        sta     aws_tmp14
-
-        ldx     #$00
-cfl_u64_digits:
-        lda     fuji_filename_buffer,x
-        ora     aws_tmp14
-        sta     aws_tmp14
-        beq     cfl_u64_skip_digit
-        ora     #$30
+cfl_u64_large:
+        lda     #'?'
         jsr     print_char
-cfl_u64_skip_digit:
-        inx
-        cpx     #CFL_U64_BCD_DIGITS
-        bcc     cfl_u64_digits
 
-        lda     aws_tmp14
-        bne     cfl_u64_done
+cfl_u64_done:
+        pla
+        tay
+        rts
+
+;------------------------------------------------------------------------------
+; Print 16-bit little-endian value in aws_tmp02 (lo) / aws_tmp03 (hi).
+; Uses pws_tmp02 for the current digit count (aws_tmp10 = fuji_bus_tx_payload_lo).
+;------------------------------------------------------------------------------
+cfl_print_u16_le:
+        cld
+        lda     aws_tmp02
+        ora     aws_tmp03
+        bne     cfl_u16_nz
         lda     #'0'
         jsr     print_char
-cfl_u64_done:
-        ldy     aws_tmp14
         rts
+
+cfl_u16_nz:
+        lda     #$00
+        sta     aws_tmp14               ; 0 = still skipping leading zeros
+
+        ldx     #$04
+cfl_u16_div_idx:
+        lda     cfl_u16_div_lo,x
+        sta     aws_tmp04
+        lda     cfl_u16_div_hi,x
+        sta     aws_tmp05
+
+        lda     #$00
+        sta     pws_tmp02
+
+cfl_u16_sub10:
+        lda     aws_tmp02
+        sec
+        sbc     aws_tmp04
+        tay
+        lda     aws_tmp03
+        sbc     aws_tmp05
+        bcc     cfl_u16_sub_done
+
+        sty     aws_tmp02
+        sta     aws_tmp03
+        inc     pws_tmp02
+        jmp     cfl_u16_sub10
+
+cfl_u16_sub_done:
+        lda     pws_tmp02
+        bne     cfl_u16_emit
+        lda     aws_tmp14
+        beq     cfl_u16_skip_out
+        lda     #'0'
+        jsr     print_char
+        jmp     cfl_u16_skip_out
+
+cfl_u16_emit:
+        lda     pws_tmp02
+        clc
+        adc     #'0'
+        jsr     print_char
+        lda     #$01
+        sta     aws_tmp14
+cfl_u16_skip_out:
+        dex
+        bpl     cfl_u16_div_idx
+
+        lda     aws_tmp14
+        bne     cfl_u16_done
+        lda     #'0'
+        jsr     print_char
+cfl_u16_done:
+        rts
+
+; Index 4 = 10000 … index 0 = 1 (matches LDX #$04 / DEX loop).
+cfl_u16_div_lo:
+        .byte   $01, $0A, $64, $E8, $10
+cfl_u16_div_hi:
+        .byte   $00, $00, $00, $03, $27
+
+cfl_str_dir:
+        .byte   "DIR ", $80
+cfl_str_file:
+        .byte   "FILE ", $80

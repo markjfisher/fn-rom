@@ -121,7 +121,7 @@ fujibus_read_slip_stream:
         bne     @read_err
 
         sta     aws_tmp04
-        beq     @process_char
+        jmp     @process_char
 
 @read_err:
         jmp     @error

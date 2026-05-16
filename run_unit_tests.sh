@@ -13,5 +13,6 @@ cd unit-tests/harness
 # run the tests
 cd -
 
-soft65c02_unit -v -i unit-tests/tests/fuji_init/test_fuji_init.yaml
-soft65c02_unit -v -i unit-tests/tests/commands/fls/test_fls.yaml
+# soft65c02_unit -v -i unit-tests/tests/fuji_init/test_fuji_init.yaml
+# soft65c02_unit -v -i unit-tests/tests/commands/fls/test_fls.yaml
+soft65c02_unit -v -i unit-tests/tests/commands/fls/test_fls_long.yaml

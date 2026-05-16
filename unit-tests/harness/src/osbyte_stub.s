@@ -5,6 +5,7 @@
 ;   memory write $osbyte_76_fake_keyboard 0x80
 ;
         .export  h_osbyte_entry
+        .export  h_osbyte_do_jmp
         .export  osbyte_76_fake_keyboard
         .export  osbyte_8f_claim_type
         .export  osbyte_break_type
@@ -55,6 +56,7 @@ h_osbyte_entry:
         ; restore A and X
         txa
         ldx     osbyte_saveX
+h_osbyte_do_jmp:
         rts
 
 ; Default: unimplemented OSBYTE — replace table slot when adding a handler

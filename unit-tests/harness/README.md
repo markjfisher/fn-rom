@@ -27,6 +27,8 @@ Use different load addresses per test (e.g. SLIP replay at `$C000`, print captur
 
 `print_mock.s` stores OSWRCH output at **`$C800`** when `mock_print_armed` is non-zero. Tests clear `$C800`–`$CFFF`, arm capture at the right point (e.g. when `PC = $cfl_entry_loop`), then assert on `#0xC800`.
 
+`gs_stub.s` reads the simulated command line from **`$1E00`** (NUL-terminated; GSREAD ends with CR). Do not place the buffer below `$1E00` — harness code uses that page.
+
 ## Build
 
 The unit tester `soft65c02_unit` builds the harness when running a test. Requires `fnrom.inc` in this folder (`./create_rom_inc.sh` from the repo root, or `./run_unit_tests.sh`).
