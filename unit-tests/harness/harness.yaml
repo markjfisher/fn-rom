@@ -8,6 +8,9 @@ config_file: ./cfg/harness.ld65.cfg
 src_files:
   - ./src/crt0.s
   - ./src/osbyte_stub.s
+  - ./src/serial_mock.s
+  - ./src/print_mock.s
+  - ./src/gs_stub.s
   - ./src/mos_vectors.s
   - ./src/fscv_stub.s
   - ./src/stubs.s

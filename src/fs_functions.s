@@ -26,6 +26,7 @@
         .export param_drive_or_default
         .export param_get_num
         .export param_get_string
+        .export param_get_string_no_init
         .export param_optional_drive_no
         .export param_syntax_error_if_null
         .export param_syntax_error_if_null_getcatentry_fsptxtp

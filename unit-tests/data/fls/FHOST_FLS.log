@@ -1,0 +1,66 @@
+2026-05-16 13:52:25.911 [I] fujibus: receive: id=1 dev=0xFE cmd=0x05 params=0 payload=26
+2026-05-16 13:52:25.911 [I] fujibus:   payload (26 bytes):
+2026-05-16 13:52:25.911 [I] fujibus:   0000: 01 15 00 74 6e 66 73 3a 2f 2f 31 39 32 2e 31 36  |...tnfs://192.16|
+2026-05-16 13:52:25.911 [I] fujibus:   0010: 38 2e 31 2e 31 30 31 2f 00 00                    |8.1.101/..|
+2026-05-16 13:52:25.911 [D] udp: UdpChannel constructor called with host: 192.168.1.101, port: 16384
+2026-05-16 13:52:25.911 [I] udp: UDP channel created for 192.168.1.101:16384
+2026-05-16 13:52:25.911 [I] tnfs: UDP TNFS client created
+2026-05-16 13:52:25.911 [D] udp: Sending 10 bytes: 00 00 00 00 02 01 2F 00 00 00
+2026-05-16 13:52:25.921 [D] udp: Received 9 bytes: CD 7C 00 00 00 02 01 E8 03
+2026-05-16 13:52:25.921 [I] tnfs: Mounted UDP session 0x7CCD
+2026-05-16 13:52:25.921 [I] tnfs_fs: Mounted TNFS session 192.168.1.101:16384
+2026-05-16 13:52:25.921 [D] udp: Sending 6 bytes: CD 7C 01 24 2F 00
+2026-05-16 13:52:25.931 [D] udp: Received 27 bytes: CD 7C 01 24 00 ED 41 E8 03 E8 03 00 10 00 00 EB ...
+2026-05-16 13:52:25.931 [I] fujibus: send: dev=0xFE status=0 cmd=0x05 payload=30
+2026-05-16 13:52:25.931 [I] fujibus:   payload (30 bytes):
+2026-05-16 13:52:25.931 [I] fujibus:   0000: 01 03 00 00 15 00 74 6e 66 73 3a 2f 2f 31 39 32  |......tnfs://192|
+2026-05-16 13:52:25.931 [I] fujibus:   0010: 2e 31 36 38 2e 31 2e 31 30 31 2f 01 00 2f        |.168.1.101/../|
+
+
+2026-05-16 13:52:41.802 [I] fujibus: receive: id=2 dev=0xFE cmd=0x02 params=0 payload=29
+2026-05-16 13:52:41.802 [I] fujibus:   payload (29 bytes):
+2026-05-16 13:52:41.802 [I] fujibus:   0000: 01 15 00 74 6e 66 73 3a 2f 2f 31 39 32 2e 31 36  |...tnfs://192.16|
+2026-05-16 13:52:41.802 [I] fujibus:   0010: 38 2e 31 2e 31 30 31 2f 00 00 dc 00 03           |8.1.101/.....|
+2026-05-16 13:52:41.802 [D] udp: Sending 6 bytes: CD 7C 02 24 2F 00
+2026-05-16 13:52:41.812 [D] udp: Received 27 bytes: CD 7C 02 24 00 ED 41 E8 03 E8 03 00 10 00 00 EB ...
+2026-05-16 13:52:41.812 [D] udp: Sending 6 bytes: CD 7C 03 10 2F 00
+2026-05-16 13:52:41.822 [D] udp: Received 6 bytes: CD 7C 03 10 00 00
+2026-05-16 13:52:41.822 [D] udp: Sending 5 bytes: CD 7C 04 11 00
+2026-05-16 13:52:41.832 [D] udp: Received 12 bytes: CD 7C 04 11 00 73 75 62 64 69 72 00
+2026-05-16 13:52:41.832 [D] udp: Sending 5 bytes: CD 7C 05 11 00
+2026-05-16 13:52:41.842 [D] udp: Received 7 bytes: CD 7C 05 11 00 2E 00
+2026-05-16 13:52:41.842 [D] udp: Sending 5 bytes: CD 7C 06 11 00
+2026-05-16 13:52:41.853 [D] udp: Received 24 bytes: CD 7C 06 11 00 74 6E 66 73 2D 77 72 69 74 65 2D ...
+2026-05-16 13:52:41.853 [D] udp: Sending 5 bytes: CD 7C 07 11 00
+2026-05-16 13:52:41.863 [D] udp: Received 11 bytes: CD 7C 07 11 00 61 74 61 72 69 00
+2026-05-16 13:52:41.863 [D] udp: Sending 5 bytes: CD 7C 08 11 00
+2026-05-16 13:52:41.873 [D] udp: Received 24 bytes: CD 7C 08 11 00 74 6E 66 73 2D 77 72 69 74 65 2D ...
+2026-05-16 13:52:41.873 [D] udp: Sending 5 bytes: CD 7C 09 11 00
+2026-05-16 13:52:41.883 [D] udp: Received 8 bytes: CD 7C 09 11 00 2E 2E 00
+2026-05-16 13:52:41.883 [D] udp: Sending 5 bytes: CD 7C 0A 11 00
+2026-05-16 13:52:41.893 [D] udp: Received 9 bytes: CD 7C 0A 11 00 62 62 63 00
+2026-05-16 13:52:41.893 [D] udp: Sending 5 bytes: CD 7C 0B 11 00
+2026-05-16 13:52:41.903 [D] udp: Received 14 bytes: CD 7C 0B 11 00 74 65 73 74 2E 74 78 74 00
+2026-05-16 13:52:41.903 [D] udp: Sending 5 bytes: CD 7C 0C 11 00
+2026-05-16 13:52:41.913 [D] udp: Received 5 bytes: CD 7C 0C 11 21
+2026-05-16 13:52:41.913 [D] udp: Sending 5 bytes: CD 7C 0D 12 00
+2026-05-16 13:52:41.923 [D] udp: Received 5 bytes: CD 7C 0D 12 00
+2026-05-16 13:52:41.923 [D] udp: Sending 12 bytes: CD 7C 0E 24 2F 73 75 62 64 69 72 00
+2026-05-16 13:52:41.933 [D] udp: Received 27 bytes: CD 7C 0E 24 00 ED 41 E8 03 E8 03 00 10 00 00 3A ...
+2026-05-16 13:52:41.933 [D] udp: Sending 24 bytes: CD 7C 0F 24 2F 74 6E 66 73 2D 77 72 69 74 65 2D ...
+2026-05-16 13:52:41.943 [D] udp: Received 27 bytes: CD 7C 0F 24 00 A4 81 E8 03 E8 03 37 00 00 00 43 ...
+2026-05-16 13:52:41.943 [D] udp: Sending 11 bytes: CD 7C 10 24 2F 61 74 61 72 69 00
+2026-05-16 13:52:41.953 [D] udp: Received 27 bytes: CD 7C 10 24 00 ED 41 E8 03 E8 03 00 10 00 00 3A ...
+2026-05-16 13:52:41.953 [D] udp: Sending 24 bytes: CD 7C 11 24 2F 74 6E 66 73 2D 77 72 69 74 65 2D ...
+2026-05-16 13:52:41.963 [D] udp: Received 27 bytes: CD 7C 11 24 00 A4 81 E8 03 E8 03 37 00 00 00 43 ...
+2026-05-16 13:52:41.963 [D] udp: Sending 9 bytes: CD 7C 12 24 2F 62 62 63 00
+2026-05-16 13:52:41.973 [D] udp: Received 27 bytes: CD 7C 12 24 00 ED 41 E8 03 E8 03 00 10 00 00 63 ...
+2026-05-16 13:52:41.973 [D] udp: Sending 14 bytes: CD 7C 13 24 2F 74 65 73 74 2E 74 78 74 00
+2026-05-16 13:52:41.983 [D] udp: Received 27 bytes: CD 7C 13 24 00 A4 81 E8 03 E8 03 12 00 00 00 43 ...
+2026-05-16 13:52:41.984 [I] fujibus: send: dev=0xFE status=0 cmd=0x02 payload=80
+2026-05-16 13:52:41.984 [I] fujibus:   payload (80 bytes):
+2026-05-16 13:52:41.984 [I] fujibus:   0000: 01 02 00 00 00 00 06 00 46 00 01 05 61 74 61 72  |........F...atar|
+2026-05-16 13:52:41.984 [I] fujibus:   0010: 69 01 03 62 62 63 01 06 73 75 62 64 69 72 00 08  |i..bbc..subdir..|
+2026-05-16 13:52:41.984 [I] fujibus:   0020: 74 65 73 74 2e 74 78 74 00 12 74 6e 66 73 2d 77  |test.txt..tnfs-w|
+2026-05-16 13:52:41.984 [I] fujibus:   0030: 72 69 74 65 2d 74 63 70 2e 74 78 74 00 12 74 6e  |rite-tcp.txt..tn|
+2026-05-16 13:52:41.984 [I] fujibus:   0040: 66 73 2d 77 72 69 74 65 2d 75 64 70 2e 74 78 74  |fs-write-udp.txt|

@@ -1,0 +1,6 @@
+name: run *FLS command
+
+configs:
+  - ${UNIT_TEST_DIR}/harness/harness.yaml
+
+test_script: test_fls.txt 

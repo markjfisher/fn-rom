@@ -1,5 +1,3 @@
-.export h_gsinit_entry
-.export h_gsread_entry
 .export h_nvrdch_entry
 .export h_nvwrch_entry
 .export h_osargs_entry
@@ -13,13 +11,10 @@
 .export h_osrdch_entry
 .export h_osrdrm_entry
 .export h_osword_entry
-.export h_oswrch_entry
 .export h_unknown_entry
 
 h_osrdrm_entry:
 h_oseven_entry:
-h_gsinit_entry:
-h_gsread_entry:
 h_nvwrch_entry:
 h_nvrdch_entry:
 h_osfind_entry:
@@ -29,7 +24,6 @@ h_osbget_entry:
 h_osargs_entry:
 h_osfile_entry:
 h_osrdch_entry:
-h_oswrch_entry:
 h_osword_entry:
 h_oscli_entry:
 

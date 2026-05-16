@@ -15,7 +15,21 @@
         .export  osbyte_ea
         .export  osbyte_fd
 
+        .import  osbyte_80
+        .import  osbyte_91
+
         .segment "CODE"
+
+osbyte_noop:
+        rts
+
+osbyte_01:
+        rts
+
+; OSBYTE 236 — character destination (print_char); return screen in X.
+osbyte_ec:
+        ldx     #$00
+        rts
 
 osbyte_76_fake_keyboard:
         .byte   0               ; bit7 = CTRL for OSBYTE &76
@@ -54,14 +68,32 @@ osbyte_unimplemented:
 
 osbyte_table_lo:
 .repeat 256, cmd
-        .if     cmd = $76
+        .if     cmd = $01
+        .byte   .lobyte(osbyte_01 - 1)
+        .elseif cmd = $02
+        .byte   .lobyte(osbyte_noop - 1)
+        .elseif cmd = $03
+        .byte   .lobyte(osbyte_noop - 1)
+        .elseif cmd = $07
+        .byte   .lobyte(osbyte_noop - 1)
+        .elseif cmd = $08
+        .byte   .lobyte(osbyte_noop - 1)
+        .elseif cmd = $15
+        .byte   .lobyte(osbyte_noop - 1)
+        .elseif cmd = $76
         .byte   .lobyte(osbyte_76 - 1)
+        .elseif cmd = $80
+        .byte   .lobyte(osbyte_80 - 1)
+        .elseif cmd = $91
+        .byte   .lobyte(osbyte_91 - 1)
         .elseif cmd = $a8
         .byte   .lobyte(osbyte_a8 - 1)
         .elseif cmd = $8f
         .byte   .lobyte(osbyte_8f - 1)
         .elseif cmd = $ea
         .byte   .lobyte(osbyte_ea - 1)
+        .elseif cmd = $ec
+        .byte   .lobyte(osbyte_ec - 1)
         .elseif cmd = $fd
         .byte   .lobyte(osbyte_fd - 1)
         .else
@@ -71,14 +103,32 @@ osbyte_table_lo:
 
 osbyte_table_hi:
 .repeat 256, cmd
-        .if     cmd = $76
+        .if     cmd = $01
+        .byte   .hibyte(osbyte_01 - 1)
+        .elseif cmd = $02
+        .byte   .hibyte(osbyte_noop - 1)
+        .elseif cmd = $03
+        .byte   .hibyte(osbyte_noop - 1)
+        .elseif cmd = $07
+        .byte   .hibyte(osbyte_noop - 1)
+        .elseif cmd = $08
+        .byte   .hibyte(osbyte_noop - 1)
+        .elseif cmd = $15
+        .byte   .hibyte(osbyte_noop - 1)
+        .elseif cmd = $76
         .byte   .hibyte(osbyte_76 - 1)
+        .elseif cmd = $80
+        .byte   .hibyte(osbyte_80 - 1)
+        .elseif cmd = $91
+        .byte   .hibyte(osbyte_91 - 1)
         .elseif cmd = $8f
         .byte   .hibyte(osbyte_8f - 1)
         .elseif cmd = $a8
         .byte   .hibyte(osbyte_a8 - 1)
         .elseif cmd = $ea
         .byte   .hibyte(osbyte_ea - 1)
+        .elseif cmd = $ec
+        .byte   .hibyte(osbyte_ec - 1)
         .elseif cmd = $fd
         .byte   .hibyte(osbyte_fd - 1)
         .else

@@ -1,14 +1,19 @@
 ; *FLIST / *FLS — list directory via FileDevice ListDirectory (hand asm)
+;
+;   *FLS                    compact names (current directory)
+;   *FLS LONG               long listing (size + unix time) for current directory
+;   *FLS <path>             compact names for <path>
+;   *FLS <path> LONG        long listing for <path>  (LONG must be the last argument)
 
         .export  cmd_fs_flist
 
         .export  cfl_after_name
-        .export  cfl_compact_skip
-        ; cfl_copy_uri removed: no-arg path now uses current fs uri directly
+        .export  cfl_copy_uri
         .export  cfl_done_ok
         .export  cfl_entry_loop
         .export  cfl_flist_one_page
-        ; cfl_len_ok removed: no-arg path now uses current fs uri directly
+        .export  cfl_is_long_keyword
+        .export  cfl_long_entry
         .export  cfl_no_slash
         .export  cfl_page_loop
         .export  cfl_pr_chars
@@ -18,7 +23,8 @@
         .export  cfl_tx_uri_done
         .export  cfl_uri_len_from_nul
         .export  cfl_uri_len_ok
-        ; cfl_zterm removed: no-arg path now uses current fs uri directly
+        .export  cfl_use_current_uri
+        .export  cfl_zterm
 
         .importzp aws_tmp00
         .importzp aws_tmp01
@@ -36,11 +42,11 @@
         .importzp pws_tmp05
         .importzp pws_tmp06
         .importzp pws_tmp07
-        .importzp pws_tmp08
         .importzp pws_tmp09
         .importzp cws_tmp1
         .importzp cws_tmp2
         .importzp cws_tmp3
+        .importzp cws_tmp7
         .importzp cws_tmp8
 
         .importzp buffer_ptr
@@ -53,20 +59,25 @@
         .import err_no_host
         .import exit_user_ok
         .import flist_resolve_target
+        .import fuji_channel_scratch
+        .importzp aws_tmp14
         .import fuji_current_dir_len
         .import fuji_current_fs_len
         .import fuji_current_host_len
+        .import fuji_filename_buffer
         .import fuji_filename_len
         .import fujibus_receive_packet
         .import fujibus_send_packet
         .import get_fuji_fs_uri_addr_to_aws_tmp00
         .import get_fuji_host_uri_addr_to_aws_tmp00
-        .import param_count
+        .import num_params
         .import param_get_string
+        .import param_get_string_no_init
         .import print_char
         .import print_newline
+        .import print_space
+        .import print_string
         .import report_error
-        .import set_fuji_data_buffer_ptr
 
         .include "fujinet.inc"
 
@@ -76,8 +87,19 @@ FLIST_URI_BUFFER_SIZE   = FUJI_FS_URI_BUFFER_SIZE
 ; Max bytes for the variable entries blob in the ListDirectory response.
 ; FUJI_PWS_PACKET_SIZE (274) minus FujiBus/status (7) and list header (10).
 FLIST_MAX_PAYLOAD       = 220
-; Host file_commands.h: kListFlagCompactOmitMetadata | kListFlagSortByName
-FLIST_LIST_FLAGS        = $03
+; Host file_commands.h: compact+sort, or sort-only for long listings
+FLIST_LIST_FLAGS_COMPACT = $03
+FLIST_LIST_FLAGS_LONG   = $02
+
+; FujiBus response layout (file payload begins at buffer+7 after status bytes).
+CFL_RESP_VERSION        = $07
+CFL_RESP_FLAGS          = $08
+CFL_RESP_ENTRY_COUNT    = $0D
+CFL_RESP_ENTRIES_LEN    = $0F
+CFL_RESP_ENTRIES        = $11
+
+; fuji_channel_scratch: 0 = compact listing, non-zero = long listing (size + mtime)
+; (must not use cws_tmp6/7 — clobbered by FujiBus RX and ResolvePath)
 
 ;------------------------------------------------------------------------------
 ; uint8_t cmd_fs_flist(void)
@@ -93,40 +115,122 @@ cmd_fs_flist:
         jmp     err_no_host
 
 parse_flist_params:
-        jsr     param_count
-        bcc     cfl_no_param
+        lda     #$00
+        sta     fuji_channel_scratch        ; compact by default
 
-        clc                                     ; terminate with spaces
+        jsr     num_params
+        sta     cws_tmp7
+        bne     cfl_dispatch_params
+        jmp     cfl_use_current_uri
+cfl_dispatch_params:
+
+        cmp     #$03
+        bcs     err_bad_flist_syntax
+
+        cmp     #$02
+        beq     cfl_parse_path_long
+
+        ; exactly one parameter
+        clc
         jsr     param_get_string
         sta     fuji_filename_len
+        jsr     cfl_is_long_keyword
+        bcc     cfl_one_param_long
 
-        ; jsr     set_fuji_data_buffer_ptr
         jsr     flist_resolve_target
-        bcc     cfl_start_list_restore
+        bcs     err_bad_flist_path
+        jmp     cfl_start_list_restore
 
-        ; fall through to error
+cfl_one_param_long:
+        lda     #$01
+        sta     fuji_channel_scratch
+        jmp     cfl_use_current_uri
+
+cfl_parse_path_long:
+        clc
+        jsr     param_get_string
+        sta     fuji_filename_len
+        jsr     flist_resolve_target
+        bcs     err_bad_flist_path
+
+        ; Continue from after the path token (param_get_string re-inits GS).
+        jsr     param_get_string_no_init
+        sta     fuji_filename_len
+        jsr     cfl_is_long_keyword
+        bcs     err_bad_flist_arg
+
+        lda     #$01
+        sta     fuji_channel_scratch
+        jmp     cfl_start_list_restore
+
+err_bad_flist_syntax:
+        jsr     report_error
+        .byte   $CB
+        .byte   "FLS [path] [LONG]", 0
+
 err_bad_flist_path:
         jsr     err_bad
         .byte   $CB
         .byte   "path", 0
 
-cfl_no_param:
+err_bad_flist_arg:
+        jsr     err_bad
+        .byte   $CB
+        .byte   "LONG", 0
+
+;------------------------------------------------------------------------------
+; C=0 if fuji_filename_buffer holds the keyword LONG (length must be 4).
+;------------------------------------------------------------------------------
+cfl_is_long_keyword:
+        lda     fuji_filename_len
+        cmp     #$04
+        bne     cfl_not_long_kw
+
+        ldy     #$00
+        lda     fuji_filename_buffer,y
+        and     #$DF
+        cmp     #'L'
+        bne     cfl_not_long_kw
+        iny
+        lda     fuji_filename_buffer,y
+        and     #$DF
+        cmp     #'O'
+        bne     cfl_not_long_kw
+        iny
+        lda     fuji_filename_buffer,y
+        and     #$DF
+        cmp     #'N'
+        bne     cfl_not_long_kw
+        iny
+        lda     fuji_filename_buffer,y
+        and     #$DF
+        cmp     #'G'
+        bne     cfl_not_long_kw
+
+        clc
+        rts
+
+cfl_not_long_kw:
+        sec
+        rts
+
+;------------------------------------------------------------------------------
+; Use canonical current URI (no path argument).
+;------------------------------------------------------------------------------
+cfl_use_current_uri:
         lda     fuji_current_host_len
         cmp     #FLIST_URI_BUFFER_SIZE
         bcs     err_bad_flist_path
 
         sta     fuji_current_fs_len
 
-        ; fs_uri into aws_tmp02/03
         jsr     get_fuji_fs_uri_addr_to_aws_tmp00
         sta     aws_tmp03
         lda     aws_tmp00
         sta     aws_tmp02
 
-        ; host_uri into aws_tmp00/01
         jsr     get_fuji_host_uri_addr_to_aws_tmp00
 
-        ; copy canonical current URI into working fs uri buffer
         ldy     #$00
 cfl_copy_uri:
         cpy     fuji_current_fs_len
@@ -141,7 +245,6 @@ cfl_zterm:
         sta     (aws_tmp02),y
 
 cfl_start_list_restore:
-        ; ListDirectory start_index (16-bit). Must not live in cws_tmp6/7 ($AD/$AE):
         lda     #$00
         sta     pws_tmp04
         sta     pws_tmp05
@@ -181,19 +284,17 @@ cfl_done_ok:
 
 
 ;------------------------------------------------------------------------------
-; One ListDirectory page. Input: start_index in pws_tmp04/pws_tmp05.
+; One ListDirectory page. Input: start_index in pws_tmp04/pws_tmp05;
+; listing mode in fuji_channel_scratch.
 ; Output: C=0 ok / C=1 fail; pws_tmp06/07 = this page entry count
-;         pws_tmp09 = more pages (0/1); buffer_ptr aliases cws_tmp4/cws_tmp5 only.
+;         pws_tmp09 = more pages (0/1)
 ;------------------------------------------------------------------------------
 cfl_flist_one_page:
-        ; jsr     set_fuji_data_buffer_ptr
-
         lda     fuji_current_fs_len
         sta     cws_tmp8
 
         jsr     get_fuji_fs_uri_addr_to_aws_tmp00
 
-        ; Preserve FS URI pointer before aws_tmp00/01 are reused for packet assembly.
         lda     aws_tmp00
         sta     aws_tmp06
         lda     aws_tmp01
@@ -218,7 +319,6 @@ cfl_uri_len_ok:
         lda     cws_tmp1
         bne     has_length
 
-        ; error out
         sec
         rts
 
@@ -241,7 +341,6 @@ has_length:
         adc     #$00
         sta     aws_tmp01
 
-        ; aws_tmp06/07 holds FS URI
         ldy     #$00
 cfl_tx_uri:
         cpy     cws_tmp1
@@ -273,7 +372,13 @@ cfl_tx_uri_done:
         lda     #>FLIST_MAX_PAYLOAD
         sta     (aws_tmp00),y
         iny
-        lda     #FLIST_LIST_FLAGS
+        lda     fuji_channel_scratch
+        beq     cfl_flags_compact
+        lda     #FLIST_LIST_FLAGS_LONG
+        bne     cfl_flags_store
+cfl_flags_compact:
+        lda     #FLIST_LIST_FLAGS_COMPACT
+cfl_flags_store:
         sta     (aws_tmp00),y
 
         lda     cws_tmp1
@@ -310,7 +415,6 @@ cfl_tx_uri_done:
         ora     aws_tmp13
         beq     cfl_fail_c1
 
-        ; check RX len in aws_tmp12/13
         lda     aws_tmp13
         bne     cfl_rxlen_ok
         lda     aws_tmp12
@@ -331,26 +435,17 @@ cfl_rxlen_ok:
         lda     (buffer_ptr),y
         bne     cfl_fail_c1
 
-        ldy     #$07
+        ldy     #CFL_RESP_VERSION
         lda     (buffer_ptr),y
         cmp     #FN_PROTOCOL_VERSION
         bne     cfl_fail_c1
 
-        ldy     #$08
+        ldy     #CFL_RESP_FLAGS
         lda     (buffer_ptr),y
-        sta     pws_tmp08
         and     #$01
         sta     pws_tmp09
 
-        lda     buffer_ptr
-        clc
-        adc     aws_tmp12
-        sta     aws_tmp02
-        lda     buffer_ptr+1
-        adc     aws_tmp13
-        sta     aws_tmp02+1
-
-        ldy     #$0D
+        ldy     #CFL_RESP_ENTRY_COUNT
         lda     (buffer_ptr),y
         sta     pws_tmp06
         iny
@@ -362,9 +457,34 @@ cfl_rxlen_ok:
         lda     pws_tmp07
         sta     cws_tmp3
 
+        ; entries blob end = buffer + CFL_RESP_ENTRIES + entriesLen
         lda     buffer_ptr
         clc
-        adc     #17
+        adc     #CFL_RESP_ENTRIES
+        sta     aws_tmp00
+        lda     buffer_ptr+1
+        adc     #$00
+        sta     aws_tmp01
+
+        ldy     #CFL_RESP_ENTRIES_LEN
+        lda     (buffer_ptr),y
+        clc
+        adc     aws_tmp00
+        sta     aws_tmp12
+        lda     aws_tmp01
+        adc     #$00
+        sta     aws_tmp13
+        iny
+        lda     (buffer_ptr),y
+        adc     aws_tmp13
+        sta     aws_tmp13
+        bcc     :+
+        inc     aws_tmp12
+:
+        ; rewind aws_tmp00 to first entry for the loop
+        lda     buffer_ptr
+        clc
+        adc     #CFL_RESP_ENTRIES
         sta     aws_tmp00
         lda     buffer_ptr+1
         adc     #$00
@@ -373,20 +493,21 @@ cfl_rxlen_ok:
 cfl_entry_loop:
         lda     cws_tmp2
         ora     cws_tmp3
-        bne     :+
+        bne     cfl_entry_has_count
 
-        ; successful return from cfl_flist_one_page, the only good exit
         clc
         rts
 
-:
-        ; validate not greater
+cfl_entry_has_count:
         lda     aws_tmp00
-        cmp     aws_tmp02
+        cmp     aws_tmp12
         lda     aws_tmp01
-        sbc     aws_tmp02+1
-        bcs     cfl_fail_c1
+        sbc     aws_tmp13
+        bcc     @entry_in_blob
+        clc
+        rts
 
+@entry_in_blob:
         ldy     #$00
         lda     (aws_tmp00),y
         and     #$01
@@ -395,6 +516,9 @@ cfl_entry_loop:
         ldy     #$01
         lda     (aws_tmp00),y
         sta     cws_tmp1
+
+        lda     fuji_channel_scratch
+        bne     cfl_long_entry
 
         lda     aws_tmp00
         clc
@@ -423,11 +547,56 @@ cfl_after_name:
         lda     #'/'
         jsr     print_char
 cfl_no_slash:
-        jsr     print_newline
+        jsr     cfl_print_crlf
+        jmp     cfl_entry_advance
 
-        ldy     #$01
-        lda     (aws_tmp00),y
-        sta     cws_tmp1
+;------------------------------------------------------------------------------
+; Long listing: FILE/DIR prefix, decimal size, decimal unix time, then name.
+; Entry layout at aws_tmp00: flags, nameLen, name[], u64 size, u64 mtime.
+;------------------------------------------------------------------------------
+cfl_long_entry:
+        lda     cws_tmp8
+        beq     cfl_long_file
+        jsr     print_string
+        .byte   "DIR ", 0
+        jmp     cfl_long_kind_done
+cfl_long_file:
+        jsr     print_string
+        .byte   "FILE ", 0
+cfl_long_kind_done:
+        lda     aws_tmp00
+        clc
+        adc     #$02
+        sta     aws_tmp08
+        lda     aws_tmp01
+        adc     #$00
+        sta     aws_tmp09
+
+        lda     cws_tmp1
+        clc
+        adc     aws_tmp08
+        sta     aws_tmp08
+        lda     #$00
+        adc     aws_tmp09
+        sta     aws_tmp09
+
+        ldy     #$00
+        jsr     cfl_print_u64le
+
+        jsr     print_space
+
+        lda     aws_tmp08
+        clc
+        adc     #$08
+        sta     aws_tmp08
+        lda     aws_tmp09
+        adc     #$00
+        sta     aws_tmp09
+
+        ldy     #$00
+        jsr     cfl_print_u64le
+
+        jsr     print_space
 
         lda     aws_tmp00
         clc
@@ -437,17 +606,46 @@ cfl_no_slash:
         adc     #$00
         sta     aws_tmp09
 
-        lda     aws_tmp08
+        ldy     #$00
+cfl_long_name:
+        lda     cws_tmp1
+        beq     cfl_long_name_done
+        lda     (aws_tmp08),y
+        jsr     print_char
+        inc     aws_tmp08
+        bne     :+
+        inc     aws_tmp09
+:
+        dec     cws_tmp1
+        jmp     cfl_long_name
+
+cfl_long_name_done:
+        jsr     cfl_print_crlf
+
+;------------------------------------------------------------------------------
+cfl_print_crlf:
+        jmp     print_newline
+
+cfl_entry_advance:
+        lda     aws_tmp00
         clc
-        adc     cws_tmp1
-        sta     aws_tmp00
-        lda     aws_tmp09
+        adc     #$02
+        sta     aws_tmp08
+        lda     aws_tmp01
         adc     #$00
+        sta     aws_tmp09
+
+        lda     cws_tmp1
+        clc
+        adc     aws_tmp08
+        sta     aws_tmp00
+        lda     #$00
+        adc     aws_tmp01
         sta     aws_tmp01
 
-        lda     pws_tmp08
-        and     #$02
-        bne     cfl_compact_skip
+        ; Use the requested listing mode (response flags may not be trustworthy here).
+        lda     fuji_channel_scratch
+        beq     cfl_dec_entry_count
 
         lda     aws_tmp00
         clc
@@ -457,7 +655,7 @@ cfl_no_slash:
         adc     #$00
         sta     aws_tmp01
 
-cfl_compact_skip:
+cfl_dec_entry_count:
         lda     cws_tmp2
         bne     :+
         dec     cws_tmp3
@@ -465,3 +663,83 @@ cfl_compact_skip:
         dec     cws_tmp2
 
         jmp     cfl_entry_loop
+
+
+; Binary u64 scratch follows the 20-digit BCD block in fuji_filename_buffer.
+CFL_U64_BIN = $14
+CFL_U64_BCD_DIGITS = $14
+
+;------------------------------------------------------------------------------
+; Print unsigned 64-bit little-endian value at (aws_tmp08),Y as decimal.
+; Uses fuji_filename_buffer[0..19] for BCD and [20..27] for the binary value.
+;------------------------------------------------------------------------------
+cfl_print_u64le:
+        sty     aws_tmp14
+
+        ldy     #$00
+cfl_u64_copy:
+        lda     (aws_tmp08),y
+        sta     fuji_filename_buffer + CFL_U64_BIN,y
+        iny
+        cpy     #$08
+        bcc     cfl_u64_copy
+
+        ldx     #CFL_U64_BCD_DIGITS - 1
+        lda     #$00
+cfl_u64_clear:
+        sta     fuji_filename_buffer,x
+        dex
+        bpl     cfl_u64_clear
+
+        ldx     #$40
+cfl_u64_shift:
+        lda     fuji_filename_buffer + CFL_U64_BIN
+        asl     a
+        sta     fuji_filename_buffer + CFL_U64_BIN
+        rol     fuji_filename_buffer + CFL_U64_BIN + 1
+        rol     fuji_filename_buffer + CFL_U64_BIN + 2
+        rol     fuji_filename_buffer + CFL_U64_BIN + 3
+        rol     fuji_filename_buffer + CFL_U64_BIN + 4
+        rol     fuji_filename_buffer + CFL_U64_BIN + 5
+        rol     fuji_filename_buffer + CFL_U64_BIN + 6
+        rol     fuji_filename_buffer + CFL_U64_BIN + 7
+
+        ldy     #$00
+cfl_u64_bcd:
+        lda     fuji_filename_buffer,y
+        rol     a
+        cmp     #$0A
+        bcc     cfl_u64_bcd_ok
+        sbc     #$0A
+cfl_u64_bcd_ok:
+        sta     fuji_filename_buffer,y
+        iny
+        cpy     #CFL_U64_BCD_DIGITS
+        bcc     cfl_u64_bcd
+
+        dex
+        bne     cfl_u64_shift
+
+        lda     #$00
+        sta     aws_tmp14
+
+        ldx     #$00
+cfl_u64_digits:
+        lda     fuji_filename_buffer,x
+        ora     aws_tmp14
+        sta     aws_tmp14
+        beq     cfl_u64_skip_digit
+        ora     #$30
+        jsr     print_char
+cfl_u64_skip_digit:
+        inx
+        cpx     #CFL_U64_BCD_DIGITS
+        bcc     cfl_u64_digits
+
+        lda     aws_tmp14
+        bne     cfl_u64_done
+        lda     #'0'
+        jsr     print_char
+cfl_u64_done:
+        ldy     aws_tmp14
+        rts

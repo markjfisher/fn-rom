@@ -4,6 +4,16 @@ When ROM code under test calls (e.g.) **`$FFF4`** (OSBYTE), the soft65c02 harnes
 
 This blob provides replacement stubs for the OS vectors.
 
+## Serial mock (FujiBus / RS423)
+
+`serial_mock.s` replays captured SLIP packets when the ROM calls `check_rs423_buffer` / `read_rs423_char` (OSBYTE `$80` / `$91`):
+
+1. In the test DSL: `memory load #0xC000 "${UNIT_TEST_DIR}/data/fls/....bin"`
+2. `memory write $mock_slip_len <lo> <hi>` (file size)
+3. `run $mock_slip_rewind` before each command under test
+
+`print_mock.s` captures OSWRCH output in `mock_print_buffer` (`$C800`) for assertions.
+
 ## Build
 
 The unit tester soft65c02_unit automatically builds the harness when running the unit test.
