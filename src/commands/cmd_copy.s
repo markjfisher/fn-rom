@@ -87,7 +87,7 @@ cmd_fs_copy:
         sta     pws_tmp05,x             ; Store filename $C5-$CC
         sta     fuji_cmd_copy_buf_17+11,x ; Put filename in buffer $1050,X, relative to 1045 i.e. +11 bytes
         lda     dfs_cat_file_load_addr,y  ; Source catalog $0F08,Y
-        sta     aws_tmp11,x               ; Load address, exec ... $BB-$C2, writes over ptr4/sreg
+        sta     aws_tmp11,x               ; Load address, exec ... $BB-$C2
         sta     fuji_cmd_copy_buf_17+2,x  ; 1045+2, 2 bytes into buffer
         inx
         iny

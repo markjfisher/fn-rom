@@ -73,7 +73,9 @@
         .segment "CODE"
 
 FLIST_URI_BUFFER_SIZE   = FUJI_FS_URI_BUFFER_SIZE
-FLIST_PAGE_SIZE         = 10
+; Max bytes for the variable entries blob in the ListDirectory response.
+; FUJI_PWS_PACKET_SIZE (274) minus FujiBus/status (7) and list header (10).
+FLIST_MAX_PAYLOAD       = 220
 ; Host file_commands.h: kListFlagCompactOmitMetadata | kListFlagSortByName
 FLIST_LIST_FLAGS        = $03
 
@@ -265,10 +267,10 @@ cfl_tx_uri_done:
         lda     pws_tmp05
         sta     (aws_tmp00),y
         iny
-        lda     #FLIST_PAGE_SIZE
+        lda     #<FLIST_MAX_PAYLOAD
         sta     (aws_tmp00),y
         iny
-        lda     #$00
+        lda     #>FLIST_MAX_PAYLOAD
         sta     (aws_tmp00),y
         iny
         lda     #FLIST_LIST_FLAGS
@@ -312,7 +314,7 @@ cfl_tx_uri_done:
         lda     aws_tmp13
         bne     cfl_rxlen_ok
         lda     aws_tmp12
-        cmp     #13
+        cmp     #17
         bcs     cfl_rxlen_ok
 
 cfl_fail_c1:
@@ -348,7 +350,7 @@ cfl_rxlen_ok:
         adc     aws_tmp13
         sta     aws_tmp02+1
 
-        ldy     #$0B
+        ldy     #$0D
         lda     (buffer_ptr),y
         sta     pws_tmp06
         iny
@@ -362,7 +364,7 @@ cfl_rxlen_ok:
 
         lda     buffer_ptr
         clc
-        adc     #13
+        adc     #17
         sta     aws_tmp00
         lda     buffer_ptr+1
         adc     #$00
