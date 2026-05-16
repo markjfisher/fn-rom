@@ -1,39 +1,39 @@
 ;
 ; Capture OSWRCH output for unit-test assertions.
+; Buffer lives at $C800 (not in the harness binary — tests clear/load that RAM via DSL).
+; Capture is enabled when mock_print_armed is non-zero (see test scripts).
 ;
         .export  mock_print_pos
-        .export  mock_print_buffer
-        .import  mock_slip_len
-        .import  mock_slip_pos
-
+        .export  mock_print_armed
         .export  h_oswrch_entry
 
         .segment "CODE"
 
+MOCK_PRINT_BUFFER       = $C800
 MOCK_PRINT_BUFFER_SIZE  = 256
 
-        .segment "MOCK_DATA"
-mock_print_buffer:
-        .res    MOCK_PRINT_BUFFER_SIZE
-
-        .segment "CODE"
 mock_print_pos:
+        .byte   0
+mock_print_armed:
+        .byte   0
+mock_print_char:
         .byte   0
 
 h_oswrch_entry:
-        ; Ignore OSWRCH from fujibus SLIP TX until mock response fully consumed.
-        ; Discard OSWRCH until mock SLIP replay has finished (see mock_slip_len).
-        lda     mock_slip_pos
-        cmp     mock_slip_len
-        bcc     @discard
+        sta     mock_print_char
+        lda     mock_print_armed
+        beq     @discard
         ldx     mock_print_pos
         cpx     #MOCK_PRINT_BUFFER_SIZE - 1
         bcs     @done
-        sta     mock_print_buffer,x
+        lda     mock_print_char
+        sta     MOCK_PRINT_BUFFER,x
         inx
         stx     mock_print_pos
 @done:
+        lda     mock_print_char
         rts
 
 @discard:
+        lda     mock_print_char
         rts

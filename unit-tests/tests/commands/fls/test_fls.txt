@@ -26,7 +26,10 @@ assert CP = $end_init_harness $$completed code correctly$$
 assert cycle_count <= 2000    $$cycles within accpeptable limit from previous runs$$
 ; --------------------------------------------------
 
-; Mock ListDirectory response (002 capture, SLIP-framed, 89 bytes).
+; Mock RAM is not in the harness binary — load captures from files.
+memory fill #0xC800~#0xCFFF   $$ clear print capture region $$
+
+; ListDirectory response (002 capture, SLIP-framed, 89 bytes) at $C000.
 memory load #0xC000 "${UNIT_TEST_DIR}/data/fls/002_list_directory_root_start0_maxpayload220_resp.bin"
 memory write $mock_slip_len 0x(59,00)
 run $mock_slip_rewind until (cycle_count > 100)
@@ -37,9 +40,15 @@ memory write $fuji_current_host_len 0x(15)
 memory write #0x1868 0x(74,6e,66,73,3a,2f,2f,31,39,32,2e,31,36,38,2e,31,2e,31,30,31,2f,00)
 
 memory write $mock_print_pos 0x(00)
+memory write $mock_print_armed 0x(00)
 
 ; Run *FLS (no args) — uses current host URI, one ListDirectory page.
-run $cmd_fs_flist until ($mock_slip_pos = 0x59 OR cycle_count > 0xFFFF)
+registers set cycle_count=0
+run $cmd_fs_flist while (#0x1B5C < 0x59)
+run until (PC = $cfl_entry_loop OR cycle_count > 0xFFFF)
+memory write $mock_print_pos 0x(00)
+memory write $mock_print_armed 0x(01)
+run while ($mock_print_pos < 0x4B)
 
 assert $mock_slip_pos = 0x59 $$SLIP response fully replayed$$
 assert $buffer_ptr -> #0x1700 $$PWS packet at page$$
@@ -49,4 +58,15 @@ assert #0x1705 = 0x01 $$FujiBus status OK$$
 ; ListDirectory header in decoded PWS (002 capture).
 assert #0x170D = 0x06 $$entry count low$$
 assert #0x170F = 0x46 $$entries blob length low$$
-assert #0x1713 ~ "atari" $$first compact name: atari$$
+assert #0x1713 ~ "atari" $$first compact name in response blob$$
+
+memory show #0x1700 0x60
+memory show #0xC800 0x50
+
+; Six compact directory/file lines (LF+CR from harness OSASCI on each print_newline).
+assert $mock_print_pos = 0x49 $$full listing length (five LFCR-terminated lines + final name)$$
+
+assert #0xC800 ~ "atari/\x0a\x0dbbc/\x0a\x0dsubdir/\x0a\x0dtest.txt\x0a\x0dtnfs-write-tcp.txt\x0a\x0dtnfs-write-udp.txt" $$full listing$$
+
+; Line 2 must be bbc/ not a retry from the middle of "atari".
+assert #0xC808 = 0x62 $$line 2 starts with bbc$$

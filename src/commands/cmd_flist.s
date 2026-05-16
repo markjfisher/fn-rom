@@ -499,8 +499,10 @@ cfl_entry_loop:
         rts
 
 cfl_entry_has_count:
+        ; 16-bit unsigned: continue while aws_tmp00:01 < aws_tmp12:13
         lda     aws_tmp00
-        cmp     aws_tmp12
+        sec
+        sbc     aws_tmp12
         lda     aws_tmp01
         sbc     aws_tmp13
         bcc     @entry_in_blob
@@ -627,23 +629,13 @@ cfl_print_crlf:
         jmp     print_newline
 
 cfl_entry_advance:
-        lda     aws_tmp00
-        clc
-        adc     #$02
-        sta     aws_tmp08
-        lda     aws_tmp01
-        adc     #$00
-        sta     aws_tmp09
-
-        lda     cws_tmp1
-        clc
-        adc     aws_tmp08
+        ; aws_tmp08/09 already point just past this entry's name (see cfl_pr_chars).
+        lda     aws_tmp08
         sta     aws_tmp00
-        lda     #$00
-        adc     aws_tmp01
+        lda     aws_tmp09
         sta     aws_tmp01
 
-        ; Use the requested listing mode (response flags may not be trustworthy here).
+        ; Long entries include u64 size + u64 mtime after the name.
         lda     fuji_channel_scratch
         beq     cfl_dec_entry_count
 
