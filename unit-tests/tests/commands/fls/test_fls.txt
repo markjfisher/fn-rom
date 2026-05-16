@@ -42,12 +42,11 @@ memory write $mock_print_pos 0x(00)
 run $cmd_fs_flist until ($mock_slip_pos = 0x59 OR cycle_count > 0xFFFF)
 
 assert $mock_slip_pos = 0x59 $$SLIP response fully replayed$$
-assert $buffer_ptr = 0x00 $$PWS packet at page base$$
-assert $buffer_ptr+1 = 0x17 $$PWS page$$
+assert $buffer_ptr -> #0x1700 $$PWS packet at page$$
 assert #0x1700 = 0xFE $$decoded FujiBus device id$$
 assert #0x1705 = 0x01 $$FujiBus status OK$$
 
 ; ListDirectory header in decoded PWS (002 capture).
 assert #0x170D = 0x06 $$entry count low$$
 assert #0x170F = 0x46 $$entries blob length low$$
-assert #0x1713 = 0x61 $$first compact name: atari$$
+assert #0x1713 ~ "atari" $$first compact name: atari$$
