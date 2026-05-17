@@ -1,9 +1,9 @@
 ; *FLIST / *FLS — list directory via FileDevice ListDirectory (hand asm)
 ;
 ;   *FLS                    compact names (current directory)
-;   *FLS LONG               long listing (size + unix time) for current directory
+;   *FLS LONG               ls-style lines (Fujinet formats)
 ;   *FLS <path>             compact names for <path>
-;   *FLS <path> LONG        long listing for <path>  (LONG must be the last argument)
+;   *FLS <path> LONG        formatted listing for <path>
 
         .export  cmd_fs_flist
 
@@ -12,10 +12,8 @@
         .export  cfl_done_ok
         .export  cfl_entry_loop
         .export  cfl_flist_one_page
-        .export  cfl_is_long_keyword
-        .export  cfl_long_entry
-        .export  cfl_print_u64le
-        .export  cfl_print_u16_le
+        .export  cfl_parse_long_kw
+        .export  cfl_print_formatted_blob
         .export  cfl_no_slash
         .export  cfl_page_loop
         .export  cfl_pr_chars
@@ -92,9 +90,11 @@ FLIST_URI_BUFFER_SIZE   = FUJI_FS_URI_BUFFER_SIZE
 ; Max bytes for the variable entries blob in the ListDirectory response.
 ; FUJI_PWS_PACKET_SIZE (274) minus FujiBus/status (7) and list header (10).
 FLIST_MAX_PAYLOAD       = 220
-; Host file_commands.h: compact+sort, or sort-only for long listings
-FLIST_LIST_FLAGS_COMPACT = $03
-FLIST_LIST_FLAGS_LONG   = $02
+; Host file_commands.h listFlags
+FLIST_LIST_FLAG_SORT      = $02
+FLIST_LIST_FLAG_FORMATTED = $04
+FLIST_LIST_FLAGS_COMPACT  = FLIST_LIST_FLAG_SORT | $01
+FLIST_LIST_FLAGS_FORMATTED = FLIST_LIST_FLAG_SORT | FLIST_LIST_FLAG_FORMATTED
 
 ; FujiBus response layout (file payload begins at buffer+7 after status bytes).
 CFL_RESP_VERSION        = $07
@@ -103,7 +103,7 @@ CFL_RESP_ENTRY_COUNT    = $0D
 CFL_RESP_ENTRIES_LEN    = $0F
 CFL_RESP_ENTRIES        = $11
 
-; fuji_channel_scratch: 0 = compact listing, non-zero = long listing (size + mtime)
+; fuji_channel_scratch: 0 = compact listing, non-zero = formatted ls-style lines
 ; (must not use cws_tmp6/7 — clobbered by FujiBus RX and ResolvePath)
 
 ;------------------------------------------------------------------------------
@@ -139,7 +139,7 @@ cfl_dispatch_params:
         clc
         jsr     param_get_string
         sta     fuji_filename_len
-        jsr     cfl_is_long_keyword
+        jsr     cfl_parse_long_kw
         bcc     cfl_one_param_long
 
         jsr     flist_resolve_target
@@ -147,7 +147,7 @@ cfl_dispatch_params:
         jmp     cfl_start_list_restore
 
 cfl_one_param_long:
-        lda     #$01
+        lda     #$FF
         sta     fuji_channel_scratch
         jmp     cfl_use_current_uri
 
@@ -161,10 +161,10 @@ cfl_parse_path_long:
         ; Continue from after the path token (param_get_string re-inits GS).
         jsr     param_get_string_no_init
         sta     fuji_filename_len
-        jsr     cfl_is_long_keyword
+        jsr     cfl_parse_long_kw
         bcs     err_bad_flist_arg
 
-        lda     #$01
+        lda     #$FF
         sta     fuji_channel_scratch
         jmp     cfl_start_list_restore
 
@@ -184,12 +184,15 @@ err_bad_flist_arg:
         .byte   "LONG", 0
 
 ;------------------------------------------------------------------------------
-; C=0 if fuji_filename_buffer holds the keyword LONG (length must be 4).
+; C=0 if fuji_filename_buffer is "LONG" (case-insensitive).
 ;------------------------------------------------------------------------------
-cfl_is_long_keyword:
+cfl_parse_long_kw:
         lda     fuji_filename_len
         cmp     #$04
         bne     cfl_not_long_kw
+
+        lda     #$00
+        sta     pws_tmp02
 
         ldy     #$00
         lda     fuji_filename_buffer,y
@@ -212,6 +215,8 @@ cfl_is_long_keyword:
         cmp     #'G'
         bne     cfl_not_long_kw
 
+        lda     #$FF
+        sta     pws_tmp02
         clc
         rts
 
@@ -379,12 +384,13 @@ cfl_tx_uri_done:
         iny
         lda     fuji_channel_scratch
         beq     cfl_flags_compact
-        lda     #FLIST_LIST_FLAGS_LONG
-        bne     cfl_flags_store
+        lda     #FLIST_LIST_FLAGS_FORMATTED
+        sta     (aws_tmp00),y
+        jmp     cfl_flags_done
 cfl_flags_compact:
         lda     #FLIST_LIST_FLAGS_COMPACT
-cfl_flags_store:
         sta     (aws_tmp00),y
+cfl_flags_done:
 
         lda     cws_tmp1
         clc
@@ -495,6 +501,48 @@ cfl_rxlen_ok:
         adc     #$00
         sta     aws_tmp01
 
+        lda     fuji_channel_scratch
+        beq     cfl_entry_loop
+
+        jsr     cfl_print_formatted_blob
+        clc
+        rts
+
+;------------------------------------------------------------------------------
+; Print preformatted listing text at aws_tmp00..aws_tmp12:13 ($0A = newline).
+;------------------------------------------------------------------------------
+cfl_print_formatted_blob:
+        lda     aws_tmp00
+        sta     aws_tmp08
+        lda     aws_tmp01
+        sta     aws_tmp09
+
+cfl_fmt_blob_loop:
+        lda     aws_tmp08
+        cmp     aws_tmp12
+        lda     aws_tmp09
+        sbc     aws_tmp13
+        bcs     cfl_fmt_blob_done
+
+        ldy     #$00
+        lda     (aws_tmp08),y
+        cmp     #$0A
+        beq     cfl_fmt_blob_nl
+        jsr     print_char
+        jmp     cfl_fmt_blob_adv
+
+cfl_fmt_blob_nl:
+        jsr     cfl_print_crlf
+
+cfl_fmt_blob_adv:
+        inc     aws_tmp08
+        bne     cfl_fmt_blob_loop
+        inc     aws_tmp09
+        jmp     cfl_fmt_blob_loop
+
+cfl_fmt_blob_done:
+        rts
+
 cfl_entry_loop:
         lda     cws_tmp2
         ora     cws_tmp3
@@ -523,9 +571,6 @@ cfl_entry_has_count:
         ldy     #$01
         lda     (aws_tmp00),y
         sta     cws_tmp1
-
-        lda     fuji_channel_scratch
-        bne     cfl_long_entry
 
         lda     aws_tmp00
         clc
@@ -558,138 +603,13 @@ cfl_no_slash:
         jmp     cfl_entry_advance
 
 ;------------------------------------------------------------------------------
-; Long listing: FILE/DIR prefix, decimal size, decimal unix time, then name.
-; Entry layout at aws_tmp00: flags, nameLen, name[], u64 size, u64 mtime.
-;------------------------------------------------------------------------------
-cfl_long_entry:
-        lda     cws_tmp8
-        beq     cfl_long_file
-        lda     #<cfl_str_dir
-        ldx     #>cfl_str_dir
-        jsr     print_string_ax
-        jmp     cfl_long_kind_done
-cfl_long_file:
-        lda     #<cfl_str_file
-        ldx     #>cfl_str_file
-        jsr     print_string_ax
-cfl_long_kind_done:
-        lda     aws_tmp00
-        clc
-        adc     #$02
-        sta     aws_tmp08
-        lda     aws_tmp01
-        adc     #$00
-        sta     aws_tmp09
-
-        lda     cws_tmp1
-        clc
-        adc     aws_tmp08
-        sta     aws_tmp08
-        lda     #$00
-        adc     aws_tmp09
-        sta     aws_tmp09
-
-        lda     aws_tmp08
-        pha
-        lda     aws_tmp09
-        pha
-        jsr     cfl_print_u64le
-        pla
-        sta     aws_tmp09
-        pla
-        sta     aws_tmp08
-
-        jsr     print_space
-
-        lda     aws_tmp08
-        clc
-        adc     #$08
-        sta     aws_tmp08
-        lda     aws_tmp09
-        adc     #$00
-        sta     aws_tmp09
-
-        lda     aws_tmp08
-        pha
-        lda     aws_tmp09
-        pha
-        jsr     cfl_print_u64le
-        pla
-        sta     aws_tmp09
-        pla
-        sta     aws_tmp08
-
-        jsr     print_space
-
-        lda     aws_tmp00
-        clc
-        adc     #$02
-        sta     aws_tmp08
-        lda     aws_tmp01
-        adc     #$00
-        sta     aws_tmp09
-
-        ldy     #$00
-cfl_long_name:
-        lda     cws_tmp1
-        beq     cfl_long_name_done
-        lda     (aws_tmp08),y
-        jsr     print_char
-        inc     aws_tmp08
-        bne     :+
-        inc     aws_tmp09
-:
-        dec     cws_tmp1
-        jmp     cfl_long_name
-
-cfl_long_name_done:
-        jsr     cfl_print_crlf
-        jmp     cfl_entry_advance
-
-;------------------------------------------------------------------------------
 cfl_print_crlf:
         jmp     print_newline
 
 cfl_entry_advance:
-        lda     fuji_channel_scratch
-        bne     cfl_entry_advance_long
-
-        ; Compact: aws_tmp08/09 point just past this entry's name (cfl_pr_chars).
         lda     aws_tmp08
         sta     aws_tmp00
         lda     aws_tmp09
-        sta     aws_tmp01
-        jmp     cfl_dec_entry_count
-
-cfl_entry_advance_long:
-        ; Long: next = entry + 2 + nameLen + 16 (u64 size + u64 mtime).
-        ; cws_tmp1 is zero after the name loop; read nameLen from the entry.
-        ldy     #1
-        lda     (aws_tmp00),y
-        sta     pws_tmp02
-
-        lda     aws_tmp00
-        clc
-        adc     #$02
-        sta     aws_tmp00
-        lda     aws_tmp01
-        adc     #$00
-        sta     aws_tmp01
-
-        lda     pws_tmp02
-        clc
-        adc     aws_tmp00
-        sta     aws_tmp00
-        lda     aws_tmp01
-        adc     #$00
-        sta     aws_tmp01
-
-        lda     aws_tmp00
-        clc
-        adc     #16
-        sta     aws_tmp00
-        lda     aws_tmp01
-        adc     #$00
         sta     aws_tmp01
 
 cfl_dec_entry_count:
@@ -700,120 +620,3 @@ cfl_dec_entry_count:
         dec     cws_tmp2
 
         jmp     cfl_entry_loop
-
-
-; Binary u64 scratch at fuji_filename_buffer + CFL_U64_BIN.
-CFL_U64_BIN = $14
-
-;------------------------------------------------------------------------------
-; Print unsigned 64-bit little-endian value at (aws_tmp08),Y as decimal.
-; Uses a fast 16-bit path when the upper dword is zero (typical file sizes).
-;------------------------------------------------------------------------------
-cfl_print_u64le:
-        tya
-        pha
-
-        ldy     #$02
-cfl_u64_chk_hi:
-        lda     (aws_tmp08),y
-        bne     cfl_u64_large
-        iny
-        cpy     #$08
-        bcc     cfl_u64_chk_hi
-
-        ldy     #$00
-        lda     (aws_tmp08),y
-        sta     aws_tmp02
-        iny
-        lda     (aws_tmp08),y
-        sta     aws_tmp03
-        jsr     cfl_print_u16_le
-        jmp     cfl_u64_done
-
-cfl_u64_large:
-        lda     #'?'
-        jsr     print_char
-
-cfl_u64_done:
-        pla
-        tay
-        rts
-
-;------------------------------------------------------------------------------
-; Print 16-bit little-endian value in aws_tmp02 (lo) / aws_tmp03 (hi).
-; Uses pws_tmp02 for the current digit count (aws_tmp10 = fuji_bus_tx_payload_lo).
-;------------------------------------------------------------------------------
-cfl_print_u16_le:
-        cld
-        lda     aws_tmp02
-        ora     aws_tmp03
-        bne     cfl_u16_nz
-        lda     #'0'
-        jsr     print_char
-        rts
-
-cfl_u16_nz:
-        lda     #$00
-        sta     aws_tmp14               ; 0 = still skipping leading zeros
-
-        ldx     #$04
-cfl_u16_div_idx:
-        lda     cfl_u16_div_lo,x
-        sta     aws_tmp04
-        lda     cfl_u16_div_hi,x
-        sta     aws_tmp05
-
-        lda     #$00
-        sta     pws_tmp02
-
-cfl_u16_sub10:
-        lda     aws_tmp02
-        sec
-        sbc     aws_tmp04
-        tay
-        lda     aws_tmp03
-        sbc     aws_tmp05
-        bcc     cfl_u16_sub_done
-
-        sty     aws_tmp02
-        sta     aws_tmp03
-        inc     pws_tmp02
-        jmp     cfl_u16_sub10
-
-cfl_u16_sub_done:
-        lda     pws_tmp02
-        bne     cfl_u16_emit
-        lda     aws_tmp14
-        beq     cfl_u16_skip_out
-        lda     #'0'
-        jsr     print_char
-        jmp     cfl_u16_skip_out
-
-cfl_u16_emit:
-        lda     pws_tmp02
-        clc
-        adc     #'0'
-        jsr     print_char
-        lda     #$01
-        sta     aws_tmp14
-cfl_u16_skip_out:
-        dex
-        bpl     cfl_u16_div_idx
-
-        lda     aws_tmp14
-        bne     cfl_u16_done
-        lda     #'0'
-        jsr     print_char
-cfl_u16_done:
-        rts
-
-; Index 4 = 10000 … index 0 = 1 (matches LDX #$04 / DEX loop).
-cfl_u16_div_lo:
-        .byte   $01, $0A, $64, $E8, $10
-cfl_u16_div_hi:
-        .byte   $00, $00, $00, $03, $27
-
-cfl_str_dir:
-        .byte   "DIR ", $80
-cfl_str_file:
-        .byte   "FILE ", $80

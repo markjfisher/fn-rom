@@ -21,12 +21,12 @@ Pass DSL as a **single string**; separate lines with **newlines** inside that st
 
 ## Natural language → DSL
 
-When the user says things like “load this file at 0x2000”, “put the ROM at 0x8000”, “run the binary from 0x200”:
+When the user says things like "load this file at 0x2000", "put the ROM at 0x8000", "run the binary from 0x200":
 
 1. Infer **format** (raw vs Atari vs Apple Single) from path, extension, or ask one clarifying question if ambiguous—**documentation.md** describes `memory load atari`, `memory load apple`, and `memory load #addr "file"`.
 2. Use **`memory load rom #0x.... "path"`** for read-only ROM images.
 3. Use **`run #0x....`** or **`run init`** with **`until` / `while`** when they specify stop conditions.
-4. Prefer **forward slashes** in quoted paths when possible (Windows accepts them in the tester’s quoted filenames).
+4. Prefer **forward slashes** in quoted paths when possible (Windows accepts them in the tester's quoted filenames).
 
 ## Session discipline
 
@@ -36,3 +36,16 @@ When the user says things like “load this file at 0x2000”, “put the ROM at
 ## On failure
 
 If a tool returns **`STATUS error`**, read the body (assertion counts, parse errors, execution errors). Suggest the next DSL step (e.g. `memory map show`, `disassemble`, fix address) rather than asking the user to write DSL verbatim.
+
+# Project Context
+
+This repository contains a BBC Micro ROM implementation for Fujinet connectivity called 'fn-rom'. It's based on MMFS (Multi-Mode File System) and provides enhanced file system functionality for BBC Micro computers, enabling them to access files stored on network-connected storage systems through the Fujinet protocol.
+
+Key features include:
+- Standard BBC MOS (Monitor Operating System) compatibility
+- File system operations via Fujinet protocol
+- Network connectivity support
+- Multiple bus interface support (serial, userport, 1MHz)
+- *CAT command for directory listing
+- Standard BBC OS routines like OSFILE, OSCLI, OSFIND, etc.
+- SSD image creation capabilities
