@@ -449,7 +449,7 @@ fuji_gbpbv_tube_op      = $107F  ; used in gbpb_gosub
 ; $1081      used in tube checking
 gbpb_tube               = $1081
 
-current_cat             = $1082
+current_cat             = $1082  ; this is the drive the latest catalog that was fetched was for, see check_cur_drv_cat
 ; in initialising, both current_cat and current_cat+1 are set to ascii "0"
 
 ; $10D7/10D8 copied from GBPBV_TABLE indexed by command, but in fujinet it's fuji_param_block_lo

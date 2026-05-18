@@ -72,12 +72,12 @@ cmd_fs_copy:
         lda     fuji_source_drive       ; Already range-checked drive number
         sta     current_drv
         jsr     get_cat_entry           ; Check if source file exists
-                                        ; Returns Y and aws_tmp06=Y+8
+                                        ; Returns Y and aws_tmp06=Y+8. Any error would have already print "not found" and exit
 
 @copy_loop1:
         lda     directory_param
         pha
-        lda     aws_tmp06               ; Set up by get_cat_entry pointer to next file
+        lda     aws_tmp06               ; Set up by get_cat_entry pointer to next file, it's the offset in catalog page to write to
         pha
         jsr     prt_info_msg_yoffset
         ldx     #$00
@@ -85,7 +85,7 @@ cmd_fs_copy:
 @copy_loop2:
         lda     dfs_cat_file_name,y     ; Source catalog $0E08,Y
         sta     pws_tmp05,x             ; Store filename $C5-$CC
-        sta     fuji_cmd_copy_buf_18+11,x  ; Use copy buffer in static workspace, need to start at $1050, which is $1045 + $B (11), +0-7 in X takes it to $1057
+        sta     fuji_cmd_copy_buf_18+11,x  ; Use copy buffer in static workspace, need to start at $1050, which is $1045 + $B (11), +0 to 7 in X takes it to $1057
         lda     dfs_cat_file_load_addr,y  ; Source catalog $0F08,Y
         sta     aws_tmp11,x               ; Load address, exec ... $BB-$C2
         sta     fuji_cmd_copy_buf_18+2,x  ; 1045+2, 2 bytes into buffer
@@ -221,24 +221,24 @@ calc_ram:
 ; copy_data_block - Copy sectors from source to destination
 ; Translated from MMFS CopyDATABLOCK (lines 6045-6132)
 ; Entry:
-;   $C4 $C5 = Size in sectors
-;   $C6 $C7 = Start sector
-;   $C8 $C9 = Destination sector
+;   $C4 $C5 = Size in sectors                           (pws_tmp04/05)
+;   $C6 $C7 = Start sector                              (pws_tmp06/07)
+;   $C8 $C9 = Destination sector                        (pws_tmp08/09)
 ;   fuji_source_drive = source drive
 ;   fuji_dest_drive = destination drive
 ; ZP Usage:
-;   $BC $BD = Start address of buffer
-;   $C0 = Always zero (bytes in last sector)
-;   $C1 = Number of sectors to copy limited by ram size
-;   $C2 $C3 = First sector of current block to read or write
-;   $C4 $C5 = Number of sectors left to copy
-;   $C6 $C7 = Start source sector (local)
-;   $C8 $C9 = Next free sector for destination (local)
+;   $BC $BD = Start address of buffer                   (aws_tmp12/13)
+;   $C0 = Always zero (bytes in last sector)            (pws_tmp00)
+;   $C1 = Number of sectors to copy limited by ram size (pws_tmp01)
+;   $C2 $C3 = First sector of current block to r or w   (pws_tmp02/03)
+;   $C4 $C5 = Number of sectors left to copy            (pws_tmp04/05)
+;   $C6 $C7 = Start source sector (local)               (pws_tmp06/07)
+;   $C8 $C9 = Next free sector for destination (local)  (pws_tmp08/09)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 copy_data_block:
         lda     #$00                    ; Move or copy sectors
-        sta     aws_tmp12               ; Word $C4 = size of block
+        sta     aws_tmp12               ; Word size of block
         sta     pws_tmp00
         lda     fuji_page               ; Buffer address (PAGE)
         sta     aws_tmp13
@@ -250,7 +250,7 @@ copy_data_block:
         lda     pws_tmp05
         sbc     #$00
         bcc     @cd_part                ; If size < size of buffer
-        ldy     fuji_ram_buffer_size
+        ldy     fuji_ram_buffer_size    ; else cap to the buffer size
 
 @cd_part:
         sty     pws_tmp01               ; Number of sectors to copy in this pass
@@ -287,7 +287,7 @@ copy_data_block:
         inc     pws_tmp09
 
 @cd_inc1:
-        lda     pws_tmp01               ; Word $C6 += $C1
+        lda     pws_tmp01               ; (word) start source += sectors copied
         clc                             ; Source sector start
         adc     pws_tmp06
         sta     pws_tmp06
@@ -295,7 +295,7 @@ copy_data_block:
         inc     pws_tmp07
 
 @cd_inc2:
-        sec                             ; Word $C4 -= $C1
+        sec                             ; (word) sectors left -= sectors copied
         lda     pws_tmp04               ; Sector counter
         sbc     pws_tmp01
         sta     pws_tmp04
@@ -305,6 +305,6 @@ copy_data_block:
 @cd_loopentry:
         lda     pws_tmp04
         ora     pws_tmp05
-        bne     @cd_loop                ; If Word $C4 <> 0
+        bne     @cd_loop                ; If (word) sectors left <> 0
         rts
 

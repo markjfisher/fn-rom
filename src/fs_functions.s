@@ -171,11 +171,11 @@ getcatsetupb7:
         sta     aws_tmp07               ; &B7 -> aws_tmp07
 @get_cat_loop2:
         ldy     #$00
-        lda     aws_tmp06               ; &B6
-        cmp     dfs_cat_num_x8          ; ( MA+&F05) number of files *8
-        bcs     matfn_exitc0            ; If >dfs_cat_num_x8 Exit with C=0
+        lda     aws_tmp06               ; counter for number of files * 8
+        cmp     dfs_cat_num_x8          ; check against the catalog entry
+        bcs     matfn_exitc0            ; If >= dfs_cat_num_x8 Exit with C=0
         adc     #$08
-        sta     aws_tmp06               ; word &B6 += 8
+        sta     aws_tmp06               ; add 8 to counter
 
         jsr     match_filename
         bcc     @get_cat_loop2          ; not a match, try next file
@@ -183,7 +183,7 @@ getcatsetupb7:
         ldy     #$07
         jsr     match_chr
         bne     @get_cat_loop2          ; If directory doesn't match
-        ldy     aws_tmp06               ; &B6  
+        ldy     aws_tmp06               ; get counter*8 into Y, ready to decrement by 8
         sec                             ; Return, Y=offset-8, C=1
 
 ; DO NOT MOVE THIS! It's used by above as a fall through.
@@ -410,7 +410,6 @@ load_cur_drv_cat:
         bmi     err_reading_cat
 
         ; Mark catalog as loaded for current drive (equivalent to MMFS line 7322-7323)
-        ; why does this work? isnt' current_cat "0" rather than 0?
 write_current_drv_to_cat:
         lda     current_drv
         sta     current_cat

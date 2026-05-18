@@ -143,8 +143,8 @@ report_error_cb:
         jsr     clear_exec_spool_file_handle
 @brk100_notbuf:
         lda     #$FF
-        sta     current_cat
-        sta     fuji_error_flag        ; Not writing buffer
+        sta     current_cat             ; invalidate the current_cat value so we don't think it's fresh
+        sta     fuji_error_flag         ; Not writing buffer
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; REPORT ERROR

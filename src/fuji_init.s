@@ -142,7 +142,7 @@ init_fuji:
         dex
         bne     @extendedvec_loop
 
-        sty     current_cat             ; set to "0" in ascii, as Y has increment from $1B to $30
+        sty     current_cat             ; set to "0" in ascii, as Y has increment from $1B to $30. I think this is just "no current cat"
 
         ; FS URI / DIR path buffers (PWS) and their lengths (SWS) are not cleared here:
         ; on soft break the MOS keeps private workspace, so host/path state should survive.

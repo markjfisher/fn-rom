@@ -27,6 +27,7 @@ assert cycle_count <= 2000    $$cycles within accpeptable limit from previous ru
 ; --------------------------------------------------
 
 ; Drive 1 destination catalogue (from copy_test.log reads 018/019).
+; TODO: need dump files for this without the SLIP framing
 memory load #0x0E08 "${UNIT_TEST_DIR}/data/copy/dest_cat_s0.bin"
 memory load #0x0F00 "${UNIT_TEST_DIR}/data/copy/dest_cat_s1.bin"
 memory write #0x0F05 0x(40)
