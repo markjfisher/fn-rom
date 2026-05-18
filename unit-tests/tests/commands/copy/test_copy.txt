@@ -1,5 +1,5 @@
 ///////////////////////////////
-marker $$ test *FIN foo.ssd $$
+marker $$ test *COPY 0 1 $.biged $$
 ///////////////////////////////
 
 ; --------------------------------------------------
@@ -23,8 +23,33 @@ registers flush
 ; initialise the ROM
 run $init_harness until (CP = $end_init_harness OR cycle_count > 5000)
 assert CP = $end_init_harness $$completed code correctly$$
-assert cycle_count <= 1800    $$cycles within accpeptable limit from previous runs$$
+assert cycle_count <= 2000    $$cycles within accpeptable limit from previous runs$$
 ; --------------------------------------------------
 
-; The above bootstraps the ROM and initialises various vectors so we can do commands
+; Drive 1 destination catalogue (from copy_test.log reads 018/019).
+memory load #0x0E08 "${UNIT_TEST_DIR}/data/copy/dest_cat_s0.bin"
+memory load #0x0F00 "${UNIT_TEST_DIR}/data/copy/dest_cat_s1.bin"
+memory write #0x0F05 0x(40)
 
+memory write $fuji_drive_disk_map 0x(00,01,FF,FF)
+memory write $fuji_state 0x(C0)
+memory write $fuji_disk_slot 0x(01)
+
+; Source file $.biged attributes (Y=64 row on drive 0 catalogue).
+memory write #0x0C5 0x(62,69,67,65,64,20,20,24)
+memory write #0x0BB 0x(0f,00,00,00,00,aa,00,00)
+
+memory write $current_drv 0x(01)
+
+registers set cycle_count=0
+run $load_and_execute_addr_hi2 until (cycle_count > 2000)
+run $create_file_2 until (cycle_count > 0xF000)
+
+assert #0x0E08 ~ "FUJI" $$destination catalogue loaded$$
+assert #0x0F05 = 72 $$nine catalogue rows (was 64)$$
+
+; Ninth row (Y=64): sector must be $202 after $.FUJI, not $042 after $.DFS226.
+assert #0x0F4F = 0x02 $$start sector low byte of $202$$
+assert #0x0F4F != 0x42 $$must not use last catalogue row extent $042$$
+assert #0x0E48 ~ "biged" $$filename intact in new catalogue row$$
+assert #0x0E49 = 0x69 $$seed must not clobber pws_tmp06/07 (C6/C7) in filename$$

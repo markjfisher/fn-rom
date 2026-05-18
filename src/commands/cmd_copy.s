@@ -33,7 +33,7 @@
         .import dfs_cat_file_load_addr
         .import dfs_cat_file_name
         .import err_bad_drive
-        .import fuji_cmd_copy_buf_17
+        .import fuji_cmd_copy_buf_18
         .import fuji_dest_drive
         .import fuji_page
         .import fuji_ram_buffer_size
@@ -85,10 +85,10 @@ cmd_fs_copy:
 @copy_loop2:
         lda     dfs_cat_file_name,y     ; Source catalog $0E08,Y
         sta     pws_tmp05,x             ; Store filename $C5-$CC
-        sta     fuji_cmd_copy_buf_17+11,x ; Put filename in buffer $1050,X, relative to 1045 i.e. +11 bytes
+        sta     fuji_cmd_copy_buf_18+11,x  ; Use copy buffer in static workspace, need to start at $1050, which is $1045 + $B (11), +0-7 in X takes it to $1057
         lda     dfs_cat_file_load_addr,y  ; Source catalog $0F08,Y
         sta     aws_tmp11,x               ; Load address, exec ... $BB-$C2
-        sta     fuji_cmd_copy_buf_17+2,x  ; 1045+2, 2 bytes into buffer
+        sta     fuji_cmd_copy_buf_18+2,x  ; 1045+2, 2 bytes into buffer
         inx
         iny
         cpx     #$08
@@ -150,17 +150,17 @@ cmd_fs_copy:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; cd_swapvars - Swap variables between source and destination
 ; Translated from MMFS cd_swapvars (lines 6031-6042)
-; Swaps $BA-$CB & $1045-$1056
+; Swaps $BA-$CB & $1045-$1056 - WHY IS THIS 1 SHORT?
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 cd_swapvars:
         ldx     #$11                    ; Swap $BA-$CB & $1045-$1056
 
 @cd_swapvars_loop:
-        ldy     fuji_cmd_copy_buf_17,x         ; $1045,X
+        ldy     fuji_cmd_copy_buf_18,x  ; $1045,X
         lda     aws_tmp10,x             ; $BA,X
         sty     aws_tmp10,x             ; $BA,X
-        sta     fuji_cmd_copy_buf_17,x         ; $1045,X
+        sta     fuji_cmd_copy_buf_18,x  ; $1045,X
         dex
         bpl     @cd_swapvars_loop
         rts

@@ -116,7 +116,7 @@
         .export  fuji_ch_ext_hi
         .export  fuji_ch_flg
 
-        .export  fuji_cmd_copy_buf_17
+        .export  fuji_cmd_copy_buf_18
         .export  fuji_getcat_buf_8
         .export  fuji_cmd_cat_buf_8
         .export  gbpb_buf_0c
@@ -409,10 +409,8 @@ fuji_workspace          = fuji_workspace_root + $1000
 ; 64 byte buffer for filename 1000-103F, but only used 8 bytes in some places
 fuji_filename_buffer    = fuji_workspace + 0
 
-; used in cmd_copy.s, 17 byte buffer $1045 to $1056
-fuji_cmd_copy_buf_17    = $1045
-
-; 1057 free?
+; used in cmd_copy.s, 18 byte buffer $1045 to $1057 (although the "swap" function only does up to $1056)
+fuji_cmd_copy_buf_18    = $1045
 
 ; 1058-105F used in fs_functions
 fuji_getcat_buf_8       = $1058

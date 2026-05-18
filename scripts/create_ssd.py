@@ -305,6 +305,7 @@ def create_ssd(
     disc_size: int,
     data_load_addr: str,
     data_exec_addr: Optional[str],
+    show_manifest: bool = False,
 ):
     """Main function to create SSD disk image."""
 
@@ -468,6 +469,11 @@ def create_ssd(
             disc_title,
             disc_size,
         )
+        
+        if show_manifest:
+            print("\n=== Generated Manifest ===")
+            print(manifest_path.read_text())
+            print("=== End Manifest ===\n")
 
         print(f"\nCreating SSD disk image: {output_ssd}")
         result = subprocess.run(
@@ -561,6 +567,11 @@ File handling:
         default=800,
         help="Disc size in KB for manifest (default: %(default)s)",
     )
+    parser.add_argument(
+        "--show-manifest",
+        action="store_true",
+        help="Print the generated manifest file to stdout",
+    )
 
     args = parser.parse_args()
 
@@ -571,6 +582,7 @@ File handling:
         args.disc_size,
         args.load_addr,
         args.exec_addr,
+        args.show_manifest,
     )
 
 

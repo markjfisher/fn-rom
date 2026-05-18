@@ -122,7 +122,7 @@ OS_INC = 1
         .import  fuji_ch_ext_hi
         .import  fuji_ch_flg
 
-        .import  fuji_cmd_copy_buf_17
+        .import  fuji_cmd_copy_buf_18
         .import  fuji_getcat_buf_8
         .import  fuji_cmd_cat_buf_8
         .import  gbpb_buf_0c

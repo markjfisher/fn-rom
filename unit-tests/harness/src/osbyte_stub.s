@@ -11,6 +11,8 @@
         .export  osbyte_break_type
 
         .export  osbyte_76
+        .export  osbyte_83
+        .export  osbyte_84
         .export  osbyte_8f
         .export  osbyte_a8
         .export  osbyte_ea
@@ -84,6 +86,10 @@ osbyte_table_lo:
         .byte   .lobyte(osbyte_noop - 1)
         .elseif cmd = $76
         .byte   .lobyte(osbyte_76 - 1)
+        .elseif cmd = $83
+        .byte   .lobyte(osbyte_83 - 1)
+        .elseif cmd = $84
+        .byte   .lobyte(osbyte_84 - 1)
         .elseif cmd = $80
         .byte   .lobyte(osbyte_80 - 1)
         .elseif cmd = $91
@@ -119,6 +125,10 @@ osbyte_table_hi:
         .byte   .hibyte(osbyte_noop - 1)
         .elseif cmd = $76
         .byte   .hibyte(osbyte_76 - 1)
+        .elseif cmd = $83
+        .byte   .hibyte(osbyte_83 - 1)
+        .elseif cmd = $84
+        .byte   .hibyte(osbyte_84 - 1)
         .elseif cmd = $80
         .byte   .hibyte(osbyte_80 - 1)
         .elseif cmd = $91
@@ -137,6 +147,18 @@ osbyte_table_hi:
         .byte   .hibyte(osbyte_unimplemented - 1)
         .endif
 .endrepeat
+
+; OSBYTE $83 — OSHWM (top of user memory); YX = address.
+osbyte_83:
+        ldx     #$00
+        ldy     #$19
+        rts
+
+; OSBYTE $84 — HIMEM; YX = address.
+osbyte_84:
+        ldx     #$00
+        ldy     #$80
+        rts
 
 ; AUG: A preserved, X bit7 set if CTRL pressed, Y undefined
 osbyte_76:
