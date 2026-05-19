@@ -6,9 +6,14 @@
 ; Only compile this file if USERPORT interface is selected
 .ifdef FUJINET_INTERFACE_USERPORT
 
+        .export fuji_clear_mount_slot_data
+        .export fuji_get_mount_slot_data
+        .export fuji_mount_disk_data
         .export fuji_read_block_data
         .export fuji_read_catalog_data
         .export fuji_read_disc_title_data
+        .export fuji_set_mount_slot_data
+        .export fuji_unmount_disk_data
         .export fuji_write_block_data
         .export fuji_write_catalog_data
 
@@ -16,11 +21,31 @@
 
         .segment "CODE"
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+fuji_mount_disk_data:
+        lda     #$00
+        rts
+
+fuji_unmount_disk_data:
+        lda     #$00
+        rts
+
+fuji_clear_mount_slot_data:
+        lda     #$00
+        rts
+
+fuji_get_mount_slot_data:
+        lda     #$00
+        rts
+
+fuji_set_mount_slot_data:
+        lda     #$00
+        rts
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; FUJI_READ_BLOCK_DATA - Read data block from FujiNet device via User Port
 ; Input: data_ptr points to buffer, other parameters in workspace
 ; Output: Data read into buffer, Carry=0 if success, Carry=1 if error
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 fuji_read_block_data:
         ; TODO: Implement User Port communication to read block
@@ -33,11 +58,11 @@ fuji_read_block_data:
         clc
         rts
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; FUJI_WRITE_BLOCK_DATA - Write data block to FujiNet device via User Port
 ; Input: data_ptr points to buffer, other parameters in workspace
 ; Output: Carry=0 if success, Carry=1 if error
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 fuji_write_block_data:
         ; TODO: Implement User Port communication to write block
@@ -50,11 +75,11 @@ fuji_write_block_data:
         clc
         rts
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; fuji_read_catalog_DATA - Read catalog from FujiNet device via User Port
 ; Input: data_ptr points to 512-byte catalog buffer
 ; Output: Catalogue data in buffer, Carry=0 if success, Carry=1 if error
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 fuji_read_catalog_data:
         ; TODO: Implement User Port communication to read catalog
@@ -67,11 +92,11 @@ fuji_read_catalog_data:
         clc
         rts
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; fuji_write_catalog_DATA - Write catalog to FujiNet device via User Port
 ; Input: data_ptr points to 512-byte catalog buffer
 ; Output: Carry=0 if success, Carry=1 if error
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 fuji_write_catalog_data:
         ; TODO: Implement User Port communication to write catalog
@@ -84,11 +109,11 @@ fuji_write_catalog_data:
         clc
         rts
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; FUJI_READ_DISC_TITLE_DATA - Read disc title from FujiNet device via User Port
 ; Input: data_ptr points to 16-byte title buffer
 ; Output: Title data in buffer, Carry=0 if success, Carry=1 if error
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 fuji_read_disc_title_data:
         ; TODO: Implement User Port communication to read disc title

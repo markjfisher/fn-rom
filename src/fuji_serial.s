@@ -8,9 +8,11 @@
 
         .export err_bad_response
 
-        .export fuji_mount_disk_data
-        .export fuji_set_mount_slot_data
+        .export fuji_clear_mount_slot_data
         .export fuji_get_mount_slot_data
+        .export fuji_mount_disk_data
+        .export fuji_unmount_disk_data
+        .export fuji_set_mount_slot_data
         .export fuji_read_block_data
         .export fuji_read_catalog_data
         .export fuji_read_disc_title_data
@@ -29,9 +31,11 @@
         .import fuji_block_size
         .import fuji_current_sector
         .import fuji_file_offset
+        .import fujibus_clear_mount_slot
         .import fujibus_disk_mount
         .import fujibus_disk_read_sector
         .import fujibus_disk_read_sector_partial
+        .import fujibus_disk_unmount
         .import fujibus_disk_write_sector
         .import fujibus_get_mount_slot
         .import fujibus_set_mount_slot
@@ -314,6 +318,14 @@ fuji_mount_disk_data:
         ; PWS FS URI buffer (fuji_fs_uri_ptr()) contains the URI (already set by *FMOUNT)
         ; A already contains live mount flags from *FMOUNT.
         jsr     fujibus_disk_mount
+        rts
+
+fuji_unmount_disk_data:
+        jsr     fujibus_disk_unmount
+        rts
+
+fuji_clear_mount_slot_data:
+        jsr     fujibus_clear_mount_slot
         rts
 
 ;//////////////////////////////////////////////////////////////////////

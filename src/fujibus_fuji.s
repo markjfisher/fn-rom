@@ -1,6 +1,7 @@
 ; FujiDevice FujiBus: GetMount / SetMount (replaces fujibus_fuji_c.c)
 ; Calls fujibus_send_packet with fuji_bus_tx_* ZP params (see os.s / fujibus.s).
 
+        .export  fujibus_clear_mount_slot
         .export  fujibus_get_mount_slot
         .export  fujibus_set_mount_slot
 
@@ -134,6 +135,44 @@ fujibus_set_mount_slot:
         bcc     :+
         inx
 :
+        jsr     fujibus_send_packet
+
+        jsr     fujibus_receive_packet
+        jmp     fujibus_fuji_check_status
+
+; bool fujibus_clear_mount_slot(void)
+;   Payload at buffer+6: slot, flags 0, uri_len 0, mode_len 0
+fujibus_clear_mount_slot:
+        ldy     #$06
+        lda     fuji_disk_slot
+        sta     (buffer_ptr),y
+
+        iny                             ; y=7
+        lda     #$00
+        sta     (buffer_ptr),y
+
+        iny                             ; y=8
+        sta     (buffer_ptr),y
+
+        iny                             ; y=9
+        sta     (buffer_ptr),y
+
+        lda     #FN_DEVICE_FUJI
+        sta     fuji_bus_tx_device
+
+        lda     #FUJI_CMD_SET_MOUNT
+        sta     fuji_bus_tx_command
+
+        lda     buffer_ptr
+        clc
+        adc     #$06
+        sta     fuji_bus_tx_payload_lo
+        lda     buffer_ptr+1
+        adc     #$00
+        sta     fuji_bus_tx_payload_hi
+
+        ldx     #$00
+        lda     #$04
         jsr     fujibus_send_packet
 
         jsr     fujibus_receive_packet

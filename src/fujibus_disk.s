@@ -15,6 +15,7 @@
         .export  fujibus_disk_mount
         .export  fujibus_disk_read_sector
         .export  fujibus_disk_read_sector_partial
+        .export  fujibus_disk_unmount
         .export  fujibus_disk_write_sector
         .export  fujibus_resolve_path
 
@@ -180,6 +181,73 @@ fujibus_disk_mount:
         rts
 
 @fail:
+        ldx     #$00
+        txa
+        rts
+
+; bool fujibus_disk_unmount(void)
+;   Output:
+;     A = 1 on success, 0 on failure
+;     X = 0
+;
+; Payload layout at buffer+6:
+;   +0  FN_PROTOCOL_VERSION
+;   +1  (*fuji_disk_slot) + 1
+
+fujibus_disk_unmount:
+        lda     #FN_PROTOCOL_VERSION
+        ldy     #$06
+        sta     (buffer_ptr),y
+
+        lda     fuji_disk_slot
+        clc
+        adc     #$01
+        iny                             ; y=7
+        sta     (buffer_ptr),y
+
+        lda     #FN_DEVICE_DISK
+        sta     fuji_bus_tx_device
+
+        lda     #DISK_CMD_UNMOUNT
+        sta     fuji_bus_tx_command
+
+        lda     buffer_ptr
+        clc
+        adc     #$06
+        sta     fuji_bus_tx_payload_lo
+        lda     buffer_ptr+1
+        adc     #$00
+        sta     fuji_bus_tx_payload_hi
+
+        ldx     #$00
+        lda     #$02
+        jsr     fujibus_send_packet
+
+        jsr     fujibus_receive_packet
+
+        cpx     #$00
+        bne     @du_check_status
+        cmp     #$00
+        beq     @du_fail
+
+        cmp     #$08
+        bcc     @du_fail
+
+@du_check_status:
+        ldy     #$05
+        lda     (buffer_ptr),y
+        cmp     #$01
+        bne     @du_fail
+
+        iny                             ; y=6
+        lda     (buffer_ptr),y
+        bne     @du_fail
+
+        lda     #$01
+        ldx     #$00
+        rts
+
+@du_fail:
         ldx     #$00
         txa
         rts

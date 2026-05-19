@@ -1,82 +1,81 @@
         .export cmd_fs_fout
 
-        ; .import fn_disk_unmount
-        ; .import fuji_clear_mount_slot
-        ; .import fuji_get_mount_slot
-        ; .import fuji_unmount_disk
-        ; .import fuji_data_buffer
-        ; .import param_drive_no_syntax
-        ; .import set_user_flag_x
+        .import current_cat
+        .import exit_user_ok
+        .import fuji_clear_slot
+        .import fuji_drive_disk_map
+        .import fuji_get_slot
+        .import fuji_disk_slot
+        .import fuji_unmount_disk
+        .import param_get_num
+        .import report_error
 
         .include "fujinet.inc"
 
         .segment "CODE"
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; cmd_fs_fout - Handle *FOUT command
 ;
 ; Syntax:
-;   *FOUT <drive>
+;   *FOUT <slot>
 ;
-; This removes the persisted FujiNet mount entry currently bridged to the BBC
-; drive, clears the BBC-side bridge mapping, and requests a live DiskService
-; unmount for the corresponding 1-based disk slot.
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; This removes the persisted FujiNet mount entry for the specified FujiNet slot.
+; If that slot is currently bridged into a BBC drive, it also clears the BBC-side
+; bridge mapping and requests a live DiskService unmount for that drive.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 cmd_fs_fout:
-        rts
-;         ; Parse BBC drive number and mirror it into current_drv for consistency
-;         ; with the rest of the ROM's drive-handling conventions.
-;         jsr     param_drive_no_syntax
-;         sta     current_drv
+        jsr     param_get_num
+        cmp     #$08
+        bcs     err_fout_bad_slot
+        sta     fuji_disk_slot
 
-;         ; Look up the currently bridged persisted FujiNet mount slot for this BBC
-;         ; drive. If no bridge exists, treat the request as a failure.
-;         ldx     current_drv
-;         lda     fuji_drive_disk_map,x
-;         cmp     #$FF
-;         beq     @failed
-;         sta     fuji_current_mount_slot
+        jsr     fuji_get_slot
+        cmp     #$00
+        beq     err_fout_read_slot
 
-;         ; DiskDevice uses 1-based slot numbers on the wire. BBC drive N is backed
-;         ; by live disk slot N+1 when bridged.
-;         txa
-;         clc
-;         adc     #$01
-;         sta     aws_tmp00
+        jsr     fuji_clear_slot
+        cmp     #$00
+        beq     err_fout_clear_slot
 
-;         ; Confirm the persisted slot still exists before we remove it. This keeps
-;         ; *FOUT as a persisted-mount operation rather than silently behaving like
-;         ; bridge-only *FUNMOUNT when the slot record is already absent.
-;         jsr     fuji_get_mount_slot
-;         bcs     @failed
-;         ldy     #FN_HEADER_SIZE+1
-;         lda     fuji_data_buffer,y
-;         and     #$01
-;         beq     @failed
-;         iny
-;         lda     fuji_data_buffer,y
-;         beq     @failed
+        ldx     #$00
+@scan_drives:
+        lda     fuji_drive_disk_map,x
+        cmp     fuji_disk_slot
+        beq     @unmount_drive
+        inx
+        cpx     #$04
+        bne     @scan_drives
+        beq     @done
 
-;         ; Request the live DiskService unmount only after the slot record was
-;         ; confirmed present.
-;         lda     aws_tmp00
-;         jsr     fn_disk_unmount
-;         bcs     @failed
+@unmount_drive:
+        txa
+        jsr     fuji_unmount_disk
+        cmp     #$00
+        beq     err_fout_unmount
 
-;         ; Remove the persisted FujiDevice mount definition only after the live
-;         ; unmount succeeded.
-;         jsr     fuji_clear_mount_slot
-;         bcs     @failed
+@done:
+        lda     #$FF
+        sta     current_cat             ; invalidate cached catalog after removing mount
+        jmp     exit_user_ok
 
-;         ; Both remote operations succeeded, so clear the local bridge last.
-;         jsr     fuji_unmount_disk
+err_fout_bad_slot:
+        jsr     report_error
+        .byte   $CB
+        .byte   "mount slot", 0
 
-;         ; Standard success path: zero user flag.
-;         ldx     #$00
-;         jmp     set_user_flag_x
+err_fout_read_slot:
+        jsr     report_error
+        .byte   $CB
+        .byte   "Err reading slot", 0
 
-; @failed:
-;         ; Non-zero user flag indicates command failure.
-;         ldx     #$01
-;         jmp     set_user_flag_x
+err_fout_clear_slot:
+        jsr     report_error
+        .byte   $CB
+        .byte   "Set Mount error", 0
+
+err_fout_unmount:
+        jsr     report_error
+        .byte   $CB
+        .byte   "Failed to unmount disk", 0

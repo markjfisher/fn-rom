@@ -2,6 +2,7 @@
 ; Implements drive-to-disk-image mapping (like MMFS *DIN command)
 ; This is part of the Hardware Interface Layer (fuji_fs.s equivalent)
 
+        .export fuji_clear_slot
         .export fuji_get_slot
         .export fuji_mount_disk
         .export fuji_set_disk_slot_from_mapping_or_error
@@ -13,11 +14,13 @@
         .importzp current_drv
 
         .import fuji_begin_transaction
+        .import fuji_clear_mount_slot_data
         .import fuji_disk_slot
         .import fuji_drive_disk_map
         .import fuji_end_transaction
         .import fuji_get_mount_slot_data
         .import fuji_mount_disk_data
+        .import fuji_unmount_disk_data
         .import fuji_set_mount_slot_data
         .import remember_xy_only
 
@@ -62,9 +65,21 @@ fuji_mount_disk:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 fuji_unmount_disk:
+        jsr     remember_xy_only
+
+        ldx     current_drv
+        lda     fuji_drive_disk_map,x
+        sta     fuji_disk_slot
+
+        jsr     fuji_begin_transaction
+        jsr     fuji_unmount_disk_data
+        pha
+        jsr     fuji_end_transaction
+
         ldx     current_drv
         lda     #$FF                    ; $FF = no disk mounted
         sta     fuji_drive_disk_map,x
+        pla
         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -77,6 +92,21 @@ fuji_set_disk_slot_from_mapping_or_error:
         ldx     current_drv
         lda     fuji_drive_disk_map,x
         sta     fuji_disk_slot                  ; this will change to FF if no slot from FIN
+        rts
+
+;//////////////////////////////////////////////////////////////////////
+; fuji_clear_slot - Clear persisted mount record for a slot
+; Entry: fuji_disk_slot = slot number (0-7)
+; Exit:  A contains success code as a bool (1 = true)
+;//////////////////////////////////////////////////////////////////////
+
+fuji_clear_slot:
+        jsr     remember_xy_only
+        jsr     fuji_begin_transaction
+        jsr     fuji_clear_mount_slot_data
+        pha
+        jsr     fuji_end_transaction
+        pla
         rts
 
 ;//////////////////////////////////////////////////////////////////////
