@@ -8,7 +8,6 @@
         .importzp aws_tmp15
 
         .import cmd_table_info
-        .import fuji_read_catalog
         .import get_cat_nextentry
         .import parameter_afsp_param_syntax_error_if_null_getcatentry_fsptxtp
         .import prt_infoline_yoffset
@@ -38,8 +37,9 @@ fscv10_starINFO:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 cmd_fs_info:
-        ; Load catalog first
-        jsr     fuji_read_catalog
+        ; Parse the AFSP first so get_cat_entry/check_cur_drv_cat loads the
+        ; catalog for the resolved target drive rather than whatever drive was
+        ; left in current_drv by earlier commands.
         jsr     parameter_afsp_param_syntax_error_if_null_getcatentry_fsptxtp
 
 cmd_info_loop:
@@ -47,4 +47,3 @@ cmd_info_loop:
         jsr     get_cat_nextentry
         bcs     cmd_info_loop
         rts
-

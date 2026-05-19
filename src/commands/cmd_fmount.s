@@ -15,6 +15,7 @@
         .importzp buffer_ptr
 
         .import err_bad_mount_slot
+        .import current_cat
         .import exit_user_ok
         .import fuji_channel_scratch
         .import fuji_current_fs_len
@@ -200,6 +201,8 @@ is_enabled:
         jsr     print_newline
 
 @mount_success:
+        lda     #$FF
+        sta     current_cat             ; invalidate cached catalog after remapping a drive
         jmp     exit_user_ok
 
 err_bad_disk_mount:
