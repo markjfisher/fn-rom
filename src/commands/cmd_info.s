@@ -5,6 +5,7 @@
         .export cmd_fs_info
         .export cmd_info_loop
 
+        .importzp aws_tmp14
         .importzp aws_tmp15
 
         .import cmd_table_info
@@ -24,8 +25,10 @@
 
 fscv10_starINFO:
         jsr     set_text_pointer_yx
-        lda     #<(cmd_table_info - cmd_table_fujifs - 1) ; aws_tmp15 (BF) needs to point to the INFO command
-        sta     aws_tmp15               ; equivalent of .param_syntax_error_if_null
+        lda     #<(cmd_table_info - 1)  ; aws_tmp14/15 need to point to the INFO command entry-1
+        sta     aws_tmp14
+        lda     #>(cmd_table_info - 1)
+        sta     aws_tmp15
 
         ; Fall through to cmd_fs_info (old .CMD_INFO)
 

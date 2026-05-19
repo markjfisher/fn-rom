@@ -150,7 +150,7 @@ cmd_table_futils:
         .byte   "LS",        $80, $07, $00    ; (<path>)
         .byte   "LIST",      $80, $07, $00    ; (<path>)
         .byte   "MOUNT",     $80, $0A, $04    ; <slot> (<drive>)
-        .byte   "UNM",       $80, $03, $00    ; <drive>
+        .byte   "UNMOUNT",   $80, $03, $00    ; <drive>
         .byte   "OUT",       $80, $0A, $00    ; <slot>
         .byte   "JSON",      $80, $13, $00    ; <string>
         .byte   "NEW",       $80, $08, $00    ; <dos name>

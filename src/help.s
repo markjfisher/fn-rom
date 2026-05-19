@@ -8,6 +8,7 @@
         .importzp aws_tmp07
         .importzp aws_tmp08
         .importzp aws_tmp09
+        .importzp aws_tmp14
         .importzp aws_tmp15
 
         .import GSINIT_A
@@ -42,7 +43,7 @@ cmd_help_fuji:
 
 print_help_table:
         pha                             ; save 'old Y' from GSINIT so we can restore it later
-        stx     aws_tmp15               ; using this as "table offset"
+        jsr     set_help_table_ptr_x
         sty     aws_tmp07               ; using this as "command counter"
 
         ; Print newline first
@@ -98,16 +99,22 @@ morehelp:
 prtcmd_at_bc_add_1:
         lda     #$07
         sta     aws_tmp08
-        ldx     aws_tmp15
 
-        ; if it's futils (X >= cmdtab_offset_futils), print "F" first - This requires futils commands be at the end to work.
-        cpx     #cmdtab_offset_futils
-        bcc     @cmdloop        ; Branch if X < futils offset
+        ; if the current entry is in the futils table, print "F" first.
+        lda     aws_tmp15
+        cmp     #>cmd_table_futils
+        bcc     @cmdloop
+        bne     @print_f
+        lda     aws_tmp14
+        cmp     #<cmd_table_futils
+        bcc     @cmdloop
+@print_f:
         lda     #'F'
         jsr     prtcmd_prtchr
 @cmdloop:
-        inx
-        lda     cmd_table_fujifs,x
+        jsr     inc_help_table_ptr
+        ldy     #$00
+        lda     (aws_tmp14),y
         bmi     @cmdloop_exit
         jsr     prtcmd_prtchr
         jmp     @cmdloop
@@ -117,14 +124,15 @@ prtcmd_at_bc_add_1:
         bmi     @prtcmd_nospcs
         jsr     prtcmd_print_y_spaces_if_not_err
 @prtcmd_nospcs:
-        inx
-        lda     cmd_table_fujifs,x
+        ldy     #$01
+        lda     (aws_tmp14),y
         jsr     @prtcmd_param
-        inx
-        lda     cmd_table_fujifs,x
+        ldy     #$02
+        lda     (aws_tmp14),y
         jsr     @prtcmd_param
-        stx     aws_tmp15              ; Update table offset for next iteration
-        lda     #$00
+        jsr     inc_help_table_ptr
+        jsr     inc_help_table_ptr
+        rts
 
 @prtcmd_param:
         beq     @prtcmd_paramexit
@@ -151,6 +159,45 @@ prtcmd_at_bc_add_1:
         rts
 
 @prtcmd_paramexit:
+        rts
+
+set_help_table_ptr_x:
+        cpx     #cmdtab_offset_utils
+        beq     @utils
+        cpx     #cmdtab_offset_fs
+        beq     @fs
+        cpx     #cmdtab_offset_help
+        beq     @help
+        cpx     #cmdtab_offset_futils
+        beq     @futils
+        lda     #<cmd_table_fujifs
+        ldx     #>cmd_table_fujifs
+        bne     @store
+@utils:
+        lda     #<cmd_table_utils
+        ldx     #>cmd_table_utils
+        bne     @store
+@fs:
+        lda     #<cmd_table_fs
+        ldx     #>cmd_table_fs
+        bne     @store
+@help:
+        lda     #<cmd_table_help
+        ldx     #>cmd_table_help
+        bne     @store
+@futils:
+        lda     #<cmd_table_futils
+        ldx     #>cmd_table_futils
+@store:
+        sta     aws_tmp14
+        stx     aws_tmp15
+        rts
+
+inc_help_table_ptr:
+        inc     aws_tmp14
+        bne     @exit
+        inc     aws_tmp15
+@exit:
         rts
 
 

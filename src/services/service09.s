@@ -8,6 +8,10 @@
         .export not_cmd_fs
         .export not_cmd_fujifs
 
+        .importzp aws_tmp10
+        .importzp aws_tmp11
+        .importzp aws_tmp12
+        .importzp aws_tmp13
         .importzp aws_tmp14
         .importzp aws_tmp15
 
@@ -102,13 +106,15 @@ fscv3_unreccommand:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 unrec_command_text_pointer:
-        lda     cmd_table_fujifs, x
-        sta     aws_tmp14
+        jsr     set_cmd_table_ptr_x
+        ldy     #$00
+        lda     (aws_tmp12),y
+        sta     aws_tmp10
         tya                             ; Save Y (command line position)
         pha
 
 @unrec_loop1:
-        inc     aws_tmp14               ; Increment command index
+        inc     aws_tmp10               ; Increment command index
 
         pla                             ; Restore Y
         pha
@@ -116,34 +122,39 @@ unrec_command_text_pointer:
         jsr     GSINIT_A                ; Reset text pointer
 
         ; start looking at the string commands
-        inx
-        lda     cmd_table_fujifs, x
+        jsr     inc_cmd_table_ptr
+        jsr     read_cmd_table_byte
         beq     @gocmdcode              ; If end of table
 
-        dex
         dey
-        stx     aws_tmp15               ; Save table position for syntax error
+        lda     aws_tmp12               ; Save table position for syntax error/help
+        sta     aws_tmp14
+        lda     aws_tmp13
+        sta     aws_tmp15
+        lda     aws_tmp14
+        bne     :+
+        dec     aws_tmp15
+:       dec     aws_tmp14
 
 @unrec_loop2:
-        inx
+        jsr     inc_cmd_table_ptr
         iny                             ; Move to next character
-        lda     cmd_table_fujifs, x
+        jsr     read_cmd_table_byte
         bmi     @endofcmd_oncmdline     ; If bit 7 set, end of command
 
 @unrec_loop2in:
         eor     (text_pointer),y        ; Compare with command line, A=00 if they match
         and     #$5F                    ; Ignore case
         beq     @unrec_loop2            ; If match, continue
-        dex                             ; No match, skip to next command
 
 @unrec_loop3:
-        inx                             ; Skip to end of current command
-        lda     cmd_table_fujifs, x
+        jsr     inc_cmd_table_ptr       ; Skip to end of current command
+        jsr     read_cmd_table_byte
         bpl     @unrec_loop3            ; Continue until bit 7 set = command terminator
 
 @next_command:
-        inx                             ; Skip parameter 1 byte
-        inx                             ; Skip parameter 2 byte so next loop lands on next command
+        jsr     inc_cmd_table_ptr       ; Skip parameter 1 byte
+        jsr     inc_cmd_table_ptr       ; Skip parameter 2 byte so next loop lands on next command
 
         lda     (text_pointer),y        ; Check if command line ends with "."
         cmp     #'.'
@@ -161,7 +172,7 @@ unrec_command_text_pointer:
         pla                             ; Clean up stack
 
         ; Calculate function address
-        lda     aws_tmp14
+        lda     aws_tmp10
         asl     a                       ; Multiply by 2 (addresses are 2 bytes)
         tax
         lda     cmd_table_fujifs_cmds+1, x
@@ -170,6 +181,52 @@ unrec_command_text_pointer:
         lda     cmd_table_fujifs_cmds, x
         pha                             ; Push low byte
         rts                             ; Jump to function
+
+set_cmd_table_ptr_x:
+        cpx     #cmdtab_offset_utils
+        beq     @utils
+        cpx     #cmdtab_offset_fs
+        beq     @fs
+        cpx     #cmdtab_offset_help
+        beq     @help
+        cpx     #cmdtab_offset_futils
+        beq     @futils
+        lda     #<cmd_table_fujifs
+        ldx     #>cmd_table_fujifs
+        bne     @store
+@utils:
+        lda     #<cmd_table_utils
+        ldx     #>cmd_table_utils
+        bne     @store
+@fs:
+        lda     #<cmd_table_fs
+        ldx     #>cmd_table_fs
+        bne     @store
+@help:
+        lda     #<cmd_table_help
+        ldx     #>cmd_table_help
+        bne     @store
+@futils:
+        lda     #<cmd_table_futils
+        ldx     #>cmd_table_futils
+@store:
+        sta     aws_tmp12
+        stx     aws_tmp13
+        rts
+
+inc_cmd_table_ptr:
+        inc     aws_tmp12
+        bne     @exit
+        inc     aws_tmp13
+@exit:
+        rts
+
+read_cmd_table_byte:
+        sty     aws_tmp11
+        ldy     #$00
+        lda     (aws_tmp12),y
+        ldy     aws_tmp11
+        rts
 
 cmd_help_futils:
         tya
