@@ -40,11 +40,11 @@
         .import a_rorx6and3
         .import check_file_not_locked_or_open_y
         .import dfs_cat_boot_option
-        .import dfs_cat_file_op
         .import dfs_cat_file_s0_start
         .import dfs_cat_file_s1_start
         .import dfs_cat_file_sect
         .import dfs_cat_file_size
+        .import dfs_cat_msbits
         .import dfs_cat_num_x8
         .import dfs_cat_s0_header
         .import dfs_cat_s1_header
@@ -195,14 +195,14 @@ create_file_2:
 
         ; Non-empty cat: MMFS seed (0,$02) lets the first gap check succeed without ever
         ; entering cfile_loop — pws_tmp03 stays $02. Seed first free sector after last file.
-        ldy     dfs_cat_num_x8
-        cpy     #8
-        bcc     @create_seed_empty
+;         ldy     dfs_cat_num_x8
+;         cpy     #8
+;         bcc     @create_seed_empty
 
-        jsr     seed_first_free_after_last_file
-        jmp     @create_cat_limit
+;         jsr     seed_first_free_after_last_file
+;         jmp     @create_cat_limit
 
-@create_seed_empty:
+; @create_seed_empty:
         lda     #$00
         sta     pws_tmp02
         lda     #$02
@@ -224,7 +224,7 @@ cfile_loop:
 @cfile_continue:
         jsr     y_sub8
 
-        lda     dfs_cat_file_op,y
+        lda     dfs_cat_msbits,y
         jsr     a_rorx4and3
         sta     pws_tmp02
 
@@ -236,19 +236,19 @@ debug_here:
         adc     dfs_cat_file_size+1,y  ; A = start + len_mid + carry
         sta     pws_tmp03              ; with pws_tmp02: first free sector after this file
 
-        lda     dfs_cat_file_op,y
+        lda     dfs_cat_msbits,y
         and     #$03
         adc     pws_tmp02
         sta     pws_tmp02
 
 getfirstblock_yoffset:
         ; Total sectors read only from catalogue header ($0F06/$0F07). With Y=num*8,
-        ; dfs_cat_sect_count,Y aliases into file rows (e.g. $0F07+$28=$0F2F), not geometry.
+        ; have to subtract 8 to convert from index to location
+        lda     dfs_cat_file_sect-8,y
         sec
-        lda     dfs_cat_sect_count
         sbc     pws_tmp03
         pha
-        lda     dfs_cat_boot_option
+        lda     dfs_cat_msbits-8,y
         and     #$03
         sbc     pws_tmp02
         tax
@@ -261,7 +261,7 @@ getfirstblock_yoffset:
 
         tya
         bcc     cfile_loop
-@skip_gap_finding:
+
         sty     aws_tmp00
         ldy     dfs_cat_num_x8
 cfile_insertfileloop:
@@ -330,27 +330,27 @@ cfile_copyfnloop:
 
 ; Same extent maths as cfile_loop / debug_here — MMFS ADC chain already yields the first
 ; free sector after the catalogue row at Y (not last occupied; no extra increment).
-seed_first_free_after_last_file:
-        ldy     dfs_cat_num_x8
-        jsr     y_sub8
+; seed_first_free_after_last_file:
+;         ldy     dfs_cat_num_x8
+;         jsr     y_sub8
 
-        lda     dfs_cat_file_op,y
-        jsr     a_rorx4and3
-        sta     pws_tmp02
+;         lda     dfs_cat_msbits,y
+;         jsr     a_rorx4and3
+;         sta     pws_tmp02
 
-        clc
-        lda     #$FF
-        adc     dfs_cat_file_size,y
-        lda     dfs_cat_file_sect,y
-        adc     dfs_cat_file_size+1,y
-        sta     pws_tmp03
+;         clc
+;         lda     #$FF
+;         adc     dfs_cat_file_size,y
+;         lda     dfs_cat_file_sect,y
+;         adc     dfs_cat_file_size+1,y
+;         sta     pws_tmp03
 
-        lda     dfs_cat_file_op,y
-        and     #$03
-        adc     pws_tmp02
-        sta     pws_tmp02
+;         lda     dfs_cat_msbits,y
+;         and     #$03
+;         adc     pws_tmp02
+;         sta     pws_tmp02
 
-        rts
+;         rts
 
 delete_cat_entry_yfileoffset:
         jsr     check_file_not_locked_or_open_y

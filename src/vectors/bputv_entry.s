@@ -28,7 +28,7 @@
         .import channel_set_dir_drive_yintch
         .import check_channel_yhndl_exyintch
         .import cmp_ptr_ext
-        .import dfs_cat_file_op
+        .import dfs_cat_msbits
         .import dfs_cat_file_size
         .import err_file_locked
         .import fuji_cat_file_offset
@@ -133,10 +133,10 @@ bp_entry:
         asl     a
         asl     a
         asl     a
-        eor     dfs_cat_file_op,x   ; Mixed byte
+        eor     dfs_cat_msbits,x   ; Mixed byte
         and     #$30
-        eor     dfs_cat_file_op,x
-        sta     dfs_cat_file_op,x   ; File len 2
+        eor     dfs_cat_msbits,x
+        sta     dfs_cat_msbits,x   ; File len 2
         pla
         lda     #$00
 @bp_extendtogap:

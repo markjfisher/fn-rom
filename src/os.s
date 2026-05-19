@@ -164,7 +164,7 @@
         .export  dfs_cat_file_load_addr
         .export  dfs_cat_file_exec_addr
         .export  dfs_cat_file_size
-        .export  dfs_cat_file_op
+        .export  dfs_cat_msbits
         .export  dfs_cat_file_sect
 
         .exportzp  aws_tmp00
@@ -397,7 +397,7 @@ dfs_cat_file_s1_start   = dfs_cat_s1_header + $08       ; 0F08
 dfs_cat_file_load_addr  = dfs_cat_file_s1_start + $00   ; 0F08 + index * 8
 dfs_cat_file_exec_addr  = dfs_cat_file_s1_start + $02   ; 0F0A + index * 8
 dfs_cat_file_size       = dfs_cat_file_s1_start + $04   ; 0F0C + index * 8
-dfs_cat_file_op         = dfs_cat_file_s1_start + $06   ; 0F0E + index * 8
+dfs_cat_msbits          = dfs_cat_file_s1_start + $06   ; 0F0E + index * 8
 dfs_cat_file_sect       = dfs_cat_file_s1_start + $07   ; 0F0F + index * 8
 
 
@@ -450,7 +450,7 @@ fuji_gbpbv_tube_op      = $107F  ; used in gbpb_gosub
 gbpb_tube               = $1081
 
 current_cat             = $1082  ; this is the drive the latest catalog that was fetched was for, see check_cur_drv_cat
-; in initialising, both current_cat and current_cat+1 are set to ascii "0"
+; in initialising, current_cat is set to ascii "0"
 
 ; $10D7/10D8 copied from GBPBV_TABLE indexed by command, but in fujinet it's fuji_param_block_lo
 

@@ -69,7 +69,7 @@
         .import dfs_cat_cycle
         .import dfs_cat_file_dir
         .import dfs_cat_file_name
-        .import dfs_cat_file_op
+        .import dfs_cat_msbits
         .import dfs_cat_file_s0_start
         .import dfs_cat_file_s1_start
         .import dfs_cat_file_size
@@ -256,10 +256,10 @@ close_file_yintch:
         sta     dfs_cat_file_size+1,x
         lda     fuji_ch_ext_hi,y
         jsr     a_rolx4
-        eor     dfs_cat_file_op,x       ; mixed byte
+        eor     dfs_cat_msbits,x       ; mixed byte
         and     #$30
-        eor     dfs_cat_file_op,x
-        sta     dfs_cat_file_op,x
+        eor     dfs_cat_msbits,x
+        sta     dfs_cat_msbits,x
         jsr     save_cat_to_disk
         ldy     fuji_intch
 close_file_buftodisk:

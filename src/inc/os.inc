@@ -170,7 +170,7 @@ OS_INC = 1
         .import  dfs_cat_file_load_addr
         .import  dfs_cat_file_exec_addr
         .import  dfs_cat_file_size
-        .import  dfs_cat_file_op
+        .import  dfs_cat_msbits
         .import  dfs_cat_file_sect
 
 

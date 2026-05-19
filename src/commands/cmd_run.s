@@ -16,7 +16,7 @@
         .import OSCLI
         .import a_rorx6and3
         .import dfs_cat_file_exec_addr
-        .import dfs_cat_file_op
+        .import dfs_cat_msbits
         .import err_bad
         .import fuji_filename_buffer
         .import fuji_lib_dir
@@ -76,7 +76,7 @@ runfile_found:
 ;         nop
 ; .endif
         ; Check if this is an *EXEC file (exec address = &FFFFFFFF)
-        lda     dfs_cat_file_op,y               ; Mixed byte from catalog
+        lda     dfs_cat_msbits,y               ; Mixed byte from catalog
         jsr     a_rorx6and3                     ; Extract high bits
         cmp     #$03                            ; If high bits = 3
         bne     runfile_run                     ; If not &FFFFFFFF, run normally

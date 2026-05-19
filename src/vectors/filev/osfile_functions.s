@@ -26,7 +26,7 @@
         .import dfs_cat_file_dir
         .import dfs_cat_file_exec_addr
         .import dfs_cat_file_load_addr
-        .import dfs_cat_file_op
+        .import dfs_cat_msbits
         .import fuji_write_mem_block
         .import read_file_attribs_to_b0_yoffset
         .import remember_axy
@@ -161,7 +161,7 @@ osfile_update_loadaddr_xoffset:
         lda     (aws_tmp00),y
         asl     a
         asl     a
-        eor     dfs_cat_file_op,x       ; MA+&0F0E,X
+        eor     dfs_cat_msbits,x       ; MA+&0F0E,X
         and     #$0C
         bpl     osfile_savemixedbyte    ; always branches
 
@@ -186,12 +186,12 @@ osfile_update_execaddr_xoffset:
         ror     a
         ror     a
         ror     a
-        eor     dfs_cat_file_op,x       ; MA+&0F0E,X
+        eor     dfs_cat_msbits,x       ; MA+&0F0E,X
         and     #$C0
 
 osfile_savemixedbyte:
-        eor     dfs_cat_file_op,x       ; save mixed byte
-        sta     dfs_cat_file_op,x
+        eor     dfs_cat_msbits,x       ; save mixed byte
+        sta     dfs_cat_msbits,x
         clv
         rts
 
