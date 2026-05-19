@@ -12,7 +12,6 @@
 
         .import GSINIT_A
         .import GSREAD_A
-        .import a_rorx4
         .import parameter_table
         .import print_char
         .import print_newline
@@ -38,8 +37,8 @@ cmd_help_fuji:
 
 
 ; A = offset to char on command line (was the Y value from GSINIT)
-; X = offset to help for strings for appropriate table (e.g. cmdtab_help_cmds_size)
-; Y = function size of table being printed (e.g. cmdtab_offset_help)
+; X = offset to the command table entry before the first command string
+; Y = function size of table being printed (e.g. cmdtab_help_cmds_size)
 
 print_help_table:
         pha                             ; save 'old Y' from GSINIT so we can restore it later
@@ -118,16 +117,16 @@ prtcmd_at_bc_add_1:
         bmi     @prtcmd_nospcs
         jsr     prtcmd_print_y_spaces_if_not_err
 @prtcmd_nospcs:
-        stx     aws_tmp15              ; Update table offset for next iteration
-
+        inx
         lda     cmd_table_fujifs,x
-        and     #$7F
         jsr     @prtcmd_param
-        jsr     a_rorx4
+        inx
+        lda     cmd_table_fujifs,x
+        jsr     @prtcmd_param
+        stx     aws_tmp15              ; Update table offset for next iteration
 
 @prtcmd_param:
         jsr     remember_axy
-        and     #$0F
         beq     @prtcmd_paramexit
         tay
         lda     #' '

@@ -139,7 +139,11 @@ unrec_command_text_pointer:
 @unrec_loop3:
         inx                             ; Skip to end of current command
         lda     cmd_table_fujifs, x
-        bpl     @unrec_loop3            ; Continue until bit 7 set = HELP args byte
+        bpl     @unrec_loop3            ; Continue until bit 7 set = command terminator
+
+@next_command:
+        inx                             ; Skip parameter 1 byte
+        inx                             ; Skip parameter 2 byte so next loop lands on next command
 
         lda     (text_pointer),y        ; Check if command line ends with "."
         cmp     #'.'
@@ -150,7 +154,7 @@ unrec_command_text_pointer:
 @endofcmd_oncmdline:
         lda     (text_pointer),y         ; Check if next char is alphabetic
         jsr     is_alpha_char
-        bcc     @unrec_loop1             ; If it is alpha, try next command as it didn't match
+        bcc     @next_command            ; If it is alpha, try next command as it didn't match
         ; end of command match checks against $0D for the CR from command, so falls through...
 
 @gocmdcode:
