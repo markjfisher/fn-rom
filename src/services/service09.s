@@ -7,6 +7,16 @@
         .export cmd_help_utils
         .export not_cmd_fs
         .export not_cmd_fujifs
+        .export help_check_command
+        .export unrec_loop_next_command
+        .export unrec_loop_match_char
+        .export unrec_loop_skip_rest
+        .export unrec_loop_end_of_cmd
+        .export unrec_dispatch_command
+        .export set_cmd_table_ptr_x
+        .export inc_cmd_table_ptr
+        .export dec_cmd_table_ptr
+        .export read_cmd_table_byte
 
         .importzp aws_tmp10
         .importzp aws_tmp11
@@ -48,10 +58,13 @@ service09_help:
         ; Check if this is just *HELP (no arguments)
         ; Y contains offset to first non-space char
         lda     (text_pointer),y         ; Get character at (text_pointer)+Y
-        ldx     #cmdtab_offset_help
         cmp     #$0D                    ; CHR$(13) = carriage return
         bne     check_command           ; If not CR, check for command
 
+        lda     #<cmd_table_help
+        sta     aws_tmp14
+        lda     #>cmd_table_help
+        sta     aws_tmp15
         tya                             ; Y contains offset to first non-space char
         ldy     #cmdtab_help_cmds_size
         ; Just *HELP - print basic help
@@ -70,6 +83,8 @@ service04_unrec_command:
         ldx     #cmdtab_offset_fs        ; Start with file system commands
 
 check_command:
+help_check_command:
+        ldx     #cmdtab_offset_help
         jmp     unrec_command_text_pointer
 
 not_cmd_fs:
@@ -107,13 +122,13 @@ fscv3_unreccommand:
 
 unrec_command_text_pointer:
         jsr     set_cmd_table_ptr_x
+        tya                             ; Save incoming command line position before clobbering Y
+        pha
         ldy     #$00
         lda     (aws_tmp12),y
         sta     aws_tmp10
-        tya                             ; Save Y (command line position)
-        pha
 
-@unrec_loop1:
+unrec_loop_next_command:
         inc     aws_tmp10               ; Increment command index
 
         pla                             ; Restore Y
@@ -124,51 +139,52 @@ unrec_command_text_pointer:
         ; start looking at the string commands
         jsr     inc_cmd_table_ptr
         jsr     read_cmd_table_byte
-        beq     @gocmdcode              ; If end of table
+        ora     #$00
+        beq     unrec_dispatch_command  ; If end of table
 
+        jsr     dec_cmd_table_ptr       ; Rewind so loop starts on first command char
         dey
         lda     aws_tmp12               ; Save table position for syntax error/help
         sta     aws_tmp14
         lda     aws_tmp13
         sta     aws_tmp15
-        lda     aws_tmp14
-        bne     :+
-        dec     aws_tmp15
-:       dec     aws_tmp14
 
-@unrec_loop2:
+unrec_loop_match_char:
         jsr     inc_cmd_table_ptr
         iny                             ; Move to next character
         jsr     read_cmd_table_byte
-        bmi     @endofcmd_oncmdline     ; If bit 7 set, end of command
+        ora     #$00
+        bmi     unrec_loop_end_of_cmd   ; If bit 7 set, end of command
 
 @unrec_loop2in:
         eor     (text_pointer),y        ; Compare with command line, A=00 if they match
         and     #$5F                    ; Ignore case
-        beq     @unrec_loop2            ; If match, continue
+        beq     unrec_loop_match_char   ; If match, continue
 
-@unrec_loop3:
+unrec_loop_skip_rest:
         jsr     inc_cmd_table_ptr       ; Skip to end of current command
         jsr     read_cmd_table_byte
-        bpl     @unrec_loop3            ; Continue until bit 7 set = command terminator
+        ora     #$00
+        bpl     unrec_loop_skip_rest    ; Continue until bit 7 set = command terminator
 
-@next_command:
+        ; fall through to unrec_loop_advance_entry
+unrec_loop_advance_entry:
         jsr     inc_cmd_table_ptr       ; Skip parameter 1 byte
         jsr     inc_cmd_table_ptr       ; Skip parameter 2 byte so next loop lands on next command
 
         lda     (text_pointer),y        ; Check if command line ends with "."
         cmp     #'.'
-        bne     @unrec_loop1            ; If not, try next command
+        bne     unrec_loop_next_command ; If not, try next command
         iny                             ; Skip the "."
-        bcs     @gocmdcode
+        bcs     unrec_dispatch_command
 
-@endofcmd_oncmdline:
+unrec_loop_end_of_cmd:
         lda     (text_pointer),y         ; Check if next char is alphabetic
         jsr     is_alpha_char
-        bcc     @next_command            ; If it is alpha, try next command as it didn't match
+        bcc     unrec_loop_advance_entry ; If it is alpha, try next command as it didn't match
         ; end of command match checks against $0D for the CR from command, so falls through...
 
-@gocmdcode:
+unrec_dispatch_command:
         pla                             ; Clean up stack
 
         ; Calculate function address
@@ -221,6 +237,14 @@ inc_cmd_table_ptr:
 @exit:
         rts
 
+dec_cmd_table_ptr:
+        lda     aws_tmp12
+        bne     @dec_lo
+        dec     aws_tmp13
+@dec_lo:
+        dec     aws_tmp12
+        rts
+
 read_cmd_table_byte:
         sty     aws_tmp11
         ldy     #$00
@@ -229,15 +253,21 @@ read_cmd_table_byte:
         rts
 
 cmd_help_futils:
+        lda     #<cmd_table_futils
+        sta     aws_tmp14
+        lda     #>cmd_table_futils
+        sta     aws_tmp15
         tya
-        ldx     #cmdtab_offset_futils
         ldy     #cmdtab_futils_cmds_size
 do_print_help_table:
         jmp     print_help_table
 
 ; THIS NEEDS TO BE IMPLEMENTED CORRECTLY TO DISPLAY THE *HELP UTILS COMMANDS
 cmd_help_utils:
+        lda     #<cmd_table_utils
+        sta     aws_tmp14
+        lda     #>cmd_table_utils
+        sta     aws_tmp15
         tya
-        ldx     #cmdtab_offset_utils
         ldy     #cmdtab_utils_cmds_size
         bne     do_print_help_table

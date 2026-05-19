@@ -4,6 +4,15 @@
         .export print_help_table
         .export prtcmd_at_bc_add_1
         .export prtcmd_prtchr
+        .export help_print_loop
+        .export help_print_done
+        .export help_cmdloop
+        .export help_cmdloop_exit
+        .export help_print_params
+        .export help_param_entry
+        .export help_param_findloop
+        .export help_param_printloop
+        .export help_inc_table_ptr
 
         .importzp aws_tmp07
         .importzp aws_tmp08
@@ -30,20 +39,22 @@
 ; this runs into print_help_table, so we can save a byte
 
 cmd_help_fuji:
+        lda     #<cmd_table_fujifs
+        sta     aws_tmp14
+        lda     #>cmd_table_fujifs
+        sta     aws_tmp15
         tya
-        ldx     #cmdtab_offset_fujifs
         ldy     #cmdtab_fujifs_cmds_size
 
         ; fall through to print_help_table
 
 
 ; A = offset to char on command line (was the Y value from GSINIT)
-; X = offset to the command table entry before the first command string
-; Y = function size of table being printed (e.g. cmdtab_help_cmds_size)
+; aws_tmp14/15 = pointer to the command table entry before the first command string
+; Y = function size of table being printed
 
 print_help_table:
         pha                             ; save 'old Y' from GSINIT so we can restore it later
-        jsr     set_help_table_ptr_x
         sty     aws_tmp07               ; using this as "command counter"
 
         ; Print newline first
@@ -69,7 +80,7 @@ print_help_table:
         jsr     print_char
 
         ; now do the commands
-@loop:
+help_print_loop:
         lda     #$00
         sta     aws_tmp09               ; ?&B9=0=print command (not error)
 
@@ -78,9 +89,11 @@ print_help_table:
         jsr     prtcmd_at_bc_add_1
         jsr     print_newline
         dec     aws_tmp07
-        bne     @loop
+        bne     help_print_loop
+help_print_done:
         pla
         tay
+        rts
 
 ; this is equivalent of CMD_NOTHELPTBL
 not_cmd_help:
@@ -103,97 +116,66 @@ prtcmd_at_bc_add_1:
         ; if the current entry is in the futils table, print "F" first.
         lda     aws_tmp15
         cmp     #>cmd_table_futils
-        bcc     @cmdloop
+        bcc     help_cmdloop
         bne     @print_f
         lda     aws_tmp14
         cmp     #<cmd_table_futils
-        bcc     @cmdloop
+        bcc     help_cmdloop
 @print_f:
         lda     #'F'
         jsr     prtcmd_prtchr
-@cmdloop:
+help_cmdloop:
         jsr     inc_help_table_ptr
         ldy     #$00
         lda     (aws_tmp14),y
-        bmi     @cmdloop_exit
+        bmi     help_cmdloop_exit
         jsr     prtcmd_prtchr
-        jmp     @cmdloop
+        jmp     help_cmdloop
 
-@cmdloop_exit:
+help_cmdloop_exit:
         ldy     aws_tmp08
-        bmi     @prtcmd_nospcs
+        bmi     help_print_params
         jsr     prtcmd_print_y_spaces_if_not_err
-@prtcmd_nospcs:
+help_print_params:
         ldy     #$01
         lda     (aws_tmp14),y
-        jsr     @prtcmd_param
+        jsr     help_param_entry
         ldy     #$02
         lda     (aws_tmp14),y
-        jsr     @prtcmd_param
+        jsr     help_param_entry
         jsr     inc_help_table_ptr
         jsr     inc_help_table_ptr
         rts
 
-@prtcmd_param:
-        beq     @prtcmd_paramexit
+help_param_entry:
+        beq     help_param_exit
         tay
         txa
         pha
         lda     #' '
         jsr     prtcmd_prtchr
         ldx     #$FF
-@prtcmd_findloop:
+help_param_findloop:
         inx
         lda     parameter_table,x
-        bpl     @prtcmd_findloop
+        bpl     help_param_findloop
         dey
-        bne     @prtcmd_findloop
+        bne     help_param_findloop
         and     #$7F
-@prtcmd_param_loop:
+help_param_printloop:
         jsr     prtcmd_prtchr
         inx
         lda     parameter_table,x
-        bpl     @prtcmd_param_loop
+        bpl     help_param_printloop
         pla
         tax
         rts
 
-@prtcmd_paramexit:
-        rts
-
-set_help_table_ptr_x:
-        cpx     #cmdtab_offset_utils
-        beq     @utils
-        cpx     #cmdtab_offset_fs
-        beq     @fs
-        cpx     #cmdtab_offset_help
-        beq     @help
-        cpx     #cmdtab_offset_futils
-        beq     @futils
-        lda     #<cmd_table_fujifs
-        ldx     #>cmd_table_fujifs
-        bne     @store
-@utils:
-        lda     #<cmd_table_utils
-        ldx     #>cmd_table_utils
-        bne     @store
-@fs:
-        lda     #<cmd_table_fs
-        ldx     #>cmd_table_fs
-        bne     @store
-@help:
-        lda     #<cmd_table_help
-        ldx     #>cmd_table_help
-        bne     @store
-@futils:
-        lda     #<cmd_table_futils
-        ldx     #>cmd_table_futils
-@store:
-        sta     aws_tmp14
-        stx     aws_tmp15
+help_param_exit:
         rts
 
 inc_help_table_ptr:
+help_inc_table_ptr:
         inc     aws_tmp14
         bne     @exit
         inc     aws_tmp15
