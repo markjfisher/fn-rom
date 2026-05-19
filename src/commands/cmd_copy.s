@@ -52,6 +52,7 @@
         .import read_fsp_text_pointer
         .import save_mem_block
         .import set_load_addr_to_host
+        .import fuji_set_disk_slot_from_mapping_or_error
 
         .include "fujinet.inc"
 
@@ -262,6 +263,7 @@ copy_data_block:
 
         lda     fuji_source_drive       ; Source drive
         sta     current_drv
+        jsr     fuji_set_disk_slot_from_mapping_or_error
 
         ; Source
         jsr     set_load_addr_to_host   ; $1074 = $1075 = 255
@@ -269,6 +271,7 @@ copy_data_block:
 
         lda     fuji_dest_drive         ; Destination drive
         sta     current_drv
+        jsr     fuji_set_disk_slot_from_mapping_or_error
 
         lda     pws_tmp08               ; $C2/$C3 = Block start sector
         sta     pws_tmp03               ; Start sec = Word $C8
@@ -307,4 +310,3 @@ copy_data_block:
         ora     pws_tmp05
         bne     @cd_loop                ; If (word) sectors left <> 0
         rts
-
