@@ -7,6 +7,7 @@
 .ifdef FUJINET_INTERFACE_USERPORT
 
         .export fuji_clear_mount_slot_data
+        .export fuji_create_disk_data
         .export fuji_get_mount_slot_data
         .export fuji_mount_disk_data
         .export fuji_read_block_data
@@ -22,6 +23,10 @@
         .segment "CODE"
 
 fuji_mount_disk_data:
+        lda     #$00
+        rts
+
+fuji_create_disk_data:
         lda     #$00
         rts
 

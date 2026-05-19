@@ -12,6 +12,7 @@
 ;   0x06 - ClearChanged
 ;   0x07 - Create
 
+        .export  fujibus_disk_create
         .export  fujibus_disk_mount
         .export  fujibus_disk_read_sector
         .export  fujibus_disk_read_sector_partial
@@ -56,6 +57,155 @@
 
         .include "fujinet.inc"
 
+DISK_CREATE_TYPE_SSD        = $02
+DISK_CREATE_SECTOR_SIZE_LO  = $00
+DISK_CREATE_SECTOR_SIZE_HI  = $01
+DISK_CREATE_SECTOR_COUNT_0  = $20
+DISK_CREATE_SECTOR_COUNT_1  = $03
+DISK_CREATE_SECTOR_COUNT_2  = $00
+DISK_CREATE_SECTOR_COUNT_3  = $00
+
+
+; bool fujibus_disk_create(uint8_t flags)
+;   Input:
+;     A = create flags (bit0 = overwrite)
+;     fuji_current_fs_len / PWS FS URI buffer contain the target URI
+;   Output:
+;     A = 1 on success, 0 on failure
+;     X = 0
+
+; Payload layout at buffer+6:
+;   +0  FN_PROTOCOL_VERSION
+;   +1  flags
+;   +2  image type (SSD)
+;   +3  sector size low  (256)
+;   +4  sector size high
+;   +5  sector count byte 0 (800)
+;   +6  sector count byte 1
+;   +7  sector count byte 2
+;   +8  sector count byte 3
+;   +9  uri_len low
+;   +10 uri_len high
+;   +11+ uri bytes
+
+fujibus_disk_create:
+        sta     cws_tmp7
+
+        lda     #FN_PROTOCOL_VERSION
+        ldy     #$06
+        sta     (buffer_ptr),y
+
+        lda     cws_tmp7
+        iny                                     ; y=7
+        sta     (buffer_ptr),y
+
+        lda     #DISK_CREATE_TYPE_SSD
+        iny                                     ; y=8
+        sta     (buffer_ptr),y
+
+        lda     #DISK_CREATE_SECTOR_SIZE_LO
+        iny                                     ; y=9
+        sta     (buffer_ptr),y
+
+        lda     #DISK_CREATE_SECTOR_SIZE_HI
+        iny                                     ; y=10
+        sta     (buffer_ptr),y
+
+        lda     #DISK_CREATE_SECTOR_COUNT_0
+        iny                                     ; y=11
+        sta     (buffer_ptr),y
+
+        lda     #DISK_CREATE_SECTOR_COUNT_1
+        iny                                     ; y=12
+        sta     (buffer_ptr),y
+
+        lda     #DISK_CREATE_SECTOR_COUNT_2
+        iny                                     ; y=13
+        sta     (buffer_ptr),y
+
+        lda     #DISK_CREATE_SECTOR_COUNT_3
+        iny                                     ; y=14
+        sta     (buffer_ptr),y
+
+        lda     fuji_current_fs_len
+        iny                                     ; y=15
+        sta     (buffer_ptr),y
+
+        lda     #$00
+        iny                                     ; y=16
+        sta     (buffer_ptr),y
+
+        lda     buffer_ptr
+        clc
+        adc     #$11
+        sta     cws_tmp2
+        lda     buffer_ptr+1
+        adc     #$00
+        sta     cws_tmp3
+
+        jsr     get_fuji_fs_uri_addr_to_aws_tmp00
+
+        ldy     #$00
+@copy_uri:
+        cpy     fuji_current_fs_len
+        beq     @send_packet
+        lda     (aws_tmp00),y
+        sta     (cws_tmp2),y
+        iny
+        bne     @copy_uri
+
+@send_packet:
+        lda     #FN_DEVICE_DISK
+        sta     fuji_bus_tx_device
+
+        lda     #DISK_CMD_CREATE
+        sta     fuji_bus_tx_command
+
+        lda     buffer_ptr
+        clc
+        adc     #$06
+        sta     fuji_bus_tx_payload_lo
+        lda     buffer_ptr+1
+        adc     #$00
+        sta     fuji_bus_tx_payload_hi
+
+        ldx     #$00
+        lda     fuji_current_fs_len
+        clc
+        adc     #$0B
+        bcc     :+
+        inx
+:
+        jsr     fujibus_send_packet
+
+        jsr     fujibus_receive_packet
+
+        cpx     #$00
+        bne     @check_status
+        cmp     #$00
+        beq     @fail
+
+        cmp     #$07
+        bcc     @fail
+
+@check_status:
+        ldy     #$05
+        lda     (buffer_ptr),y
+        cmp     #$01
+        bne     @fail
+
+        iny                                     ; y=6
+        lda     (buffer_ptr),y
+        bne     @fail
+
+        lda     #$01
+        ldx     #$00
+        rts
+
+@fail:
+        ldx     #$00
+        txa
+        rts
 
 ; bool fujibus_disk_mount(uint8_t flags)
 ;   Input:

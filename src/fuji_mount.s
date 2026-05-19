@@ -3,6 +3,7 @@
 ; This is part of the Hardware Interface Layer (fuji_fs.s equivalent)
 
         .export fuji_clear_slot
+        .export fuji_create_disk
         .export fuji_get_slot
         .export fuji_mount_disk
         .export fuji_set_disk_slot_from_mapping_or_error
@@ -15,6 +16,7 @@
 
         .import fuji_begin_transaction
         .import fuji_clear_mount_slot_data
+        .import fuji_create_disk_data
         .import fuji_disk_slot
         .import fuji_drive_disk_map
         .import fuji_end_transaction
@@ -27,6 +29,26 @@
         .include "fujinet.inc"
 
         .segment "CODE"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; fuji_create_disk - Create a disk image using the current FS URI
+;
+; Entry: A = create flags
+;        fuji_current_fs_len / PWS FS URI buffer already populated
+; Exit:  A = bool (1 = success, 0 = failure)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+fuji_create_disk:
+        jsr     remember_xy_only
+        pha                             ; Save create flags from caller
+
+        jsr     fuji_begin_transaction  ; Protect &BC-&CB
+        pla                             ; Restore create flags for hardware-specific create
+        jsr     fuji_create_disk_data
+        pha                             ; Save return value (bool)
+        jsr     fuji_end_transaction    ; Restore &BC-&CB
+        pla                             ; Restore return value
+        rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; fuji_mount_disk - Mount disk image into drive

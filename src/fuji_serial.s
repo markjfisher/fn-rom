@@ -9,6 +9,7 @@
         .export err_bad_response
 
         .export fuji_clear_mount_slot_data
+        .export fuji_create_disk_data
         .export fuji_get_mount_slot_data
         .export fuji_mount_disk_data
         .export fuji_unmount_disk_data
@@ -32,6 +33,7 @@
         .import fuji_current_sector
         .import fuji_file_offset
         .import fujibus_clear_mount_slot
+        .import fujibus_disk_create
         .import fujibus_disk_mount
         .import fujibus_disk_read_sector
         .import fujibus_disk_read_sector_partial
@@ -318,6 +320,12 @@ fuji_mount_disk_data:
         ; PWS FS URI buffer (fuji_fs_uri_ptr()) contains the URI (already set by *FMOUNT)
         ; A already contains live mount flags from *FMOUNT.
         jsr     fujibus_disk_mount
+        rts
+
+fuji_create_disk_data:
+        ; Create disk using FujiBus.
+        ; PWS FS URI buffer contains the full target URI and A contains create flags.
+        jsr     fujibus_disk_create
         rts
 
 fuji_unmount_disk_data:

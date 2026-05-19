@@ -32,12 +32,12 @@
         .import cmd_fs_fhost
         .import cmd_fs_fin
         .import cmd_fs_fjson
+        .import cmd_fs_fnew
         .import cmd_fs_flist
         .import cmd_fs_fmount
         .import cmd_fs_form
         .import cmd_fs_fout
         .import cmd_fs_free
-        .import cmd_fs_freset
         .import cmd_fs_fuji
         .import cmd_fs_funmount
         .import cmd_fs_info
@@ -136,20 +136,19 @@ cmd_table_help:
 cmd_table_futils:
         .byte   (cmd_table_futils_cmds - cmd_table_fujifs_cmds) / 2 - 1
 
-        .byte   "BOOT",      $80+$07    ; <dno>/<dsp>
+        .byte   "BOOT",      $80+$07    ; <slot>/<dos name>
         .byte   "CD",        $80+$7E    ; (<path>)
-        .byte   "FS",        $80+$74    ; <uri>
-        .byte   "HOST",      $80+$74    ; (num) <path>
-        .byte   "DRIVE",     $80+$00    ; list mounted FujiNet drives
-        .byte   "IN",        $80+$74    ; (<drive>) <dos name>
+        .byte   "FS",        $80+$74    ; (slot) <path>
+        .byte   "HOST",      $80+$74    ; (slot) <path>
+        .byte   "DRIVE",     $80+$00    ;
+        .byte   "IN",        $80+$74    ; (<slot>) <dos name>
         .byte   "LS",        $80+$7E    ; (<path>)
         .byte   "LIST",      $80+$7E    ; (<path>)
-        .byte   "MOUNT",     $80+$14    ; <mount slot> (<drive>)
+        .byte   "MOUNT",     $80+$14    ; <slot> (<drive>)
         .byte   "UNMOUNT",   $80+$01    ; <drive>
-        .byte   "OUT",       $80+$01    ; <drive>
-        .byte   "RESET",     $80+$00    ; no parameter
-        .byte   "JSON",      $80        ; JSON Pointer path for network OPENIN (optional param)
-        .byte   "TEST",      $80+$00    ; no parameter
+        .byte   "OUT",       $80+$01    ; <slot>
+        .byte   "JSON",      $80        ; <string>
+        .byte   "NEW",       $80+$07    ; <dos name>
         .byte   $00                     ; End of table
 
 
@@ -211,9 +210,8 @@ cmd_table_futils_cmds:
         .word   cmd_fs_fmount-1
         .word   cmd_fs_funmount-1
         .word   cmd_fs_fout-1
-        .word   cmd_fs_freset-1
         .word   cmd_fs_fjson-1
-        .word   cmd_ftest-1
+        .word   cmd_fs_fnew-1
         .word   not_cmd_futils-1
 
 cmd_table_END:
