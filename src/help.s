@@ -124,11 +124,13 @@ prtcmd_at_bc_add_1:
         lda     cmd_table_fujifs,x
         jsr     @prtcmd_param
         stx     aws_tmp15              ; Update table offset for next iteration
+        lda     #$00
 
 @prtcmd_param:
-        jsr     remember_axy
         beq     @prtcmd_paramexit
         tay
+        txa
+        pha
         lda     #' '
         jsr     prtcmd_prtchr
         ldx     #$FF
@@ -144,6 +146,8 @@ prtcmd_at_bc_add_1:
         inx
         lda     parameter_table,x
         bpl     @prtcmd_param_loop
+        pla
+        tax
         rts
 
 @prtcmd_paramexit:

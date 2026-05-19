@@ -85,24 +85,24 @@
 cmd_table_fujifs:
         .byte   $FF                ; Last command number (-1)
 
-        .byte   "ACCESS",    $80, $02, $00    ; <afsp> (L)
+        .byte   "ACCESS",    $80, $02, $14    ; <afsp> (L)
         .byte   "CLOSE",     $80, $00, $00
-        .byte   "COPY",      $80, $0C, $02    ; <source> <dest.> <afsp>
-        .byte   "DELETE",    $80, $08, $00    ; <fsp>
+        .byte   "COPY",      $80, $0F, $02    ; <source> <dest.> <afsp>
+        .byte   "DELETE",    $80, $01, $00    ; <fsp>
         .byte   "DESTROY",   $80, $02, $00    ; <afsp>
         .byte   "DIR",       $80, $06, $00    ; (<dir>)
-        .byte   "DRIVE",     $80, $01, $00    ; <drive>
+        .byte   "DRIVE",     $80, $03, $00    ; <drive>
         .byte   "ENABLE",    $80, $00, $00
         .byte   "EX",        $80, $06, $00    ; (<dir>)
-        .byte   "FORM",      $80, $05, $0F    ; (<drive>)... 40/80
+        .byte   "FORM",      $80, $05, $12    ; (<drive>)... 40/80
         .byte   "FREE",      $80, $04, $00    ; (<drive>)
 ; equivalent of .info_cmd_index
 cmd_table_info:
         .byte   "INFO",      $80, $02, $00    ; <afsp>
         .byte   "LIB",       $80, $06, $00    ; (<dir>)
         .byte   "MAP",       $80, $04, $00    ; (<drive>)
-        .byte   "RENAME",    $80, $0D, $00    ; <old fsp> <new fsp>
-        .byte   "TITLE",     $80, $0A, $00    ; <title>
+        .byte   "RENAME",    $80, $10, $00    ; <old fsp> <new fsp>
+        .byte   "TITLE",     $80, $0D, $00    ; <title>
         .byte   "VERIFY",    $80, $05, $00    ; (<drive>)...
         .byte   "WIPE",      $80, $02, $00    ; <afsp>
         .byte   $00                     ; End of table
@@ -141,19 +141,19 @@ cmd_table_help:
 cmd_table_futils:
         .byte   (cmd_table_futils_cmds - cmd_table_fujifs_cmds) / 2 - 1
 
-        .byte   "BOOT",      $80, $10, $00    ; <slot>/<dos name>
-        .byte   "CD",        $80, $11, $00    ; (<path>)
-        .byte   "FS",        $80, $12, $00    ; (slot) <path>
-        .byte   "HOST",      $80, $12, $00    ; (slot) <path>
+        .byte   "BOOT",      $80, $0C, $08    ; <slot>/<dos name>
+        .byte   "CD",        $80, $07, $00    ; (<path>)
+        .byte   "FS",        $80, $0B, $15    ; (<slot>) <path>
+        .byte   "HOST",      $80, $0B, $15    ; (<slot>) <path>
         .byte   "DRIVE",     $80, $00, $00
-        .byte   "IN",        $80, $13, $07    ; (<slot>) <dos name>
-        .byte   "LS",        $80, $11, $00    ; (<path>)
-        .byte   "LIST",      $80, $11, $00    ; (<path>)
-        .byte   "MOUNT",     $80, $14, $00    ; <slot> (<drive>)
-        .byte   "UNMOUNT",   $80, $01, $00    ; <drive>
-        .byte   "OUT",       $80, $15, $00    ; <slot>
-        .byte   "JSON",      $80, $16, $00    ; <string>
-        .byte   "NEW",       $80, $07, $00    ; <dos name>
+        .byte   "IN",        $80, $0B, $08    ; (<slot>) <dos name>
+        .byte   "LS",        $80, $07, $00    ; (<path>)
+        .byte   "LIST",      $80, $07, $00    ; (<path>)
+        .byte   "MOUNT",     $80, $0A, $04    ; <slot> (<drive>)
+        .byte   "UNM",       $80, $03, $00    ; <drive>
+        .byte   "OUT",       $80, $0A, $00    ; <slot>
+        .byte   "JSON",      $80, $13, $00    ; <string>
+        .byte   "NEW",       $80, $08, $00    ; <dos name>
         .byte   $00                     ; End of table
 
 
@@ -222,27 +222,26 @@ cmd_table_futils_cmds:
 cmd_table_END:
 
 parameter_table:
-        .byte '<'|$80, "drive>"                 ; 1
+        .byte '<'|$80, "fsp>"                   ; 1
         .byte '<'|$80, "afsp>"                  ; 2
-        .byte '('|$80, "L)"                     ; 3
+        .byte '<'|$80, "drive>"                 ; 3
         .byte '('|$80, "<drive>)"               ; 4
         .byte '('|$80, "<drive>)..."            ; 5
         .byte '('|$80, "<dir>)"                 ; 6
-        .byte '<'|$80, "dos name>"              ; 7
-        .byte '<'|$80, "fsp>"                   ; 8
+        .byte '('|$80, "<path>)"                ; 7
+        .byte '<'|$80, "dos name>"              ; 8
         .byte '('|$80, "<dos name>)"            ; 9
-        .byte '<'|$80, "title>"                 ; A
-        .byte '<'|$80, "uri>"                   ; B
-        .byte '<'|$80, "src> <dest>"        ; C
-        .byte '<'|$80, "old fsp> <new fsp>"     ; D
-        .byte '<'|$80, "filter>"                ; E
-        .byte '4'|$80, "0/80"                   ; F
-        .byte '<'|$80, "slot>/<dos name>"       ; 10
-        .byte '('|$80, "<path>)"                ; 11
-        .byte '('|$80, "slot) <path>"           ; 12
-        .byte '('|$80, "<slot>) <dos name>"     ; 13
-        .byte '<'|$80, "slot> (<drive>)"        ; 14
-        .byte '<'|$80, "slot>"                  ; 15
-        .byte '<'|$80, "string>"                ; 16
+        .byte '<'|$80, "slot>"                  ; A
+        .byte '('|$80, "<slot>)"                ; B
+        .byte '<'|$80, "slot> /"                ; C
+        .byte '<'|$80, "title>"                 ; D
+        .byte '<'|$80, "uri>"                   ; E
+        .byte '<'|$80, "src> <dest>"            ; F
+        .byte '<'|$80, "old fsp> <new fsp>"     ; 10
+        .byte '<'|$80, "filter>"                ; 11
+        .byte '4'|$80, "0/80"                   ; 12
+        .byte '<'|$80, "string>"                ; 13
+        .byte '('|$80, "L)"                     ; 14
+        .byte '<'|$80, "path>"                  ; 15
 
         .byte $FF
