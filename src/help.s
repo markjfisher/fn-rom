@@ -57,9 +57,7 @@ print_help_table:
         pha                             ; save 'old Y' from GSINIT so we can restore it later
         sty     aws_tmp07               ; using this as "command counter"
 
-        ; Print newline first
-        lda     #$0D
-        jsr     print_char
+        jsr     print_newline
 
         ; Print system name and version using ROM header strings
         lda     #<rom_title
@@ -75,9 +73,7 @@ print_help_table:
         ldx     #>(rom_version_string + 1)
         jsr     print_string_ax
 
-        ; Print newline
-        lda     #$0D
-        jsr     print_char
+        jsr     print_newline
 
         ; now do the commands
 help_print_loop:

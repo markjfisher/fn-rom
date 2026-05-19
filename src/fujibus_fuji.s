@@ -52,11 +52,8 @@ fujibus_get_mount_slot:
 
         ldx     #$00
         lda     #$01
-        jsr     fujibus_send_packet
 
-        jsr     fujibus_receive_packet
-        jmp     fujibus_fuji_check_status
-
+        jmp     do_send_recv_check
 
 ; bool fujibus_set_mount_slot(void)
 ;   Payload at buffer+6: slot, flags $01, uri_len, uri..., mode_len, mode 'auto'
@@ -134,11 +131,7 @@ fujibus_set_mount_slot:
         ldx     #$00
         bcc     :+
         inx
-:
-        jsr     fujibus_send_packet
-
-        jsr     fujibus_receive_packet
-        jmp     fujibus_fuji_check_status
+:       jmp     do_send_recv_check
 
 ; bool fujibus_clear_mount_slot(void)
 ;   Payload at buffer+6: slot, flags 0, uri_len 0, mode_len 0
@@ -173,8 +166,9 @@ fujibus_clear_mount_slot:
 
         ldx     #$00
         lda     #$04
-        jsr     fujibus_send_packet
 
+do_send_recv_check:
+        jsr     fujibus_send_packet
         jsr     fujibus_receive_packet
         ; fall through
 
@@ -192,6 +186,7 @@ fujibus_fuji_check_status:
         ldy     #$06
         lda     (buffer_ptr),y
         bne     @bad
+
         lda     #$01
         ldx     #$00
         rts
