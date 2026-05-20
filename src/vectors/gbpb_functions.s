@@ -112,8 +112,8 @@ gbpb_gosub:
         sta     gbpb_tube
         lda     fuji_gbpbv_tube_op
         bcs     @gbpb_nottube2
-        ldx     #$61
-        ldy     #$10                    ; NOTE: TODO: MMFS uses #MP + &10, but we don't have MP setup yet, as it's MASTER and other hardware support
+        ldx     #<gbpb_ctl_blk_mem_ptr_host
+        ldy     #>gbpb_ctl_blk_mem_ptr_host
 
         jsr     tube_code
 

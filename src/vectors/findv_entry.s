@@ -16,6 +16,7 @@
         .export err_file_locked
         .export err_file_open
         .export findv_entry
+        .export fscv6_shutdown_filing_system
         .export setup_channel_info_block_yintch
         .export channel_set_dir_drive_get_cat_entry_yintch
         .export network_open_file
@@ -115,10 +116,27 @@
         .import report_error_cb
         .import save_cat_to_disk
         .import set_current_drive_adrive
+        .import service0A_claim_statworkspace
 
         .include "fujinet.inc"
 
         .segment "CODE"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; fscv6_shutdown_filing_system - Shutdown filing system
+; Following MMFS pattern (lines 4588+)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+fscv6_shutdown_filing_system:
+        jsr     remember_axy
+
+.ifdef FUJINET_MACHINE_MASTER
+        nop
+        ; Close any SPOOL or EXEC files (following MMFS pattern)
+        jsr     close_spool_exec_files
+        jmp     service0A_claim_statworkspace
+.endif
+        ; fall through to close_spool_exec_files
 
 close_spool_exec_files:
         lda     #$77
@@ -395,7 +413,7 @@ convert_intch_to_buf_page:
         lda     fuji_intch              ; A=intch (3 high bits)
         tay
         jsr     a_rorx5                 ; scale down to 1-7, C will be 0
-        adc     #$11                    ; convert to $12 to $18 (although channel is only 1-5, so page becomes $12 to $16)
+        adc     #>fuji_channel_start    ; convert to $12 to $18 (although channel is only 1-5, so page becomes $12 to $16)
         sta     fuji_ch_buf_page,y      ; Buffer page high address for this block, i.e. the memory page we give OS to use for file data
         rts
 

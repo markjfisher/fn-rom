@@ -29,18 +29,37 @@
 ;  X = rom slot
 ;  Y = first available page for PWS
 service02_claim_privworkspace:
+
+.ifdef FUJINET_MACHINE_MASTER
+
+        lda     paged_rom_priv_ws, x            ; if A>=$DC then hidden ram is full so claim PWS in normal ram
+        cmp     #$DC
+        bcc     @not_full
+        tya
+        sta     paged_rom_priv_ws, x
+
+@not_full:
+        phy                                     ; 65c02 as this is a master!
+
+.else
         ; Y contains first available page for private workspace
         tya
         pha                             ; Save Y=PWS Page
+
+.endif
 
         ; Set up workspace pointer at aws_tmp01
         sta     aws_tmp01
 
         ; get the private workspace location for this ROM that was allocated on boot. e.g. $17
         ldy     paged_rom_priv_ws,x
+
+.ifndef FUJINET_MACHINE_MASTER
         tya
         and     #$40                     ; Preserve bit 6 - not sure why, this was in MMFS
         ora     aws_tmp01
+.endif
+
         sta     paged_rom_priv_ws,x
         lda     #$00
         sta     aws_tmp00
@@ -97,6 +116,10 @@ service02_claim_privworkspace:
         tay
         lda     #$02
 
+.ifdef FUJINET_MACHINE_MASTER
+        bit     paged_rom_priv_ws, x
+        bmi     svr3_exit
+.endif
         ; Here is where we claim 2 pages of PWS, 1700-18FF, which we use for FHOST path, JSON path, Sector reads
         iny
         iny

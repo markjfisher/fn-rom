@@ -67,11 +67,12 @@ set_boot_option_yoption:
         jmp     save_cat_to_disk           ; save cat
 
 disk_trap_option:
-        ; *OPT 5,Y - Disk trap option (following MMFS lines 2429-2450)
-        ; Bit 6 of PagedROM_PrivWorkspaces = disable *DISC, *DISK commands
-        ; Y=0: *DISC/*DISK work like *FUJI (bit 6 clear)
-        ; Y=1: *DISC/*DISK pass to DFS (bit 6 set)
+        ; *OPT 5,Y - Disk trap option (following MMFS lines 2428-2445)
+        ; On non-Master builds, bit 6 of PagedROM_PrivWorkspaces disables
+        ; *DISC/*DISK handling in this ROM. Master DFS always has higher priority,
+        ; so MMFS omits the flag update there.
 
+.ifndef FUJINET_MACHINE_MASTER
         tya                            ; A = Y (*OPT 5,Y value), sets Z if Y was 0
         php                            ; Save Y=0 flag
         ldx     paged_ram_copy         ; Get current ROM number
@@ -82,6 +83,7 @@ disk_trap_option:
         ora     #$40                   ; Set bit 6 (disable DISC/DISK, pass to DFS)
 skip_set_bit6:
         sta     paged_rom_priv_ws,x    ; Store updated flags
+.endif
 
         rts
 
@@ -96,4 +98,3 @@ set_net_flush_option:
         sta     fuji_network_flush_mode
 
         rts
-

@@ -87,6 +87,7 @@
         .import fuji_filename_buffer
         .import fuji_fs_messages_on
         .import fuji_getcat_buf_8
+        .import fuji_infoline_buf
         .import fuji_intch
         .import fuji_network_url_flag
         .import fuji_open_channels
@@ -108,6 +109,7 @@
         .import remember_axy
         .import report_error
         .import y_add7
+        .import MA,MP
 
         .include "fujinet.inc"
 
@@ -167,7 +169,7 @@ get_cat_entry_2:
         lda     #$00                    ; word &B6 = &E00 = PTR (start of catalog)
         sta     aws_tmp06               ; &B6 -> aws_tmp06
 getcatsetupb7:
-        lda     #$0E                    ; string at &E00+A
+        lda     #<(MP+$0E)              ; string at &E00+A
         sta     aws_tmp07               ; &B7 -> aws_tmp07
 @get_cat_loop2:
         ldy     #$00
@@ -258,9 +260,9 @@ prt_infoline_yoffset:
         jsr     prt_filename_yoffset
         tya                             ; Save offset
         pha
-        lda     #$60                    ; word &B0=1060
-        sta     aws_tmp00               ; &B0 -> aws_tmp00
-        lda     #$10
+        lda     #<fuji_infoline_buf     ; word aws_tmp00/01 = 1060 (or adjusted for Master etc.)
+        sta     aws_tmp00
+        lda     #>fuji_infoline_buf
         sta     aws_tmp01               ; &B1 -> aws_tmp01
         jsr     read_file_attribs_to_b0_yoffset ; create no. str
         ldy     #$02

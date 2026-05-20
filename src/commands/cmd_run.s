@@ -27,6 +27,7 @@
         .import read_fspba
         .import read_fspba_reset
         .import set_text_pointer_yx
+        .import MA,MP
 
         .include "fujinet.inc"
 
@@ -114,7 +115,7 @@ runfile_found:
 
         ; Execute the *EXEC command
         ldx     #<fuji_filename_buffer
-        ldy     #>fuji_filename_buffer          ; MP+HI(fuji_filename_buffer): FUTURE: need to adjust
+        ldy     #>fuji_filename_buffer          ; MP+HI($1000) but this is just "hi + hi", so hi(fuji_filename_buffer) as it's already calculated correctly
         jmp     OSCLI                           ; Execute "E.:X.D.FILENAME"
 
 runfile_run:
@@ -137,15 +138,6 @@ runfile_run:
         ; For now, assume host execution
 
 runfile_inhost:
-.ifdef FN_DEBUG
-        jsr     print_string
-        .byte   "Exec: "
-        lda     aws_tmp15               ; High byte of exec address (stored from catalog)
-        jsr     print_hex
-        lda     aws_tmp14               ; Low byte of exec address (stored from catalog)
-        jsr     print_hex
-        jsr     print_newline
-.endif
         ; Execute program in host
         lda     #$01                    ; Execute program
         jmp     (aws_tmp14)             ; Jump to execution address

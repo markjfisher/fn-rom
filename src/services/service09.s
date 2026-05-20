@@ -90,8 +90,15 @@ help_check_command:
         jmp     unrec_command_text_pointer
 
 not_cmd_fs:
+.ifndef FUJINET_MACHINE_MASTER
+
         ldx     #cmdtab_offset_utils    ; Try UTILS commands
         bne     check_command           ; Always branch
+
+.else
+        rts
+.endif
+
 
 @cmd_not_help_loop:
         jsr     GSREAD_A

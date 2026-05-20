@@ -27,6 +27,7 @@
         .import fuji_write_catalog_data
         .import remember_axy
         .import remember_xy_only
+        .import MA,MP
 
         .include "fujinet.inc"
 
@@ -82,7 +83,7 @@ fuji_read_catalog:
         ; Set up catalog buffer at page 0x0E (512 bytes)
         lda     #$00
         sta     data_ptr
-        lda     #$0E                    ; Catalogue buffer at page 0x0E
+        lda     #<(MP+$0E)                      ; Catalogue buffer at page 0x0E
         sta     data_ptr+1
 
         ; look up the current drive's slot from table, and save it to fuji_disk_slot.

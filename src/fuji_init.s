@@ -79,20 +79,26 @@ boot_options:
 autoboot:
         lda     aws_tmp03               ; the stored value of Y when service 03 was called
         jsr     print_string
-        ; This will need to be made to react to the type of build
+
+.ifdef FUJINET_MACHINE_MASTER
+        .byte   "BBC Master - FujiNet", $0D, $0D, 0
+.else
         .byte   "Model B - FujiNet", $0D, $0D, 0
+.endif
 
         bcc     init_fuji
 
+; For master this runs into cmd_fs_fuji
 cmd_fs_disc:
+.ifndef FUJINET_MACHINE_MASTER
         ; Following MMFS CMD_DISC pattern (lines 2928-2941)
         ; Check bit 6 of PagedROM_PrivWorkspaces to see if DISC/DISK should pass to DFS
-
         ldx     paged_ram_copy          ; Get current ROM number
         lda     paged_rom_priv_ws,x     ; Get private workspace flags  
         and     #$40                    ; Test bit 6 (OPT 5 flag)
         beq     cmd_fs_fuji             ; If bit 6 clear, act like *FUJI (activate FujiNet)
         rts
+.endif
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; CMD_FS_FUJI - Handle *FUJI command (filing system selection)

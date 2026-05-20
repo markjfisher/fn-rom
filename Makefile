@@ -39,13 +39,18 @@ endif
 # Define the target machine profile.
 # BBC is the existing baseline. MASTER starts enabling alternate workspace/layout.
 ifeq ($(BUILD_MACHINE),BBC)
+
 ASFLAGS += --asm-define FUJINET_MACHINE_BBC
 CFLAGS += -DFUJINET_MACHINE_BBC
 PROGRAM_MACHINE_SUFFIX :=
+
 else ifeq ($(BUILD_MACHINE),MASTER)
-ASFLAGS += --asm-define FUJINET_MACHINE_MASTER
+
+ASFLAGS += --asm-define FUJINET_MACHINE_MASTER --cpu 65C02
+LDFLAGS += --cpu 65C02
 CFLAGS += -DFUJINET_MACHINE_MASTER
 PROGRAM_MACHINE_SUFFIX := -master
+
 else
 $(error Invalid BUILD_MACHINE: $(BUILD_MACHINE). Must be BBC or MASTER)
 endif

@@ -114,7 +114,9 @@ set_private_workspace_pointer_aws_tmp00:
 set_private_workspace_pointer_high_only:
         ldx     paged_ram_copy
         lda     paged_rom_priv_ws, x
-        and     #$3F                            ; not master. TODO: fix when we do multiple machine types
+.ifndef FUJINET_MACHINE_MASTER
+        and     #$3F
+.endif
         sta     aws_tmp01
         rts
 

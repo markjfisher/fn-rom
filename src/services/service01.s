@@ -1,4 +1,7 @@
 ; Service call 01 - Claim absolute workspace
+
+.ifndef FUJINET_MACHINE_MASTER
+
         .export service01_claim_absworkspace
 
         .segment "CODE"
@@ -12,3 +15,5 @@ service01_claim_absworkspace:
         ldy     #$17                     ; set upper limit to $17
 @exit:
         rts
+
+.endif

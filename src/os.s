@@ -119,6 +119,7 @@
         .export  fuji_cmd_copy_buf_18
         .export  fuji_getcat_buf_8
         .export  fuji_cmd_cat_buf_8
+        .export  fuji_infoline_buf
         .export  gbpb_buf_0c
         .export  gbpb_file_handle
         .export  gbpb_ctl_blk_mem_ptr_host
@@ -222,6 +223,9 @@
         .exportzp  text_pointer
         .exportzp  data_ptr
 
+        .export    MA
+        .export    MP
+
 ; OS vectors
 ROMSEL          := $FE30
 TUBE_BASE       := $FEE0
@@ -319,13 +323,17 @@ FSCV            := $021E
 ; OLD: current_host    := $CB
 directory_param := $CC
 current_drv     := $CD
-; C_SP cc65 stack pointer is at CE and CF
 
 ; use pws_tmp10/11 for a generic data pointer
 data_ptr        := $CA
 
+; VID=MA+&10E0				; VID
+; VID2=VID				; 14 bytes
+; MMC_CIDCRC=VID2+&E			; 2 bytes
+; CHECK_CRC7=VID2+&10			; 1 byte
+
+
 tube_code         := $0406      ; MMFS defined in SYSVARS.asm, documented in New Advanced User Guide just as "call tube code"
-TubeNoTransferIf0 := $10AE
 
 TUBE_R1_STATUS    := TUBE_BASE + $00
 TUBE_R1_DATA      := TUBE_BASE + $01
@@ -335,6 +343,22 @@ TUBE_R3_STATUS    := TUBE_BASE + $04
 TUBE_R3_DATA      := TUBE_BASE + $05
 TUBE_R4_STATUS    := TUBE_BASE + $06
 TUBE_R4_DATA      := TUBE_BASE + $07
+
+; FujiNet workspace (similar to MMFS MA+$10XX)
+; This provides a dedicated workspace for FujiNet operations. The default BBC build
+; keeps the existing base of 0. Alternate machine builds can override this with
+; assembler defines so the workspace-relative symbols below all move together.
+.ifdef FUJINET_MACHINE_MASTER
+fuji_workspace_root     = $C000 - $0E00         ; B200
+.else
+fuji_workspace_root     = 0
+.endif
+fwsr_hi                 = >fuji_workspace_root
+
+; using the same aliases as MMFS for simplicity in code
+MA = fuji_workspace_root
+MP = fwsr_hi
+
 
 ; 0E00 is a copy of the disk catalog, see fuji_read_catalog in fuji_fs.s
 ; e.g. 0F05 = Num*8, 0F0C,X = size of nth file where X = 8 + n*8
@@ -379,8 +403,8 @@ TUBE_R4_DATA      := TUBE_BASE + $07
 ; |          Filename         |Dir| | Load  | Exec  | Size  |Op|Sect|
 ; +---+---+---+---+---+---+---+---+ +---+---+---+---+---+---+---+---+
 
-dfs_cat_s0_header       = $0E00
-dfs_cat_s1_header       = $0F00
+dfs_cat_s0_header       = fuji_workspace_root + $0E00
+dfs_cat_s1_header       = fuji_workspace_root + $0F00
 
 dfs_cat_s0_title        = dfs_cat_s0_header + $00       ; 0E00
 dfs_cat_s1_title        = dfs_cat_s1_header + $00       ; 0F00
@@ -401,62 +425,55 @@ dfs_cat_msbits          = dfs_cat_file_s1_start + $06   ; 0F0E + index * 8
 dfs_cat_file_sect       = dfs_cat_file_s1_start + $07   ; 0F0F + index * 8
 
 
-; FujiNet workspace (similar to MMFS MA+$10XX)
-; This provides a dedicated workspace for FujiNet operations. The default BBC build
-; keeps the existing base of 0. Alternate machine builds can override this with
-; assembler defines so the workspace-relative symbols below all move together.
-.ifdef FUJINET_MACHINE_MASTER
-fuji_workspace_root     = $C000 - $0E00
-.else
-fuji_workspace_root     = 0
-.endif
-
 fuji_workspace          = fuji_workspace_root + $1000
 
 ; 64 byte buffer for filename 1000-103F, but only used 8 bytes in some places
 fuji_filename_buffer    = fuji_workspace + 0
 
 ; used in cmd_copy.s, 18 byte buffer $1045 to $1057 (although the "swap" function only does up to $1056)
-fuji_cmd_copy_buf_18    = $1045
+fuji_cmd_copy_buf_18    = fuji_workspace_root + $1045
 
 ; 1058-105F used in fs_functions
-fuji_getcat_buf_8       = $1058
+fuji_getcat_buf_8       = fuji_workspace_root + $1058
 
 ; used in starCAT, 1060-1067.
-fuji_cmd_cat_buf_8      = $1060
+fuji_cmd_cat_buf_8      = fuji_workspace_root + $1060
+
+; used in prt_infoline_yoffset
+fuji_infoline_buf       = fuji_workspace_root + $1060
 
 ; also used in gbpb_functions.s as 1060-106C
-gbpb_buf_0c             = $1060
+gbpb_buf_0c             = fuji_workspace_root + $1060
 
 ; named locations within the buffer
-gbpb_file_handle          = $1060  ; 1 byte file handle
-gbpb_ctl_blk_mem_ptr_host = $1061  ; 2 bytes, used in gbpb_b8_memptr
+gbpb_file_handle          = fuji_workspace_root + $1060  ; 1 byte file handle
+gbpb_ctl_blk_mem_ptr_host = fuji_workspace_root + $1061  ; 2 bytes, used in gbpb_b8_memptr, and gbpb_nottube1
 
 
 ; gbpb uses $1069-106C in seqptr loop as a 4 byte pointer (pling)
 ; document this better when we know more about it - it's also shared in above
-gbpb_seqptr             = $1069
+gbpb_seqptr             = fuji_workspace_root + $1069
 
 
 ; see @filev_entry.s, the buffer is 1074 to 107B
-fuji_filev_hi_addr_buf  = $1074  ; start of the 8 byte buffer
-fuji_filev_load_hi      = $1074  ; LOAD 2 bytes for 16 bits of the 32 bit word
-fuji_filev_exec_hi      = $1076  ; EXEC 2 bytes for 16 bits of the 32 bit word
-fuji_filev_start_hi     = $1078  ; START 2 bytes for 16 bits of the 32 bit word
-fuji_filev_end_hi       = $107A  ; END 2 bytes for 16 bits of the 32 bit word
+fuji_filev_hi_addr_buf  = fuji_workspace_root + $1074  ; start of the 8 byte buffer
+fuji_filev_load_hi      = fuji_workspace_root + $1074  ; LOAD 2 bytes for 16 bits of the 32 bit word
+fuji_filev_exec_hi      = fuji_workspace_root + $1076  ; EXEC 2 bytes for 16 bits of the 32 bit word
+fuji_filev_start_hi     = fuji_workspace_root + $1078  ; START 2 bytes for 16 bits of the 32 bit word
+fuji_filev_end_hi       = fuji_workspace_root + $107A  ; END 2 bytes for 16 bits of the 32 bit word
 
 ; The low 2 bytes go into BC to C3 for equiv parts.
 ; the filename pointer goes into BA/BB
 
 ; GBPB USAGE IN MMFS
 ; $017D/107E save pointer to command block (MMFS)
-fuji_gbpbv_blk_save_ptr = $107D  ; 2 bytes pointer to gbpbv param block
-fuji_gbpbv_tube_op      = $107F  ; used in gbpb_gosub
+fuji_gbpbv_blk_save_ptr = fuji_workspace_root + $107D  ; 2 bytes pointer to gbpbv param block
+fuji_gbpbv_tube_op      = fuji_workspace_root + $107F  ; used in gbpb_gosub
 
 ; $1081      used in tube checking
-gbpb_tube               = $1081
+gbpb_tube               = fuji_workspace_root + $1081
 
-current_cat             = $1082  ; this is the drive the latest catalog that was fetched was for, see check_cur_drv_cat
+current_cat             = fuji_workspace_root + $1082  ; this is the drive the latest catalog that was fetched was for, see check_cur_drv_cat
 ; in initialising, current_cat is set to ascii "0"
 
 ; $10D7/10D8 copied from GBPBV_TABLE indexed by command, but in fujinet it's fuji_param_block_lo
@@ -464,7 +481,9 @@ current_cat             = $1082  ; this is the drive the latest catalog that was
 ; 1090 seems to be a copy of BC to CB, restoring it in MMC_END / transaction_end
 
 ; 1090-109F
-fuji_buf_ws_tmp_buf     = $1090
+fuji_buf_ws_tmp_buf     = fuji_workspace_root + $1090
+
+TubeNoTransferIf0 := fuji_workspace_root + $10AE
 
 ; workspace_utils.s references 10C0-10FF and 1100-11BF as static workspace
 ; this is essentially channels/files information for a filing system

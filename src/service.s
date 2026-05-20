@@ -17,23 +17,59 @@
         .import service08_unrec_osword
         .import service09_help
         .import service0A_claim_statworkspace
+        .import text_pointer
+
+        .importzp paged_ram_copy
+
+        .import service21_claim_hidden_sws
+        .import service22_claim_hidden_pws
+        .import service24_required_pws
+        .import service25_fs_info
+        .import service27_reset
 
         .include "fujinet.inc"
 
         .segment "CODE"
 
 handle_service:
+.ifdef FUJINET_MACHINE_MASTER
+
+        bit     paged_rom_priv_ws, x            ; rom disabled if 01xxxxxx or 10xxxxxx
+        bpl     @lbl2                           ; if 0x
+        bvs     @lbl3                           ; if 11
+
+@lbl1:  rts
+@lbl2:  bvs     @lbl1                           ; if 01
+
+; 00 = PWS in normal ram, 11 = PWS in hidden ram
+@lbl3:
+
+.else
+
         pha
         lda     paged_rom_priv_ws, x
         bmi     rom_disabled
         pla
 
+.endif
+
         cmp     #$12
         beq     service12_init_filesystem
 
         cmp     #$0B            ; only $12 is serviced above $0B, which is dealt with
-        bcs     service_null
 
+.ifdef FUJINET_MACHINE_MASTER
+        bcc     @lbl4
+        cmp     #$28
+        bcs     service_null
+        cmp     #$21
+        bcc     service_null
+        sbc     #$16
+.else
+        bcs     service_null
+.endif
+
+@lbl4:
         ; jump to the appropriate function according to the command in A
         asl     a
         tax
@@ -76,7 +112,13 @@ service12_init_filesystem:
 ; NOTE: These will need to be adjusted for MASTER or SWRAM future work
 service_table:
         .word   service_null - 1                        ; 0
+
+.ifdef FUJINET_MACHINE_MASTER
+        .word   service_null - 1                        ; use 21 instead for master
+.else
         .word   service01_claim_absworkspace - 1        ; 1
+.endif
+
         .word   service02_claim_privworkspace - 1       ; 2
         .word   service03_autoboot - 1                  ; 3
         .word   service04_unrec_command - 1             ; 4
@@ -85,4 +127,14 @@ service_table:
         .word   service_null - 1                        ; 7
         .word   service08_unrec_osword - 1              ; 8
         .word   service09_help - 1                      ; 9
-        .word   service0A_claim_statworkspace - 1       ; A
+        .word   service0A_claim_statworkspace - 1       ; $A
+
+.ifdef FUJINET_MACHINE_MASTER
+        .word   service21_claim_hidden_sws - 1          ; $21
+        .word   service22_claim_hidden_pws - 1          ; $22
+        .word   service_null - 1                        ; $23
+        .word   service24_required_pws - 1              ; $24
+        .word   service25_fs_info - 1                   ; $25
+        .word   service_null - 1                        ; $26
+        .word   service27_reset - 1                     ; $27
+.endif
