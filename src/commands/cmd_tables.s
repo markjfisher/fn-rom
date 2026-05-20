@@ -75,35 +75,35 @@
 ; printing 'F' at the beginning of the command.
 ;
 ; Command entry format:
-;   .byte "COMMAND", $80, <param slot 1>, <param slot 2>
-; The $80 byte terminates the command text for the matcher/help printer,
-; then two full-width parameter-table indexes follow.
+;   .byte "COMMAND", $80|<param slot 1>, <param slot 2>
+; Bit 7 of the first parameter byte terminates the command text for the
+; matcher/help printer, while bits 0-6 still hold parameter slot 1.
 
 ; COMMAND TABLE - FujiNet file system commands [FILE SYSTEM COMMANDS], help = "*HELP FUJI"
 ; old cmdtable1
 cmd_table_fujifs:
         .byte   $FF                ; Last command number (-1)
 
-        .byte   "ACCESS",    $80, $02, $14    ; <afsp> (L)
-        .byte   "CLOSE",     $80, $00, $00
-        .byte   "COPY",      $80, $0F, $02    ; <source> <dest.> <afsp>
-        .byte   "DELETE",    $80, $01, $00    ; <fsp>
-        .byte   "DESTROY",   $80, $02, $00    ; <afsp>
-        .byte   "DIR",       $80, $06, $00    ; (<dir>)
-        .byte   "DRIVE",     $80, $03, $00    ; <drive>
-        .byte   "ENABLE",    $80, $00, $00
-        .byte   "EX",        $80, $06, $00    ; (<dir>)
-        .byte   "FORM",      $80, $05, $12    ; (<drive>)... 40/80
-        .byte   "FREE",      $80, $04, $00    ; (<drive>)
+        .byte   "ACCESS",    $82, $14         ; <afsp> (L)
+        .byte   "CLOSE",     $80, $00
+        .byte   "COPY",      $8F, $02         ; <source> <dest.> <afsp>
+        .byte   "DELETE",    $81, $00         ; <fsp>
+        .byte   "DESTROY",   $82, $00         ; <afsp>
+        .byte   "DIR",       $86, $00         ; (<dir>)
+        .byte   "DRIVE",     $83, $00         ; <drive>
+        .byte   "ENABLE",    $80, $00
+        .byte   "EX",        $86, $00         ; (<dir>)
+        .byte   "FORM",      $85, $12         ; (<drive>)... 40/80
+        .byte   "FREE",      $84, $00         ; (<drive>)
 ; equivalent of .info_cmd_index
 cmd_table_info:
-        .byte   "INFO",      $80, $02, $00    ; <afsp>
-        .byte   "LIB",       $80, $06, $00    ; (<dir>)
-        .byte   "MAP",       $80, $04, $00    ; (<drive>)
-        .byte   "RENAME",    $80, $10, $00    ; <old fsp> <new fsp>
-        .byte   "TITLE",     $80, $0D, $00    ; <title>
-        .byte   "VERIFY",    $80, $05, $00    ; (<drive>)...
-        .byte   "WIPE",      $80, $02, $00    ; <afsp>
+        .byte   "INFO",      $82, $00         ; <afsp>
+        .byte   "LIB",       $86, $00         ; (<dir>)
+        .byte   "MAP",       $84, $00         ; (<drive>)
+        .byte   "RENAME",    $90, $00         ; <old fsp> <new fsp>
+        .byte   "TITLE",     $8D, $00         ; <title>
+        .byte   "VERIFY",    $85, $00         ; (<drive>)...
+        .byte   "WIPE",      $82, $00         ; <afsp>
         .byte   $00                     ; End of table
 
 ; COMMAND TABLE - Utils commands [NON-FS COMMANDS], help = "*HELP UTILS"
@@ -111,7 +111,7 @@ cmd_table_info:
 cmd_table_utils:
         .byte   (cmd_table_utils_cmds - cmd_table_fujifs_cmds) / 2 - 1
 
-        .byte   "ROMS",      $80, $00, $00    ; no parameter
+        .byte   "ROMS",      $80, $00         ; no parameter
         .byte   $00
 
 
@@ -120,9 +120,9 @@ cmd_table_utils:
 cmd_table_fs:
         .byte   (cmd_table_fs_cmds - cmd_table_fujifs_cmds) / 2 - 1
 
-        .byte   "DISC", $80, $00, $00
-        .byte   "DISK", $80, $00, $00
-        .byte   "FUJI", $80, $00, $00
+        .byte   "DISC", $80, $00
+        .byte   "DISK", $80, $00
+        .byte   "FUJI", $80, $00
         .byte   $00                     ; End of table
 
 ; COMMAND TABLE - Help commands [HELP COMMANDS], help = "*HELP"
@@ -130,9 +130,9 @@ cmd_table_fs:
 cmd_table_help:
         .byte   (cmd_table_help_cmds - cmd_table_fujifs_cmds) / 2 - 1
 
-        .byte   "FUJI",      $80, $00, $00
-        .byte   "FUTILS",    $80, $00, $00
-        .byte   "UTILS",     $80, $00, $00
+        .byte   "FUJI",      $80, $00
+        .byte   "FUTILS",    $80, $00
+        .byte   "UTILS",     $80, $00
         .byte   $00                     ; End of table
 
 ; These are prefixed with "F", e.g. "FBOOT" etc [FILE SYSTEM COMMANDS], help = "*HELP FUTILS"
@@ -140,19 +140,19 @@ cmd_table_help:
 cmd_table_futils:
         .byte   (cmd_table_futils_cmds - cmd_table_fujifs_cmds) / 2 - 1
 
-        .byte   "BOOT",      $80, $0C, $08    ; <slot>/<dos name>
-        .byte   "CD",        $80, $07, $00    ; (<path>)
-        .byte   "FS",        $80, $0B, $15    ; (<slot>) <path>
-        .byte   "HOST",      $80, $0B, $15    ; (<slot>) <path>
-        .byte   "DRIVE",     $80, $00, $00
-        .byte   "IN",        $80, $0B, $08    ; (<slot>) <dos name>
-        .byte   "LS",        $80, $07, $00    ; (<path>)
-        .byte   "LIST",      $80, $07, $00    ; (<path>)
-        .byte   "MOUNT",     $80, $0A, $04    ; <slot> (<drive>)
-        .byte   "UNMOUNT",   $80, $03, $00    ; <drive>
-        .byte   "OUT",       $80, $0A, $00    ; <slot>
-        .byte   "JSON",      $80, $13, $00    ; <string>
-        .byte   "NEW",       $80, $08, $00    ; <dos name>
+        .byte   "BOOT",      $8C, $08         ; <slot>/<dos name>
+        .byte   "CD",        $87, $00         ; (<path>)
+        .byte   "FS",        $95, $00         ; <path>
+        .byte   "HOST",      $95, $00         ; <path>
+        .byte   "DRIVE",     $80, $00
+        .byte   "IN",        $8B, $08         ; (<slot>) <dos name>
+        .byte   "LS",        $87, $00         ; (<path>)
+        .byte   "LIST",      $87, $00         ; (<path>)
+        .byte   "MOUNT",     $8A, $04         ; <slot> (<drive>)
+        .byte   "UNMOUNT",   $83, $00         ; <drive>
+        .byte   "OUT",       $8A, $00         ; <slot>
+        .byte   "JSON",      $93, $00         ; <string>
+        .byte   "NEW",       $88, $00         ; <dos name>
         .byte   $00                     ; End of table
 
 

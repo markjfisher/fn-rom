@@ -172,7 +172,6 @@ unrec_loop_skip_rest:
         ; fall through to unrec_loop_advance_entry
 unrec_loop_advance_entry:
         jsr     inc_cmd_table_ptr       ; Skip parameter 1 byte
-        jsr     inc_cmd_table_ptr       ; Skip parameter 2 byte so next loop lands on next command
 
         lda     (text_pointer),y        ; Check if command line ends with "."
         cmp     #'.'

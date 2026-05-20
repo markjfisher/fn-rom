@@ -133,13 +133,13 @@ help_cmdloop_exit:
         bmi     help_print_params
         jsr     prtcmd_print_y_spaces_if_not_err
 help_print_params:
-        ldy     #$01
+        ldy     #$00
+        lda     (aws_tmp14),y
+        and     #$7F                    ; preserve param 1 while stripping end-of-command marker
+        jsr     help_param_entry
+        iny
         lda     (aws_tmp14),y
         jsr     help_param_entry
-        ldy     #$02
-        lda     (aws_tmp14),y
-        jsr     help_param_entry
-        jsr     inc_help_table_ptr
         jsr     inc_help_table_ptr
         rts
 
