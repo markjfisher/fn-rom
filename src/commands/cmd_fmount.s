@@ -14,8 +14,8 @@
 
         .importzp buffer_ptr
 
-        .import err_bad_mount_slot
         .import current_cat
+        .import err_bad_mount_slot
         .import exit_user_ok
         .import fuji_channel_scratch
         .import fuji_current_fs_len
@@ -31,7 +31,6 @@
         .import print_newline
         .import print_string_ax
         .import report_error
-        .import set_fuji_data_buffer_ptr
 
         .include "fujinet.inc"
 

@@ -69,10 +69,10 @@
         .import dfs_cat_cycle
         .import dfs_cat_file_dir
         .import dfs_cat_file_name
-        .import dfs_cat_msbits
         .import dfs_cat_file_s0_start
         .import dfs_cat_file_s1_start
         .import dfs_cat_file_size
+        .import dfs_cat_msbits
         .import err_disk
         .import fuji_begin_transaction
         .import fuji_cat_file_offset

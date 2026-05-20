@@ -12,8 +12,8 @@
         .importzp aws_tmp14
         .importzp pws_tmp02
 
-        .import dfs_cat_msbits
         .import dfs_cat_file_s1_start
+        .import dfs_cat_msbits
         .import exec_addr_hi2
         .import fuji_read_mem_block
         .import get_cat_entry_fspba

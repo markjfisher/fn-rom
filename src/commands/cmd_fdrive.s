@@ -9,6 +9,7 @@
         .importzp aws_tmp13
         .importzp pws_tmp04
         .importzp pws_tmp05
+
         .importzp buffer_ptr
         .importzp fuji_bus_tx_command
         .importzp fuji_bus_tx_device
@@ -98,48 +99,51 @@ cmd_fs_fdrive:
         jsr     fujibus_receive_packet
         sta     aws_tmp12
         stx     aws_tmp13
-
-        lda     aws_tmp12
         ora     aws_tmp13
-        bne     :+
-        jmp     @fail
-: 
+        beq     @fail
 
         lda     aws_tmp13
         bne     @check_header
         lda     aws_tmp12
         cmp     #$11
-        bcc     @fail_near
+        bcs     @check_header
+
+@fail:
+        jsr     report_error
+        .byte   $CB
+        .byte   "Drive list err", 0
+
+
 
 @check_header:
         ldy     #$05
         lda     (buffer_ptr),y
         cmp     #$01
-        bne     @fail_near
+        bne     @fail
 
         iny                             ; y=6
         lda     (buffer_ptr),y
-        bne     @fail_near
+        bne     @fail
 
         ldy     #FDRIVE_RESP_VERSION
         lda     (buffer_ptr),y
         cmp     #$01
-        bne     @fail_near
+        bne     @fail
 
         iny                             ; y=8 flags
         lda     (buffer_ptr),y
         sta     aws_tmp02
         and     #FDRIVE_RESP_FLAG_FORMATTED
-        beq     @fail_near
+        beq     @fail
 
         ldy     #FDRIVE_RESP_START_INDEX
         lda     (buffer_ptr),y
         cmp     pws_tmp04
-        bne     @fail_near
+        bne     @fail
         iny
         lda     (buffer_ptr),y
         cmp     pws_tmp05
-        bne     @fail_near
+        bne     @fail
 
         ldy     #FDRIVE_RESP_ENTRY_COUNT
         lda     (buffer_ptr),y
@@ -187,14 +191,5 @@ cmd_fs_fdrive:
         and     #FDRIVE_RESP_FLAG_MORE
         beq     @done
         jmp     @page_loop
-
-@fail_near:
-        jmp     @fail
-
 @done:
         jmp     exit_user_ok
-
-@fail:
-        jsr     report_error
-        .byte   $CB
-        .byte   "Drive list err", 0

@@ -37,6 +37,7 @@
         .import fuji_dest_drive
         .import fuji_page
         .import fuji_ram_buffer_size
+        .import fuji_set_disk_slot_from_mapping_or_error
         .import fuji_source_drive
         .import get_cat_entry
         .import get_cat_nextentry
@@ -52,7 +53,6 @@
         .import read_fsp_text_pointer
         .import save_mem_block
         .import set_load_addr_to_host
-        .import fuji_set_disk_slot_from_mapping_or_error
 
         .include "fujinet.inc"
 

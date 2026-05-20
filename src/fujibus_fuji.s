@@ -20,7 +20,6 @@
         .import fujibus_receive_packet
         .import fujibus_send_packet
         .import get_fuji_fs_uri_addr_to_aws_tmp00
-        .import set_fuji_data_buffer_ptr
 
         .include "fujinet.inc"
 

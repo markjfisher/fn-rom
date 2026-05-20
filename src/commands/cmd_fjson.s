@@ -49,7 +49,6 @@
         .import get_fuji_json_path_addr_to_aws_tmp00
         .import num_params
         .import param_get_string
-        .import set_fuji_data_buffer_ptr
 
         .include "fujinet.inc"
 

@@ -328,7 +328,7 @@ cfl_rxlen_ok:
         cmp     #$01
         bne     cfl_fail_c1
 
-        ldy     #$06
+        iny                             ; y=6
         lda     (buffer_ptr),y
         bne     cfl_fail_c1
 

@@ -3,9 +3,9 @@
         .import current_cat
         .import exit_user_ok
         .import fuji_clear_slot
+        .import fuji_disk_slot
         .import fuji_drive_disk_map
         .import fuji_get_slot
-        .import fuji_disk_slot
         .import fuji_unmount_disk
         .import param_get_num
         .import report_error

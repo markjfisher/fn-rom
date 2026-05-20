@@ -32,9 +32,9 @@
         .import cmd_fs_fhost
         .import cmd_fs_fin
         .import cmd_fs_fjson
-        .import cmd_fs_fnew
         .import cmd_fs_flist
         .import cmd_fs_fmount
+        .import cmd_fs_fnew
         .import cmd_fs_form
         .import cmd_fs_fout
         .import cmd_fs_free
@@ -47,7 +47,6 @@
         .import cmd_fs_title
         .import cmd_fs_verify
         .import cmd_fs_wipe
-        .import cmd_ftest
         .import cmd_help_fuji
         .import cmd_help_futils
         .import cmd_help_utils

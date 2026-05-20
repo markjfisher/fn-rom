@@ -39,7 +39,6 @@
         .import a_rorx4and3
         .import a_rorx6and3
         .import check_file_not_locked_or_open_y
-        .import dfs_cat_boot_option
         .import dfs_cat_file_s0_start
         .import dfs_cat_file_s1_start
         .import dfs_cat_file_sect
@@ -48,7 +47,6 @@
         .import dfs_cat_num_x8
         .import dfs_cat_s0_header
         .import dfs_cat_s1_header
-        .import dfs_cat_sect_count
         .import err_disk
         .import fuji_filev_end_hi
         .import fuji_filev_exec_hi

@@ -22,8 +22,8 @@
         .import fuji_end_transaction
         .import fuji_get_mount_slot_data
         .import fuji_mount_disk_data
-        .import fuji_unmount_disk_data
         .import fuji_set_mount_slot_data
+        .import fuji_unmount_disk_data
         .import remember_xy_only
 
         .include "fujinet.inc"

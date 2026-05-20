@@ -28,8 +28,8 @@
         .import channel_set_dir_drive_yintch
         .import check_channel_yhndl_exyintch
         .import cmp_ptr_ext
-        .import dfs_cat_msbits
         .import dfs_cat_file_size
+        .import dfs_cat_msbits
         .import err_file_locked
         .import fuji_cat_file_offset
         .import fuji_ch_111A
