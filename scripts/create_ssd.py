@@ -163,11 +163,6 @@ def staging_temp_name(directory: str, leaf: str) -> str:
     return f"_{d}_{leaf}"
 
 
-def fix_dfs_catalog_script() -> Path:
-    """Path to the local catalogue-fix helper."""
-    return Path(__file__).with_name("fix_dfs_catalog.py")
-
-
 def process_bas_file(bas_file: Path, temp_dir: Path) -> Tuple[str, str, Path]:
     """
     Tokenize a BASIC file and return (directory, filename, tokenized_path).
@@ -341,11 +336,6 @@ def create_ssd(
             print(f"Error: {tool} not found in PATH")
             sys.exit(1)
 
-    fix_script = fix_dfs_catalog_script()
-    if not fix_script.is_file():
-        print(f"Error: DFS catalogue fixer not found: {fix_script}")
-        sys.exit(1)
-
     all_files = sorted(
         [
             f
@@ -503,24 +493,6 @@ def create_ssd(
             print("Error: Failed to create SSD disk image")
             print(result.stderr)
             sys.exit(1)
-
-        print("Fixing DFS catalogue order...")
-        fix_result = subprocess.run(
-            [sys.executable, str(fix_script), str(output_ssd)],
-            capture_output=True,
-            text=True,
-        )
-
-        if fix_result.returncode != 0:
-            print("Error: Failed to fix DFS catalogue order")
-            if fix_result.stdout:
-                print(fix_result.stdout, end="")
-            if fix_result.stderr:
-                print(fix_result.stderr, end="", file=sys.stderr)
-            sys.exit(1)
-
-        if fix_result.stdout:
-            print(fix_result.stdout, end="")
 
     print(f"\nSSD disk image created: {output_ssd}")
     print("Files included:")

@@ -10,6 +10,11 @@ Usage:
     ./fix_dfs_catalog.py input.ssd
     ./fix_dfs_catalog.py input.ssd -o fixed.ssd
     ./fix_dfs_catalog.py input.ssd --check
+
+NOTE: this used to be required after running dfstool, but I've fixed that now in 0.1.1 release
+and pushed a PR. Locally I have it using that version. This tool is left here in case anyone is
+running an old version of dfstool and requires the fixes to the catalog.
+
 """
 
 from __future__ import annotations
