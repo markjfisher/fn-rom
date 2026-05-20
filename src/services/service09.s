@@ -59,7 +59,7 @@ service09_help:
         ; Y contains offset to first non-space char
         lda     (text_pointer),y         ; Get character at (text_pointer)+Y
         cmp     #$0D                    ; CHR$(13) = carriage return
-        bne     check_command           ; If not CR, check for command
+        bne     help_check_command      ; If not CR, match against *HELP topics
 
         lda     #<cmd_table_help
         sta     aws_tmp14
@@ -83,6 +83,8 @@ service04_unrec_command:
         ldx     #cmdtab_offset_fs        ; Start with file system commands
 
 check_command:
+        jmp     unrec_command_text_pointer
+
 help_check_command:
         ldx     #cmdtab_offset_help
         jmp     unrec_command_text_pointer
