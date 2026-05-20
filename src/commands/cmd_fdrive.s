@@ -5,7 +5,6 @@
         .importzp aws_tmp02
         .importzp aws_tmp03
         .importzp aws_tmp08
-        .importzp aws_tmp09
         .importzp aws_tmp12
         .importzp aws_tmp13
         .importzp pws_tmp04
@@ -16,12 +15,11 @@
         .importzp fuji_bus_tx_payload_hi
         .importzp fuji_bus_tx_payload_lo
 
+        .import cfl_print_formatted_blob
         .import exit_user_ok
         .import fujibus_receive_packet
         .import fujibus_send_packet
         .import num_params
-        .import print_char
-        .import print_newline
         .import report_error
 
         .include "fujinet.inc"
@@ -183,7 +181,7 @@ cmd_fs_fdrive:
         inc     aws_tmp12
 :
 
-        jsr     @print_formatted_blob
+        jsr     cfl_print_formatted_blob
 
         lda     aws_tmp02
         and     #FDRIVE_RESP_FLAG_MORE
@@ -195,38 +193,6 @@ cmd_fs_fdrive:
 
 @done:
         jmp     exit_user_ok
-
-@print_formatted_blob:
-        lda     aws_tmp00
-        sta     aws_tmp08
-        lda     aws_tmp01
-        sta     aws_tmp09
-
-@print_loop:
-        lda     aws_tmp08
-        cmp     aws_tmp12
-        lda     aws_tmp09
-        sbc     aws_tmp13
-        bcs     @print_done
-
-        ldy     #$00
-        lda     (aws_tmp08),y
-        cmp     #$0A
-        beq     @print_nl
-        jsr     print_char
-        jmp     @print_adv
-
-@print_nl:
-        jsr     print_newline
-
-@print_adv:
-        inc     aws_tmp08
-        bne     @print_loop
-        inc     aws_tmp09
-        jmp     @print_loop
-
-@print_done:
-        rts
 
 @fail:
         jsr     report_error
