@@ -402,8 +402,15 @@ dfs_cat_file_sect       = dfs_cat_file_s1_start + $07   ; 0F0F + index * 8
 
 
 ; FujiNet workspace (similar to MMFS MA+$10XX)
-; This provides a dedicated workspace for FujiNet operations
-fuji_workspace_root     = 0  ; Base address for FujiNet workspace - this will eventually vary for MASTER
+; This provides a dedicated workspace for FujiNet operations. The default BBC build
+; keeps the existing base of 0. Alternate machine builds can override this with
+; assembler defines so the workspace-relative symbols below all move together.
+.ifdef FUJINET_MACHINE_MASTER
+fuji_workspace_root     = $C000 - $0E00
+.else
+fuji_workspace_root     = 0
+.endif
+
 fuji_workspace          = fuji_workspace_root + $1000
 
 ; 64 byte buffer for filename 1000-103F, but only used 8 bytes in some places

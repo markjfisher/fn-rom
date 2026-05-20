@@ -3,6 +3,8 @@
 
 PROGRAM = fujinet
 CURRENT_TARGET = none
+BUILD_MACHINE ?= BBC
+BUILD_VARIANT = $(CURRENT_TARGET)-$(BUILD_MACHINE)
 
 # Interface selection - can be overridden on command line
 # Options: SERIAL (default), USERPORT, 1MHZ
@@ -34,6 +36,20 @@ else
 $(error Invalid BUILD_INTERFACE: $(BUILD_INTERFACE). Must be SERIAL, USERPORT, 1MHZ)
 endif
 
+# Define the target machine profile.
+# BBC is the existing baseline. MASTER starts enabling alternate workspace/layout.
+ifeq ($(BUILD_MACHINE),BBC)
+ASFLAGS += --asm-define FUJINET_MACHINE_BBC
+CFLAGS += -DFUJINET_MACHINE_BBC
+PROGRAM_MACHINE_SUFFIX :=
+else ifeq ($(BUILD_MACHINE),MASTER)
+ASFLAGS += --asm-define FUJINET_MACHINE_MASTER
+CFLAGS += -DFUJINET_MACHINE_MASTER
+PROGRAM_MACHINE_SUFFIX := -master
+else
+$(error Invalid BUILD_MACHINE: $(BUILD_MACHINE). Must be BBC or MASTER)
+endif
+
 SRCDIR := src
 BUILD_DIR := build
 OBJDIR := obj
@@ -43,7 +59,7 @@ CACHE_DIR := ./_cache
 # This allows src to be nested withing sub-directories.
 rwildcard=$(wildcard $(1)$(2))$(foreach d,$(wildcard $1*), $(call rwildcard,$d/,$2))
 
-PROGRAM_TGT := $(PROGRAM).rom
+PROGRAM_TGT := $(PROGRAM)$(PROGRAM_MACHINE_SUFFIX).rom
 
 # SOURCES := $(wildcard $(SRCDIR)/*.c)
 # SOURCES += $(wildcard $(SRCDIR)/*.s)
@@ -54,11 +70,11 @@ SOURCES += $(call rwildcard,$(SRCDIR)/,*.c)
 # remove trailing and leading spaces.
 SOURCES := $(strip $(SOURCES))
 
-# convert from src/your/long/path/foo.[c|s] to obj/<target>/your/long/path/foo.o
-# we need the target because compiling for previous target does not pick up potential macro changes
+# convert from src/your/long/path/foo.[c|s] to obj/<variant>/your/long/path/foo.o
+# we need the variant because target/machine macro changes must not reuse stale objects
 OBJ1 := $(SOURCES:.c=.o)
 OBJECTS := $(OBJ1:.s=.o)
-OBJECTS := $(OBJECTS:$(SRCDIR)/%=$(OBJDIR)/$(CURRENT_TARGET)/%)
+OBJECTS := $(OBJECTS:$(SRCDIR)/%=$(OBJDIR)/$(BUILD_VARIANT)/%)
 
 # Ensure make recompiles parts it needs to if src files change
 DEPENDS := $(OBJECTS:.o=.d)
@@ -74,6 +90,9 @@ all: $(PROGRAM_TGT)
 $(OBJDIR):
 	@mkdir -p $(OBJDIR)
 
+$(OBJDIR)/$(BUILD_VARIANT): | $(OBJDIR)
+	@mkdir -p $(OBJDIR)/$(BUILD_VARIANT)
+
 $(BUILD_DIR):
 	@mkdir -p $(BUILD_DIR)
 
@@ -88,13 +107,13 @@ SRC_INC_DIRS := \
 
 vpath %.c $(SRC_INC_DIRS)
 
-$(OBJDIR)/$(CURRENT_TARGET)/%.o: %.c | $(OBJDIR)
+$(OBJDIR)/$(BUILD_VARIANT)/%.o: %.c | $(OBJDIR)/$(BUILD_VARIANT)
 	@mkdir -p $(dir $@)
 	$(CC) -t $(CURRENT_TARGET) -c $(CFLAGS) --create-dep $(@:.o=.d) --listing $(@:.o=.lst) -Ln $@.lbl -o $@ $<
 
 vpath %.s $(SRC_INC_DIRS)
 
-$(OBJDIR)/$(CURRENT_TARGET)/%.o: %.s | $(OBJDIR)
+$(OBJDIR)/$(BUILD_VARIANT)/%.o: %.s | $(OBJDIR)/$(BUILD_VARIANT)
 	@mkdir -p $(dir $@)
 	$(CC) -t $(CURRENT_TARGET) -c $(ASFLAGS) --create-dep $(@:.o=.d) --listing $(@:.o=.lst) -Ln $@.lbl -o $@ $<
 
