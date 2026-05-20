@@ -228,14 +228,6 @@ This adapter lives in `vectors/filev/fuji_execute_block_rw.s` but is only called
 
 ## Why This Architecture Matters
 
-### Before (Broken)
-- Hardware layer used `&BC-&BF` as scratch space
-- No transaction protection
-- **Exec address in `&BE/&BF` corrupted**
-- *RUN command jumped to wrong address ($0100 instead of $1935)
-- Programs crashed or ran at load address instead of exec address
-
-### After (Fixed)
 - Transaction management centralized in `fuji_fs.s`
 - Hardware layer can safely use `&BC-&CB` (protected by transactions)
 - **Exec address preserved across hardware operations**
@@ -278,7 +270,6 @@ fuji_link_write_byte:
 
 ## Related Documentation
 
-- `PHASE8_OSFILE_FIXES.md` - Details of the exec address bug and fix
 - `MMFS/mmfs100.asm` lines 2007-2024 - MMFS LoadMemBlock pattern
 - `MMFS/MMC.asm` lines 866-879 - MMFS MMC_END implementation
 

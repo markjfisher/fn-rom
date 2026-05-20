@@ -31,7 +31,7 @@ The architecture must support multiple deployment configurations:
 │                                       serial/*.s today          │
 │                                       userport/*.s later        │
 └─────────────────────────────────────────────────────────────────┘
-                                              ↓
+                             ↓
 ┌─────────────────────────────────────────────────────────────────┐
 │                    Transport Layer                              │
 │                                                                 │
@@ -39,7 +39,7 @@ The architecture must support multiple deployment configurations:
 │         OR                                                      │
 │  b2 Emulator Serial  ←─→ PTY/TTY/Network Bridge                 │
 └─────────────────────────────────────────────────────────────────┘
-                                              ↓
+                             ↓
 ┌─────────────────────────────────────────────────────────────────┐
 │                    FujiNet Device                               │
 │                                                                 │
@@ -65,14 +65,14 @@ The architecture must support multiple deployment configurations:
 │  │  │  • fujibus_disk/fuji/network command builders   │     │      │
 │  │  │  • fuji_data_fujibus exported data operations   │     │      │
 │  │  └─────────────────────────────────────────────────┘     │      │
-│  │                              ↓                           │      │
+│  │                           ↓                              │      │
 │  │  ┌─────────────────────────────────────────────────┐     │      │
 │  │  │ Shared SLIP framing                             │     │      │
 │  │  │                                                 │     │      │
 │  │  │  • fuji_link_slip.s                             │     │      │
 │  │  │  • fuji_link_*_slip_frame entry points          │     │      │
 │  │  └─────────────────────────────────────────────────┘     │      │
-│  │                              ↓                           │      │
+│  │                           ↓                              │      │
 │  │  ┌─────────────────────────────────────────────────┐     │      │
 │  │  │ Serial raw-link implementation                  │     │      │
 │  │  │                                                 │     │      │
@@ -342,179 +342,7 @@ lda #$15
 sta $FE08
 ```
 
-## Implementation Plan
-
-### Phase 1: Serial Protocol Definition
-- [ ] Define protocol constants in `src/inc/fujinet.inc`
-- [ ] Document command/response formats
-- [ ] Define error codes and handling
-- [ ] Define timeouts and retry logic
-- [ ] Create protocol test suite specification
-
-### Phase 2: fuji_serial.s Implementation
-- [ ] Implement ACIA initialization routine
-- [ ] Implement low-level byte send primitive
-- [ ] Implement low-level byte receive primitive with timeout
-- [ ] Implement command framing (magic, length, checksum)
-- [ ] Implement response parsing
-- [ ] Implement timeout handling (using system timer)
-- [ ] Implement retry logic
-- [ ] Implement `fuji_read_block_data` using serial protocol
-- [ ] Implement `fuji_write_block_data` using serial protocol
-- [ ] Implement `fuji_read_catalog_data` using serial protocol
-- [ ] Implement `fuji_write_catalog_data` using serial protocol
-- [ ] Add debug markers for tracing
-
-### Phase 3: b2 Emulator Extension
-- [ ] Study `MMFS.cpp` implementation pattern
-- [ ] Create `FujiNetSerial.cpp` and `FujiNetSerial.h`
-- [ ] Implement ACIA register intercept (0xFE08/0xFE09)
-- [ ] Create PTY/socket for external connection
-- [ ] Implement byte forwarding (BBC → PTY)
-- [ ] Implement byte receiving (PTY → BBC)
-- [ ] Implement ACIA status register emulation
-- [ ] Implement flow control (RTS/CTS simulation)
-- [ ] Add debug logging (similar to MMFS)
-- [ ] Add configuration options (PTY path, baud rate, etc.)
-- [ ] Integrate with b2 UI
-
-### Phase 4: FujiNet Software Protocol Handler
-- [ ] Implement serial protocol parser
-- [ ] Implement command dispatcher
-- [ ] Implement READ_SECTOR handler
-- [ ] Implement WRITE_SECTOR handler
-- [ ] Implement READ_CAT handler
-- [ ] Implement WRITE_CAT handler
-- [ ] Implement disk image access (SSD/DSD)
-- [ ] Implement response generation
-- [ ] Add error handling
-- [ ] Add logging/debugging
-- [ ] Create test disk images
-
-### Phase 5: Testing & Integration
-- [ ] Unit tests for protocol encoding/decoding
-- [ ] Test: ROM initialization sequence
-- [ ] Test: Single sector read
-- [ ] Test: Single sector write
-- [ ] Test: Catalog read
-- [ ] Test: Catalog write
-- [ ] Test: Multi-sector operations
-- [ ] Integration test: b2 → fujinet-software
-- [ ] Performance testing (throughput, latency)
-- [ ] Error injection testing
-- [ ] Timeout testing
-- [ ] Create test BASIC programs
-- [ ] Documentation and examples
-
-## Open Questions
-
-### 1. Baud Rate
-**Question**: What baud rate should we target?
-
-**Options**:
-- 75-19200 baud (BBC hardware range)
-- Recommend 19200 for development (fastest)
-- Should be configurable
-
-**Decision**: TBD
-
-### 2. Flow Control
-**Question**: Should we implement flow control?
-
-**Options**:
-- None (simplest, may lose data)
-- Hardware flow control (RTS/CTS)
-- Software flow control (XON/XOFF)
-
-**Decision**: TBD
-
-### 3. FujiNet Software Protocol
-**Question**: Does fujinet-software already have a serial protocol handler?
-
-**Status**: Needs investigation
-
-**Action**: Review fujinet-software repository
-
-### 4. b2 Emulator Architecture
-**Question**: Confirm b2's extension architecture?
-
-**Status**: Need to study existing code
-
-**Action**: Review `MMFS.cpp` and other hardware emulation modules
-
-### 5. Checksum Algorithm
-**Question**: Which checksum algorithm to use?
-
-**Options**:
-- Simple XOR checksum (fast, minimal ROM space)
-- CRC-8 (more robust)
-- CRC-16 (most robust, more overhead)
-
-**Recommendation**: Start with XOR, upgrade if needed
-
-**Decision**: TBD
-
-### 6. Buffer Sizes
-**Question**: Should we implement software buffering in the ROM?
-
-**Considerations**:
-- ACIA has small hardware buffers (1-2 bytes)
-- Software buffering would smooth out interrupts
-- ROM space is limited (16KB)
-
-**Decision**: TBD
-
-### 7. Error Recovery
-**Question**: How aggressive should retry logic be?
-
-**Options**:
-- Simple: 3 retries then fail
-- Aggressive: Automatic reconnection
-- User prompt: Ask user to retry
-
-**Decision**: TBD
-
-### 8. Multiple Drives
-**Question**: How should the protocol handle drive selection?
-
-**Options**:
-- Include drive number in each command (recommended)
-- Send separate "SELECT DRIVE" command
-- Handle at higher level (transparent to protocol)
-
-**Recommendation**: Include drive number in each command
-
-**Decision**: TBD
-
-### 9. Catalog Caching
-**Question**: Should we cache the catalog in RAM to reduce serial traffic?
-
-**Considerations**:
-- Pro: Faster access, less serial traffic
-- Con: Uses RAM, may be stale
-- MMFS caches at 0x0E00-0x0FFF (512 bytes)
-
-**Decision**: TBD
-
-### 10. Interrupt vs Polling
-**Question**: Should serial I/O use interrupts or polling?
-
-**Options**:
-- Polling: Simpler, ROM waits for data
-- Interrupts: More complex, better performance
-- Hybrid: Interrupts for receive, polling for transmit
-
-**Recommendation**: Start with polling for simplicity
-
-**Decision**: TBD
-
 ## Related Documents
 
 - [Architecture Overview](ARCHITECTURE.md)
 - Phase test plans (PHASE*.md)
-
-## Revision History
-
-| Version | Date | Author | Changes |
-|---------|------|--------|---------|
-| 1.0 | 2025-10-22 | AI + User | Initial architecture document |
