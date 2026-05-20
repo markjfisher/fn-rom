@@ -19,12 +19,17 @@ The architecture must support multiple deployment configurations:
 ┌─────────────────────────────────────────────────────────────────┐
 │                     FujiNet ROM (fn-rom)                        │
 │  ┌──────────────┐  ┌──────────────┐  ┌────────────────────┐     │
-│  │ High Level   │  │ Mid Level    │  │ Low Level          │     │
-│  │ (MMFS compat)│→ │ (fuji_fs.s)  │→ │ (fuji_serial.s)    │     │
-│  │ fs_functions │  │              │  │                    │     │
+│  │ High Level   │  │ Policy /     │  │ Shared FujiBus     │     │
+│  │ (MMFS compat)│→ │ Transaction  │→ │ protocol           │     │
+│  │ fs_functions │  │ fuji_fs/mount│  │ fujibus*.s         │     │
 │  └──────────────┘  └──────────────┘  └────────────────────┘     │
 │                                              ↓                  │
-│                                       [Serial Protocol]         │
+│                                       [Shared SLIP]             │
+│                                       fuji_link_slip.s          │
+│                                              ↓                  │
+│                                       [Raw Channel]             │
+│                                       serial/*.s today          │
+│                                       userport/*.s later        │
 └─────────────────────────────────────────────────────────────────┘
                                               ↓
 ┌─────────────────────────────────────────────────────────────────┐
@@ -54,12 +59,26 @@ The architecture must support multiple deployment configurations:
 │  │ FujiNet ROM                                              │      │
 │  │                                                          │      │
 │  │  ┌─────────────────────────────────────────────────┐     │      │
-│  │  │ fuji_serial.s - Serial Communication Layer      │     │      │
+│  │  │ Shared FujiBus protocol                         │     │      │
 │  │  │                                                 │     │      │
-│  │  │  • Write to 6850 ACIA registers (0xFE08-0xFE09) │     │      │
-│  │  │  • Read from 6850 ACIA registers                │     │      │
-│  │  │  • Implement command/response protocol          │     │      │
-│  │  │  • Handle timeouts and retries                  │     │      │
+│  │  │  • fujibus.s packet encode/decode               │     │      │
+│  │  │  • fujibus_disk/fuji/network command builders   │     │      │
+│  │  │  • fuji_data_fujibus exported data operations   │     │      │
+│  │  └─────────────────────────────────────────────────┘     │      │
+│  │                              ↓                           │      │
+│  │  ┌─────────────────────────────────────────────────┐     │      │
+│  │  │ Shared SLIP framing                             │     │      │
+│  │  │                                                 │     │      │
+│  │  │  • fuji_link_slip.s                             │     │      │
+│  │  │  • fuji_link_*_slip_frame entry points          │     │      │
+│  │  └─────────────────────────────────────────────────┘     │      │
+│  │                              ↓                           │      │
+│  │  ┌─────────────────────────────────────────────────┐     │      │
+│  │  │ Serial raw-link implementation                  │     │      │
+│  │  │                                                 │     │      │
+│  │  │  • serial_utils.s setup/restore/RS423 helpers   │     │      │
+│  │  │  • fuji_link_setup / read_byte / write_byte     │     │      │
+│  │  │  • Raw byte read/write for current transport    │     │      │
 │  │  └─────────────────────────────────────────────────┘     │      │
 │  └──────────────────────────────────────────────────────────┘      │
 │                              ↓                                     │
@@ -112,6 +131,17 @@ The architecture must support multiple deployment configurations:
 │  └──────────────────────────────────────────────────────────┘      │
 └────────────────────────────────────────────────────────────────────┘
 ```
+
+## Serial Channel Role
+
+Serial is now only the raw-link implementation underneath the shared FujiBus and SLIP layers. That means:
+
+- `fuji_mount.s` and `fuji_fs.s` do not call `fuji_serial.s` for normal data-path work
+- `fuji_data_fujibus.s` exports the shared `fuji_*_data` operations
+- `fuji_link_slip.s` implements shared SLIP framing over a raw link
+- `src/serial/*.s` provides the raw-link symbols: `fuji_link_setup`, `fuji_link_restore_default_io`, `fuji_link_check_byte_available`, `fuji_link_read_byte`, and `fuji_link_write_byte`
+
+When user port or 1MHz is added with the same SLIP + FujiBus protocol, only the channel implementation should need to change.
 
 ## Serial Protocol Design
 
@@ -488,4 +518,3 @@ sta $FE08
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2025-10-22 | AI + User | Initial architecture document |
-

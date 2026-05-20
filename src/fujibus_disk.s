@@ -51,7 +51,7 @@
         .import fuji_disk_slot
         .import fujibus_receive_packet
         .import fujibus_send_packet
-        .import fujibus_write_slip_stream_dual
+        .import fuji_link_write_slip_frame_dual
         .import get_fuji_fs_uri_addr_to_aws_tmp00
         .import get_fuji_host_uri_addr_to_aws_tmp00
 
@@ -736,7 +736,7 @@ fujibus_disk_write_sector:
         sta     aws_tmp08
         lda     #$01
         sta     aws_tmp09
-        jsr     fujibus_write_slip_stream_dual
+        jsr     fuji_link_write_slip_frame_dual
 
         jsr     fujibus_receive_packet
 

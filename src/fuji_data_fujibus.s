@@ -1,0 +1,303 @@
+; Shared FujiNet data operations implemented over FujiBus.
+; These operations are channel-agnostic: serial, userport, and 1MHz all use
+; the same FujiBus commands and packet formats underneath.
+
+        .export fuji_clear_mount_slot_data
+        .export fuji_create_disk_data
+        .export fuji_get_mount_slot_data
+        .export fuji_mount_disk_data
+        .export fuji_read_block_data
+        .export fuji_read_catalog_data
+        .export fuji_read_disc_title_data
+        .export fuji_set_mount_slot_data
+        .export fuji_unmount_disk_data
+        .export fuji_write_block_data
+        .export fuji_write_catalog_data
+
+        .importzp aws_tmp08
+        .importzp aws_tmp09
+        .importzp aws_tmp14
+        .importzp aws_tmp15
+
+        .importzp buffer_ptr
+        .importzp data_ptr
+
+        .import fuji_block_size
+        .import fuji_current_sector
+        .import fuji_file_offset
+        .import fujibus_clear_mount_slot
+        .import fujibus_disk_create
+        .import fujibus_disk_mount
+        .import fujibus_disk_read_sector
+        .import fujibus_disk_read_sector_partial
+        .import fujibus_disk_unmount
+        .import fujibus_disk_write_sector
+        .import fujibus_get_mount_slot
+        .import fujibus_set_mount_slot
+
+        .include "fujinet.inc"
+
+        .segment "CODE"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; FUJI_READ_BLOCK_DATA - Read data block from FujiNet device
+; Input: data_ptr points to buffer, other parameters in workspace
+; Output: Data read into buffer, Carry=0 if success, Carry=1 if error
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+fuji_read_block_data:
+        ; C3/C2 carries the DFS start sector. The low two bits of the mixed
+        ; byte are the upper sector bits; the upper nibble encodes file length
+        ; high bits, which we currently ignore here.
+        lda     fuji_file_offset
+        sta     fuji_current_sector
+        lda     fuji_file_offset+1
+        and     #$03
+        sta     fuji_current_sector+1
+
+        ; fuji_block_size holds the byte count for this transfer.
+        ; High byte = number of full 256-byte sectors.
+        ; Low byte  = trailing partial sector bytes.
+        lda     fuji_block_size
+        sta     aws_tmp14
+        lda     fuji_block_size+1
+        sta     aws_tmp15
+
+@read_full_sector:
+        lda     aws_tmp15
+        beq     @read_partial_sector
+
+        jsr     fujibus_disk_read_sector
+        cmp     #$01
+        bne     @read_error
+
+        inc     fuji_current_sector
+        bne     :+
+        inc     fuji_current_sector+1
+:
+        inc     data_ptr+1
+        dec     aws_tmp15
+        bne     @read_full_sector
+
+@read_partial_sector:
+        lda     aws_tmp14
+        beq     @read_success
+
+        ; Payload is decoded into PWS at buffer_ptr; copy only the trailing
+        ; aws_tmp14 bytes from packet offset 18 into data_ptr (see
+        ; fujibus_disk_read_sector_partial).
+        jsr     fujibus_disk_read_sector_partial
+        cmp     #$01
+        bne     @read_error
+
+@read_success:
+        lda     #$01
+        clc
+        rts
+
+@read_error:
+        lda     #$00
+        sec
+        rts
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; FUJI_WRITE_BLOCK_DATA - Write data block to FujiNet device
+; Input: data_ptr points to buffer, other parameters in workspace
+; Output: Carry=0 if success, Carry=1 if error
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+fuji_write_block_data:
+        lda     fuji_file_offset
+        sta     fuji_current_sector
+        lda     fuji_file_offset+1
+        and     #$03
+        sta     fuji_current_sector+1
+
+        lda     fuji_block_size
+        sta     aws_tmp14
+        lda     fuji_block_size+1
+        sta     aws_tmp15
+
+@write_full_sector:
+        lda     aws_tmp15
+        beq     @write_partial_sector
+
+        jsr     fujibus_disk_write_sector
+        cmp     #$01
+        bne     @write_error
+
+        inc     fuji_current_sector
+        bne     :+
+        inc     fuji_current_sector+1
+:
+        inc     data_ptr+1
+        dec     aws_tmp15
+        bne     @write_full_sector
+
+@write_partial_sector:
+        lda     aws_tmp14
+        beq     @write_success
+
+        ; Preserve caller buffer; stage full sector at PWS payload (same offset
+        ; as FujiBus rx[18+]) so catalogue RAM at $0E00 is not touched.
+        lda     data_ptr
+        sta     aws_tmp08
+        lda     data_ptr+1
+        sta     aws_tmp09
+
+        lda     buffer_ptr
+        clc
+        adc     #$12
+        sta     data_ptr
+        lda     buffer_ptr+1
+        adc     #$00
+        sta     data_ptr+1
+
+        jsr     fujibus_disk_read_sector
+        cmp     #$01
+        bne     @write_partial_fail
+
+        ldy     #$00
+@merge_partial:
+        lda     (aws_tmp08),y
+        sta     (data_ptr),y
+        iny
+        cpy     aws_tmp14
+        bne     @merge_partial
+
+        jsr     fujibus_disk_write_sector
+        cmp     #$01
+        bne     @write_partial_fail
+
+        lda     aws_tmp08
+        sta     data_ptr
+        lda     aws_tmp09
+        sta     data_ptr+1
+        jmp     @write_success
+
+@write_partial_fail:
+        lda     aws_tmp08
+        sta     data_ptr
+        lda     aws_tmp09
+        sta     data_ptr+1
+        jmp     @write_error
+
+@write_success:
+        lda     #$01
+        clc
+        rts
+
+@write_error:
+        lda     #$00
+        sec
+        rts
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; fuji_read_catalog_DATA - Read catalog from FujiNet device
+; Input: data_ptr points to 512-byte catalog buffer
+; Output: Catalogue data in buffer, Carry=0 if success, Carry=1 if error
+;
+; The catalog is stored in sectors 0 and 1 of the disk.
+; We read both sectors and combine them.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+fuji_read_catalog_data:
+        ; Read sector 0 (first 256 bytes of catalog)
+        lda     #$00
+        sta     fuji_current_sector
+        sta     fuji_current_sector+1
+
+        jsr     fujibus_disk_read_sector
+        cmp     #$01
+        bne     @catalog_read_error
+
+        ; Read sector 1 (second 256 bytes of catalog)
+        inc     fuji_current_sector
+        bne     :+
+        inc     fuji_current_sector+1
+:
+        inc     data_ptr+1
+
+        jsr     fujibus_disk_read_sector
+        cmp     #$01
+        bne     @catalog_read_error
+
+        clc
+        rts
+
+@catalog_read_error:
+        sec
+        rts
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; fuji_write_catalog_DATA - Write catalog to FujiNet device
+; Input: data_ptr points to 512-byte catalog buffer
+; Output: Carry=0 if success, Carry=1 if error
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+fuji_write_catalog_data:
+        lda     #$00
+        sta     fuji_current_sector
+        sta     fuji_current_sector+1
+
+        lda     #$00
+        sta     aws_tmp14
+
+        jsr     fujibus_disk_write_sector
+        cmp     #$01
+        beq     :+
+        inc     aws_tmp14
+:
+
+        inc     fuji_current_sector
+        bne     :+
+        inc     fuji_current_sector+1
+:
+        inc     data_ptr+1
+
+        jsr     fujibus_disk_write_sector
+        cmp     #$01
+        beq     :+
+        inc     aws_tmp14
+:
+
+        lda     aws_tmp14
+        bne     @catalog_write_error
+
+        clc
+        rts
+
+@catalog_write_error:
+        sec
+        rts
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; FUJI_READ_DISC_TITLE_DATA - Read disc title from FujiNet device
+; Input: data_ptr points to 16-byte title buffer
+; Output: Title data in buffer, Carry=0 if success, Carry=1 if error
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+fuji_read_disc_title_data:
+        rts
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; Shared FujiBus-backed mount and slot operations.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+fuji_mount_disk_data:
+        jmp     fujibus_disk_mount
+
+fuji_create_disk_data:
+        jmp     fujibus_disk_create
+
+fuji_unmount_disk_data:
+        jmp     fujibus_disk_unmount
+
+fuji_clear_mount_slot_data:
+        jmp     fujibus_clear_mount_slot
+
+fuji_set_mount_slot_data:
+        jmp     fujibus_set_mount_slot
+
+fuji_get_mount_slot_data:
+        jmp     fujibus_get_mount_slot

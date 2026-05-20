@@ -6,7 +6,7 @@ The FujiNet ROM implements a BBC Micro Disk Filing System (DFS) compatible inter
 
 ## Layer Architecture
 
-The system follows a strict three-layer architecture to maintain separation of concerns and ensure proper resource management:
+The system now separates FujiNet operations into policy, shared FujiBus protocol, and channel-specific I/O. This keeps packet definitions shared across serial, user port, and future 1MHz implementations while only the raw byte stream varies by interface.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -19,22 +19,50 @@ The system follows a strict three-layer architecture to maintain separation of c
 └─────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────┐
-│  Hardware Interface Layer (Transaction Management)          │
+│  Transaction / Policy Layer                                 │
 │  - fuji_read_catalog() / fuji_write_catalog()               │
-│  - fuji_read_mem_block() / fuji_write_mem_block()           │
+│  - fuji_mount_disk() / fuji_get_slot()                      │
 │  - fuji_begin_transaction() / fuji_end_transaction()        │
-│  File: fuji_fs.s                                            │
+│  Files: fuji_fs.s, fuji_mount.s                             │
 │  CRITICAL: All functions here manage &BC-&CB preservation   │
 └─────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────┐
-│  Hardware Implementation Layer                              │
-│  - fuji_read_block_data() / fuji_write_block_data()         │
-│  - fuji_read_catalog_data() / fuji_write_catalog_data()     │
-│  - Physical I/O operations (serial, user port)              │
-│  Files: fuji_serial.s, fuji_userport.s                      │
+│  Shared FujiBus Operations                                  │
+│  - fuji_*_data() exports backed by FujiBus                  │
+│  - fujibus_disk.s / fujibus_fuji.s / fujibus_network.s      │
+│  - Packet layout and response validation                    │
+│  Files: fuji_data_fujibus.s, fujibus*.s                     │
+└─────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────┐
+│  Shared Framing Layer                                       │
+│  - fuji_link_read_slip_frame()                              │
+│  - fuji_link_write_slip_frame()                             │
+│  - fuji_link_write_slip_frame_dual()                        │
+│  - SLIP encode/decode over the selected link                │
+│  File: fuji_link_slip.s                                     │
+└─────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────┐
+│  Raw Link / Channel Layer                                   │
+│  - fuji_link_setup() / fuji_link_restore_default_io()       │
+│  - fuji_link_check_byte_available() / fuji_link_read_byte() │
+│  - fuji_link_write_byte()                                   │
+│  - Physical serial today, userport/1MHz later               │
+│  Files: serial/*.s today, userport/*.s later                │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+### Current File Responsibilities
+
+- `fuji_fs.s` and `fuji_mount.s`: top-level FujiNet operations, state, transaction boundaries
+- `fuji_data_fujibus.s`: shared `fuji_*_data` implementations for mount, catalog, and block operations
+- `fujibus.s`: shared FujiBus packet encode/decode and checksum handling
+- `fujibus_disk.s`, `fujibus_fuji.s`, `fujibus_network.s`: shared device-specific FujiBus commands
+- `fuji_link_slip.s`: shared SLIP framing over the selected raw link
+- `src/serial/*.s`: current serial raw-link implementation used by the shared SLIP layer
+- `fuji_serial.s`: serial-only error helpers, not the main FujiBus data path
 
 ## Transaction Management and Zero Page Protection
 
@@ -110,9 +138,9 @@ save_mem_block:
     rts
 ```
 
-## Hardware Interface Functions (fuji_fs.s)
+## Transaction-Wrapped Interface Functions
 
-All functions that touch hardware MUST be in `fuji_fs.s` and MUST manage transactions:
+The transaction-wrapped entry points remain in `fuji_fs.s` and `fuji_mount.s`. They call shared `fuji_*_data` implementations underneath.
 
 | Function | Purpose | Transaction? |
 |----------|---------|--------------|
@@ -152,7 +180,7 @@ During transactions, `&BC-&CB` is saved here to allow hardware operations to use
 &CF (pws_tmp15) - Private temp
 ```
 
-These can be used by hardware implementation if needed, though `&BC-&CB` is preferred since it's protected by transactions.
+These can be used by the FujiBus or channel implementations if needed, though `&BC-&CB` is preferred since it's protected by transactions.
 
 ## Adapter Layer: fuji_execute_block_rw
 
@@ -214,19 +242,19 @@ This adapter lives in `vectors/filev/fuji_execute_block_rw.s` but is only called
 - *RUN command works correctly
 - Clean separation of concerns
 
-## Adding New Hardware Operations
+## Adding New Operations
 
-When adding new hardware operations, follow this pattern:
+When adding new FujiNet operations, follow this pattern:
 
-1. **Add low-level function to hardware implementation**:
+1. **Add a shared `fuji_*_data` function when the protocol is common across interfaces**:
 ```assembly
 fuji_new_operation_data:
-    ; Implement hardware-specific operation
+    ; Implement FujiBus-backed operation
     ; Can use &BC-&CB freely (will be protected by caller)
     rts
 ```
 
-2. **Add interface function to `fuji_fs.s`**:
+2. **Add a transaction-wrapped entry point to `fuji_fs.s` or `fuji_mount.s`**:
 ```assembly
         .export fuji_new_operation
         .import fuji_new_operation_data
@@ -240,10 +268,12 @@ fuji_new_operation:
     rts
 ```
 
-3. **High-level code calls interface function**:
+3. **Only add channel-specific code if the raw byte stream changes**:
 ```assembly
-    ; From anywhere in ROM
-    jsr     fuji_new_operation       ; Transaction already managed!
+; serial/*.s or userport/*.s
+fuji_link_write_byte:
+    ; Write one byte over the selected physical link
+    rts
 ```
 
 ## Related Documentation
@@ -257,6 +287,6 @@ fuji_new_operation:
 1. **All transaction management happens in `fuji_fs.s`** - never in high-level code
 2. **Hardware layer can use `&BC-&CB` freely** - transactions protect it
 3. **`&BE/&BF` contains exec address** - critical for *RUN to work
-4. **Clear layer boundaries** - makes code maintainable and debuggable
-5. **Matches MMFS architecture** - proven pattern from working code
-
+4. **Shared FujiBus and SLIP live above the raw channel layer** - packet and framing code are not duplicated per interface
+5. **Only the raw byte-stream channel should vary between serial, user port, and 1MHz**
+6. **Matches MMFS transaction discipline while keeping FujiBus reusable**

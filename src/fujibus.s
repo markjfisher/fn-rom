@@ -22,8 +22,8 @@
 
         .import calc_checksum
         .import fuji_ax_save
-        .import fujibus_read_slip_stream
-        .import fujibus_write_slip_stream
+        .import fuji_link_read_slip_frame
+        .import fuji_link_write_slip_frame
 
         .segment "CODE"
 
@@ -160,13 +160,13 @@ fujibus_send_packet_impl:
         lda     fuji_ax_save+1
         sta     aws_tmp03
 
-        ; stream packet as SLIP directly to serial
+        ; stream packet as SLIP over the selected channel
         lda     buffer_ptr
         sta     aws_tmp00
         lda     buffer_ptr+1
         sta     aws_tmp01
         ; aws_tmp02/03 still = total_len
-        jsr     fujibus_write_slip_stream
+        jsr     fuji_link_write_slip_frame
 
         pla
         sta     aws_tmp09
@@ -240,7 +240,7 @@ fujibus_receive_packet:
 
 fujibus_receive_packet_impl:
         ; receive and decode SLIP into buffer at buffer_ptr
-        jsr     fujibus_read_slip_stream
+        jsr     fuji_link_read_slip_frame
 
         ; dec_len -> aws_tmp02/03
         sta     aws_tmp02

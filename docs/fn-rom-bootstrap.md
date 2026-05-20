@@ -43,9 +43,11 @@ The ROM must maintain "current filesystem" state internally.
 
 ## fn-rom transport and channel
 
-The transport used by fn-rom is fujibus (header, descriptors and payload definition) with SLIP framing. See `@../fn-rom/src/fujibus.s`.
+The transport used by fn-rom is FujiBus (header, descriptors and payload definition) with SLIP framing. FujiBus packet logic lives in `@src/fujibus.s`, and shared SLIP framing lives in `@src/fuji_link_slip.s`.
 
-The channel is SERIAL data over either PTY for virtual connections, or rs232 connecting to an esp32 device. See `@../fn-rom/src/fuji_serial.s` 
+Shared FujiBus-backed data operations live in `@src/fuji_data_fujibus.s` and the device-specific command builders live in `@src/fujibus_disk.s`, `@src/fujibus_fuji.s`, and `@src/fujibus_network.s`.
+
+The channel is the raw byte stream beneath SLIP and FujiBus. Today that channel is serial data over PTY or RS423/RS232, implemented in `@src/serial/`. Future userport or 1MHz support should provide the same `fuji_link_*` raw-link entry points without duplicating the SLIP or FujiBus layers.
 
 ## Disk support
 
@@ -57,18 +59,18 @@ fujinet-nio supports:
 
 fn-rom supports commands to interact with the ROM as standard MOS commands.
 As well as all the standard commands like *CAT, *DISC, *ENABLE, etc. we also have "FujiNet" commands that start with "*F", e.g. "*FRESET" to send a command to the fujinet to reset.
-All commands are in the folder `@../fn-rom/src/commands/` folder.
-The file `@../fn-rom/src/commands/cmd_tables.s` defines the commands and what function should be invoked when the user issues a command.
+All commands are in the folder `@src/commands/` folder.
+The file `@src/commands/cmd_tables.s` defines the commands and what function should be invoked when the user issues a command.
 
 ## Compiling and Source
 
 Source is 6502 assembly language, using ca65 dialect, using cc65 to compile to ROM.
-`make` is used to build from the root of fn-rom project using `@../fn-rom/Makefile`
+`make` is used to build from the root of fn-rom project using `@Makefile`
 
 ## Important restrictions
 
 - ROM code cannot use cc65's C stack for creating temporary variables, or use "BSS" segments for variables as we are compiling to a ROM.
-- Certain ZeroPage locations are available as temporary work values (see `@../fn-rom/src/os.s`)
+- Certain ZeroPage locations are available as temporary work values (see `@src/os.s`)
   - Command Workspace Locations cws_tmp1 to cws_tmp9 - When dealing with MOS commands
   - Absolute Workspace Locations aws_tmp00 to aws_tmp15 - General workspace variables to use
   - Private Workspace Locations pws_tmp00 to pws_tmp15 - remain unaltered if the filing system remains selected
@@ -76,4 +78,4 @@ Source is 6502 assembly language, using ca65 dialect, using cc65 to compile to R
 
 ## Memory constraints
 
-BBC ROM code working space can only fit up to $1900 hex in memory. The authoritative buffer and workspace layout is in `@../fn-rom/src/os.s` (fuji_* symbols) and `@../fn-rom/src/fujibus.s` (FujiBus TX/RX and the memory map comments there).
+BBC ROM code working space can only fit up to $1900 hex in memory. The authoritative buffer and workspace layout is in `@src/os.s` (fuji_* symbols) and `@src/fujibus.s` (FujiBus TX/RX and the memory map comments there).
