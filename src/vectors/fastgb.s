@@ -7,6 +7,7 @@
         .import channel_flags_clear_bits
         .import channel_set_dir_drive_get_cat_entry_yintch
         .import cmp_ptr_ext
+        .import gbpb_buf_0c
         .import gbpbv_table3
         .import load_mem_block
         .import save_mem_block
@@ -17,14 +18,12 @@
 
 ; This is converted from MMFS version which is converted from https://github.com/tom-seddon/acorn_1770_dfs_disassembly/blob/main/dfs224.asm.txt
 
-fuji_workspace  := $1000
-
-dosram          := fuji_workspace + $60 ; copy of OSGBPB/OSFILE ctrl block; temp filename in *CAT
+dosram          := gbpb_buf_0c          ; copy of OSGBPB/OSFILE ctrl block; temp filename in *CAT
 acc             := dosram + $0D         ; temporary OSGBPB call number
 ltemp0          := dosram + $0E         ; temporary count of bytes remaining to transfer
-ldlow           := fuji_workspace + $72 ; 4 bytes; load address passed to OSFILE; Tube tx addr
-dcby            := fuji_workspace + $C2 ; channel workspace pointer for current open file
-seqsem          := fuji_workspace + $DD ; $00=*SPOOL/*EXEC critical, close files on error
+ldlow           := dosram + $12         ; 4 bytes; load address passed to OSFILE; Tube tx addr
+dcby            := dosram + $62         ; channel workspace pointer for current open file
+seqsem          := dosram + $7D         ; $00=*SPOOL/*EXEC critical, close files on error
 
 seqmap          := fuji_channel_start   ; workspaces for channels $11..$15
 seqcat          := seqmap + $00         ; when accessing the catalogue entry

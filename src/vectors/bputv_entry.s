@@ -28,8 +28,11 @@
         .import channel_set_dir_drive_yintch
         .import check_channel_yhndl_exyintch
         .import cmp_ptr_ext
+        .import dfs_cat_boot_option
         .import dfs_cat_file_size
+        .import dfs_cat_file_sect
         .import dfs_cat_msbits
+        .import dfs_cat_sect_count
         .import err_file_locked
         .import fuji_cat_file_offset
         .import fuji_ch_111A
@@ -110,11 +113,11 @@ bp_entry:
         jsr     channel_get_cat_entry_yintch  ; Enough space in gap?
         ldx     fuji_cat_file_offset    ; X=cat file offset
         sec                             ; Calc size of gap
-        lda     $0F07,x                 ; Next file start sector
-        sbc     $0F0F,x                 ; This file start
+        lda     dfs_cat_sect_count,x    ; Next file start sector
+        sbc     dfs_cat_file_sect,x     ; This file start
         pha                             ; lo byte
-        lda     $0F06,x
-        sbc     $0F0E,x                 ; Mixed byte
+        lda     dfs_cat_boot_option,x
+        sbc     dfs_cat_msbits,x        ; Mixed byte
         and     #$03                    ; hi byte
         cmp     fuji_channel_start+2,y  ; File size in sectors
         bne     @bp_extendby100         ; If must be <gap size

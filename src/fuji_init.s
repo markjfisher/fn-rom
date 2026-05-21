@@ -31,7 +31,10 @@
         .import a_rorx4
         .import channel_flags_clear_bits
         .import current_cat
+        .import fuji_filename_buffer
         .import dfs_cat_boot_option
+        .import fuji_channel_start
+        .import fuji_ch_sect_hi
         .import extendedvectors_table
         .import fuji_cmd_enabled
         .import fuji_current_dir_len
@@ -189,10 +192,10 @@ fuji_init:
         lda     (aws_tmp00),y         ; from PWS
         cpy     #$C0                  ; to static wsp
         bcc     @copyfromPWS1
-        sta     $1000,y
+        sta     fuji_filename_buffer,y
         bcs     @copyfromPWS2
 @copyfromPWS1:
-        sta     $1100,y
+        sta     fuji_channel_start,y
 @copyfromPWS2:
         dey
         bne     @copyfromPWStoSWS_loop
@@ -204,7 +207,7 @@ fuji_init:
         lda     #$3F
         jsr     channel_flags_clear_bits  ; Clear bits 7 & 6, C=0
         pla
-        sta     $111D,y               ; Buffer sector hi?
+        sta     fuji_ch_sect_hi,y     ; Buffer sector hi?
         sbc     #$1F                  ; A=A-$1F-(1-C)=A-$20
         bne     @setchans_loop
         beq     initdfs_noreset       ; always
@@ -312,4 +315,3 @@ claim_static_workspace:
 ;         ; TODO: Implement autoload of BOOT.{SSD,DSD} into drive 0 at boot
 ;         ; Do we want this behaviour?
 ;         rts
-

@@ -31,6 +31,7 @@
         .import fuji_current_dir_len
         .import fuji_current_fs_len
         .import fuji_current_host_len
+        .import fuji_filename_buffer
         .import fuji_filename_len
         .import fujibus_receive_packet
         .import fujibus_send_packet
@@ -40,8 +41,6 @@
         .include "fujinet.inc"
 
         .segment "CODE"
-
-FUJI_FILENAME_BUF     = $1000
 
 ;   Success: C=0, failure C=1
 
@@ -109,7 +108,7 @@ frt_after_base:
 frt_copy_fn:
         cpy     cws_tmp8
         beq     frt_compute_paylen
-        lda     FUJI_FILENAME_BUF,y
+        lda     fuji_filename_buffer,y
         sta     (cws_tmp2),y
         iny
         bne     frt_copy_fn

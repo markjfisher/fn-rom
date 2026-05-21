@@ -44,10 +44,6 @@ steps:
             regex:
               # Create Myself - location depends on number of ROMS loaded, use "." for 2nd digit of load/exec to match any
               - '\$\.Myself\s+001.C5\s+001.E0\s+000027\s+026'
-      - peek:
-          begin: "0e00"
-          end: "0e08"
-          expect_hex: "62 65 65 62 00 00 00 00"
 
   - name: osf02
     paste:

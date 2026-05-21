@@ -27,7 +27,6 @@
         .import fuji_write_catalog_data
         .import remember_axy
         .import remember_xy_only
-        .import MA
         .import MP: zeropage    ; this is the address size, not that it's in ZP, just ca65 syntax for "8 bit value"
 
         .include "fujinet.inc"
@@ -112,7 +111,7 @@ fuji_write_catalog:
         ; Set up catalog buffer at page 0x0E (512 bytes)
         lda     #$00
         sta     data_ptr
-        lda     #$0E                    ; Catalog buffer at page 0x0E
+        lda     #(MP+$0E)               ; Catalog buffer at page 0x0E
         sta     data_ptr+1
 
         ; For FujiNet, we need to send the updated catalog to the network

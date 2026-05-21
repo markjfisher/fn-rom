@@ -70,8 +70,11 @@
         .import clear_exec_spool_file_handle
         .import current_cat
         .import dfs_cat_cycle
+        .import dfs_cat_file_load_addr
         .import dfs_cat_file_dir
         .import dfs_cat_file_name
+        .import dfs_cat_file_sect
+        .import dfs_cat_msbits
         .import dfs_cat_num_x8
         .import err_bad
         .import err_cat
@@ -109,7 +112,6 @@
         .import remember_axy
         .import report_error
         .import y_add7
-        .import MA
         .import MP: zeropage    ; this is the address size, not that it's in ZP, just ca65 syntax for "8 bit value"
 
         .include "fujinet.inc"
@@ -273,10 +275,10 @@ prt_infoline_yoffset:
         jsr     print_hex_3byte           ; Length
         pla
         tay
-        lda     $0F0E,y                 ; First sector high bits
+        lda     dfs_cat_msbits,y        ; First sector high bits
         and     #$03
         jsr     print_nibble
-        lda     $0F0F,y                 ; First sector low byte
+        lda     dfs_cat_file_sect,y     ; First sector low byte
         jsr     print_hex
         jmp     print_newline
 
@@ -284,7 +286,7 @@ prt_infoline_yoffset:
 print_hex_3byte:
         ldx     #$03                    ; eg print "123456 "
 @print_hex_3byte_loop:
-        lda     $1062,y
+        lda     fuji_infoline_buf+2,y
         jsr     print_hex
         dey
         dex
@@ -313,12 +315,12 @@ read_file_attribs_to_b0_yoffset:
         bne     @readfileattribs_copyloop
         pla
         tax
-        lda     $0E0F,x
+        lda     dfs_cat_file_dir,x
         bpl     @readfileattribs_notlocked ; If not locked
         lda     #$08
         sta     (aws_tmp00),y           ; pwsp+&E=8
 @readfileattribs_notlocked:
-        lda     $0F0E,x                 ; mixed byte
+        lda     dfs_cat_msbits,x        ; mixed byte
         ldy     #$04                    ; load address high bytes
         jsr     @readfileattribs_addrhibytes
         ldy     #$0C                    ; file length high bytes
@@ -347,7 +349,7 @@ readfileattribs_exits:
 readfileattribs_copy2bytes:
         jsr     readfileattribs_copy1byte
 readfileattribs_copy1byte:
-        lda     $0F08,x
+        lda     dfs_cat_file_load_addr,x
         sta     (aws_tmp00),y
         inx
         iny
@@ -356,7 +358,7 @@ readfileattribs_copy1byte:
 ; param_syntax_error_if_null - Check for syntax error if no parameters (MMFS line 5553-5556)
 param_syntax_error_if_null:
         jsr     GSINIT_A                ; Initialize parameter parsing
-        beq     err_syntax             ; If no parameters, syntax error
+        beq     err_syntax              ; If no parameters, syntax error
         rts
 
 param_syntax_error_if_not_null:
@@ -959,4 +961,3 @@ param_drive_or_default:
         and     #$03                    ; TODO: in MM32.asm this is "AND #&01" with comment "only interest in 'physical drive'"
         sta     current_drv
         rts
-
