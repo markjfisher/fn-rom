@@ -109,11 +109,23 @@ cmd_table_info:
 ; COMMAND TABLE - Utils commands [NON-FS COMMANDS], help = "*HELP UTILS"
 ; old cmdtable2
 cmd_table_utils:
+.if .defined(_UTILS_) .or .defined(_ROMS_)
         .byte   (cmd_table_utils_cmds - cmd_table_fujifs_cmds) / 2 - 1
 
+        .if .defined(_UTILS_)
+        ; TODO: BUILD/DUMP/LIST
+        .endif
+
+        .if .defined(_ROMS_)
         .byte   "ROMS",      $80, $00         ; no parameter
         .byte   $00
+        .endif
 
+        .if .defined(_UTILS_)
+        ; TODO: TYPE
+        .endif
+
+.endif
 
 ; COMMAND TABLE - File System INIT commands, NO HELP COMMAND
 ; old cmdtable22
@@ -132,7 +144,9 @@ cmd_table_help:
 
         .byte   "FUJI",      $80, $00
         .byte   "FUTILS",    $80, $00
+.if .defined(_UTILS_) .or .defined(_ROMS_)
         .byte   "UTILS",     $80, $00
+.endif
         .byte   $00                     ; End of table
 
 ; These are prefixed with "F", e.g. "FBOOT" etc [FILE SYSTEM COMMANDS], help = "*HELP FUTILS"
@@ -198,7 +212,9 @@ cmd_table_fs_cmds:
 cmd_table_help_cmds:
         .word   cmd_help_fuji-1
         .word   cmd_help_futils-1
+.if .defined(_UTILS_) .or .defined(_ROMS_)
         .word   cmd_help_utils-1
+.endif
         .word   not_cmd_help-1
 
 ; OLD: cmdaddr4

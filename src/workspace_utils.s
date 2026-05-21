@@ -35,14 +35,22 @@ set_fuji_data_buffer_ptr:
 
 fuji_fs_uri_ptr:
         jsr     get_fuji_fs_uri_addr_to_aws_tmp00
-        ldx     aws_tmp01
-        lda     aws_tmp00
-        rts
+.if (.cpu .bitand CPU_ISET_65C02)
+        bra     set_ax
+.else
+        clc
+        bcc     set_ax
+.endif
+        ; ldx     aws_tmp01
+        ; lda     aws_tmp00
+        ; rts
 
 ; uint8_t *fuji_host_uri_ptr(void);  return in A/X — PWS + FUJI_HOST_URI_OFFSET
 ; TODO: this can be improved, PWS is always on a boundary, so lower byte is 00
 fuji_host_uri_ptr:
         jsr     get_fuji_host_uri_addr_to_aws_tmp00
+
+set_ax:
         ldx     aws_tmp01
         lda     aws_tmp00
         rts
@@ -121,10 +129,8 @@ set_private_workspace_pointer_high_only:
         rts
 
 set_private_workspace_pointer_aws_tmp00_with_offset_AY:
-        pha     ; put low offset into stack while we do base pointer
-        jsr     set_private_workspace_pointer_high_only
-        pla     ; fetch low offset, PWSP is always on a page, so set it directly into tmp00
         sta     aws_tmp00
+        jsr     set_private_workspace_pointer_high_only
         clc
         tya                     ; high offset is in Y
         adc     aws_tmp01

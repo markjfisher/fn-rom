@@ -112,8 +112,14 @@ service02_claim_privworkspace:
 
         ; RESET A=2 (service call), X=<rom slot>, Y=Original PWS page (before incrementing it for next caller)
         ldx     paged_ram_copy
+
+.if (.cpu .bitand CPU_ISET_65C02)
+        ply
+.else
         pla
         tay
+.endif
+
         lda     #$02
 
 .ifdef FUJINET_MACHINE_MASTER

@@ -5,7 +5,7 @@
         .export boot_options
         .export cmd_fs_disc
         .export cmd_fs_fuji
-        .export init_fuji
+        .export fuji_init
 
         ; for debugging and tracing
         .export claim_static_workspace
@@ -86,7 +86,7 @@ autoboot:
         .byte   "Model B - FujiNet", $0D, $0D, 0
 .endif
 
-        bcc     init_fuji
+        bcc     fuji_init
 
 ; For master this runs into cmd_fs_fuji
 cmd_fs_disc:
@@ -109,10 +109,10 @@ cmd_fs_fuji:
         lda     #$FF                    ; Set A=$FF to indicate not a boot file
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; INIT_FUJI - Initialize FujiNet file system
+; FUJI_INIT - Initialize FujiNet file system
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-init_fuji:
+fuji_init:
         jsr     return_with_a0        ; On entry: if A=0 then boot file
         pha
 

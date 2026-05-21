@@ -57,7 +57,7 @@ service22_claim_hidden_pws:
 ; workspace in the same way as service call 1 and 2 but without affecting the
 ; value of OSHWM and eating into user RAM.
 ; Decrement Y by the number of pages requested (the actual allocation step is
-; later in service call &22) and exit A preserved [Master MOS vers
+; later in service call &22) and exit A preserved [Master MOS versions]
 
 service24_required_pws:
         dey

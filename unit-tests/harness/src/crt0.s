@@ -30,8 +30,8 @@ init_harness:
         lda     #$17
         sta     paged_rom_priv_ws + ROM_SLOT
 
-        ; call init_fuji as though ROM was built
-        jsr     init_fuji
+        ; call fuji_init as though ROM was built
+        jsr     fuji_init
 end_init_harness:
         brk
 

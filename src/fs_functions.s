@@ -109,7 +109,8 @@
         .import remember_axy
         .import report_error
         .import y_add7
-        .import MA,MP
+        .import MA
+        .import MP: zeropage    ; this is the address size, not that it's in ZP, just ca65 syntax for "8 bit value"
 
         .include "fujinet.inc"
 

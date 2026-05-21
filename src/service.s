@@ -2,6 +2,8 @@
 
         .export  handle_service
         .export  service12_init_filesystem
+        .export  service_null
+        .export  rom_disabled
 
         .export  service_table                     ; export to get in lbl file for debugging
 
@@ -64,7 +66,7 @@ handle_service:
         bcs     service_null
         cmp     #$21
         bcc     service_null
-        sbc     #$16
+        sbc     #$16                    ; get down from high ($21,$27) to table index ($B,$11)
 .else
         bcs     service_null
 .endif
@@ -83,7 +85,7 @@ handle_service:
         lsr     a
         cmp     #$0B
         bcc     service_null
-        adc     #$15
+        adc     #$15            ; turn this back into the original service request number, e.g. $24. C=1, so only add $15
 
         ; this will jmp to the service table location if it drops through from above.
 service_null:
@@ -130,11 +132,11 @@ service_table:
         .word   service0A_claim_statworkspace - 1       ; $A
 
 .ifdef FUJINET_MACHINE_MASTER
-        .word   service21_claim_hidden_sws - 1          ; $21
-        .word   service22_claim_hidden_pws - 1          ; $22
-        .word   service_null - 1                        ; $23
-        .word   service24_required_pws - 1              ; $24
-        .word   service25_fs_info - 1                   ; $25
-        .word   service_null - 1                        ; $26
-        .word   service27_reset - 1                     ; $27
+        .word   service21_claim_hidden_sws - 1          ; $21 (index 11 = B)
+        .word   service22_claim_hidden_pws - 1          ; $22 (index 12 = C)
+        .word   service_null - 1                        ; $23 (index 13 = D)
+        .word   service24_required_pws - 1              ; $24 (index 14 = E)
+        .word   service25_fs_info - 1                   ; $25 (index 15 = F)
+        .word   service_null - 1                        ; $26 (index 16 = $10)
+        .word   service27_reset - 1                     ; $27 (index 17 = $11)
 .endif

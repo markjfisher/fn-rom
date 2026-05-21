@@ -27,7 +27,8 @@
         .import fuji_write_catalog_data
         .import remember_axy
         .import remember_xy_only
-        .import MA,MP
+        .import MA
+        .import MP: zeropage    ; this is the address size, not that it's in ZP, just ca65 syntax for "8 bit value"
 
         .include "fujinet.inc"
 
@@ -83,7 +84,7 @@ fuji_read_catalog:
         ; Set up catalog buffer at page 0x0E (512 bytes)
         lda     #$00
         sta     data_ptr
-        lda     #<(MP+$0E)                      ; Catalogue buffer at page 0x0E
+        lda     #(MP+$0E)                      ; Catalogue buffer at page 0x0E
         sta     data_ptr+1
 
         ; look up the current drive's slot from table, and save it to fuji_disk_slot.

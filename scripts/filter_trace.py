@@ -28,7 +28,7 @@ import sys
 from typing import TextIO
 
 # First ROM tag after "H $hex" on a standard instruction line.
-RE_ROM_LINE = re.compile(r"^H\s+\$[0-9a-fA-F]+`([a-zA-Z])")
+RE_ROM_LINE = re.compile(r"^H\s+\$[0-9a-fA-F]+`([a-zA-Z0-9])")
 
 
 def rom_tag_from_line(line: str) -> str | None:
