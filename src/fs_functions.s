@@ -764,7 +764,7 @@ is_hndlin_use_yintch:
         ; Check if file handle is in use
         ; Based on MMFS IsHndlinUse_Yintch (line 5051)
         pha                             ; Save A, which is the current YINTCH
-        ; stx     fuji_saved_x            ; Save X to fuji_saved_x
+
         tya
         and     #$E0                    ; mask highest 3 bits (%1110 0000)
         sta     fuji_intch              ; Save the masked intch so we can restore it later, and rely on it

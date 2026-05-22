@@ -97,7 +97,6 @@ bgetv_entry:
 :
         lda     #$10
         jsr     channel_flags_set_bits   ; Set bit 4
-        ; ldx     fuji_saved_x
         lda     #$FE
 
         sec
@@ -177,7 +176,6 @@ nwbg_net_eof_j:
         sta     fuji_ch_bptr_hi,y
         ; sty     fuji_intch
         sec                             ; ensure C=1 for EOF
-        ; ldx     fuji_saved_x
         rts
 
 nwbg_net_read:
@@ -276,7 +274,6 @@ nwbg_net_eof:
         sta     fuji_ch_bptr_mid,y
         sta     fuji_ch_bptr_hi,y
 nwbg_net_eof_exit:
-        ; ldx     fuji_saved_x
         sec                             ; C=1 = EOF
         rts
 

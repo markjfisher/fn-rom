@@ -27,6 +27,7 @@
         .import fuji_write_catalog_data
         .import remember_axy
         .import remember_xy_only
+        .import report_error
         .import MP: zeropage    ; this is the address size, not that it's in ZP, just ca65 syntax for "8 bit value"
 
         .include "fujinet.inc"
@@ -51,20 +52,24 @@ init_state:
         stx     fuji_drive_disk_map+2   ; Drive 2
         stx     fuji_drive_disk_map+3   ; Drive 3
 
-        ; TODO - check if device is responding
         jsr     fuji_check_device_status
-        bcs     @init_failed
+        bcs     @init_err
 
+        ; other checks here...
+        ; jsr     check_crc7
+
+@init_ok:
         ; Device initialized successfully
         lda     #$40
         sta     fuji_state
         clc
         rts
 
-@init_failed:
-        jsr     err_disk
+@init_err:
+        jsr     report_error
         .byte   $FF
-        .byte   "FujiNet device not responding", 0
+        .byte   "FujiNet?", 0
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; fuji_read_catalog - Read the disc catalog (512-byte directory)
@@ -168,16 +173,11 @@ fuji_begin_transaction:
         bvs     @already_init
 
         ; Initialize if needed
-        jsr     init_state
-        bcs     @init_failed
+        jmp     init_state
 
 @already_init:
         rts
 
-@init_failed:
-        jsr     err_disk
-        .byte   $FF
-        .byte   "FujiNet device error", 0
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; FUJI_END_TRANSACTION - End FujiNet transaction

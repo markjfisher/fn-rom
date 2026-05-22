@@ -200,6 +200,12 @@ fuji_init:
         dey
         bne     @copyfromPWStoSWS_loop
 
+        ; Really not sure this is needed. I was going to put it back in, but the master is partially working
+        ; so don't think it was crc7 related at all
+        ; jsr     calculate_crc7
+        ; cmp     CHECK_CRC7
+        ; bne     setdefaults
+
         lda     #$A0                  ; Refresh channel block info
 @setchans_loop:
         tay
@@ -305,7 +311,7 @@ claim_static_workspace:
         ldy     #$00
         lda     #$FF
         sta     (aws_tmp00),y                   ; Data valid in SWS
-        sta     fuji_force_reset
+        ; sta     fuji_force_reset                ; this is never read, why store it?
         iny
         sta     (aws_tmp00),y                   ; Set pws is "empty"
         rts

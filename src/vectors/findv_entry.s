@@ -319,7 +319,6 @@ close_file_exit_plp:
 
 close_file_exit:
 no_flush_error:
-        ; ldx     fuji_saved_x
         pla
         rts
 

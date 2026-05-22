@@ -50,7 +50,6 @@ OS_INC = 1
         .import  fuji_intch
         .import  fuji_cat_file_offset
         .import  fuji_channel_scratch
-        .import  fuji_saved_x
         .import  fuji_saved_i
         .import  fuji_fs_messages_on
         .import  fuji_cmd_enabled
@@ -65,7 +64,6 @@ OS_INC = 1
         .import  fuji_source_drive
         .import  fuji_dest_drive
         .import  fuji_force_reset
-        .import  fuji_disk_table_index
         .import  fuji_tube_present
         .import  fuji_text_ptr_offset
         .import  fuji_text_ptr_hi

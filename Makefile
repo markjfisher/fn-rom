@@ -5,6 +5,7 @@ PROGRAM = fujinet
 CURRENT_TARGET = none
 BUILD_MACHINE ?= BBC
 BUILD_VARIANT = $(CURRENT_TARGET)-$(BUILD_MACHINE)
+SUPPORTED_BUILD_MACHINES := BBC MASTER
 
 # Interface selection - can be overridden on command line
 # Options: SERIAL (default), USERPORT, 1MHZ
@@ -81,6 +82,9 @@ rwildcard=$(wildcard $(1)$(2))$(foreach d,$(wildcard $1*), $(call rwildcard,$d/,
 
 PROGRAM_TGT := $(PROGRAM)$(PROGRAM_MACHINE_SUFFIX).rom
 
+SSD_ROM_BBC := FN-BBC
+SSD_ROM_MASTER := FN-MAST
+
 # SOURCES := $(wildcard $(SRCDIR)/*.c)
 # SOURCES += $(wildcard $(SRCDIR)/*.s)
 
@@ -103,9 +107,14 @@ ASFLAGS += --asm-include-dir $(SRCDIR) --asm-include-dir $(SRCDIR)/inc
 CFLAGS += --include-dir $(SRCDIR) --include-dir $(SRCDIR)/inc
 
 .SUFFIXES:
-.PHONY: all clean release $(DISK_TASKS) $(BUILD_TASKS) $(PROGRAM_TGT) ssd clean-imports
+.PHONY: all clean release $(DISK_TASKS) $(BUILD_TASKS) $(PROGRAM_TGT) all-machines ssd clean-imports
 
 all: $(PROGRAM_TGT)
+
+all-machines:
+	@for machine in $(SUPPORTED_BUILD_MACHINES); do \
+	  $(MAKE) BUILD_MACHINE=$$machine all || exit $$?; \
+	done
 
 $(OBJDIR):
 	@mkdir -p $(OBJDIR)
@@ -142,9 +151,10 @@ $(BUILD_DIR)/$(PROGRAM_TGT): $(OBJECTS) $(LIBS) | $(BUILD_DIR)
 	$(CC) -t $(CURRENT_TARGET) $(LDFLAGS) --mapfile $@.map -Ln $@.lbl -o $@ $^
 $(PROGRAM_TGT): $(BUILD_DIR)/$(PROGRAM_TGT) | $(BUILD_DIR)
 
-ssd: $(PROGRAM_TGT) | $(BUILD_DIR) $(BUILD_DIR)/ssd
+ssd: all-machines | $(BUILD_DIR) $(BUILD_DIR)/ssd
 	rm -f $(BUILD_DIR)/ssd/*
-	cp $(BUILD_DIR)/$(PROGRAM_TGT) $(BUILD_DIR)/ssd/FUJIROM
+	cp $(BUILD_DIR)/$(PROGRAM).rom $(BUILD_DIR)/ssd/$(SSD_ROM_BBC)
+	cp $(BUILD_DIR)/$(PROGRAM)-master.rom $(BUILD_DIR)/ssd/$(SSD_ROM_MASTER)
 	./scripts/create_ssd.py -i $(BUILD_DIR)/ssd -o $(BUILD_DIR)/fujinet.ssd -a 0x8000
 
 # Strip and rebuild .import / .importzp for each src/**/*.s using the same cl65
