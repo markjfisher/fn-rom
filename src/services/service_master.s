@@ -45,9 +45,12 @@ service21_claim_hidden_sws:
 ; user memory by trapping service call &02. [Master MOS versions]
 
 service22_claim_hidden_pws:
+        ; This is the actual page (e.g. D9 typically) that we have been given in memory to use
         tya
         sta     paged_rom_priv_ws, x
         lda     #$22
+        ; we need 2 pages for our buffers (TODO: shall we increase this for master?)
+        iny
         iny
         rts
 
@@ -60,6 +63,8 @@ service22_claim_hidden_pws:
 ; later in service call &22) and exit A preserved [Master MOS versions]
 
 service24_required_pws:
+        ; claim 2 pages, see service22 above for equivalent grab.
+        dey
         dey
         rts
 
