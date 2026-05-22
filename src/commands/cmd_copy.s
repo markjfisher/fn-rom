@@ -183,12 +183,12 @@ get_copy_data_drives:
         tya
         pha
         jsr     calc_ram                ; Calc ram available
-        jsr     print_string            ; Copying from:
-        .byte   "Copying from :", 0
+        jsr     print_string
+        .byte   "Copying from :"
         lda     fuji_source_drive
         jsr     print_hex
         jsr     print_string
-        .byte   " to :", 0
+        .byte   " to :"
         lda     fuji_dest_drive
         jsr     print_hex
         jsr     print_newline

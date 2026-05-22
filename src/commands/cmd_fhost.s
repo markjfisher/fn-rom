@@ -103,7 +103,8 @@ fhost_show_current:
 ;------------------------------------------------------------------------------
 print_none_str:
         jsr     print_string
-        .byte   "(none)", $80
+        .byte   "(none)"
+        nop
         rts
 
 ; Print X bytes from (cws_tmp2); X should be <= 80

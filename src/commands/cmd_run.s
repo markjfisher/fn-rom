@@ -71,11 +71,6 @@ err_bad_command:
         .byte   "command", 0
 
 runfile_found:
-; .ifdef FN_DEBUG
-;         jsr     print_string
-;         .byte   "File found! Loading...", $0D
-;         nop
-; .endif
         ; Check if this is an *EXEC file (exec address = &FFFFFFFF)
         lda     dfs_cat_msbits,y               ; Mixed byte from catalog
         jsr     a_rorx6and3                     ; Extract high bits
