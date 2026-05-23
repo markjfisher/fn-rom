@@ -142,6 +142,7 @@
         .export  fuji_json_path_len
         .export  fuji_network_retry_delay
         .export  fuji_network_retry_left
+        .export  fuji_network_retry_max
         .export  fuji_network_url_flag
         .export  fuji_network_buf_cnt
         .export  fuji_network_buf_cnt_hi
@@ -516,7 +517,6 @@ fuji_json_path_len      := fuji_workspace_root + $10B3
 fuji_network_retry_delay := fuji_workspace_root + $10B4   ; VSync ticks between retries
 fuji_network_retry_left  := fuji_workspace_root + $10B5   ; attempts remaining
 
-
 ; workspace_utils.s references 10C0-10FF and 1100-11BF as static workspace
 ; this is essentially channels/files information for a filing system
 
@@ -547,8 +547,6 @@ fuji_param_block_hi     := fuji_static_workspace + $11  ; Parameter block high b
 ; 0xFF = no disk mounted
 fuji_drive_disk_map     := fuji_static_workspace + $12  ; 4 bytes: drives 0-3
 
-
-
 ; Current filesystem selection state for URI-based commands.
 ; fuji_current_host_len is the authoritative canonical URI length for the current
 ; location. fuji_current_fs_len tracks the scratch working FS URI buffer length used
@@ -565,6 +563,10 @@ fuji_filename_len       := fuji_static_workspace + $1A  ; the filename part of t
 ; Cleared at start of filename parsing. Checked by findv_entry to route to network open.
 fuji_network_url_flag   := fuji_static_workspace + $1B
 
+; Configured max attempts (*OPT 7); 0 means use NET_RETRY_MAX default.
+fuji_network_retry_max  := fuji_static_workspace + $1C
+
+
 ; THESE NEED TO BE IN COPYABLE AREA IF USED
 ; VID                     := fuji_static_workspace + $1C  ; 14 bytes. Used in MMFS, but I haven't found a use for it in fujinet
 ;; also adds other state values used for checking if things have changed
@@ -574,7 +576,7 @@ fuji_network_url_flag   := fuji_static_workspace + $1B
 
 ; LAST location for the copy state in workspace_utils.s function to understand
 ; So when the filing system is swapped (e.g. switching between fujinet and DFS), it's preserved and reloaded
-fuji_last_state_loc     := fuji_static_workspace + $1C  ; effectively $10DC. Going over by 1 byte here so location doesn't clash with last label
+fuji_last_state_loc     := fuji_static_workspace + $1D  ; Going over by 1 byte here so labels don't clash
 
 ; Note: up to fuji_static_workspace + $3F (+$3F = $103F) is available
 

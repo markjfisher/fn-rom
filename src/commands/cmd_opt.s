@@ -6,6 +6,7 @@
 ;   *OPT 4,Y - Boot option (Y=0: L.!BOOT, Y=1: E.!BOOT, Y=2: !BOOT)
 ;   *OPT 5,Y - Disk trap option (disable *DISC/*DISK commands)
 ;   *OPT 6,Y - Network flush mode (Y=0: buffered, Y≠0: immediate)
+;   *OPT 7,Y - Network NotReady retry count (Y=0: default 24, Y=1-255: max attempts)
 
         .export fscv0_starOPT
 
@@ -16,6 +17,7 @@
         .import err_bad
         .import fuji_fs_messages_on
         .import fuji_network_flush_mode
+        .import fuji_network_retry_max
         .import load_cur_drv_cat
         .import paged_rom_priv_ws
         .import remember_axy
@@ -33,6 +35,8 @@ fscv0_starOPT:
         beq     disk_trap_option
         cmp     #$06
         beq     set_net_flush_option        ; OPT 6: network flush mode
+        cmp     #$07
+        beq     set_net_retry_max_option    ; OPT 7: network retry count
         cmp     #$02
         bcc     opts0_1                    ; If A<2
 err_bad_option:
@@ -96,5 +100,17 @@ set_net_flush_option:
         lda     #$01
 @flush_buffered:
         sta     fuji_network_flush_mode
+
+        rts
+
+; *OPT 7,Y — Network NotReady max retry attempts per TranslateConfigure / Read
+; Y=0: default (NET_RETRY_MAX, currently 24)
+; Y=1-255: max attempts before giving up on the current operation
+set_net_retry_max_option:
+        tya
+        bne     @store
+        lda     #NET_RETRY_MAX
+@store:
+        sta     fuji_network_retry_max
 
         rts

@@ -49,6 +49,7 @@
         .import fuji_lib_dir
         .import fuji_lib_drive
         .import fuji_network_flush_mode
+        .import fuji_network_retry_max
         .import fuji_open_channels
         .import get_fuji_fs_uri_addr_to_aws_tmp00
         .import get_fuji_host_uri_addr_to_aws_tmp00
@@ -233,6 +234,8 @@ setdefaults:
         sta     fuji_default_drive
         sta     fuji_open_channels
         sta     fuji_network_flush_mode
+        lda     #NET_RETRY_MAX
+        sta     fuji_network_retry_max
 
         ldy     #$FF
         sty     fuji_cmd_enabled

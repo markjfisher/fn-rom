@@ -34,6 +34,7 @@
         .importzp aws_tmp03
         .import fuji_network_retry_delay
         .import fuji_network_retry_left
+        .import fuji_network_retry_max
         .importzp text_pointer
 
         .import GSINIT
@@ -64,9 +65,12 @@ vblank_end:
         rts
 
 
-; Initialise NotReady retry state (workspace bytes; not ZP — SLIP receive uses cws_tmp7).
+; Initialise NotReady retry state
 network_retry_init:
+        lda     fuji_network_retry_max
+        bne     @use_max
         lda     #NET_RETRY_MAX
+@use_max:
         sta     fuji_network_retry_left
         lda     #NET_RETRY_DELAY_INIT
         sta     fuji_network_retry_delay
