@@ -1,6 +1,8 @@
-REM filename: iss
+REM filename: issd
 REM
 REM Teletext ISS tracker via Fujinet OPENIN + FJSON
+
+DEBUG%=FALSE
 
 JSON_SIZE%=32
 jLen%=0
@@ -31,9 +33,11 @@ ISSL%=4
 fetch_ok%=FALSE
 lat=0
 lon=0
+jNum=0
 
 REM MODE must come before HIMEM/DIM — MOS moves screen RAM and lowers HIMEM
 MODE 7
+CLS
 VDU 23,1,0;0;0;0;
 PROCinit_screen
 
@@ -43,18 +47,30 @@ GDATA%=HIMEM
 DIM jBuf JSON_SIZE%
 DIM PATCH0% 6
 DIM PATCH1% 6
-DIM CODE% 70
+DIM CODE% 200
 
-PRINT "Initialising data..."
+CLS
+
+IF DEBUG% THEN PROCdebug_on_error
+
+IF DEBUG% THEN PRINT "ISS tracker debug mode" ELSE PRINT "Initialising data..."
+
 PROCinit_globe
-PROCshow_globe
+
+CLS
+IF DEBUG%=FALSE THEN PROCshow_globe
 
 REPEAT
   PROCfetch_iss_position
-  IF fetch_ok% THEN PROCupdate_iss_position
+  IF DEBUG% THEN PROCshow_debug
+  IF DEBUG%=FALSE THEN IF fetch_ok% THEN PROCupdate_iss_position
   PROCwait_refresh
 UNTIL FALSE
 END
+
+DEF PROCdebug_on_error
+ON ERROR PRINT "Error ";ERR;" line ";ERL : PROCnet_close_all : END
+ENDPROC
 
 DEF PROCmaster_init
 REM Master-only: VDU and CRTC must use main RAM or ?SCREEN% writes are invisible
@@ -63,7 +79,7 @@ OSCLI "*FX113,0"
 ENDPROC
 
 DEF PROCinit_screen
-REM Master 128: INKEY(-256) low byte is 253 (&FD), on BBC it returns -1
+REM Master 128: INKEY(-256) low byte is 253 (&FD), not -6
 IF (INKEY(-256) AND &FF)=253 THEN PROCmaster_init
 REM MOS screen base at &350/&351 (moves if MODE 7 has scrolled)
 SCREEN%=?&350+256*?&351
@@ -78,7 +94,7 @@ ENDPROC
 DEF PROCwait_refresh
 LOCAL key%, done%, w%
 
-w%=3000
+IF DEBUG% THEN w%=1000 ELSE w%=3000
 done%=FALSE
 TIME=0
 REPEAT
@@ -102,19 +118,42 @@ jLen%=0
 fetch_ok%=FALSE
 handle%=0
 
+IF DEBUG% THEN PROCdebug_on_error
+
+IF DEBUG% THEN CLS
+IF DEBUG% THEN PRINT "--- fetch ---"
+
+IF DEBUG% THEN PRINT "OPENIN..."
 handle%=OPENIN(url$)
+IF DEBUG% THEN PRINT "  handle=";handle%
 IF handle%=0 THEN PROCfail_fetch(0) : ENDPROC
 
+IF DEBUG% THEN PRINT "FJSON latitude..."
 PROCread_json_value(handle%, "/iss_position/latitude")
 IF jLen%<=0 THEN PROCfail_fetch(handle%) : ENDPROC
-lat=FNjbuf_val
+IF DEBUG% THEN PROCprint_jbuf
+PROCjbuf_val
+lat=jNum
+IF DEBUG% THEN PRINT "  lat=";lat
 
+IF DEBUG% THEN PRINT "FJSON longitude..."
 PROCread_json_value(handle%, "/iss_position/longitude")
 IF jLen%<=0 THEN PROCfail_fetch(handle%) : ENDPROC
-lon=FNjbuf_val
+IF DEBUG% THEN PROCprint_jbuf
+PROCjbuf_val
+lon=jNum
+IF DEBUG% THEN PRINT "  lon=";lon
 
+IF DEBUG% THEN PRINT "CLOSE#";handle%
 PROCtry_close_one(handle%)
+IF DEBUG% THEN PROCdebug_on_error
 fetch_ok%=TRUE
+IF DEBUG% THEN PRINT "fetch_ok"
+ENDPROC
+
+DEF PROCshow_debug
+PRINT "lat=";lat;" lon=";lon;
+IF fetch_ok% THEN PRINT " ok=yes" ELSE PRINT " ok=no"
 ENDPROC
 
 DEF PROCtry_close_one(h%)
@@ -131,22 +170,38 @@ ENDPROC
 
 DEF PROCfail_fetch(h%)
 IF h%>=17 THEN IF h%<=21 THEN PROCtry_close_one(h%)
+IF DEBUG% THEN PROCdebug_on_error
+IF DEBUG% THEN PRINT "fetch failed"
+REM On failure leave the map and last ISS position on screen
 ENDPROC
 
 DEF PROCread_json_value(hndl%, path$)
 LOCAL idx%, ch%, e%
 idx%=0
+IF DEBUG% THEN PRINT "  FJSON path=";path$
 PROCset_json_path(hndl%, path$)
+IF DEBUG% THEN PRINT "  BGET..."
 REPEAT
   ch%=BGET#hndl%
   e%=EOF#hndl%
   IF e%<>-1 THEN jBuf?idx%=ch% : idx%=idx%+1
 UNTIL e%=-1 OR idx%>=JSON_SIZE%
 jLen%=idx%
+IF DEBUG% THEN PRINT "  read len=";jLen%
 ENDPROC
 
-DEF FNjbuf_val
-LOCAL i%, c%, neg%, whole%, frac%, fp%, dot%, jNum
+DEF PROCprint_jbuf
+LOCAL i%, c%
+PRINT "  value=[";
+FOR i%=0 TO jLen%-1
+  c%=jBuf?i%
+  IF (c%>=48 AND c%<=57) OR c%=45 OR c%=46 THEN PRINT CHR$(c%);
+NEXT
+PRINT "] len=";jLen%
+ENDPROC
+
+DEF PROCjbuf_val
+LOCAL i%, c%, neg%, whole%, frac%, fp%, dot%
 neg%=1 : whole%=0 : frac%=0 : fp%=0 : dot%=0
 FOR i%=0 TO jLen%-1
   c%=jBuf?i%
@@ -156,7 +211,7 @@ FOR i%=0 TO jLen%-1
   IF c%>=48 AND c%<=57 AND dot% THEN frac%=frac%*10+c%-48 : fp%=fp%+1
 NEXT
 IF fp%=0 THEN jNum=neg%*whole% ELSE jNum=neg%*(whole%+frac%/10^fp%)
-=jNum
+ENDPROC
 
 DEF PROCupdate_iss_position
 LOCAL iss_x%, iss_y%
@@ -233,10 +288,14 @@ FOR pass%=0 TO 2 STEP 2
   P%=CODE%
   [OPT pass%
   .copy
-    LDA page_src+1 : STA rem_src+1
-    LDA page_src+2 : STA rem_src+2
-    LDA page_dst+1 : STA rem_dst+1
-    LDA page_dst+2 : STA rem_dst+2
+    LDA page_src+1
+    STA rem_src+1
+    LDA page_src+2
+    STA rem_src+2
+    LDA page_dst+1
+    STA rem_dst+1
+    LDA page_dst+2
+    STA rem_dst+2
 
     LDX #3
 

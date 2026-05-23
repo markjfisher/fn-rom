@@ -5,15 +5,20 @@ REM and loading from GDATA file from disk.
 REM This is a test application when transitioning from DATA statements
 REM to loading into HIMEM from disk, freeing up program space
 
+SCREEN%=0
+
+REM MODE must come before HIMEM/DIM — MOS moves screen RAM and lowers HIMEM
+MODE 7
+CLS
+VDU 23,1,0;0;0;0;
+PROCinit_screen
+
 size%=1024
 HIMEM=HIMEM-size%
 GDATA%=HIMEM
 
 DIM CODE% 200
 
-SCREEN%=&7C00
-VDU 23,1,0;0;0;0;
-CLS
 PRINT "Initialising data..."
 
 MYSTR$="LOAD GDATA "+STR$~GDATA%
@@ -25,6 +30,19 @@ PROC_show
 
 A%=GET
 END
+
+DEF PROCmaster_init
+REM Master-only: VDU and CRTC must use main RAM or ?SCREEN% writes are invisible
+OSCLI "*FX112,0"
+OSCLI "*FX113,0"
+ENDPROC
+
+DEF PROCinit_screen
+REM Master 128: INKEY(-256) low byte is 253 (&FD), not -6
+IF (INKEY(-256) AND &FF)=253 THEN PROCmaster_init
+REM MOS screen base at &350/&351 (moves if MODE 7 has scrolled)
+SCREEN%=?&350+256*?&351
+ENDPROC
 
 DEF PROC_show
 ?(page_src%+1)=GDATA% MOD 256
