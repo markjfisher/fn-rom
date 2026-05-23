@@ -148,6 +148,8 @@ OS_INC = 1
 
         .import  fuji_ax_save
         .import  fuji_json_path_len
+        .import  fuji_network_retry_delay
+        .import  fuji_network_retry_left
         .import  fuji_network_url_flag
         .import  fuji_network_buf_cnt
         .import  fuji_network_buf_cnt_hi

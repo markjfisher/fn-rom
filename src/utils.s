@@ -6,6 +6,7 @@
         .export  a_rorx4and3
         .export  a_rorx5
         .export  a_rorx6and3
+        .export  do_vblank_loop
         .export  inc_word_aws_tmp00_dec_word_aws_tmp02
         .export  GSINIT_A
         .export  is_alpha_char
@@ -13,14 +14,15 @@
         .export  osbyte_13_delay_a
         .export  osbyte_X0YFF
         .export  osbyte_YFF
-        .export  micro_pause_end
-        .export  micro_pause_start
+        .export  vblank_end
         .export  set_text_pointer_yx
         .export  tube_check_if_present
         .export  ucasea2
         .export  y_add7
         .export  y_add8
         .export  vblank
+        .export  network_retry_init
+        .export  network_retry_backoff
 
         .export tube_claim
         .export tube_release
@@ -30,11 +32,13 @@
         .importzp aws_tmp01
         .importzp aws_tmp02
         .importzp aws_tmp03
-
+        .import fuji_network_retry_delay
+        .import fuji_network_retry_left
         .importzp text_pointer
 
         .import GSINIT
         .import OSBYTE
+        .import fuji_channel_scratch
         .import fuji_tube_present
         .import remember_axy
         .import tube_code
@@ -44,21 +48,51 @@
         .segment "CODE"
 
 
-; set x to be the number of 1/50ths of a second to delay (via vertical sync)
+; set A to be the number of 1/50ths of a second to delay (via vertical sync)
+; exit: restores AXY to their values passed in
 vblank:
 osbyte_13_delay_a:
-        tax
-micro_pause_start:
+        jsr     remember_axy
+do_vblank_loop:
+        sta     fuji_channel_scratch
 @delay:
-        txa
-        pha
         lda     #$13             ; OSBYTE 19 - Wait for vertical sync
         jsr     OSBYTE
-        pla
-        tax
-        dex
+        dec     fuji_channel_scratch
         bne     @delay
-micro_pause_end:
+vblank_end:
+        rts
+
+
+; Initialise NotReady retry state (workspace bytes; not ZP — SLIP receive uses cws_tmp7).
+network_retry_init:
+        lda     #NET_RETRY_MAX
+        sta     fuji_network_retry_left
+        lda     #NET_RETRY_DELAY_INIT
+        sta     fuji_network_retry_delay
+        rts
+
+
+; Wait with exponential backoff before retrying a NotReady network operation.
+;   Out: C clear = ok to retry; C set = exhausted
+network_retry_backoff:
+        dec     fuji_network_retry_left
+        beq     @exhausted
+        lda     fuji_network_retry_delay
+        jsr     vblank
+        asl     a
+        cmp     #NET_RETRY_DELAY_MAX + 1
+        bcs     @cap_delay
+        sta     fuji_network_retry_delay
+        clc
+        rts
+@cap_delay:
+        lda     #NET_RETRY_DELAY_MAX
+        sta     fuji_network_retry_delay
+        clc
+        rts
+@exhausted:
+        sec
         rts
 
 

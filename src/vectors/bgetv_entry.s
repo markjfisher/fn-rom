@@ -56,10 +56,11 @@
         .import fuji_network_buf_cnt_hi
         .import fujibus_network_read
         .import load_mem_block
+        .import network_retry_backoff
+        .import network_retry_init
         .import remember_xy_only
         .import report_error_cb
         .import save_mem_block
-        .import vblank
 
         .include "fujinet.inc"
 
@@ -196,11 +197,9 @@ nwbg_net_read:
         lda     #$01
         sta     aws_tmp15
 
-        ; Retry NotReady up to 4 times, waiting 25 VSyncs (0.5s) each time.
-        ; This keeps transient transport latency out of BASIC programs.
-        lda     #4
-        sta     aws_tmp12
-        sty     fuji_intch              ; preserve intch across OSBYTE wait/retry loop
+        ; Retry NotReady with exponential backoff (see network_retry_* in utils.s).
+        jsr     network_retry_init
+        sty     fuji_intch              ; preserve intch across wait/retry loop
 
 nwbg_read_retry:
         ldy     fuji_intch              ; restore intch before each read attempt
@@ -209,11 +208,8 @@ nwbg_read_retry:
         cmp     #$02
         bne     nwbg_read_done
 
-        ; NotReady: wait 25 VSyncs (0.5s), then retry up to 4 times.
-        dec     aws_tmp12
-        beq     nwbg_net_eof            ; timeout behaves as EOF for BASIC
-        ldx     #25
-        jsr     vblank
+        jsr     network_retry_backoff
+        bcs     nwbg_net_eof            ; timeout behaves as EOF for BASIC
         jmp     nwbg_read_retry
 
 nwbg_read_done:

@@ -108,6 +108,11 @@ NET_CMD_INFO       = $05
 NET_CMD_INFO_READ  = $06
 NET_CMD_TRANSLATE_CONFIGURE = $07
 
+; Host-side NotReady retry policy (fn-rom; configurable later)
+NET_RETRY_MAX         = 24    ; max attempts per operation
+NET_RETRY_DELAY_INIT  = 5     ; initial wait: 5 VSyncs (~100ms at 50Hz)
+NET_RETRY_DELAY_MAX   = 125   ; cap wait at 125 VSyncs (~2.5s at 50Hz)
+
 NET_OPEN_EXT_TRANSLATION = $00000001
 
 ; Network open method flags (used by the FujiNet device for HTTP semantics)

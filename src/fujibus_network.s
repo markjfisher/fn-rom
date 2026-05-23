@@ -32,7 +32,6 @@
         .importzp cws_tmp3
         .importzp cws_tmp6
         .importzp cws_tmp7
-        .importzp cws_tmp8
 
         .importzp buffer_ptr
         .importzp fuji_bus_tx_command
@@ -59,7 +58,8 @@
         .import fujibus_receive_packet
         .import fujibus_send_packet
         .import get_fuji_json_path_addr_to_aws_tmp00
-        .import vblank
+        .import network_retry_backoff
+        .import network_retry_init
 
         .include "fujinet.inc"
 
@@ -761,8 +761,7 @@ fujibus_network_translate_configure:
         sty     cws_tmp3                ; also save in location not clobbered by path copy
         tya
         pha                             ; push intch on stack (survives send/receive)
-        lda     #10                     ; max 10 retries (~0.5s each = 5s total)
-        sta     cws_tmp8
+        jsr     network_retry_init
 
 fnjq_build_request:
         ; version
@@ -892,13 +891,9 @@ fnjq_jq_check_len:
         beq     fnjq_jq_success         ; we had a success code before we checked the length, so we can jump to success now
 
 fnjq_jq_retry:
-        dec     cws_tmp8                ; decrement retry counter
-        beq     fnjq_jq_fail                ; timeout after 100 × 0.5s = 50s
-
-        ; Wait ~0.5 seconds (25 VSyncs at 50Hz)
-        ldx     #25
-        jsr     vblank
-        jmp     fnjq_build_request      ; retry: rebuild and resend
+        jsr     network_retry_backoff
+        bcs     fnjq_jq_fail
+        jmp     fnjq_build_request
 
 fnjq_jq_success:
         ; Read translatedSize from response (u32le at buffer+13)

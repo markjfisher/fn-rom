@@ -140,6 +140,8 @@
 
         .export  fuji_ax_save
         .export  fuji_json_path_len
+        .export  fuji_network_retry_delay
+        .export  fuji_network_retry_left
         .export  fuji_network_url_flag
         .export  fuji_network_buf_cnt
         .export  fuji_network_buf_cnt_hi
@@ -509,6 +511,10 @@ fuji_network_flush_mode := fuji_workspace_root + $10B2
 ; Non-zero currently implies JSON translation with the selector stored in PWS.
 ; Transient command state, not part of saved FS workspace.
 fuji_json_path_len      := fuji_workspace_root + $10B3
+
+; NotReady retry state for network TranslateConfigure / Read (survives SLIP I/O).
+fuji_network_retry_delay := fuji_workspace_root + $10B4   ; VSync ticks between retries
+fuji_network_retry_left  := fuji_workspace_root + $10B5   ; attempts remaining
 
 
 ; workspace_utils.s references 10C0-10FF and 1100-11BF as static workspace

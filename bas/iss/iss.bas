@@ -23,7 +23,7 @@ SCREEN%=&7C00
 X_CENTER%=19
 Y_CENTER%=15
 
-REM adjust for the map not being perfectly aligned to coordinates from API.
+REM adjust for the hand created teletext map not being perfectly aligned to coordinates from API.
 
 REM Horizontal tweak: negative moves ISS west (left), positive east (right)
 X_ADJ%=-1
@@ -58,7 +58,7 @@ IF DEBUG%=FALSE THEN PROCshow_globe
 REPEAT
   PROCfetch_iss_position
   IF DEBUG% THEN PROCshow_debug
-  IF DEBUG%=FALSE THEN IF fetch_ok% THEN PROCupdate_iss_position ELSE PROCshow_globe
+  IF DEBUG%=FALSE THEN IF fetch_ok% THEN PROCupdate_iss_position
   PROCwait_refresh
 UNTIL FALSE
 END
@@ -74,10 +74,17 @@ PROC_assemble
 ENDPROC
 
 DEF PROCwait_refresh
-LOCAL w%
+LOCAL key%, done%, w%
+
 IF DEBUG% THEN w%=1000 ELSE w%=3000
+done%=FALSE
 TIME=0
-REPEAT UNTIL TIME>=w%
+REPEAT
+  key%=INKEY(1)
+  IF key%=ASC("N") THEN done%=TRUE
+  IF key%=ASC("n") THEN done%=TRUE
+  IF TIME>=w% THEN done%=TRUE
+UNTIL done%
 ENDPROC
 
 DEF PROCset_json_path(hndl%, path$)
@@ -146,7 +153,8 @@ ENDPROC
 DEF PROCfail_fetch(h%)
 IF h%>=17 THEN IF h%<=21 THEN PROCtry_close_one(h%)
 IF DEBUG% THEN PROCdebug_on_error
-IF DEBUG% THEN PRINT "fetch failed" ELSE PROCshow_globe
+IF DEBUG% THEN PRINT "fetch failed"
+REM On failure leave the map and last ISS position on screen
 ENDPROC
 
 DEF PROCread_json_value(hndl%, path$)
@@ -261,6 +269,7 @@ DEF PROC_assemble
 FOR pass%=0 TO 2 STEP 2
   P%=CODE%
   [OPT pass%
+  \ Simple, but fast 16 bit copy from src to dst
   .copy
     LDA page_src+1
     STA rem_src+1
