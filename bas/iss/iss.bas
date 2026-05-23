@@ -5,21 +5,13 @@ REM Teletext ISS tracker via Fujinet OPENIN + FJSON
 DEBUG%=FALSE
 
 JSON_SIZE%=32
-DIM jBuf JSON_SIZE%
 jLen%=0
-
-size%=1024
-HIMEM=HIMEM-size%
-GDATA%=HIMEM
-DIM PATCH0% 6
-DIM PATCH1% 6
-DIM CODE% 200
 
 ISS00%=46
 ISS01%=56
 ISS10%=38
 ISS11%=60
-SCREEN%=&7C00
+SCREEN%=0
 X_CENTER%=19
 Y_CENTER%=15
 
@@ -43,7 +35,20 @@ lat=0
 lon=0
 jNum=0
 
+REM MODE must come before HIMEM/DIM — MOS moves screen RAM and lowers HIMEM
+MODE 7
+CLS
 VDU 23,1,0;0;0;0;
+PROCinit_screen
+
+size%=1024
+HIMEM=HIMEM-size%
+GDATA%=HIMEM
+DIM jBuf JSON_SIZE%
+DIM PATCH0% 6
+DIM PATCH1% 6
+DIM CODE% 200
+
 CLS
 
 IF DEBUG% THEN PROCdebug_on_error
@@ -65,6 +70,19 @@ END
 
 DEF PROCdebug_on_error
 ON ERROR PRINT "Error ";ERR;" line ";ERL : PROCnet_close_all : END
+ENDPROC
+
+DEF PROCmaster_init
+REM Master-only: VDU and CRTC must use main RAM or ?SCREEN% writes are invisible
+OSCLI "*FX112,0"
+OSCLI "*FX113,0"
+ENDPROC
+
+DEF PROCinit_screen
+REM Master 128: INKEY(-256) low byte is 253 (&FD), not -6
+IF (INKEY(-256) AND &FF)=253 THEN PROCmaster_init
+REM MOS screen base at &350/&351 (moves if MODE 7 has scrolled)
+SCREEN%=?&350+256*?&351
 ENDPROC
 
 DEF PROCinit_globe
@@ -269,7 +287,6 @@ DEF PROC_assemble
 FOR pass%=0 TO 2 STEP 2
   P%=CODE%
   [OPT pass%
-  \ Simple, but fast 16 bit copy from src to dst
   .copy
     LDA page_src+1
     STA rem_src+1
