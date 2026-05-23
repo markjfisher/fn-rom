@@ -144,6 +144,10 @@
         .export  fuji_network_retry_left
         .export  fuji_network_retry_max
         .export  fuji_network_url_flag
+        .export  fuji_ext_str_ptr
+        .export  fuji_ext_str_len
+        .export  fuji_ext_str_len_hi
+        .export  fuji_ext_str_flags
         .export  fuji_network_buf_cnt
         .export  fuji_network_buf_cnt_hi
         .export  fuji_network_flush_mode
@@ -565,6 +569,13 @@ fuji_network_url_flag   := fuji_static_workspace + $1B
 
 ; Configured max attempts (*OPT 7); 0 means use NET_RETRY_MAX default.
 fuji_network_retry_max  := fuji_static_workspace + $1C
+
+; External string descriptor for scatter-gather network I/O (transient, not saved).
+; Points at URL or JSON selector in user RAM; avoids ROM buffer copies.
+fuji_ext_str_ptr        := fuji_workspace_root + $11C0
+fuji_ext_str_len        := fuji_workspace_root + $11C2
+fuji_ext_str_len_hi     := fuji_workspace_root + $11C3
+fuji_ext_str_flags      := fuji_workspace_root + $11C4
 
 
 ; THESE NEED TO BE IN COPYABLE AREA IF USED

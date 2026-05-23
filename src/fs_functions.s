@@ -92,6 +92,10 @@
         .import fuji_getcat_buf_8
         .import fuji_infoline_buf
         .import fuji_intch
+        .import fuji_ext_str_flags
+        .import fuji_ext_str_len
+        .import fuji_ext_str_len_hi
+        .import fuji_ext_str_ptr
         .import fuji_network_url_flag
         .import fuji_open_channels
         .import fuji_read_catalog
@@ -529,9 +533,12 @@ read_fspba_reset:
         jsr     set_curdir_drv_to_defaults      ; Set current directory and drive
 
 read_fspba:
-        ; Clear network URL flag at start of filename parsing
+        ; Clear network URL / external string state at start of filename parsing
         lda     #$00
         sta     fuji_network_url_flag
+        sta     fuji_ext_str_flags
+        sta     fuji_ext_str_len
+        sta     fuji_ext_str_len_hi
 
         ; findv_openfile copies the filename location into aws_tmp10/11
         lda     aws_tmp10                       ; **Also creates copy at &C5 (MMFS line 458)
@@ -540,6 +547,12 @@ read_fspba:
         sta     text_pointer+1
         ldy     #$00
         jsr     GSINIT_A
+
+        ; Save string base for external URL scatter path
+        lda     text_pointer
+        sta     fuji_ext_str_ptr
+        lda     text_pointer+1
+        sta     fuji_ext_str_ptr+1
 
 ; rdafsp_entry - Filename parsing entry point (MMFS line 464-504)
 rdafsp_entry:
@@ -570,7 +583,9 @@ err_bad_name:
 rdafsp_notcolon:
         tax                             ; X=last character
         jsr     GSREAD_A                ; Get next character
-        bcs     rdafsp_padall           ; If end of string
+        bcc     @rdafsp_notcolon_cont
+        jmp     rdafsp_padall           ; If end of string
+@rdafsp_notcolon_cont:
         cmp     #'.'                    ; C="."?
         beq     rdafsp_setdrv
         ldx     #$01                    ; Read rest of filename
@@ -590,13 +605,24 @@ rdafsp_notcolon:
         cmp     #':'
         bne     @no_url
         ; found "://" — mark as network URL
+        lda     fuji_ext_str_flags
+        and     #FUJI_EXT_STR_IS_URL
+        bne     @no_url
+        lda     #FUJI_EXT_STR_IS_URL | FUJI_EXT_STR_ACTIVE
+        sta     fuji_ext_str_flags
         inc     fuji_network_url_flag
+        stx     fuji_ext_str_len
+        lda     #$00
+        sta     fuji_ext_str_len_hi
 @no_url:
+        lda     fuji_ext_str_flags
+        and     #FUJI_EXT_STR_IS_URL
+        bne     rdafsp_urlloop
         jsr     GSREAD_A                ; Get next character
         bcs     rdafsp_padx             ; If end of string
         cpx     #$40                    ; Max characters (64 bytes)
         bne     @rdafsp_rdfnloop
-        beq     err_bad_name            ; Too many characters
+        jmp     err_bad_name            ; Too many characters
 
 ; ######################################################################################
 ; GSREAD_A
@@ -617,10 +643,33 @@ GSREAD_A:
         plp
         rts
 
+rdafsp_urlloop:
+        jsr     GSREAD_A
+        bcs     rdafsp_url_done
+        inc     fuji_ext_str_len
+        bne     rdafsp_urlloop
+        inc     fuji_ext_str_len_hi
+        lda     fuji_ext_str_len_hi
+        cmp     #>(FUJI_EXT_STR_MAX_LEN + 1)
+        bcc     rdafsp_urlloop
+        lda     fuji_ext_str_len
+        cmp     #<FUJI_EXT_STR_MAX_LEN + 1
+        bcc     rdafsp_urlloop
+        jmp     err_bad_name
+rdafsp_url_done:
+        ldx     fuji_ext_str_len
+        bne     rdafsp_padx
+        lda     fuji_ext_str_len_hi
+        bne     rdafsp_padx
+        jmp     err_bad_name
+
 rdafsp_padall:
         ldx     #$01                    ; Pad all with spaces
 rdafsp_padx:
         ; If network URL flag was set, save the URL length before padding
+        lda     fuji_ext_str_flags
+        and     #FUJI_EXT_STR_IS_URL
+        bne     rdafsp_url_exit
         lda     fuji_network_url_flag
         beq     @do_pad
         stx     fuji_network_url_flag    ; overwrite flag with URL length
@@ -642,6 +691,11 @@ rdafsp_padx:
         dex
         bpl     @rdafsp_copyloop
 
+        rts
+
+rdafsp_url_exit:
+        lda     #$01
+        sta     fuji_network_url_flag
         rts
 
 ; prt_filename_yoffset - Print filename with directory and lock status

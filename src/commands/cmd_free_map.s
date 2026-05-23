@@ -2,6 +2,10 @@
 ; Translated from MMFS CMD_FREE and CMD_MAP (lines 6419-6529)
 ; *FREE displays free space on disk
 ; *MAP displays disk usage map showing address and length of free blocks
+;
+; Built only when _FREE_MAP_ is defined (make FREE_MAP=1).
+
+.if .defined(_FREE_MAP_)
 
         .export cmd_fs_free
         .export cmd_fs_map
@@ -317,3 +321,5 @@ sub_freeinfo:
         .byte   " Bytes "
         nop
         jmp     print_string_spl
+
+.endif ; _FREE_MAP_

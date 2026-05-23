@@ -43,6 +43,7 @@
         .export calling_createfile
         .export chklock_exit
         .export network_allocate_channel
+        .export convert_intch_to_buf_page
         .export no_flush_error
 
         .importzp aws_tmp02

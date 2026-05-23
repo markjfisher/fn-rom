@@ -1,0 +1,34 @@
+group: BBC / FS / Long strings
+
+disk: openbas.ssd
+
+paste:
+  - 'PRINT "Running long string tests"'
+  - '*CAT'
+  - '*FHOST'
+  - '*FLS'
+
+steps:
+  - name: opin03_long_url
+    paste:
+      - 'CHAIN "OPIN03"'
+    delay_seconds: 8.0
+    checks:
+      - screen:
+          expect:
+            regex:
+              - 'Long URL OPENIN test'
+              - 'URL length: 3[0-9][0-9]'
+              - 'FujiNet OPENIN BGET Test'
+  - name: fnnet01_long_json
+    paste:
+      - 'CHAIN "FNNET1"'
+    delay_seconds: 8.0
+    checks:
+      - screen:
+          expect:
+            regex:
+              - 'FujiNet long JSON path test'
+              - 'FNNET API v'
+              - 'Path length: 200'
+              - 'Long JSON path sent'

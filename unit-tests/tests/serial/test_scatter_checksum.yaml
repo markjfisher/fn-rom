@@ -1,0 +1,6 @@
+name: scatter checksum continue matches monolithic buffer
+
+configs:
+  - ${UNIT_TEST_DIR}/harness/harness.yaml
+
+test_script: test_scatter_checksum.txt

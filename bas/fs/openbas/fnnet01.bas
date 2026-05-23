@@ -1,51 +1,13 @@
-REM filename: json01
+REM filename: fnnet1
 REM
 REM ----------------------------------------------------
-REM JSON Parsing example
+REM OSWORD &E0 long JSON path test (200+ byte selector)
 REM ----------------------------------------------------
-REM Uses httpbin service /get endpoint to fetch data
+REM Requires httpbin on http://192.168.1.101:8080/get
 
-X=OPENIN("http://192.168.1.101:8080/get")
-IF X=0 PRINT "No file":END
-
-CLS
-PRINT "Performing JSON"
-PRINT "queries against httpbin /get"
-PRINT
-PRINT "   Accept: "; FNget_json(X, "/headers/Accept")
-PRINT "     Host: "; FNget_json(X, "/headers/Host")
-PRINT "UserAgent: "; FNget_json(X, "/headers/User-Agent")
-PRINT "   origin: "; FNget_json(X, "/origin")
-PRINT "      url: "; FNget_json(X, "/url")
-CLOSE# 0
-END
-
-FNNET_OSWORD=&E0
 FNNET_REASON_VERSION=0
 FNNET_REASON_JSON_QUERY=1
 
-DEF PROCset_json_path(hndl%, path$)
-IF LEN(path$)>60 THEN PROCfn_json_query(hndl%, path$) : ENDPROC
-cmd$="FJSON "+STR$(hndl%)+" "+path$
-OSCLI cmd$
-ENDPROC
-
-DEF FNget_json(hndl%, path$)
-  LOCAL max_size%, idx%, ch%, e%
-  max_size%=200
-  idx%=0
-  PROCset_json_path(hndl%, path$)
-  json$=STRING$(200," ")
-  json$=""
-  REPEAT
-   ch%=BGET#hndl%
-   e%=EOF#hndl%
-   json$=json$+CHR$(ch%)
-   idx%=idx%+1
-  UNTIL e%=-1 OR idx%>=max_size%
-=json$
-
-REM --- fnnet library (bas/lib/fnnet.bas) ---
 DIM fnBuf 512
 DIM fnBlock 16
 fnCallEntry%=0
@@ -87,3 +49,20 @@ fnBlock%?6=h%
 PROCfnnet_call(FNNET_REASON_JSON_QUERY)
 IF fnBlock%?1<>0 THEN ERROR 101,"FJSON query failed"
 ENDPROC
+
+CLS
+PRINT "FujiNet long JSON path test"
+
+PROCfnnet_init
+PRINT "FNNET API v";fnBlock%?1
+
+X=OPENIN("http://192.168.1.101:8080/get")
+IF X=0 PRINT "No file":END
+
+path$="/url"
+path$=path$+STRING$(200-LEN(path$),"x")
+PRINT "Path length: ";LEN(path$)
+
+PROCfn_json_query(X, path$)
+PRINT "Long JSON path sent"
+CLOSE# 0

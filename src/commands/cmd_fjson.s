@@ -10,28 +10,29 @@
 ; and subsequent BGET# reads return only the matched value.
 
         .export  cmd_fs_fjson
-.export  _fjson_clear_channel
-.export  _fjson_clear_no_stash
-.export  _fjson_copy_loop
-.export  _fjson_copy_loop_1
-.export  _fjson_copy_ok_1
-.export  _fjson_done
-.export  _fjson_ext_cont
-.export  _fjson_has_params
-.export  _fjson_no_handle
-.export  _fjson_no_params
-.export  _fjson_one_param
-.export  _fjson_parse_num
-.export  _fjson_parse_start
-.export  _fjson_path_done
-.export  _fjson_read_loop
-.export  _fjson_read_path
-.export  _fjson_skip
-.export  _fjson_skip_spaces
-.export  _fjson_store_channel
-.export  _fjson_store_done
-.export  _fjson_store_idx
-.export  _fjson_two_params
+
+        .export  _fjson_clear_channel
+        .export  _fjson_clear_no_stash
+        .export  _fjson_copy_loop
+        .export  _fjson_copy_loop_1
+        .export  _fjson_copy_ok_1
+        .export  _fjson_done
+        .export  _fjson_ext_cont
+        .export  _fjson_has_params
+        .export  _fjson_no_handle
+        .export  _fjson_no_params
+        .export  _fjson_one_param
+        .export  _fjson_parse_num
+        .export  _fjson_parse_start
+        .export  _fjson_path_done
+        .export  _fjson_read_loop
+        .export  _fjson_read_path
+        .export  _fjson_skip
+        .export  _fjson_skip_spaces
+        .export  _fjson_store_channel
+        .export  _fjson_store_done
+        .export  _fjson_store_idx
+        .export  _fjson_two_params
 
         .importzp aws_tmp00
         .importzp aws_tmp03

@@ -1,0 +1,28 @@
+///////////////////////////////
+marker $$ scatter checksum matches monolithic $$
+///////////////////////////////
+
+memory load rom #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+
+memory write #0x2000 "HELLO"
+memory write #0x2100 "WORLD"
+memory write #0x2200 "HELLOWORLD"
+
+registers flush
+memory write $aws_tmp00 0x(00,20)
+memory write $aws_tmp02 0x(05,00)
+run $calc_checksum until (cycle_count > 2000)
+assert A = 0x75 $$HELLO checksum$$
+
+registers flush
+memory write $aws_tmp00 0x(00,21)
+memory write $aws_tmp02 0x(05,00)
+run $calc_checksum_continue until (cycle_count > 2000)
+assert A = 0xFE $$scatter checksum across HELLO+WORLD$$
+
+registers flush
+memory write $aws_tmp00 0x(00,22)
+memory write $aws_tmp02 0x(0A,00)
+run $calc_checksum until (cycle_count > 2000)
+assert A = 0xFE $$monolithic HELLOWORLD checksum$$

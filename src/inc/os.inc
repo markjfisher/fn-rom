@@ -152,6 +152,11 @@ OS_INC = 1
         .import  fuji_network_retry_left
         .import  fuji_network_retry_max
         .import  fuji_network_url_flag
+        .import  fuji_ext_str_ptr
+        .import  fuji_ext_str_len
+        .import  fuji_ext_str_len_hi
+        .import  fuji_ext_str_flags
+        .import  fnnet_call_entry
         .import  fuji_network_buf_cnt
         .import  fuji_network_buf_cnt_hi
         .import  fuji_network_flush_mode

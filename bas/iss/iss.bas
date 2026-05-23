@@ -1,6 +1,7 @@
 REM filename: iss
 REM
 REM Teletext ISS tracker via Fujinet OPENIN + FJSON
+REM Long JSON paths use embedded fnnet helpers (OSWORD &E0)
 
 JSON_SIZE%=32
 jLen%=0
@@ -90,8 +91,9 @@ UNTIL done%
 ENDPROC
 
 DEF PROCset_json_path(hndl%, path$)
-  cmd$="FJSON "+STR$(hndl%)+" "+path$
-  OSCLI cmd$
+IF LEN(path$)>60 THEN PROCfn_json_query(hndl%, path$) : ENDPROC
+cmd$="FJSON "+STR$(hndl%)+" "+path$
+OSCLI cmd$
 ENDPROC
 
 DEF PROCfetch_iss_position
@@ -277,4 +279,52 @@ NEXT
 copy%=copy
 page_src%=page_src
 page_dst%=page_dst
+ENDPROC
+
+REM --- fnnet library (bas/lib/fnnet.bas) ---
+FNNET_OSWORD=&E0
+FNNET_REASON_VERSION=0
+FNNET_REASON_JSON_QUERY=1
+FNNET_REASON_STASH_JSON=2
+
+DIM fnBuf 512
+DIM fnBlock 16
+fnCallEntry%=0
+
+DEF PROCfnnet_init
+IF fnCallEntry%=0 THEN PROCfnnet_query_version
+ENDPROC
+
+DEF PROCfnnet_query_version
+fnBlock%?0=FNNET_REASON_VERSION
+PROCfnnet_call(FNNET_REASON_VERSION)
+IF fnBlock%?1=0 THEN fnCallEntry%=fnBlock%?8+256*fnBlock%?9
+ENDPROC
+
+DEF PROCfnnet_call(reason%)
+LOCAL X%, Y%
+IF fnCallEntry%=0 THEN PROCfnnet_query_version
+IF fnCallEntry%=0 THEN ERROR 103,"FujiNet API unavailable"
+X%=fnBlock%:Y%=X% DIV 256
+A%=reason%
+CALL fnCallEntry%
+ENDPROC
+
+DEF PROCfnnet_set_str(s$)
+LOCAL l%
+l%=LEN(s$)
+IF l%>512 THEN ERROR 100,"String too long"
+$(fnBuf)=s$+CHR$(0)
+fnBlock%?2=fnBuf AND &FF
+fnBlock%?3=fnBuf DIV 256
+fnBlock%?4=l% AND &FF
+fnBlock%?5=l% DIV 256
+ENDPROC
+
+DEF PROCfn_json_query(h%, path$)
+PROCfnnet_init
+PROCfnnet_set_str(path$)
+fnBlock%?6=h%
+PROCfnnet_call(FNNET_REASON_JSON_QUERY)
+IF fnBlock%?1<>0 THEN ERROR 101,"FJSON query failed"
 ENDPROC

@@ -37,12 +37,16 @@
         .import cmd_fs_fnew
         .import cmd_fs_form
         .import cmd_fs_fout
+.if .defined(_FREE_MAP_)
         .import cmd_fs_free
+.endif
         .import cmd_fs_fuji
         .import cmd_fs_funmount
         .import cmd_fs_info
         .import cmd_fs_lib
+.if .defined(_FREE_MAP_)
         .import cmd_fs_map
+.endif
         .import cmd_fs_rename
         .import cmd_fs_title
         .import cmd_fs_verify
@@ -94,12 +98,16 @@ cmd_table_fujifs:
         .byte   "ENABLE",    $80, $00
         .byte   "EX",        $86, $00         ; (<dir>)
         .byte   "FORM",      $85, $12         ; (<drive>)... 40/80
+.if .defined(_FREE_MAP_)
         .byte   "FREE",      $84, $00         ; (<drive>)
+.endif
 ; equivalent of .info_cmd_index
 cmd_table_info:
         .byte   "INFO",      $82, $00         ; <afsp>
         .byte   "LIB",       $86, $00         ; (<dir>)
+.if .defined(_FREE_MAP_)
         .byte   "MAP",       $84, $00         ; (<drive>)
+.endif
         .byte   "RENAME",    $90, $00         ; <old fsp> <new fsp>
         .byte   "TITLE",     $8D, $00         ; <title>
         .byte   "VERIFY",    $85, $00         ; (<drive>)...
@@ -186,10 +194,14 @@ cmd_table_fujifs_cmds:
         .word   cmd_fs_enable-1
         .word   cmd_fs_ex-1
         .word   cmd_fs_form-1
+.if .defined(_FREE_MAP_)
         .word   cmd_fs_free-1
+.endif
         .word   cmd_fs_info-1
         .word   cmd_fs_lib-1
+.if .defined(_FREE_MAP_)
         .word   cmd_fs_map-1
+.endif
         .word   cmd_fs_rename-1
         .word   cmd_fs_title-1
         .word   cmd_fs_verify-1

@@ -26,6 +26,8 @@
         .importzp aws_tmp07
         .importzp aws_tmp08
         .importzp aws_tmp09
+        .importzp aws_tmp10
+        .importzp aws_tmp11
         .importzp aws_tmp14
         .importzp aws_tmp15
         .importzp cws_tmp2
@@ -55,8 +57,13 @@
         .import fuji_network_buf_cnt
         .import fuji_network_buf_cnt_hi
         .import fuji_network_url_flag
+        .import fuji_ext_str_flags
+        .import fuji_ext_str_len
+        .import fuji_ext_str_len_hi
+        .import fuji_ext_str_ptr
         .import fujibus_receive_packet
         .import fujibus_send_packet
+        .import fujibus_send_packet_scatter
         .import get_fuji_json_path_addr_to_aws_tmp00
         .import network_retry_backoff
         .import network_retry_init
@@ -94,7 +101,14 @@ fujibus_network_open:
         stx     aws_tmp05               ; save flags
         pha                             ; save method
 
-        ; get URL length from fuji_network_url_flag
+        lda     fuji_ext_str_flags
+        and     #FUJI_EXT_STR_ACTIVE
+        beq     @open_buffer_path
+
+        jmp     @open_ext_str_path
+
+@open_buffer_path:
+        ; get URL length from fuji_network_url_flag (legacy <=255)
         lda     fuji_network_url_flag
         sta     aws_tmp02               ; url_len
         lda     #$00
@@ -115,11 +129,11 @@ fujibus_network_open:
         iny                             ; y = 8
         sta     (buffer_ptr),y
 
-        ; urlLen (u16le) at buffer+9 — low byte first
-        lda     aws_tmp02               ; urlLen low byte
+        ; urlLen (u16le) at buffer+9
+        lda     aws_tmp02
         iny                             ; y = 9
         sta     (buffer_ptr),y
-        lda     #$00                    ; urlLen high byte = 0 (URL < 256 chars)
+        lda     aws_tmp03
         iny                             ; y = 10
         sta     (buffer_ptr),y
 
@@ -141,13 +155,41 @@ fujibus_network_open:
         iny
         bne     @copy_url
 
+        jmp     @write_trailing
+
+@open_ext_str_path:
+        ; url length from fuji_ext_str_len (u16le)
+        lda     fuji_ext_str_len
+        sta     aws_tmp02
+        lda     fuji_ext_str_len_hi
+        sta     aws_tmp03
+
+        lda     #FN_PROTOCOL_VERSION
+        ldy     #$06
+        sta     (buffer_ptr),y
+
+        pla
+        iny
+        sta     (buffer_ptr),y
+
+        lda     aws_tmp05
+        iny
+        sta     (buffer_ptr),y
+
+        lda     aws_tmp02
+        iny
+        sta     (buffer_ptr),y
+        lda     aws_tmp03
+        iny
+        sta     (buffer_ptr),y
+
 @write_trailing:
-        ; URL end position = buffer+11+urlLen
-        tya
+        ; trailing fields start at buffer+11 (after urlLen)
+        lda     buffer_ptr
         clc
-        adc     cws_tmp2
+        adc     #$0B
         sta     cws_tmp6
-        lda     cws_tmp3
+        lda     buffer_ptr+1
         adc     #$00
         sta     cws_tmp7
 
@@ -180,33 +222,34 @@ fujibus_network_open:
 
         lda     #<NET_OPEN_EXT_TRANSLATION
         iny
-        sta     (cws_tmp6),y            ; openExtFlags byte 0
+        sta     (cws_tmp6),y
         lda     #>NET_OPEN_EXT_TRANSLATION
         iny
-        sta     (cws_tmp6),y            ; openExtFlags byte 1
+        sta     (cws_tmp6),y
         lda     #$00
         iny
-        sta     (cws_tmp6),y            ; openExtFlags byte 2
+        sta     (cws_tmp6),y
         iny
-        sta     (cws_tmp6),y            ; openExtFlags byte 3
+        sta     (cws_tmp6),y
 
-        lda     #$01                    ; Json
+        lda     #$01
         iny
         sta     (cws_tmp6),y
-        lda     #$00                    ; translation flags
+        lda     #$00
         iny
         sta     (cws_tmp6),y
-        lda     fuji_json_path_len      ; selectorLen low
+
+        lda     fuji_json_path_len
         iny
         sta     (cws_tmp6),y
-        lda     #$00                    ; selectorLen high
+        lda     #$00
         iny
         sta     (cws_tmp6),y
 
         ; copy selector from PWS to packet buffer
         lda     cws_tmp6
         clc
-        adc     #$10                    ; selector starts after respHeaderCount + extFlags + translation block header
+        adc     #$10
         sta     cws_tmp2
         lda     cws_tmp7
         adc     #$00
@@ -233,28 +276,42 @@ fujibus_network_open:
 
 @open_no_translation:
 @open_calc_length:
-        ; total payload length without extension = 5 + urlLen + 2 + 4 + 2 = 13 + urlLen
-        ; translation extension adds: 4 extFlags + 1 + 1 + 2 + selectorLen = 8 + selectorLen
+        ; payload length = 13 + urlLen [+ 8 + selectorLen if translation]
         lda     aws_tmp02
         clc
         adc     #13
-        ldx     fuji_json_path_len
-        beq     :+
+        sta     aws_tmp04
+        lda     aws_tmp03
+        adc     #$00
+        sta     aws_tmp05
+
+        lda     fuji_json_path_len
+        beq     @open_payload_len_done
+        lda     aws_tmp04
         clc
         adc     #8
-        adc     fuji_json_path_len
-:       
-        sta     aws_tmp02
-        lda     #$00
+        sta     aws_tmp04
+        lda     aws_tmp05
         adc     #$00
-        sta     aws_tmp03
+        sta     aws_tmp05
+        lda     fuji_json_path_len
+        clc
+        adc     aws_tmp04
+        sta     aws_tmp04
+        lda     aws_tmp05
+        adc     #$00
+        sta     aws_tmp05
+@open_payload_len_done:
 
-        ; set FujiBus TX params
         lda     #FN_DEVICE_NETWORK
         sta     fuji_bus_tx_device
-
         lda     #NET_CMD_OPEN
         sta     fuji_bus_tx_command
+
+        lda     fuji_ext_str_flags
+        and     #(FUJI_EXT_STR_ACTIVE | FUJI_EXT_STR_IS_URL)
+        cmp     #(FUJI_EXT_STR_ACTIVE | FUJI_EXT_STR_IS_URL)
+        beq     @open_send_scatter_url
 
         lda     buffer_ptr
         clc
@@ -264,10 +321,61 @@ fujibus_network_open:
         adc     #$00
         sta     fuji_bus_tx_payload_hi
 
-        ldx     aws_tmp03
-        lda     aws_tmp02
+        lda     aws_tmp04
+        ldx     aws_tmp05
         jsr     fujibus_send_packet
+        jmp     @open_receive
 
+@open_send_scatter_url:
+        ; Region 1: FujiBus header + open prefix through urlLen (11 bytes)
+        lda     buffer_ptr
+        sta     aws_tmp00
+        lda     buffer_ptr+1
+        sta     aws_tmp01
+        lda     #$0B
+        sta     aws_tmp02
+        lda     #$00
+        sta     aws_tmp03
+
+        ; Region 2: URL bytes in user RAM
+        lda     fuji_ext_str_ptr
+        sta     aws_tmp06
+        lda     fuji_ext_str_ptr+1
+        sta     aws_tmp07
+        lda     fuji_ext_str_len
+        sta     aws_tmp08
+        lda     fuji_ext_str_len_hi
+        sta     aws_tmp09
+
+        ; Region 3: fixed trailing (+ translation header if present)
+        lda     buffer_ptr
+        clc
+        adc     #$0B
+        sta     cws_tmp2
+        lda     buffer_ptr+1
+        adc     #$00
+        sta     cws_tmp3
+        lda     fuji_json_path_len
+        beq     @open_tail8
+        lda     #$10
+        clc
+        adc     fuji_json_path_len
+        sta     cws_tmp6
+        lda     #$00
+        sta     cws_tmp7
+        jmp     @open_do_scatter
+@open_tail8:
+        lda     #$08
+        sta     cws_tmp6
+        lda     #$00
+        sta     cws_tmp7
+
+@open_do_scatter:
+        jsr     fujibus_send_packet_scatter
+        lda     #$00
+        sta     fuji_ext_str_flags
+
+@open_receive:
         ; receive response
         jsr     fujibus_receive_packet
 
@@ -315,6 +423,7 @@ fujibus_network_open:
 
 @fail:
         lda     #$00
+        sta     fuji_ext_str_flags
         tax
         rts
 
@@ -786,20 +895,75 @@ fnjq_build_request:
         lda     #$00                    ; translationFlags
         iny
         sta     (buffer_ptr),y
+        lda     fuji_ext_str_flags
+        and     #FUJI_EXT_STR_IS_JSON
+        bne     fnjq_ext_sel_len
         lda     fuji_json_path_len
         iny
         sta     (buffer_ptr),y
         lda     #$00
         iny
-        sta     (buffer_ptr),y          ; high byte = 0
+        sta     (buffer_ptr),y
+        jmp     fnjq_path_source
+fnjq_ext_sel_len:
+        lda     fuji_ext_str_len
         iny
+        sta     (buffer_ptr),y
+        lda     fuji_ext_str_len_hi
+        iny
+        sta     (buffer_ptr),y
+
+fnjq_path_source:
+        lda     fuji_ext_str_flags
+        and     #(FUJI_EXT_STR_ACTIVE | FUJI_EXT_STR_IS_JSON)
+        cmp     #(FUJI_EXT_STR_ACTIVE | FUJI_EXT_STR_IS_JSON)
+        beq     fnjq_send_scatter
 
         ; Copy JSON path from PWS buffer to packet buffer
         sty     aws_tmp02               ; save dest buffer index (Y = 11 after pathLen)
         jsr     get_fuji_json_path_addr_to_aws_tmp00
         ; aws_tmp00/01 = PWS + FUJI_JSON_PATH_OFFSET
 
-        ldx     #$00                    ; byte count
+        ldx     #$00
+        ldy     #$0D                    ; dest index after selectorLen
+        sty     aws_tmp02
+        jmp     fnjq_copy_path
+
+fnjq_send_scatter:
+        lda     #FN_DEVICE_NETWORK
+        sta     fuji_bus_tx_device
+        lda     #NET_CMD_TRANSLATE_CONFIGURE
+        sta     fuji_bus_tx_command
+
+        lda     buffer_ptr
+        sta     aws_tmp00
+        lda     buffer_ptr+1
+        sta     aws_tmp01
+        lda     #$0D                    ; 6 FujiBus + 7 payload through selectorLen
+        sta     aws_tmp02
+        lda     #$00
+        sta     aws_tmp03
+
+        lda     fuji_ext_str_ptr
+        sta     aws_tmp06
+        lda     fuji_ext_str_ptr+1
+        sta     aws_tmp07
+        lda     fuji_ext_str_len
+        sta     aws_tmp08
+        lda     fuji_ext_str_len_hi
+        sta     aws_tmp09
+
+        lda     #$00
+        sta     cws_tmp2
+        sta     cws_tmp3
+        sta     cws_tmp6
+        sta     cws_tmp7
+
+        jsr     fujibus_send_packet_scatter
+        lda     #$00
+        sta     fuji_ext_str_flags
+        jmp     fnjq_receive
+
 fnjq_copy_path:
         cpx     fuji_json_path_len
         beq     fnjq_send_translate_configure
@@ -852,6 +1016,7 @@ fnjq_payload_hi_zero:
 fnjq_send_jq:
         jsr     fujibus_send_packet
 
+fnjq_receive:
         ; receive response
         jsr     fujibus_receive_packet
 

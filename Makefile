@@ -11,6 +11,10 @@ SUPPORTED_BUILD_MACHINES := BBC MASTER
 # Options: SERIAL (default), USERPORT, 1MHZ
 BUILD_INTERFACE ?= SERIAL
 
+# Optional *FREE/*MAP disk-usage commands (large; off by default).
+# Enable with: make FREE_MAP=1
+FREE_MAP ?= 0
+
 # Ensure WSL2 Ubuntu and other linuxes use bash by default instead of /bin/sh, which does not always like the shell commands.
 SHELL := /usr/bin/env bash
 DISK_TASKS =
@@ -93,6 +97,11 @@ SOURCES += $(call rwildcard,$(SRCDIR)/,*.c)
 
 # remove trailing and leading spaces.
 SOURCES := $(strip $(SOURCES))
+
+ifeq ($(FREE_MAP),1)
+ASFLAGS += --asm-define _FREE_MAP_
+CFLAGS += -D_FREE_MAP_
+endif
 
 # convert from src/your/long/path/foo.[c|s] to obj/<variant>/your/long/path/foo.o
 # we need the variant because target/machine macro changes must not reuse stale objects

@@ -9,10 +9,18 @@
         .importzp aws_tmp03
         .importzp aws_tmp04
         .importzp aws_tmp05
+        .importzp aws_tmp06
+        .importzp aws_tmp07
         .importzp aws_tmp08
         .importzp aws_tmp09
         .importzp aws_tmp10
         .importzp aws_tmp11
+        .importzp aws_tmp14
+        .importzp aws_tmp15
+        .importzp cws_tmp2
+        .importzp cws_tmp3
+        .importzp cws_tmp6
+        .importzp cws_tmp7
 
         .importzp buffer_ptr
         .importzp fuji_bus_tx_command
@@ -21,13 +29,16 @@
         .importzp fuji_bus_tx_payload_lo
 
         .import calc_checksum
+        .import calc_checksum_continue
         .import fuji_ax_save
         .import fuji_link_read_slip_frame
         .import fuji_link_write_slip_frame
+        .import fuji_link_write_slip_frame_triple
 
         .segment "CODE"
 
         .export fujibus_send_packet
+        .export fujibus_send_packet_scatter
         .export fujibus_receive_packet
 
         ; for debug
@@ -180,6 +191,137 @@ fujibus_send_packet_impl:
         sta     aws_tmp01
         pla
         sta     aws_tmp00
+        rts
+
+
+; void fujibus_send_packet_scatter(void)
+; Region 1: aws_tmp00/01 ptr, aws_tmp02/03 len (includes FujiBus header)
+; Region 2: aws_tmp06/07 ptr, aws_tmp08/09 len (optional)
+; Region 3: cws_tmp2/3 ptr, cws_tmp6/7 len (optional)
+
+fujibus_send_packet_scatter:
+        lda     aws_tmp00
+        pha
+        lda     aws_tmp01
+        pha
+        lda     aws_tmp02
+        pha
+        lda     aws_tmp03
+        pha
+        lda     aws_tmp08
+        pha
+        lda     aws_tmp09
+        pha
+        lda     aws_tmp06
+        pha
+        lda     aws_tmp07
+        pha
+        lda     cws_tmp2
+        pha
+        lda     cws_tmp3
+        pha
+        lda     cws_tmp6
+        pha
+        lda     cws_tmp7
+        pha
+
+        ldy     #$00
+        lda     fuji_bus_tx_device
+        sta     (buffer_ptr),y
+        iny
+        lda     fuji_bus_tx_command
+        sta     (buffer_ptr),y
+
+        lda     aws_tmp02
+        sta     fuji_ax_save
+        lda     aws_tmp03
+        sta     fuji_ax_save+1
+        lda     aws_tmp08
+        clc
+        adc     fuji_ax_save
+        sta     fuji_ax_save
+        lda     aws_tmp09
+        adc     fuji_ax_save+1
+        sta     fuji_ax_save+1
+        lda     cws_tmp6
+        clc
+        adc     fuji_ax_save
+        sta     fuji_ax_save
+        lda     cws_tmp7
+        adc     fuji_ax_save+1
+        sta     fuji_ax_save+1
+
+        ldy     #$02
+        lda     fuji_ax_save
+        sta     (buffer_ptr),y
+        iny
+        lda     fuji_ax_save+1
+        sta     (buffer_ptr),y
+        iny
+        lda     #$00
+        sta     (buffer_ptr),y
+        iny
+        sta     (buffer_ptr),y
+
+        jsr     calc_checksum
+
+        lda     aws_tmp08
+        ora     aws_tmp09
+        beq     @skip_chk_r2
+        lda     aws_tmp06
+        sta     aws_tmp00
+        lda     aws_tmp07
+        sta     aws_tmp01
+        lda     aws_tmp08
+        sta     aws_tmp02
+        lda     aws_tmp09
+        sta     aws_tmp03
+        jsr     calc_checksum_continue
+@skip_chk_r2:
+
+        lda     cws_tmp6
+        ora     cws_tmp7
+        beq     @skip_chk_r3
+        lda     cws_tmp2
+        sta     aws_tmp00
+        lda     cws_tmp3
+        sta     aws_tmp01
+        lda     cws_tmp6
+        sta     aws_tmp02
+        lda     cws_tmp7
+        sta     aws_tmp03
+        jsr     calc_checksum_continue
+@skip_chk_r3:
+
+        ldy     #$04
+        sta     (buffer_ptr),y
+
+        pla
+        sta     cws_tmp7
+        pla
+        sta     cws_tmp6
+        pla
+        sta     cws_tmp3
+        pla
+        sta     cws_tmp2
+        pla
+        sta     aws_tmp07
+        pla
+        sta     aws_tmp06
+        pla
+        sta     aws_tmp09
+        pla
+        sta     aws_tmp08
+        pla
+        sta     aws_tmp03
+        pla
+        sta     aws_tmp02
+        pla
+        sta     aws_tmp01
+        pla
+        sta     aws_tmp00
+
+        jsr     fuji_link_write_slip_frame_triple
         rts
 
 

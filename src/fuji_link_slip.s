@@ -4,6 +4,8 @@
         .export fuji_link_read_slip_frame
         .export fuji_link_write_slip_frame
         .export fuji_link_write_slip_frame_dual
+        .export fuji_link_write_slip_frame_triple
+        .export slip_emit_region
 
         .importzp aws_tmp00
         .importzp aws_tmp01
@@ -17,7 +19,11 @@
         .importzp aws_tmp09
         .importzp aws_tmp10
         .importzp aws_tmp11
+        .importzp aws_tmp14
+        .importzp aws_tmp15
         .importzp cws_tmp1
+        .importzp cws_tmp2
+        .importzp cws_tmp3
         .importzp cws_tmp6
         .importzp cws_tmp7
 
@@ -291,6 +297,50 @@ fuji_link_write_slip_frame_dual:
         sta     aws_tmp03
 
         jsr     slip_emit_region
+
+        lda     #SLIP_END
+        jsr     fuji_link_write_byte
+        jmp     fuji_link_restore_default_io
+
+; Write one SLIP frame from three contiguous regions.
+; Region 1: aws_tmp00/01, aws_tmp02/03
+; Region 2: aws_tmp06/07, aws_tmp08/09 (skipped if len=0)
+; Region 3: cws_tmp2/3, cws_tmp6/7 (skipped if len=0)
+fuji_link_write_slip_frame_triple:
+        jsr     fuji_link_setup
+
+        lda     #SLIP_END
+        jsr     fuji_link_write_byte
+
+        jsr     slip_emit_region
+
+        lda     aws_tmp08
+        ora     aws_tmp09
+        beq     @skip_r2
+        lda     aws_tmp06
+        sta     aws_tmp00
+        lda     aws_tmp07
+        sta     aws_tmp01
+        lda     aws_tmp08
+        sta     aws_tmp02
+        lda     aws_tmp09
+        sta     aws_tmp03
+        jsr     slip_emit_region
+@skip_r2:
+
+        lda     cws_tmp6
+        ora     cws_tmp7
+        beq     @skip_r3
+        lda     cws_tmp2
+        sta     aws_tmp00
+        lda     cws_tmp3
+        sta     aws_tmp01
+        lda     cws_tmp6
+        sta     aws_tmp02
+        lda     cws_tmp7
+        sta     aws_tmp03
+        jsr     slip_emit_region
+@skip_r3:
 
         lda     #SLIP_END
         jsr     fuji_link_write_byte
