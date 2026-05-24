@@ -79,10 +79,8 @@ DEF PROCget_json(hndl%, path$)
   idx%=0
   PROCset_json_path(hndl%, path$)
   REPEAT
-   ch%=BGET#hndl%
    e%=EOF#hndl%
-   jsonValue?idx%=ch%
-   idx%=idx%+1
+   IF e%<>-1 THEN ch%=BGET#hndl%:jsonValue?idx%=ch%:idx%=idx%+1
   UNTIL e%=-1 OR idx%>=max_size%
   jsonValueLen%=idx%
   CLOSE# hndl%

@@ -54,7 +54,6 @@ PROCshow_globe
 
 REPEAT
   PROCfetch_iss_position
-  PRINT"Fetched: "; fetch_ok%
   IF fetch_ok% THEN PROCupdate_iss_position
   PROCwait_refresh
 UNTIL FALSE
@@ -94,7 +93,7 @@ UNTIL done%
 ENDPROC
 
 DEF PROCset_json_path(hndl%, path$)
-IF LEN(path$)>60 THEN PROCfn_json_query(hndl%, path$) : ENDPROC
+LOCAL cmd$
 cmd$="FJSON "+STR$(hndl%)+" "+path$
 OSCLI cmd$
 ENDPROC
@@ -141,19 +140,17 @@ ENDPROC
 DEF PROCread_data
 LOCAL idx%, ch%, e%
 REPEAT
-  ch%=BGET#hndl%
   e%=EOF#hndl%
-  jBuf?idx%=ch%
-  idx%=idx%+1
+  IF e%<>-1 THEN ch%=BGET#hndl% : jBuf?idx%=ch% : idx%=idx%+1
 UNTIL e%=-1 OR idx%>=JSON_SIZE%
 jLen%=idx%
-fetch_ok%=TRUE
+fetch_ok%=(jLen%>0)
 ENDPROC
 
 DEF PROCread_json_value(hndl%, path$)
-ON ERROR jLen%=-1:CLS:PRINT "ERROR reading json":fetch_ok%=FALSE
+jLen%=0
 PROCset_json_path(hndl%, path$)
-IF jLen%<>-1 THEN PROCread_data
+PROCread_data
 ENDPROC
 
 DEF FNjbuf_val
@@ -288,57 +285,4 @@ NEXT
 copy%=copy
 page_src%=page_src
 page_dst%=page_dst
-ENDPROC
-
-REM --- fnnet library (bas/lib/fnnet.bas) ---
-finOsword%=&78
-finMosOsword%=&FFF1
-finReasonVersion%=0
-finReasonJsonQuery%=1
-finReasonStashJson%=2
-
-DIM finBuf% 512
-DIM finBlock% 16
-finCallEntry%=0
-
-DEF PROCfnnet_init
-IF finCallEntry%=0 THEN PROCfnnet_query_version
-ENDPROC
-
-DEF PROCfnnet_query_version
-finBlock%?0=finReasonVersion%
-IF finCallEntry%=0 THEN PROCfnnet_osword ELSE PROCfnnet_rom_call(finReasonVersion%)
-IF finBlock%?1=0 THEN finCallEntry%=finBlock%?8+256*finBlock%?9
-ENDPROC
-
-DEF PROCfnnet_osword
-A%=finOsword%
-X%=finBlock% MOD 256
-Y%=finBlock% DIV 256
-=USRfinMosOsword%
-ENDPROC
-
-DEF PROCfnnet_rom_call(reason%)
-IF finCallEntry%=0 THEN ERROR 103,"FujiNet API unavailable"
-A%=reason%
-X%=finBlock% MOD 256
-Y%=finBlock% DIV 256
-=USRfinCallEntry%
-ENDPROC
-
-DEF PROCfnnet_set_str(s$)
-IF LEN(s$)>512 THEN ERROR 100,"String too long"
-$(finBuf%)=s$+CHR$(0)
-finBlock%?2=finBuf% AND &FF
-finBlock%?3=finBuf% DIV 256
-finBlock%?4=LEN(s$) AND &FF
-finBlock%?5=LEN(s$) DIV 256
-ENDPROC
-
-DEF PROCfn_json_query(h%, path$)
-PROCfnnet_init
-PROCfnnet_set_str(path$)
-finBlock%?6=h%
-PROCfnnet_rom_call(finReasonJsonQuery%)
-IF finBlock%?1<>0 THEN ERROR 101,"FJSON query failed"
 ENDPROC

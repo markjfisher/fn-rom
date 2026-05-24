@@ -15,6 +15,13 @@
         .importzp aws_tmp02
 
         .import check_channel_yhndl_exyintch
+        .import fuji_ch_bptr_hi
+        .import fuji_ch_bptr_low
+        .import fuji_ch_bptr_mid
+        .import fuji_ch_ext_hi
+        .import fuji_ch_ext_low
+        .import fuji_ch_ext_mid
+        .import fuji_ch_sect_cnt
         .import fuji_ext_str_flags
         .import fuji_ext_str_len
         .import fuji_ext_str_len_hi
@@ -52,8 +59,10 @@ fnnet_dispatch:
 
         ; fall into fail
 fnnet_fail:
-        lda     #$01
+        lda     #FNNET_STATUS_BAD_CALL
 fnnet_exit:
+        ldy     #$00
+        sta     (aws_tmp00),y
         ldy     #$01
         sta     (aws_tmp00),y
         rts
@@ -65,7 +74,7 @@ fnnet_reason_version:
         iny
         lda     #>fnnet_call_entry
         sta     (aws_tmp00),y
-        lda     #$00
+        lda     #FNNET_STATUS_OK
         beq     fnnet_exit
 
 fnnet_reason_stash_json:
@@ -74,7 +83,7 @@ fnnet_reason_stash_json:
 
         lda     #FUJI_EXT_STR_IS_JSON
         jsr     set_flags_and_len
-        lda     #$00
+        lda     #FNNET_STATUS_OK
         beq     fnnet_exit
 
 fnnet_reason_json_query:
@@ -88,14 +97,36 @@ fnnet_reason_json_query:
         lda     (aws_tmp00),y
         tay
         jsr     check_channel_yhndl_exyintch
-        bcc     fnnet_fail
+        bcs     fnnet_bad_channel
+
+        sty     aws_tmp02
 
 fnnet_json_channel_ok:
         jsr     fujibus_network_translate_configure
-        bcs     fnnet_fail
+        bcs     fnnet_json_query_failed
 fnnet_json_done:
-        lda     #$00
+        lda     #FNNET_STATUS_OK
         beq     fnnet_exit
+
+fnnet_bad_channel:
+        lda     #FNNET_STATUS_BAD_CHANNEL
+        bne     fnnet_exit
+
+fnnet_json_query_failed:
+        ; Match *FJSON soft-fail behaviour: translated read becomes immediate EOF,
+        ; and the caller can inspect the non-zero fnnet status to distinguish it.
+        ldy     aws_tmp02
+        lda     #$00
+        sta     fuji_ch_ext_low,y
+        sta     fuji_ch_ext_mid,y
+        sta     fuji_ch_ext_hi,y
+        sta     fuji_ch_bptr_low,y
+        sta     fuji_ch_bptr_mid,y
+        sta     fuji_ch_bptr_hi,y
+        sta     fuji_ch_sect_cnt,y
+        sta     fuji_json_path_len
+        lda     #FNNET_STATUS_JSON_QUERY_FAILED
+        bne     fnnet_exit
 
 fnnet_load_ext_str:
         ldy     #$02

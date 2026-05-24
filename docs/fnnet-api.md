@@ -18,7 +18,7 @@ Reason `0` returns API version in block+1 and CALL entry address in block+8/9. T
 | Offset | Field |
 |--------|-------|
 | 0 | Reason in / status out |
-| 1 | Status (0 = ok) |
+| 1 | Status out (duplicate for convenience) |
 | 2-3 | String pointer in user RAM |
 | 4-5 | String length (u16, max 512) |
 | 6-7 | BASIC file handle (`&10`..`&15`) for JSON query |
@@ -31,6 +31,17 @@ Reason `0` returns API version in block+1 and CALL entry address in block+8/9. T
 | `&00` | Return API version |
 | `&01` | JSON query on open channel (TranslateConfigure) |
 | `&02` | Stash JSON path for next open-with-translation |
+
+## Status codes
+
+| Code | Meaning |
+|------|---------|
+| `&00` | OK |
+| `&01` | Bad call or invalid string descriptor |
+| `&02` | JSON query could not be configured on the open channel |
+| `&03` | Bad or unopened BASIC channel |
+
+For reason `&01`, status `&02` is a recoverable runtime failure. The ROM also marks the translated read as immediate EOF so callers that proceed to `BGET#` simply read zero bytes. This matches the short-path `*FJSON` behaviour used by polling applications such as `bas/iss/iss.bas`.
 
 ## Long URLs
 
@@ -47,3 +58,5 @@ See [bas/lib/fnnet.bas](../bas/lib/fnnet.bas).
 BBC BASIC reserves the `FN` prefix for user functions (case-insensitive) — use the `fin*` prefix for names, not `fn*` or `FNNET_*`.
 
 Integer scratch buffers use `DIM finBlock% 16` (note `%` on the DIM name). Byte pokes use `finBlock%?0`; the base address for `(X,Y)` is `finBlock%`. With `DIM finBlock 16` (no `%`), use `finBlock?0` and `finBlock` as the address instead — `%` on the reference only works when `%` was on the DIM.
+
+The default BASIC template records the most recent API result in `finLastStatus%`. Recoverable JSON query failures do not raise `ERROR`; callers should inspect `finLastStatus%` if they need to distinguish `OK` from `JSON query failed`.

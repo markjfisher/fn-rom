@@ -11,10 +11,11 @@ CLS
 X=OPENIN("http://192.168.1.101:18080/bbc/tests/simple.txt")
 IF X=0 PRINT "No file":END
 
+A=&FF
 REPEAT
- A=BGET#X
- IF A<&80 PRINT CHR$(A);
  B=EOF#X
-UNTIL B
+ IF B<>-1 THEN A=BGET#X
+ IF A<&80 PRINT CHR$(A);
+UNTIL B=-1
 
 CLOSE# 0

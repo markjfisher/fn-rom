@@ -39,10 +39,8 @@ DEF FNget_json(hndl%, path$)
   json$=STRING$(200," ")
   json$=""
   REPEAT
-   ch%=BGET#hndl%
    e%=EOF#hndl%
-   json$=json$+CHR$(ch%)
-   idx%=idx%+1
+   IF e%<>-1 THEN ch%=BGET#hndl% : json$=json$+CHR$(ch%) : idx%=idx%+1
   UNTIL e%=-1 OR idx%>=max_size%
 =json$
 
@@ -90,5 +88,4 @@ PROCfnnet_init
 PROCfnnet_set_str(path$)
 finBlock%?6=h%
 PROCfnnet_rom_call(finReasonJsonQuery%)
-IF finBlock%?1<>0 THEN ERROR 101,"FJSON query failed"
 ENDPROC

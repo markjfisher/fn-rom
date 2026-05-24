@@ -8,10 +8,15 @@ finMosOsword%=&FFF1
 finReasonVersion%=0
 finReasonJsonQuery%=1
 finReasonStashJson%=2
+finStatusOk%=0
+finStatusBadCall%=1
+finStatusJsonQueryFailed%=2
+finStatusBadChannel%=3
 
 DIM finBuf% 512
 DIM finBlock% 16
 finCallEntry%=0
+finLastStatus%=finStatusOk%
 
 DEF PROCfnnet_init
 IF finCallEntry%=0 THEN PROCfnnet_query_version
@@ -20,6 +25,7 @@ ENDPROC
 DEF PROCfnnet_query_version
 finBlock%?0=finReasonVersion%
 IF finCallEntry%=0 THEN PROCfnnet_osword ELSE PROCfnnet_rom_call(finReasonVersion%)
+finLastStatus%=finBlock%?1
 IF finBlock%?1=0 THEN finCallEntry%=finBlock%?8+256*finBlock%?9
 ENDPROC
 
@@ -37,6 +43,7 @@ A%=reason%
 X%=finBlock% MOD 256
 Y%=finBlock% DIV 256
 CALL finCallEntry%
+finLastStatus%=finBlock%?1
 ENDPROC
 
 DEF PROCfnnet_set_str(s$)
@@ -61,17 +68,17 @@ PROCfnnet_init
 PROCfnnet_set_str(path$)
 finBlock%?6=h%
 PROCfnnet_rom_call(finReasonJsonQuery%)
-IF finBlock%?1<>0 THEN ERROR 101,"FJSON query failed"
 ENDPROC
 
 DEF PROCfn_stash_json(path$)
 PROCfnnet_init
 PROCfnnet_set_str(path$)
 PROCfnnet_rom_call(finReasonStashJson%)
-IF finBlock%?1<>0 THEN ERROR 102,"FJSON stash failed"
 ENDPROC
 
 DEF PROCset_json_path(hndl%, path$)
+LOCAL cmd$
+finLastStatus%=finStatusOk%
 IF LEN(path$)>60 THEN PROCfn_json_query(hndl%, path$) : ENDPROC
 cmd$="FJSON "+STR$(hndl%)+" "+path$
 OSCLI cmd$

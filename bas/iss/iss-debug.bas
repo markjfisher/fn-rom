@@ -182,9 +182,8 @@ IF DEBUG% THEN PRINT "  FJSON path=";path$
 PROCset_json_path(hndl%, path$)
 IF DEBUG% THEN PRINT "  BGET..."
 REPEAT
-  ch%=BGET#hndl%
-  e%=EOF#hndl%
-  IF e%<>-1 THEN jBuf?idx%=ch% : idx%=idx%+1
+  e%=EOF#hndl%  
+  IF e%<>-1 THEN ch%=BGET#hndl% : jBuf?idx%=ch% : idx%=idx%+1
 UNTIL e%=-1 OR idx%>=JSON_SIZE%
 jLen%=idx%
 IF DEBUG% THEN PRINT "  read len=";jLen%

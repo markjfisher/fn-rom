@@ -191,6 +191,12 @@ FNNET_REASON_JSON_QUERY = $01
 FNNET_REASON_STASH_JSON = $02
 FNNET_REASON_OPEN_URL = $03
 
+; fnnet status codes returned in parameter block +0/+1
+FNNET_STATUS_OK = $00
+FNNET_STATUS_BAD_CALL = $01
+FNNET_STATUS_JSON_QUERY_FAILED = $02
+FNNET_STATUS_BAD_CHANNEL = $03
+
 ; PWS layout after packet: 
 ; [+274] 6 byte flags area, fuji_force_reset and fuji_own_sws_indicator use 2
 ; [+280] working FS URI scratch buffer used for FileDevice requests such as *FIN and *FLS packet assembly

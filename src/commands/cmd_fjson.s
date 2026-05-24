@@ -30,8 +30,15 @@
         .import check_channel_yhndl_exyintch
         .import err_bad
         .import exit_user_ok
+        .import fuji_ch_bptr_hi
+        .import fuji_ch_bptr_low
+        .import fuji_ch_bptr_mid
+        .import fuji_ch_ext_hi
+        .import fuji_ch_ext_low
+        .import fuji_ch_ext_mid
         .import fuji_filename_buffer
         .import fuji_filename_len
+        .import fuji_ch_sect_cnt
         .import fuji_json_path_len
         .import fuji_max_string_length
         .import fujibus_network_translate_configure
@@ -130,6 +137,7 @@ _fjson_store_channel:
         ; Returns Y = intch (same as BGET uses), C=0 if channel is in use
         bcs     err_bad_handle
 
+        sty     aws_tmp04                ; save intch across translate call
         jsr     fujibus_network_translate_configure
         bcs     err_network
 
@@ -170,6 +178,16 @@ _fjson_copy_loop:
         rts
 
 err_network:
-        jsr     report_error
-        .byte   $CB
-        .byte   "FujiNet error", 0
+        ; Exhausted/failed JSON translate should behave like an empty result for BASIC.
+        ; Mark PTR=EXT=0 so subsequent BGET#/EOF# sees immediate EOF on this channel.
+        ldy     aws_tmp04
+        lda     #$00
+        sta     fuji_ch_ext_low,y
+        sta     fuji_ch_ext_mid,y
+        sta     fuji_ch_ext_hi,y
+        sta     fuji_ch_bptr_low,y
+        sta     fuji_ch_bptr_mid,y
+        sta     fuji_ch_bptr_hi,y
+        sta     fuji_ch_sect_cnt,y
+        sta     fuji_json_path_len
+        jmp     exit_user_ok
