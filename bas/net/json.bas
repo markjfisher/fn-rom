@@ -20,9 +20,10 @@ PRINT "      url: "; FNget_json(X, "/url")
 CLOSE# 0
 END
 
-FNNET_OSWORD=&E0
-FNNET_REASON_VERSION=0
-FNNET_REASON_JSON_QUERY=1
+finOsword%=&78
+finMosOsword%=&FFF1
+finReasonVersion%=0
+finReasonJsonQuery%=1
 
 DEF PROCset_json_path(hndl%, path$)
 IF LEN(path$)>60 THEN PROCfn_json_query(hndl%, path$) : ENDPROC
@@ -46,44 +47,48 @@ DEF FNget_json(hndl%, path$)
 =json$
 
 REM --- fnnet library (bas/lib/fnnet.bas) ---
-DIM fnBuf 512
-DIM fnBlock 16
-fnCallEntry%=0
+DIM finBuf% 512
+DIM finBlock% 16
+finCallEntry%=0
 
 DEF PROCfnnet_init
-IF fnCallEntry%=0 THEN PROCfnnet_query_version
+IF finCallEntry%=0 THEN PROCfnnet_query_version
 ENDPROC
 
 DEF PROCfnnet_query_version
-fnBlock%?0=FNNET_REASON_VERSION
-PROCfnnet_call(FNNET_REASON_VERSION)
-IF fnBlock%?1=0 THEN fnCallEntry%=fnBlock%?8+256*fnBlock%?9
+finBlock%?0=finReasonVersion%
+IF finCallEntry%=0 THEN PROCfnnet_osword ELSE PROCfnnet_rom_call(finReasonVersion%)
+IF finBlock%?1=0 THEN finCallEntry%=finBlock%?8+256*finBlock%?9
 ENDPROC
 
-DEF PROCfnnet_call(reason%)
-LOCAL X%, Y%
-IF fnCallEntry%=0 THEN PROCfnnet_query_version
-IF fnCallEntry%=0 THEN ERROR 103,"FujiNet API unavailable"
-X%=fnBlock%:Y%=X% DIV 256
+DEF PROCfnnet_osword
+A%=finOsword%
+X%=finBlock% MOD 256
+Y%=finBlock% DIV 256
+=USRfinMosOsword%
+ENDPROC
+
+DEF PROCfnnet_rom_call(reason%)
+IF finCallEntry%=0 THEN ERROR 103,"FujiNet API unavailable"
 A%=reason%
-CALL fnCallEntry%
+X%=finBlock% MOD 256
+Y%=finBlock% DIV 256
+=USRfinCallEntry%
 ENDPROC
 
 DEF PROCfnnet_set_str(s$)
-LOCAL l%
-l%=LEN(s$)
-IF l%>512 THEN ERROR 100,"String too long"
-$(fnBuf)=s$+CHR$(0)
-fnBlock%?2=fnBuf AND &FF
-fnBlock%?3=fnBuf DIV 256
-fnBlock%?4=l% AND &FF
-fnBlock%?5=l% DIV 256
+IF LEN(s$)>512 THEN ERROR 100,"String too long"
+$(finBuf%)=s$+CHR$(0)
+finBlock%?2=finBuf% AND &FF
+finBlock%?3=finBuf% DIV 256
+finBlock%?4=LEN(s$) AND &FF
+finBlock%?5=LEN(s$) DIV 256
 ENDPROC
 
 DEF PROCfn_json_query(h%, path$)
 PROCfnnet_init
 PROCfnnet_set_str(path$)
-fnBlock%?6=h%
-PROCfnnet_call(FNNET_REASON_JSON_QUERY)
-IF fnBlock%?1<>0 THEN ERROR 101,"FJSON query failed"
+finBlock%?6=h%
+PROCfnnet_rom_call(finReasonJsonQuery%)
+IF finBlock%?1<>0 THEN ERROR 101,"FJSON query failed"
 ENDPROC

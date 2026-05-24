@@ -1,4 +1,4 @@
-; FujiNet OSWORD &E0 / CALL API for long URIs and JSON paths.
+; FujiNet OSWORD &78 / CALL API for long URIs and JSON paths.
 ; Parameter block (16 bytes at X/Y):
 ;   +0  reason in / status out
 ;   +1  status out (duplicate for CALL convenience)
@@ -42,25 +42,23 @@ fnnet_dispatch:
         ldy     #$00
         lda     (aws_tmp00),y
         cmp     #FNNET_REASON_VERSION
-        bne     @not_version
-        jmp     fnnet_reason_version
-@not_version:
+        beq     fnnet_reason_version
+
         cmp     #FNNET_REASON_JSON_QUERY
-        bne     @not_json_query
-        jmp     fnnet_reason_json_query
-@not_json_query:
+        beq     fnnet_reason_json_query
+
         cmp     #FNNET_REASON_STASH_JSON
-        bne     @not_stash
-        jmp     fnnet_reason_stash_json
-@not_stash:
-        jmp     fnnet_fail
+        beq     fnnet_reason_stash_json
+
+        ; fall into fail
+fnnet_fail:
+        lda     #$01
+fnnet_exit:
+        ldy     #$01
+        sta     (aws_tmp00),y
+        rts
 
 fnnet_reason_version:
-        ldy     #$01
-        lda     #FNNET_API_VERSION
-        sta     (aws_tmp00),y
-        iny
-        sta     (aws_tmp00),y
         ldy     #$08
         lda     #<fnnet_call_entry
         sta     (aws_tmp00),y
@@ -68,45 +66,36 @@ fnnet_reason_version:
         lda     #>fnnet_call_entry
         sta     (aws_tmp00),y
         lda     #$00
-        jmp     fnnet_exit
+        beq     fnnet_exit
 
 fnnet_reason_stash_json:
         jsr     fnnet_load_ext_str
-        bcc     fnnet_stash_ok
-        jmp     fnnet_fail
-fnnet_stash_ok:
-        lda     fuji_ext_str_len
-        sta     fuji_json_path_len
-        lda     fuji_ext_str_flags
-        ora     #FUJI_EXT_STR_IS_JSON
-        sta     fuji_ext_str_flags
+        bcs     fnnet_fail
+
+        lda     #FUJI_EXT_STR_IS_JSON
+        jsr     set_flags_and_len
         lda     #$00
-        jmp     fnnet_exit
+        beq     fnnet_exit
 
 fnnet_reason_json_query:
         jsr     fnnet_load_ext_str
-        bcc     fnnet_json_ok
-        jmp     fnnet_fail
-fnnet_json_ok:
-        lda     fuji_ext_str_len
-        sta     fuji_json_path_len
-        lda     fuji_ext_str_flags
-        ora     #(FUJI_EXT_STR_ACTIVE | FUJI_EXT_STR_IS_JSON)
-        sta     fuji_ext_str_flags
+        bcs     fnnet_fail
+
+        lda     #(FUJI_EXT_STR_ACTIVE | FUJI_EXT_STR_IS_JSON)
+        jsr     set_flags_and_len
 
         ldy     #$06
         lda     (aws_tmp00),y
         tay
         jsr     check_channel_yhndl_exyintch
-        bcs     fnnet_json_channel_ok
-        jmp     fnnet_fail
+        bcc     fnnet_fail
+
 fnnet_json_channel_ok:
         jsr     fujibus_network_translate_configure
-        bne     fnnet_json_done
-        jmp     fnnet_fail
+        bcs     fnnet_fail
 fnnet_json_done:
         lda     #$00
-        jmp     fnnet_exit
+        beq     fnnet_exit
 
 fnnet_load_ext_str:
         ldy     #$02
@@ -142,9 +131,10 @@ fnnet_load_fail:
         sec
         rts
 
-fnnet_fail:
-        lda     #$01
-fnnet_exit:
-        ldy     #$01
-        sta     (aws_tmp00),y
+; A = flags to ORA into fuji_ext_str_flags
+set_flags_and_len:
+        ora     fuji_ext_str_flags
+        sta     fuji_ext_str_flags
+        lda     fuji_ext_str_len
+        sta     fuji_json_path_len
         rts

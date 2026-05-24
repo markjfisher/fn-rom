@@ -27,7 +27,6 @@
         .import read_fspba
         .import read_fspba_reset
         .import set_text_pointer_yx
-        .import MA,MP
 
         .include "fujinet.inc"
 

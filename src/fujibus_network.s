@@ -855,7 +855,7 @@ fujibus_network_close:
 ;     JSON path in PWS buffer (set by *FJSON via get_fuji_json_path_addr_to_aws_tmp00)
 ;     fuji_json_path_len = length of JSON path string
 ;   Output:
-;     A = 1 on success, 0 on failure
+;     C = 0 on success, 1 on failure
 ;
 ; TranslateConfigure request payload (at buffer+6):
 ;   +0  version = $01
@@ -1097,10 +1097,10 @@ fnjq_jq_success:
 
         sta     fuji_ch_sect_cnt,y      ; clear stale buffer count
 
-        lda     #$01
+        clc
         rts
 
 fnjq_jq_fail:
         pla                             ; balance stack (intch was pushed at start)
-        lda     #$00
+        sec
         rts

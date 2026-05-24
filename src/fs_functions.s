@@ -26,6 +26,7 @@
         .export param_drive_or_default
         .export param_get_num
         .export param_get_string
+        .export param_get_string_max_x
         .export param_get_string_no_init
         .export param_optional_drive_no
         .export param_syntax_error_if_null
@@ -96,6 +97,7 @@
         .import fuji_ext_str_len
         .import fuji_ext_str_len_hi
         .import fuji_ext_str_ptr
+        .import fuji_max_string_length
         .import fuji_network_url_flag
         .import fuji_open_channels
         .import fuji_read_catalog
@@ -438,6 +440,12 @@ err_reading_cat:
 ;  C=0, string terminated by first space, CR or 2nd quotation mark
 ;  C=1, string terminated by CR or 2nd quotation mark
 param_get_string:
+        ; default max length, +1 for nul
+        ldx     #$3F
+
+param_get_string_max_x:
+        stx     fuji_max_string_length
+
         jsr     GSINIT_A
         beq     err_bad_string
 
@@ -448,7 +456,7 @@ param_get_string_no_init:
         bcs     @exit_str
         sta     fuji_filename_buffer, x
         inx
-        cpx     #$3F            ; allow up to 64 bytes (with terminating 00, i.e. 63+1)
+        cpx     fuji_max_string_length          ; max will be 1 larger than this value, for the nul char
         bcc     @str_loop
         clc                     ; mark that we have truncated
 

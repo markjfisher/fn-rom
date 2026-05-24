@@ -1,7 +1,7 @@
 REM filename: iss
 REM
 REM Teletext ISS tracker via Fujinet OPENIN + FJSON
-REM Long JSON paths use embedded fnnet helpers (OSWORD &E0)
+REM Long JSON paths use embedded fnnet helpers (OSWORD &78)
 
 JSON_SIZE%=32
 jLen%=0
@@ -50,8 +50,11 @@ PRINT "Initialising data..."
 PROCinit_globe
 PROCshow_globe
 
+*OPT7,2
+
 REPEAT
   PROCfetch_iss_position
+  PRINT"Fetched: "; fetch_ok%
   IF fetch_ok% THEN PROCupdate_iss_position
   PROCwait_refresh
 UNTIL FALSE
@@ -135,16 +138,22 @@ DEF PROCfail_fetch(h%)
 IF h%>=17 THEN IF h%<=21 THEN PROCtry_close_one(h%)
 ENDPROC
 
-DEF PROCread_json_value(hndl%, path$)
+DEF PROCread_data
 LOCAL idx%, ch%, e%
-idx%=0
-PROCset_json_path(hndl%, path$)
 REPEAT
   ch%=BGET#hndl%
   e%=EOF#hndl%
-  IF e%<>-1 THEN jBuf?idx%=ch% : idx%=idx%+1
+  jBuf?idx%=ch%
+  idx%=idx%+1
 UNTIL e%=-1 OR idx%>=JSON_SIZE%
 jLen%=idx%
+fetch_ok%=TRUE
+ENDPROC
+
+DEF PROCread_json_value(hndl%, path$)
+ON ERROR jLen%=-1:CLS:PRINT "ERROR reading json":fetch_ok%=FALSE
+PROCset_json_path(hndl%, path$)
+IF jLen%<>-1 THEN PROCread_data
 ENDPROC
 
 DEF FNjbuf_val
@@ -282,49 +291,54 @@ page_dst%=page_dst
 ENDPROC
 
 REM --- fnnet library (bas/lib/fnnet.bas) ---
-FNNET_OSWORD=&E0
-FNNET_REASON_VERSION=0
-FNNET_REASON_JSON_QUERY=1
-FNNET_REASON_STASH_JSON=2
+finOsword%=&78
+finMosOsword%=&FFF1
+finReasonVersion%=0
+finReasonJsonQuery%=1
+finReasonStashJson%=2
 
-DIM fnBuf 512
-DIM fnBlock 16
-fnCallEntry%=0
+DIM finBuf% 512
+DIM finBlock% 16
+finCallEntry%=0
 
 DEF PROCfnnet_init
-IF fnCallEntry%=0 THEN PROCfnnet_query_version
+IF finCallEntry%=0 THEN PROCfnnet_query_version
 ENDPROC
 
 DEF PROCfnnet_query_version
-fnBlock%?0=FNNET_REASON_VERSION
-PROCfnnet_call(FNNET_REASON_VERSION)
-IF fnBlock%?1=0 THEN fnCallEntry%=fnBlock%?8+256*fnBlock%?9
+finBlock%?0=finReasonVersion%
+IF finCallEntry%=0 THEN PROCfnnet_osword ELSE PROCfnnet_rom_call(finReasonVersion%)
+IF finBlock%?1=0 THEN finCallEntry%=finBlock%?8+256*finBlock%?9
 ENDPROC
 
-DEF PROCfnnet_call(reason%)
-LOCAL X%, Y%
-IF fnCallEntry%=0 THEN PROCfnnet_query_version
-IF fnCallEntry%=0 THEN ERROR 103,"FujiNet API unavailable"
-X%=fnBlock%:Y%=X% DIV 256
+DEF PROCfnnet_osword
+A%=finOsword%
+X%=finBlock% MOD 256
+Y%=finBlock% DIV 256
+=USRfinMosOsword%
+ENDPROC
+
+DEF PROCfnnet_rom_call(reason%)
+IF finCallEntry%=0 THEN ERROR 103,"FujiNet API unavailable"
 A%=reason%
-CALL fnCallEntry%
+X%=finBlock% MOD 256
+Y%=finBlock% DIV 256
+=USRfinCallEntry%
 ENDPROC
 
 DEF PROCfnnet_set_str(s$)
-LOCAL l%
-l%=LEN(s$)
-IF l%>512 THEN ERROR 100,"String too long"
-$(fnBuf)=s$+CHR$(0)
-fnBlock%?2=fnBuf AND &FF
-fnBlock%?3=fnBuf DIV 256
-fnBlock%?4=l% AND &FF
-fnBlock%?5=l% DIV 256
+IF LEN(s$)>512 THEN ERROR 100,"String too long"
+$(finBuf%)=s$+CHR$(0)
+finBlock%?2=finBuf% AND &FF
+finBlock%?3=finBuf% DIV 256
+finBlock%?4=LEN(s$) AND &FF
+finBlock%?5=LEN(s$) DIV 256
 ENDPROC
 
 DEF PROCfn_json_query(h%, path$)
 PROCfnnet_init
 PROCfnnet_set_str(path$)
-fnBlock%?6=h%
-PROCfnnet_call(FNNET_REASON_JSON_QUERY)
-IF fnBlock%?1<>0 THEN ERROR 101,"FJSON query failed"
+finBlock%?6=h%
+PROCfnnet_rom_call(finReasonJsonQuery%)
+IF finBlock%?1<>0 THEN ERROR 101,"FJSON query failed"
 ENDPROC

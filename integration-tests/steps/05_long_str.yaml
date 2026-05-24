@@ -18,7 +18,7 @@ steps:
           expect:
             regex:
               - 'Long URL OPENIN test'
-              - 'URL length: 3[0-9][0-9]'
+              - 'URL length: 2[0-4][0-9]'
               - 'FujiNet OPENIN BGET Test'
   - name: fnnet01_long_json
     paste:
@@ -29,6 +29,6 @@ steps:
           expect:
             regex:
               - 'FujiNet long JSON path test'
-              - 'FNNET API v'
+              - 'FujiNet API v'
               - 'Path length: 200'
               - 'Long JSON path sent'

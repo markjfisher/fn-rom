@@ -1,4 +1,4 @@
-# FujiNet BBC API (OSWORD &E0 / CALL)
+# FujiNet BBC API (OSWORD &78 / CALL)
 
 Long URIs and JSON paths (up to 512 bytes) use a pointer+length descriptor in user RAM instead of ROM buffers.
 
@@ -6,10 +6,12 @@ Long URIs and JSON paths (up to 512 bytes) use a pointer+length descriptor in us
 
 | Entry | Usage |
 |-------|--------|
-| OSWORD `&E0` | `(X,Y)` = 16-byte parameter block; reason at block+0 |
+| OSWORD `&78` | `(X,Y)` = 16-byte parameter block; reason at block+0 |
 | CALL | `A` = reason, `(X,Y)` = block; returns status in `A` |
 
-Reason `0` returns API version in block+1 and CALL entry address in block+8/9.
+OSWORD numbers `&80` and above are not offered via service call 8; `&E0`–`&FF` route via USERV (`&0200`) instead. FujiNet uses `&78`, which MOS passes to sideways ROMs as service 8 with the function code in `&EF` and `(X,Y)` saved in `&F0`/`&F1`.
+
+Reason `0` returns API version in block+1 and CALL entry address in block+8/9. The first call uses OSWORD via `USR &FFF1` with `A=&78`; later calls use `USR finCallEntry%` with `A=reason`, `(X,Y)=finBlock%`.
 
 ## Parameter block
 
@@ -32,10 +34,16 @@ Reason `0` returns API version in block+1 and CALL entry address in block+8/9.
 
 ## Long URLs
 
-Use normal `OPENIN(url$)` — the ROM reads the string in place (up to 512 chars) and scatter-sends it to FujiNet. No BASIC API call required for URLs.
+Use normal `OPENIN(url$)` for URLs up to **255 characters** (BBC BASIC string limit). The ROM reads the string in place and scatter-sends it to FujiNet (replacing the old ~64-byte filename buffer path).
 
-Short JSON paths may still use `OSCLI "*FJSON handle path"`. Use OSWORD/CALL reason `&01` for longer paths.
+URLs longer than 255 bytes require assembling the URI in a user RAM buffer and a separate API path (not yet exposed for OPENIN; see `PROCfnnet_set_str_ptr` for the JSON/query side). That case is intentionally out of scope for the default BASIC story until needed.
+
+Short JSON paths may still use `OSCLI "*FJSON handle path"`. Use OSWORD/CALL reason `&01` for longer paths (up to 512 bytes via buffer + pointer).
 
 ## BASIC library
 
 See [bas/lib/fnnet.bas](../bas/lib/fnnet.bas).
+
+BBC BASIC reserves the `FN` prefix for user functions (case-insensitive) — use the `fin*` prefix for names, not `fn*` or `FNNET_*`.
+
+Integer scratch buffers use `DIM finBlock% 16` (note `%` on the DIM name). Byte pokes use `finBlock%?0`; the base address for `(X,Y)` is `finBlock%`. With `DIM finBlock 16` (no `%`), use `finBlock?0` and `finBlock` as the address instead — `%` on the reference only works when `%` was on the DIM.

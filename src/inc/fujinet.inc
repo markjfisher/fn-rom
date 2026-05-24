@@ -182,7 +182,9 @@ FUJI_EXT_STR_IS_URL = $02
 FUJI_EXT_STR_IS_JSON = $04
 
 ; FujiNet OSWORD/CALL API (see docs/fnnet-api.md)
-FNNET_OSWORD = $E0
+; Must be < &80 so MOS offers it via service call 8 (&EF/&F0/&F1).
+; &E0+ routes via USERV (&0200), not service 8.
+FNNET_OSWORD = $78
 FNNET_API_VERSION = $01
 FNNET_REASON_VERSION = $00
 FNNET_REASON_JSON_QUERY = $01

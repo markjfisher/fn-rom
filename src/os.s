@@ -18,6 +18,8 @@
         .export  OSWRCH
         .export  ROMSEL
         .export  TUBE_BASE
+        .export  ACTIVE_ROM_ID
+        .export  OSFILE_V
 
         .export  TUBE_R1_STATUS
         .export  TUBE_R1_DATA
@@ -139,18 +141,19 @@
         .export  fuji_ch_write_count
 
         .export  fuji_ax_save
+        .export  fuji_ext_str_flags
+        .export  fuji_ext_str_len
+        .export  fuji_ext_str_len_hi
+        .export  fuji_ext_str_ptr
         .export  fuji_json_path_len
+        .export  fuji_max_string_length
+        .export  fuji_network_buf_cnt
+        .export  fuji_network_buf_cnt_hi
+        .export  fuji_network_flush_mode
         .export  fuji_network_retry_delay
         .export  fuji_network_retry_left
         .export  fuji_network_retry_max
         .export  fuji_network_url_flag
-        .export  fuji_ext_str_ptr
-        .export  fuji_ext_str_len
-        .export  fuji_ext_str_len_hi
-        .export  fuji_ext_str_flags
-        .export  fuji_network_buf_cnt
-        .export  fuji_network_buf_cnt_hi
-        .export  fuji_network_flush_mode
 
         .export  dfs_cat_s0_header
         .export  dfs_cat_s1_header
@@ -225,7 +228,10 @@
         .exportzp  text_pointer
         .exportzp  data_ptr
 
-        .export    MA: absolute
+        .export    osword_call_save: zeropage
+        .export    osword_x_save: zeropage
+        .export    osword_y_save: zeropage
+        ; .export    MA: absolute       ; we don't need this anywhere external, it's absorbed into calculationg below, so it's in 1 place
         .export    MP: zeropage         ; this is an address size marker too, not necessarily that it lives in ZP
 
 ; OS vectors
@@ -247,6 +253,10 @@ OSWRCH          := $FFEE
 OSWORD          := $FFF1
 OSBYTE          := $FFF4
 OSCLI           := $FFF7
+
+; MISC OS
+ACTIVE_ROM_ID   := $0DBC                ; currently active ROM bank
+OSFILE_V        := $0212
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Temporary Zeropage Variables
@@ -318,6 +328,11 @@ fuji_bus_tx_command     := pws_tmp15
 text_pointer    := $F2
 paged_ram_copy  := $F4
 paged_rom_priv_ws := $0DF0
+
+; MOS saves OSWORD/OSBYTE parameters before unrecognised service calls
+osword_call_save := $EF
+osword_x_save    := $F0
+osword_y_save    := $F1
 
 FSCV            := $021E
 
@@ -520,6 +535,8 @@ fuji_json_path_len      := fuji_workspace_root + $10B3
 ; NotReady retry state for network TranslateConfigure / Read (survives SLIP I/O).
 fuji_network_retry_delay := fuji_workspace_root + $10B4   ; VSync ticks between retries
 fuji_network_retry_left  := fuji_workspace_root + $10B5   ; attempts remaining
+
+fuji_max_string_length   := fuji_workspace_root + $10B6   ; field for storing max string length allowed in param_get_string
 
 ; workspace_utils.s references 10C0-10FF and 1100-11BF as static workspace
 ; this is essentially channels/files information for a filing system

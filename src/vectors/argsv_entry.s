@@ -47,7 +47,7 @@
 
         .segment "CODE"
 
-
+; must not be called without being inside a remember_axy
 channel_buffer_to_disk_yhandle_a0:
         jsr     return_with_a0
 
