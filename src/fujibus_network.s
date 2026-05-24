@@ -16,6 +16,11 @@
         .export  fujibus_network_translate_configure
         .export  fujibus_write_copy_start
 
+        .export  read_fail
+        .export  read_not_ready
+        .export  check_read_length
+        .export  check_descriptor
+
         .importzp aws_tmp00
         .importzp aws_tmp01
         .importzp aws_tmp02
@@ -511,14 +516,14 @@ fujibus_network_read:
 
         ; check for valid response
         cpx     #$00
-        bne     @check_descriptor
+        bne     check_descriptor
         cmp     #$00
-        beq     @read_fail
+        beq     read_fail
 
-@check_descriptor:
+check_descriptor:
         ; Need at least FujiBus header so descriptor/status are present
         cmp     #$07
-        bcc     @read_fail
+        bcc     read_fail
 
         sta     aws_tmp05               ; save total packet length
 
@@ -526,21 +531,33 @@ fujibus_network_read:
         ldy     #$05
         lda     (buffer_ptr),y
         cmp     #$01
-        bne     @read_fail
+        bne     read_fail
 
         ; check status code
         iny                             ; y = 6
         lda     (buffer_ptr),y
-        beq     @check_read_length       ; success
+        beq     check_read_length       ; success
         cmp     #$04                    ; NotReady
-        beq     @read_not_ready
-        bne     @read_fail
+        beq     read_not_ready
+        ; fall through
 
-@check_read_length:
+read_fail:
+        lda     #$00
+        rts
+
+read_not_ready:
+        lda     #$02
+        rts
+
+check_read_length:
+        ldy     #NET_RESP_FLAGS
+        lda     (buffer_ptr),y
+        sta     aws_tmp04               ; response flags (e.g. EOF)
+
         lda     aws_tmp05
         ; minimum length: 7 + 12 = 19 bytes (FujiBus hdr + network protocol hdr)
         cmp     #$13
-        bcc     @read_fail
+        bcc     read_fail
 
         ; get dataLen from response (u16le at NET_RESP_DATALEN = buffer+17)
         ldy     #NET_RESP_DATALEN
@@ -577,7 +594,7 @@ fujibus_network_read:
 @copy_data:
         lda     aws_tmp02
         ora     aws_tmp03
-        beq     @read_success
+        beq     read_success
 
         lda     (cws_tmp2),y
         sta     (aws_tmp00),y
@@ -597,17 +614,28 @@ fujibus_network_read:
         dec     aws_tmp02
         jmp     @copy_data
 
-@read_success:
+read_success:
+        lda     aws_tmp04
+        and     #NET_READ_FLAG_EOF
+        beq     :+
+
+        ; Remote EOF known: set EXT = offset + bytes returned so subsequent
+        ; EOF#/BGET# stops locally without retrying NotReady at the same offset.
+        ldy     fuji_intch
+        lda     aws_tmp06
+        clc
+        adc     fuji_network_buf_cnt
+        sta     fuji_ch_ext_low,y
+        lda     aws_tmp07
+        adc     fuji_network_buf_cnt_hi
+        sta     fuji_ch_ext_mid,y
+        lda     aws_tmp08
+        adc     #$00
+        sta     fuji_ch_ext_hi,y
+:
         lda     #$01
         rts
 
-@read_not_ready:
-        lda     #$02
-        rts
-
-@read_fail:
-        lda     #$00
-        rts
 
 
 ; bool fujibus_network_write(uint16_t handle, uint32_t offset, uint16_t dataLen)

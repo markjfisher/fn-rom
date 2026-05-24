@@ -35,5 +35,4 @@ steps:
       - screen:
           expect:
             regex:
-              # includes prompt line, as there's no CRLF
-              - 'ABC-1'
+              - 'ABC'

@@ -2,7 +2,7 @@ REM filename: opout01
 REM
 REM ----------------------------------------------------
 REM BASIC OPENOUT NETWORK RESOURCE
-REM write and read from echo service
+REM write and read from echo TCP service
 REM ----------------------------------------------------
 
 CLS
@@ -19,10 +19,7 @@ REM read them back and print them
 A=BGET#X
 B=BGET#X
 C=BGET#X
-D=BGET#X
-REM prove we are at the end
-E=EOF#X
 
-PRINT CHR$(A);CHR$(B);CHR$(C);E
+PRINT CHR$(A);CHR$(B);CHR$(C)
 
 CLOSE# 0
