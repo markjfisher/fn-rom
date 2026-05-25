@@ -807,7 +807,7 @@ fujibus_resolve_path:
         clc
         rts
 
-; Validate a simple disk OK response after fujibus_receive_packet.
+; Validate a simple disk OK response after FujiBus transport receive.
 ; Input: A = minimum total packet length, X = received length high.
 ; Output: C clear = ok, C set = fail.
 fd_check_ok_response:

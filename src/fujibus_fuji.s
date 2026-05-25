@@ -1,5 +1,5 @@
 ; FujiDevice FujiBus: GetMount / SetMount (replaces fujibus_fuji_c.c)
-; Calls fujibus_send_packet with fuji_bus_tx_* ZP params (see os.s / fujibus.s).
+; Calls FujiBus transport send/receive with fuji_bus_tx_* ZP params (see os.s / fujibus.s).
 
         .export  fujibus_clear_mount_slot
         .export  fujibus_get_mount_slot

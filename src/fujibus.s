@@ -95,14 +95,14 @@ fujibus_header_size = 6
         pop_zp  aws_tmp00
 .endmacro
 
-; void fujibus_send_packet(uint16_t paylen);  A/X = payload byte count
-;
-; Caller must set ZP slots (see os.s): fuji_bus_tx_device, fuji_bus_tx_command,
-; fuji_bus_tx_payload_lo/hi → first byte of payload source to copy after the wire header.
-; Legacy compatibility entry: now a thin alias onto the raw transport ABI.
+; Transport send ABI
+;   input  A/X = payload byte count
+;          fuji_bus_tx_device / fuji_bus_tx_command set
+;          fuji_bus_tx_payload_lo/hi set
+;   output none
+;   clobbers aws_tmp00/01/02/03/08/09, A, X, Y
 
-fujibus_send_packet:
-        jmp     fujibus_send_packet_raw
+fujibus_send_packet = fujibus_send_packet_raw
 
 fujibus_set_payload_buffer_ptr:
         lda     buffer_ptr
@@ -138,14 +138,7 @@ fujibus_send_packet_prepare_wrapper_inputs:
         rts
 
 ; Internal core: aws_tmp02/03 = paylen, aws_tmp00/01 = payload ptr,
-; buffer [0],[1] = dev/cmd. No wrapper stack dependency.
-;
-; Raw ABI for migrated callers:
-;   input  A/X = payload byte count
-;          fuji_bus_tx_device / fuji_bus_tx_command set
-;          fuji_bus_tx_payload_lo/hi set
-;   output none
-;   clobbers aws_tmp00/01/02/03/08/09, A, X, Y
+; buffer [0],[1] = dev/cmd.
 
 fujibus_send_packet_raw:
         sta     fuji_ax_save
@@ -351,16 +344,11 @@ scatter_before_write:
         rts
 
 
-; uint16_t fujibus_receive_packet(void)
-; Legacy compatibility entry: now a thin alias onto the raw transport ABI.
-
-fujibus_receive_packet:
-        jmp     fujibus_receive_packet_raw
-
-
-; Raw ABI for migrated callers:
+; Transport receive ABI
 ;   output A/X = decoded packet length, or 0/0 on failure
 ;   clobbers aws_tmp00/01/02/03/04/05/08/09/10/11, A, X, Y
+
+fujibus_receive_packet = fujibus_receive_packet_raw
 
 fujibus_receive_packet_raw:
         jmp     fujibus_receive_packet_core
