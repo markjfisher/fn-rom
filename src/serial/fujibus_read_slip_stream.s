@@ -1,5 +1,7 @@
 ; Serial raw-link implementation for FujiBus.
 ; Shared SLIP framing lives in fuji_link_slip.s.
+; RX currently uses MOS RS423 buffering, so callers must enter with IRQs
+; enabled for the duration of receive.
 
         .export fuji_link_check_byte_available
         .export fuji_link_read_byte

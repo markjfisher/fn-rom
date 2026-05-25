@@ -89,9 +89,10 @@ service08_exit_remember:
         rts                             ; MMFS line 3528: unwind remember_axy
 
 fnnet_service08_handler:
-        jsr     fuji_begin_transaction   ; OSWORD service calls arrive with IRQs disabled
+        ; MOS Service 08 can enter with IRQs disabled. FujiBus RS423 RX uses
+        ; MOS serial buffering, so keep IRQs enabled while fnnet_dispatch runs.
+        jsr     fuji_begin_transaction
         ldx     osword_x_save           ; parameter block pointer low
         ldy     osword_y_save           ; parameter block pointer high
         jsr     fnnet_dispatch
-        jsr     fuji_end_transaction
-        rts
+        jmp     fuji_end_transaction

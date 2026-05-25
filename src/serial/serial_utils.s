@@ -21,7 +21,6 @@
 ; OSBYTE constants
 OSBYTE_SERIAL_RX_RATE   = $07   ; Set serial receive baud rate
 OSBYTE_SERIAL_TX_RATE   = $08   ; Set serial transmit baud rate
-OSBYTE_OUTPUT_STREAM    = $03   ; Set output stream
 OSBYTE_INPUT_STREAM     = $02   ; Set input stream
 OSBYTE_FLUSH_BUFFER     = $15   ; Flush buffer
 OSBYTE_IN_KEY           = $81   ; Read key with timeout
@@ -31,8 +30,6 @@ OSBYTE_IN_KEY           = $81   ; Read key with timeout
 BAUD_19200              = $08   ; 19200 baud
 
 ; Stream values
-OUTPUT_SERIAL           = $03   ; Output to serial only
-OUTPUT_SCREEN           = $00   ; Output to screen only
 INPUT_SERIAL            = $01   ; Input from serial only
 INPUT_KEYBOARD          = $00   ; Input from keyboard only
 
@@ -43,7 +40,9 @@ BUFFER_SERIAL_INPUT     = $01   ; Serial input buffer
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; setup_serial_19200 - Configure serial port for 19200 baud
+; setup_serial_19200 - Configure serial input and baud for FujiNet.
+; TX bytes are written directly to the ACIA by fuji_link_write_byte; do not
+; redirect MOS output here.
 ; Modifies: A, X, Y
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -60,16 +59,10 @@ setup_serial_19200:
         lda     #OSBYTE_SERIAL_TX_RATE
         jsr     OSBYTE
 
-        ; Switch input to serial (required for RS423 buffer to work properly)
+        ; Switch input to serial (required for MOS RS423 buffering)
         ldx     #INPUT_SERIAL
         ldy     #0
         lda     #OSBYTE_INPUT_STREAM
-        jsr     OSBYTE
-
-        ; Switch output to serial only
-        ldx     #OUTPUT_SERIAL
-        ldy     #0
-        lda     #OSBYTE_OUTPUT_STREAM
         jsr     OSBYTE
         rts
 
@@ -85,17 +78,12 @@ flush_serial:
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; restore_output_to_screen - Restore output to screen/keyboard
+; restore_output_to_screen - Restore MOS input after FujiNet serial I/O.
+; Name kept for existing callers; FujiNet TX no longer redirects MOS output.
 ; Modifies: A, X, Y
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 restore_output_to_screen:
-        ; Restore output to screen
-        ldx     #OUTPUT_SCREEN
-        ldy     #0
-        lda     #OSBYTE_OUTPUT_STREAM
-        jsr     OSBYTE
-        
         ; Restore input to keyboard
         ldx     #INPUT_KEYBOARD
         ldy     #0

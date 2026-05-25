@@ -1,5 +1,7 @@
 ; Serial raw-link write implementation for FujiBus.
 ; Shared SLIP framing lives in fuji_link_slip.s.
+; This is protocol I/O, not MOS output: write bytes directly to the ACIA so
+; screen/printer/spool output state is not disturbed.
 
         .export  fuji_link_write_byte
 
