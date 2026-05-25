@@ -29,6 +29,7 @@
         .export  nw_json_after_receive
         .export  nw_check_ok_response
         .export  nw_build_write_prefix
+        .export  nw_build_open_prefix
 
         .importzp aws_tmp00
         .importzp aws_tmp01
@@ -116,7 +117,7 @@
 
 fujibus_network_open:
         stx     aws_tmp05               ; save flags
-        pha                             ; save method
+        sta     aws_tmp04               ; save method
 
         lda     fuji_ext_str_flags
         and     #FUJI_EXT_STR_ACTIVE
@@ -131,28 +132,7 @@ fujibus_network_open:
         lda     #$00
         sta     aws_tmp03               ; url_len high = 0
 
-        ; version
-        lda     #FN_PROTOCOL_VERSION
-        ldy     #$06
-        sta     (buffer_ptr),y
-
-        ; method
-        pla
-        iny                             ; y = 7
-        sta     (buffer_ptr),y
-
-        ; flags
-        lda     aws_tmp05
-        iny                             ; y = 8
-        sta     (buffer_ptr),y
-
-        ; urlLen (u16le) at buffer+9
-        lda     aws_tmp02
-        iny                             ; y = 9
-        sta     (buffer_ptr),y
-        lda     aws_tmp03
-        iny                             ; y = 10
-        sta     (buffer_ptr),y
+        jsr     nw_build_open_prefix
 
         ; copy URL from fuji_filename_buffer to buffer+11
         lda     buffer_ptr
@@ -181,24 +161,7 @@ fujibus_network_open:
         lda     fuji_ext_str_len_hi
         sta     aws_tmp03
 
-        lda     #FN_PROTOCOL_VERSION
-        ldy     #$06
-        sta     (buffer_ptr),y
-
-        pla
-        iny
-        sta     (buffer_ptr),y
-
-        lda     aws_tmp05
-        iny
-        sta     (buffer_ptr),y
-
-        lda     aws_tmp02
-        iny
-        sta     (buffer_ptr),y
-        lda     aws_tmp03
-        iny
-        sta     (buffer_ptr),y
+        jsr     nw_build_open_prefix
 
 @write_trailing:
         ; trailing fields start at buffer+11 (after urlLen)
@@ -1173,4 +1136,24 @@ nw_build_write_prefix:
         inx
         cpx     #$06
         bcc     @copy_offset_and_len
+        rts
+
+; Build common Network Open request prefix at buffer+6.
+; Input: aws_tmp02/03 = urlLen, aws_tmp04 = method, aws_tmp05 = flags.
+nw_build_open_prefix:
+        lda     #FN_PROTOCOL_VERSION
+        ldy     #$06
+        sta     (buffer_ptr),y
+        lda     aws_tmp04
+        iny
+        sta     (buffer_ptr),y
+        lda     aws_tmp05
+        iny
+        sta     (buffer_ptr),y
+        lda     aws_tmp02
+        iny
+        sta     (buffer_ptr),y
+        lda     aws_tmp03
+        iny
+        sta     (buffer_ptr),y
         rts
