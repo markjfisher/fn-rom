@@ -689,8 +689,10 @@ fujibus_network_write:
         tya
         tax                             ; move intch into X for indexing
 
+        lda     aws_tmp02
+        sta     aws_tmp10
         lda     #$00                    ; high byte of byte count is always 00
-        sta     aws_tmp03
+        sta     aws_tmp11
         jsr     nw_build_write_prefix
         ; OPTIMIZATION: store 00 in source low byte while A=0
         sta     aws_tmp00
@@ -777,9 +779,9 @@ fujibus_network_write_ext:
         tax                             ; move intch into X for indexing
 
         lda     fuji_ext_str_len
-        sta     aws_tmp02
+        sta     aws_tmp10
         lda     fuji_ext_str_len_hi
-        sta     aws_tmp03
+        sta     aws_tmp11
         jsr     nw_build_write_prefix
 
         lda     #FN_DEVICE_NETWORK
@@ -1152,7 +1154,7 @@ nw_check_ok_response:
         rts
 
 ; Build common Network Write request payload prefix at buffer+6.
-; Input: X = intch, aws_tmp02/03 = dataLen, aws_tmp06..09 = offset.
+; Input: X = intch, aws_tmp06..11 = offset (u32le) + dataLen (u16le).
 nw_build_write_prefix:
         lda     #FN_PROTOCOL_VERSION
         ldy     #$06
@@ -1163,22 +1165,12 @@ nw_build_write_prefix:
         lda     fuji_ch_handle_high,x
         iny
         sta     (buffer_ptr),y
-        lda     aws_tmp06
+        ldx     #$00
+@copy_offset_and_len:
+        lda     aws_tmp06,x
         iny
         sta     (buffer_ptr),y
-        lda     aws_tmp07
-        iny
-        sta     (buffer_ptr),y
-        lda     aws_tmp08
-        iny
-        sta     (buffer_ptr),y
-        lda     aws_tmp09
-        iny
-        sta     (buffer_ptr),y
-        lda     aws_tmp02
-        iny
-        sta     (buffer_ptr),y
-        lda     aws_tmp03
-        iny
-        sta     (buffer_ptr),y
+        inx
+        cpx     #$06
+        bcc     @copy_offset_and_len
         rts
