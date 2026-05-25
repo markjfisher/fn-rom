@@ -76,44 +76,40 @@ frt_got_host:
         lda     buffer_ptr
         clc
         adc     #$09
-        sta     cws_tmp2
+        sta     aws_tmp02
         lda     buffer_ptr+1
         adc     #$00
-        sta     cws_tmp3
+        sta     aws_tmp03
 
         jsr     get_fuji_host_uri_addr_to_aws_tmp00
 
-        lda     cws_tmp2
-        sta     aws_tmp02
-        lda     cws_tmp3
-        sta     aws_tmp03
         lda     cws_tmp1
 frt_copy_base:
         jsr     copy_aws_tmp00_to_aws_tmp02_a
 
 frt_after_base:
         lda     cws_tmp8
-        sta     (cws_tmp2),y
+        sta     (aws_tmp02),y
 
         iny
         lda     #$00
-        sta     (cws_tmp2),y
+        sta     (aws_tmp02),y
 
-        lda     cws_tmp2
+        lda     aws_tmp02
         clc
         adc     cws_tmp1
         adc     #$02
-        sta     cws_tmp2
-        lda     cws_tmp3
+        sta     aws_tmp02
+        lda     aws_tmp03
         adc     #$00
-        sta     cws_tmp3
+        sta     aws_tmp03
 
         ldy     #$00
 frt_copy_fn:
         cpy     cws_tmp8
         beq     frt_compute_paylen
         lda     fuji_filename_buffer,y
-        sta     (cws_tmp2),y
+        sta     (aws_tmp02),y
         iny
         bne     frt_copy_fn
 
