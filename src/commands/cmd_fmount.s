@@ -167,8 +167,7 @@ is_enabled:
 
         lda     fuji_channel_scratch
         jsr     fuji_mount_disk                         ; this uses "remember_xy_only" - can't rely on PLA to keep A set
-        cmp     #$00
-        beq     err_fmount
+        bcs     err_fmount
 
 @mount_checked:
         ; Disk mount response payload: [7]=version [8]=flags

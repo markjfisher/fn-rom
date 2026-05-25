@@ -68,8 +68,7 @@ fuji_read_block_data:
         beq     @read_partial_sector
 
         jsr     fujibus_disk_read_sector
-        cmp     #$01
-        bne     @read_error
+        bcs     @read_error
 
         inc     fuji_current_sector
         bne     :+
@@ -87,8 +86,7 @@ fuji_read_block_data:
         ; aws_tmp14 bytes from packet offset 18 into data_ptr (see
         ; fujibus_disk_read_sector_partial).
         jsr     fujibus_disk_read_sector_partial
-        cmp     #$01
-        bne     @read_error
+        bcs     @read_error
 
 @read_success:
         lda     #$01
@@ -123,8 +121,7 @@ fuji_write_block_data:
         beq     @write_partial_sector
 
         jsr     fujibus_disk_write_sector
-        cmp     #$01
-        bne     @write_error
+        bcs     @write_error
 
         inc     fuji_current_sector
         bne     :+
@@ -154,8 +151,7 @@ fuji_write_block_data:
         sta     data_ptr+1
 
         jsr     fujibus_disk_read_sector
-        cmp     #$01
-        bne     @write_partial_fail
+        bcs     @write_partial_fail
 
         ldy     #$00
 @merge_partial:
@@ -166,8 +162,7 @@ fuji_write_block_data:
         bne     @merge_partial
 
         jsr     fujibus_disk_write_sector
-        cmp     #$01
-        bne     @write_partial_fail
+        bcs     @write_partial_fail
 
         lda     aws_tmp08
         sta     data_ptr
@@ -208,8 +203,7 @@ fuji_read_catalog_data:
         sta     fuji_current_sector+1
 
         jsr     fujibus_disk_read_sector
-        cmp     #$01
-        bne     @catalog_read_error
+        bcs     @catalog_read_error
 
         ; Read sector 1 (second 256 bytes of catalog)
         inc     fuji_current_sector
@@ -219,8 +213,7 @@ fuji_read_catalog_data:
         inc     data_ptr+1
 
         jsr     fujibus_disk_read_sector
-        cmp     #$01
-        bne     @catalog_read_error
+        bcs     @catalog_read_error
 
         clc
         rts
@@ -244,8 +237,7 @@ fuji_write_catalog_data:
         sta     aws_tmp14
 
         jsr     fujibus_disk_write_sector
-        cmp     #$01
-        beq     :+
+        bcc     :+
         inc     aws_tmp14
 :
 
@@ -256,8 +248,7 @@ fuji_write_catalog_data:
         inc     data_ptr+1
 
         jsr     fujibus_disk_write_sector
-        cmp     #$01
-        beq     :+
+        bcc     :+
         inc     aws_tmp14
 :
 

@@ -149,8 +149,7 @@ fhost_copy_and_resolve:
         jsr     fhost_ensure_host_trailing_slash
         ; call fujinet to resolve the given path
         jsr     fuji_resolve_path
-        cmp     #$00
-        beq     @resolve_err
+        bcs     @resolve_err
         rts
 
 @resolve_err:

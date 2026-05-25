@@ -59,8 +59,7 @@ valid_count:
 @unmount_drive:
         txa
         jsr     fuji_unmount_disk
-        cmp     #$00
-        beq     err_fout
+        bcs     err_fout
 
 @done:
         lda     #$FF

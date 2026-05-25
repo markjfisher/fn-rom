@@ -66,13 +66,12 @@ DISK_CREATE_SECTOR_COUNT_2  = $00
 DISK_CREATE_SECTOR_COUNT_3  = $00
 
 
-; bool fujibus_disk_create(uint8_t flags)
+; fujibus_disk_create
 ;   Input:
 ;     A = create flags (bit0 = overwrite)
 ;     fuji_current_fs_len / PWS FS URI buffer contain the target URI
 ;   Output:
-;     A = 1 on success, 0 on failure
-;     X = 0
+;     C clear on success, set on failure
 
 ; Payload layout at buffer+6:
 ;   +0  FN_PROTOCOL_VERSION
@@ -170,21 +169,18 @@ fujibus_disk_create:
         jsr     fd_check_ok_response
         bcs     @fail
 
-        lda     #$01
-        ldx     #$00
+        clc
         rts
 
 @fail:
-        ldx     #$00
-        txa
+        sec
         rts
 
-; bool fujibus_disk_mount(uint8_t flags)
+; fujibus_disk_mount
 ;   Input:
 ;     A = flags
 ;   Output:
-;     A = 1 on success, 0 on failure
-;     X = 0
+;     C clear on success, set on failure
 ;
 ; Payload layout at buffer+6:
 ;   +0  FN_PROTOCOL_VERSION
@@ -268,19 +264,16 @@ fujibus_disk_mount:
         jsr     fd_check_ok_response
         bcs     @fail
 
-        lda     #$01
-        ldx     #$00
+        clc
         rts
 
 @fail:
-        ldx     #$00
-        txa
+        sec
         rts
 
-; bool fujibus_disk_unmount(void)
+; fujibus_disk_unmount
 ;   Output:
-;     A = 1 on success, 0 on failure
-;     X = 0
+;     C clear on success, set on failure
 ;
 ; Payload layout at buffer+6:
 ;   +0  FN_PROTOCOL_VERSION
@@ -314,22 +307,19 @@ fujibus_disk_unmount:
         jsr     fd_check_ok_response
         bcs     @du_fail
 
-        lda     #$01
-        ldx     #$00
+        clc
         rts
 
 @du_fail:
-        ldx     #$00
-        txa
+        sec
         rts
 
-; bool fujibus_disk_read_sector(void)
+; fujibus_disk_read_sector
 ;   Uses:
 ;     buffer payload at +6
 ;     buffer response
 ;   Output:
-;     A = 1 on success, 0 on failure
-;     X = 0
+;     C clear on success, set on failure
 ;
 ; Request payload:
 ;   tx[6]  = FN_PROTOCOL_VERSION
@@ -467,8 +457,7 @@ disk_read_sector_body:
         bne     @drs_copy_256
 
 @drs_success:
-        lda     #$01
-        ldx     #$00
+        clc
         rts
 
 @drs_copy_short:
@@ -511,18 +500,16 @@ disk_read_sector_body:
         jmp     @drs_success
 
 @drs_fail:
-        lda     #$00
-        ldx     #$00
+        sec
         rts
 
-; bool fujibus_disk_write_sector(void)
+; fujibus_disk_write_sector
 ;   Input:
 ;     data_ptr -> 256-byte sector data
 ;     fuji_disk_slot
 ;     fuji_current_sector
 ;   Output:
-;     A = 1 on success, 0 on failure
-;     X = 0
+;     C clear on success, set on failure
 ;
 ; Packet is built in buffer: 14-byte header then 256 bytes from (data_ptr).
 ; Checksum and SLIP are computed over the full 270 bytes without copying the sector into RAM.
@@ -656,16 +643,14 @@ fujibus_disk_write_sector:
         lda     (buffer_ptr),y
         bne     @ws_fail
 
-        ldx     #$00
-        lda     #$01
+        clc
         rts
 
 @ws_fail:
-        ldx     #$00
-        txa
+        sec
         rts
 
-; bool fujibus_resolve_path(void)
+; fujibus_resolve_path
 ; this is wrapped in a transaction, which sets buffer_ptr to PWS
 fujibus_resolve_path:
 
@@ -728,7 +713,7 @@ fujibus_resolve_path:
 
 ; put rp_fail into branch range
 @rp_fail:
-        lda     #$00
+        sec
         rts
 
 
@@ -819,7 +804,7 @@ fujibus_resolve_path:
 
 @rp_success:
         jsr     fhost_ensure_host_trailing_slash
-        lda     #$01
+        clc
         rts
 
 ; Validate a simple disk OK response after fujibus_receive_packet.

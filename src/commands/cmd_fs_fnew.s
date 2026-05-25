@@ -75,8 +75,7 @@ fnew_build_full_uri:
 exit_fnew:
         lda     #$00                    ; flags: no overwrite
         jsr     fuji_create_disk
-        cmp     #$00
-        beq     err_fnew_create
+        bcs     err_fnew_create
         jmp     exit_user_ok
 
 err_fnew_create:

@@ -26,7 +26,7 @@
 ; Entry: host URI buffer (fuji_host_uri_ptr) and FUJI_CURRENT_HOST_LEN set
 ; Exit:  resolved URI in host buffer / LEN; FUJI_CURRENT_DIR_LEN = path suffix length
 ;        PATH display = suffix of host buffer (fuji_dir_path_ptr)
-;        A = bool (true = success)
+;        C clear on success, set on failure
 ;//////////////////////////////////////////////////////////////////////
 
 fuji_resolve_path:
@@ -35,9 +35,9 @@ fuji_resolve_path:
         ; Call hardware-specific implementation
         jsr     fuji_begin_transaction  ; Protect &BC-&CB
         jsr     fuji_resolve_path_data
-        pha                             ; Save return value (bool)
+        php                             ; Save carry result
         jsr     fuji_end_transaction    ; Restore &BC-&CB
-        pla                             ; Restore return value
+        plp                             ; Restore carry result
         
         rts
 
@@ -46,7 +46,7 @@ fuji_resolve_path:
 ; This is the high-level interface that manages transactions
 ;
 ; Entry: host URI buffer and FUJI_CURRENT_HOST_LEN set
-; Exit:  A = bool (true = success)
+; Exit:  C clear on success, set on failure
 ;//////////////////////////////////////////////////////////////////////
 
 fuji_set_host:
@@ -55,9 +55,9 @@ fuji_set_host:
         ; Call hardware-specific implementation
         jsr     fuji_begin_transaction  ; Protect &BC-&CB
         jsr     fuji_set_host_data
-        pha                             ; Save return value (bool)
+        php                             ; Save carry result
         jsr     fuji_end_transaction    ; Restore &BC-&CB
-        pla                             ; Restore return value
+        plp                             ; Restore carry result
         
         rts
 
@@ -66,7 +66,7 @@ fuji_set_host:
 ; This is the high-level interface that manages transactions
 ;
 ; Exit:  host buffer and FUJI_CURRENT_HOST_LEN = current host
-;        A = bool (true = success)
+;        C clear on success, set on failure
 ;//////////////////////////////////////////////////////////////////////
 
 fuji_get_host:
@@ -75,9 +75,9 @@ fuji_get_host:
         ; Call hardware-specific implementation
         jsr     fuji_begin_transaction  ; Protect &BC-&CB
         jsr     fuji_get_host_data
-        pha                             ; Save return value (bool)
+        php                             ; Save carry result
         jsr     fuji_end_transaction    ; Restore &BC-&CB
-        pla                             ; Restore return value
+        plp                             ; Restore carry result
         
         rts
 
@@ -93,6 +93,7 @@ fuji_set_host_data:
 fuji_get_host_data:
         ; For serial, the host is stored in PWS
         ; No FujiNet command needed - just return success
+        clc
         lda     #$01
         rts
 
@@ -102,14 +103,17 @@ fuji_get_host_data:
 
 ; Userport interface - TODO: implement
 fuji_resolve_path_data:
+        sec
         lda     #$00
         rts
 
 fuji_set_host_data:
+        sec
         lda     #$00
         rts
 
 fuji_get_host_data:
+        sec
         lda     #$00
         rts
 

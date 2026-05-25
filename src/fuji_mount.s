@@ -35,7 +35,7 @@
 ;
 ; Entry: A = create flags
 ;        fuji_current_fs_len / PWS FS URI buffer already populated
-; Exit:  A = bool (1 = success, 0 = failure)
+; Exit:  C clear on success, set on failure
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 fuji_create_disk:
@@ -45,9 +45,9 @@ fuji_create_disk:
         jsr     fuji_begin_transaction  ; Protect &BC-&CB
         pla                             ; Restore create flags for hardware-specific create
         jsr     fuji_create_disk_data
-        pha                             ; Save return value (bool)
+        php                             ; Save carry result
         jsr     fuji_end_transaction    ; Restore &BC-&CB
-        pla                             ; Restore return value
+        plp                             ; Restore carry result
         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -73,9 +73,9 @@ fuji_mount_disk:
         jsr     fuji_begin_transaction  ; Protect &BC-&CB
         pla                             ; Restore live mount flags for hardware-specific mount
         jsr     fuji_mount_disk_data
-        pha                             ; Save return value (bool)
+        php                             ; Save carry result
         jsr     fuji_end_transaction    ; Restore &BC-&CB
-        pla                             ; Restore return value
+        plp                             ; Restore carry result
         
         rts
 
@@ -95,13 +95,13 @@ fuji_unmount_disk:
 
         jsr     fuji_begin_transaction
         jsr     fuji_unmount_disk_data
-        pha
+        php
         jsr     fuji_end_transaction
 
         ldx     current_drv
         lda     #$FF                    ; $FF = no disk mounted
         sta     fuji_drive_disk_map,x
-        pla
+        plp
         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
