@@ -53,8 +53,12 @@ service08_unrec_osword:
         bmi     service08_exit_remember
         cpy     #FNNET_OSWORD           ; allow FNNET_OSWORD ($78)
         beq     checks
-        cpy     #$7D                    ; allow 7D and 7E
-        bcc     service08_exit_remember
+
+        bne     service08_exit_remember
+
+        ;; TODO: UNCOMMENT WHEN WE SUPPORT MORE 08 SERVICE COMMANDS
+        ; cpy     #$7D                    ; allow 7D and 7E
+        ; bcc     service08_exit_remember
         ; fall through for 7E. We've already checked it's not >=$80 with BMI
 
 checks:

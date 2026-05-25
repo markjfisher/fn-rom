@@ -6,6 +6,11 @@
         .export fuji_link_write_slip_frame_dual
         .export fuji_link_write_slip_frame_triple
         .export slip_emit_region
+        .export slip_wait_start
+        .export slip_begin_frame
+        .export slip_wait_char
+        .export slip_process_char
+        .export slip_read_error
 
         .importzp aws_tmp00
         .importzp aws_tmp01
@@ -109,21 +114,22 @@ fuji_link_read_slip_frame:
         lda     #>WAIT_FIRST_MAX
         sta     aws_tmp11
 
-@wait_start:
+slip_wait_start:
+slip_wait_start_loop:
         jsr     fuji_link_check_byte_available
-        beq     @dec_wait_start
+        beq     slip_dec_wait_start
 
         jsr     fuji_link_read_byte
         ldx     cws_tmp1
-        beq     @start_byte_ok
-        jmp     @read_error
+        beq     slip_start_byte_ok
+        jmp     slip_read_error
 
-@start_byte_ok:
+slip_start_byte_ok:
         cmp     #SLIP_END
-        bne     @wait_start
-        jmp     @begin_frame
+        bne     slip_wait_start_loop
+        jmp     slip_begin_frame
 
-@dec_wait_start:
+slip_dec_wait_start:
         lda     aws_tmp10
         bne     :+
         dec     aws_tmp11
@@ -131,10 +137,10 @@ fuji_link_read_slip_frame:
         dec     aws_tmp10
         lda     aws_tmp10
         ora     aws_tmp11
-        bne     @wait_start
-        jmp     @read_error
+        bne     slip_wait_start_loop
+        jmp     slip_read_error
 
-@begin_frame:
+slip_begin_frame:
         lda     buffer_ptr
         sta     aws_tmp08
         lda     buffer_ptr+1
@@ -145,24 +151,25 @@ fuji_link_read_slip_frame:
         lda     #>FUJI_PWS_PACKET_SIZE
         sta     cws_tmp7
 
-@frame_loop:
+slip_frame_loop:
         lda     #<WAIT_NEXT_MAX
         sta     aws_tmp10
         lda     #>WAIT_NEXT_MAX
         sta     aws_tmp11
 
-@wait_char:
+slip_wait_char:
+slip_wait_char_loop:
         jsr     fuji_link_check_byte_available
-        beq     @dec_wait_char
+        beq     slip_dec_wait_char
 
         jsr     fuji_link_read_byte
         ldx     cws_tmp1
-        bne     @read_error
+        bne     slip_read_error
 
         sta     aws_tmp04
-        jmp     @process_char
+        jmp     slip_process_char
 
-@dec_wait_char:
+slip_dec_wait_char:
         lda     aws_tmp10
         bne     :+
         dec     aws_tmp11
@@ -171,52 +178,52 @@ fuji_link_read_slip_frame:
 
         lda     aws_tmp10
         ora     aws_tmp11
-        bne     @wait_char
-        beq     @read_error
+        bne     slip_wait_char_loop
+        beq     slip_read_error
 
-@error_pla:
+slip_error_pla:
         pla
 
-@read_error:
+slip_read_error:
         jsr     fuji_link_restore_default_io
         lda     #$00
         tax
         rts
 
-@process_char:
+slip_process_char:
         lda     aws_tmp04
         cmp     #SLIP_END
-        beq     @handle_end
+        beq     slip_handle_end
 
         lda     aws_tmp05
-        bne     @escaped_byte
+        bne     slip_escaped_byte
 
         lda     aws_tmp04
         cmp     #SLIP_ESCAPE
-        beq     @set_escape
+        beq     slip_set_escape
 
-@store_byte:
+slip_store_byte:
         pha
         lda     cws_tmp6
         ora     cws_tmp7
-        beq     @error_pla
+        beq     slip_error_pla
 
         lda     cws_tmp6
-        bne     @dec_cap_lo
+        bne     slip_dec_cap_lo
         dec     cws_tmp7
-@dec_cap_lo:
+slip_dec_cap_lo:
         dec     cws_tmp6
 
         pla
         ldy     #$00
         sta     (aws_tmp08),y
         inc     aws_tmp08
-        bne     @after_inc_hi
+        bne     slip_after_inc_hi
         inc     aws_tmp09
-@after_inc_hi:
-        jmp     @frame_loop
+slip_after_inc_hi:
+        jmp     slip_frame_loop
 
-@escaped_byte:
+slip_escaped_byte:
         lda     #$00
         sta     aws_tmp05
 
@@ -225,33 +232,33 @@ fuji_link_read_slip_frame:
         beq     :+
         cmp     #SLIP_ESC_ESC
         beq     :++
-        bne     @read_error
+        bne     slip_read_error
 :
         lda     #SLIP_END
-        bne     @store_byte
+        bne     slip_store_byte
 :
         lda     #SLIP_ESCAPE
-        bne     @store_byte
+        bne     slip_store_byte
 
-@set_escape:
+slip_set_escape:
         lda     #$01
         sta     aws_tmp05
-        bne     @frame_loop
+        bne     slip_frame_loop
 
-@handle_end:
+slip_handle_end:
         lda     aws_tmp08
         cmp     buffer_ptr
-        bne     @done
+        bne     slip_done
         lda     aws_tmp09
         cmp     buffer_ptr+1
-        bne     @done
-        jmp     @frame_loop
+        bne     slip_done
+        jmp     slip_frame_loop
 
-@done:
+slip_done:
         jsr     fuji_link_restore_default_io
 
         lda     aws_tmp05
-        bne     @read_error
+        bne     slip_read_error
 
         lda     aws_tmp08
         sec

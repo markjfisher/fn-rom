@@ -44,6 +44,11 @@
         ; for debug
         .export fujibus_send_packet_impl
         .export fujibus_receive_packet_impl
+        .export scatter_after_checksum
+        .export scatter_after_checksum_r2
+        .export scatter_after_checksum_r3
+        .export scatter_store_checksum
+        .export scatter_before_write
 
 fujibus_header_size = 6
 
@@ -162,6 +167,7 @@ fujibus_send_packet_impl:
         sta     aws_tmp01
         ; aws_tmp02/03 = total_len for checksum input
         jsr     calc_checksum
+scatter_after_checksum:
         ldy     #$04
         sta     (buffer_ptr),y
 
@@ -267,7 +273,7 @@ fujibus_send_packet_scatter:
 
         lda     aws_tmp08
         ora     aws_tmp09
-        beq     @skip_chk_r2
+        beq     scatter_after_checksum_r2
         lda     aws_tmp06
         sta     aws_tmp00
         lda     aws_tmp07
@@ -277,11 +283,11 @@ fujibus_send_packet_scatter:
         lda     aws_tmp09
         sta     aws_tmp03
         jsr     calc_checksum_continue
-@skip_chk_r2:
+scatter_after_checksum_r2:
 
         lda     cws_tmp6
         ora     cws_tmp7
-        beq     @skip_chk_r3
+        beq     scatter_after_checksum_r3
         lda     cws_tmp2
         sta     aws_tmp00
         lda     cws_tmp3
@@ -291,9 +297,11 @@ fujibus_send_packet_scatter:
         lda     cws_tmp7
         sta     aws_tmp03
         jsr     calc_checksum_continue
-@skip_chk_r3:
+scatter_after_checksum_r3:
 
+scatter_store_checksum:
         ldy     #$04
+        lda     aws_tmp04               ; checksum result from calc_checksum(_continue)
         sta     (buffer_ptr),y
 
         pla
@@ -321,6 +329,7 @@ fujibus_send_packet_scatter:
         pla
         sta     aws_tmp00
 
+scatter_before_write:
         jsr     fuji_link_write_slip_frame_triple
         rts
 

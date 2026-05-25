@@ -20,6 +20,12 @@
         .export  read_not_ready
         .export  check_read_length
         .export  check_descriptor
+        .export  nw_open_before_receive
+        .export  nw_open_after_receive
+        .export  nw_read_before_receive
+        .export  nw_read_after_receive
+        .export  nw_json_before_receive
+        .export  nw_json_after_receive
 
         .importzp aws_tmp00
         .importzp aws_tmp01
@@ -382,7 +388,9 @@ fujibus_network_open:
 
 @open_receive:
         ; receive response
+nw_open_before_receive:
         jsr     fujibus_receive_packet
+nw_open_after_receive:
 
         ; check for valid response
         cpx     #$00
@@ -512,7 +520,9 @@ fujibus_network_read:
         jsr     fujibus_send_packet
 
         ; receive response
+nw_read_before_receive:
         jsr     fujibus_receive_packet
+nw_read_after_receive:
 
         ; check for valid response
         cpx     #$00
@@ -1046,7 +1056,9 @@ fnjq_send_jq:
 
 fnjq_receive:
         ; receive response
+nw_json_before_receive:
         jsr     fujibus_receive_packet
+nw_json_after_receive:
 
         ; check for valid response
         cpx     #$00
