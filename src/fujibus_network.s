@@ -27,6 +27,7 @@
         .export  nw_read_after_receive
         .export  nw_json_before_receive
         .export  nw_json_after_receive
+        .export  nw_check_ok_response
 
         .importzp aws_tmp00
         .importzp aws_tmp01
@@ -50,9 +51,6 @@
         .importzp buffer_ptr
         .importzp fuji_bus_tx_command
         .importzp fuji_bus_tx_device
-        .importzp fuji_bus_tx_payload_hi
-        .importzp fuji_bus_tx_payload_lo
-
         .import fuji_ch_bptr_hi
         .import fuji_ch_bptr_low
         .import fuji_ch_bptr_mid
@@ -79,6 +77,7 @@
         .import fuji_ext_str_len_hi
         .import fuji_ext_str_ptr
         .import fujibus_receive_packet
+        .import fujibus_set_payload_buffer_ptr
         .import fujibus_send_packet
         .import fujibus_send_packet_scatter
         .import get_fuji_json_path_addr_to_aws_tmp00
@@ -357,13 +356,7 @@ fujibus_network_open:
         cmp     #(FUJI_EXT_STR_ACTIVE | FUJI_EXT_STR_IS_URL)
         beq     @open_send_scatter_url
 
-        lda     buffer_ptr
-        clc
-        adc     #$06
-        sta     fuji_bus_tx_payload_lo
-        lda     buffer_ptr+1
-        adc     #$00
-        sta     fuji_bus_tx_payload_hi
+        jsr     fujibus_set_payload_buffer_ptr
 
         lda     aws_tmp04
         ldx     aws_tmp05
@@ -540,13 +533,7 @@ fujibus_network_read:
         lda     #NET_CMD_READ
         sta     fuji_bus_tx_command
 
-        lda     buffer_ptr
-        clc
-        adc     #$06
-        sta     fuji_bus_tx_payload_lo
-        lda     buffer_ptr+1
-        adc     #$00
-        sta     fuji_bus_tx_payload_hi
+        jsr     fujibus_set_payload_buffer_ptr
 
         lda     #$09                    ; 9 bytes payload (1+2+4+2)
         ldx     #$00
@@ -794,13 +781,7 @@ fujibus_write_copy_start:
         lda     #NET_CMD_WRITE
         sta     fuji_bus_tx_command
 
-        lda     buffer_ptr
-        clc
-        adc     #$06
-        sta     fuji_bus_tx_payload_lo
-        lda     buffer_ptr+1
-        adc     #$00
-        sta     fuji_bus_tx_payload_hi
+        jsr     fujibus_set_payload_buffer_ptr
 
         ldx     aws_tmp15               ; payload size high
         lda     aws_tmp14               ; payload size low
@@ -808,34 +789,8 @@ fujibus_write_copy_start:
 
         ; receive response
         jsr     fujibus_receive_packet
-
-        ; check for valid response
-        cpx     #$00
-        bne     @wr_check_desc
-        cmp     #$00
-        beq     @wr_fail
-
-@wr_check_desc:
-        ; minimum: 7 + 6 + 4 = 17 bytes
         cmp     #$11
-        bcc     @wr_fail
-
-        ; check descriptor byte
-        ldy     #$05
-        lda     (buffer_ptr),y
-        cmp     #$01
-        bne     @wr_fail
-
-        ; check status code
-        iny
-        lda     (buffer_ptr),y
-        bne     @wr_fail
-
-        clc
-        rts
-
-@wr_fail:
-        sec
+        jsr     nw_check_ok_response
         rts
 
 
@@ -923,31 +878,8 @@ fujibus_network_write_ext:
 
         ; receive response
         jsr     fujibus_receive_packet
-
-        ; check for valid response
-        cpx     #$00
-        bne     @wrx_check_desc
-        cmp     #$00
-        beq     @wrx_fail
-
-@wrx_check_desc:
         cmp     #$11                    ; minimum: 7 + 10 bytes protocol response
-        bcc     @wrx_fail
-
-        ldy     #$05
-        lda     (buffer_ptr),y
-        cmp     #$01
-        bne     @wrx_fail
-
-        iny
-        lda     (buffer_ptr),y
-        bne     @wrx_fail
-
-        clc
-        rts
-
-@wrx_fail:
-        sec
+        jsr     nw_check_ok_response
         rts
 
 ; bool fujibus_network_close(uint16_t handle)
@@ -985,13 +917,7 @@ fujibus_network_close:
         lda     #NET_CMD_CLOSE
         sta     fuji_bus_tx_command
 
-        lda     buffer_ptr
-        clc
-        adc     #$06
-        sta     fuji_bus_tx_payload_lo
-        lda     buffer_ptr+1
-        adc     #$00
-        sta     fuji_bus_tx_payload_hi
+        jsr     fujibus_set_payload_buffer_ptr
 
         lda     #$03                    ; 3 bytes payload
         ldx     #$00
@@ -999,34 +925,9 @@ fujibus_network_close:
 
         ; receive response
         jsr     fujibus_receive_packet
-
-        ; check for valid response
-        cpx     #$00
-        bne     @check_descriptor
-        cmp     #$00
-        beq     @close_fail
-
-@check_descriptor:
         ; minimum: 7 + 4 = 11 bytes
         cmp     #$0B
-        bcc     @close_fail
-
-        ; check descriptor byte
-        ldy     #$05
-        lda     (buffer_ptr),y
-        cmp     #$01
-        bne     @close_fail
-
-        ; check status code
-        iny                             ; y = 6
-        lda     (buffer_ptr),y
-        bne     @close_fail
-
-        clc
-        rts
-
-@close_fail:
-        sec
+        jsr     nw_check_ok_response
         rts
 
 
@@ -1179,13 +1080,7 @@ fnjq_send_translate_configure:
         lda     #NET_CMD_TRANSLATE_CONFIGURE
         sta     fuji_bus_tx_command
 
-        lda     buffer_ptr
-        clc
-        adc     #$06
-        sta     fuji_bus_tx_payload_lo
-        lda     buffer_ptr+1
-        adc     #$00
-        sta     fuji_bus_tx_payload_hi
+        jsr     fujibus_set_payload_buffer_ptr
 
         ; payload size = 7 (ver+handle+type+flags+selectorLen) + selectorLen
         lda     fuji_json_path_len
@@ -1287,5 +1182,30 @@ fnjq_jq_success:
 
 fnjq_jq_fail:
         pla                             ; balance stack (intch was pushed at start)
+        sec
+        rts
+
+; Validate a simple network OK response after fujibus_receive_packet.
+; Input: A = minimum total packet length, X = received length high.
+; Output: C clear = ok, C set = fail.
+nw_check_ok_response:
+        sta     aws_tmp04
+        cpx     #$00
+        bne     @check_len
+        cmp     #$00
+        beq     @fail
+@check_len:
+        cmp     aws_tmp04
+        bcc     @fail
+        ldy     #$05
+        lda     (buffer_ptr),y
+        cmp     #$01
+        bne     @fail
+        iny
+        lda     (buffer_ptr),y
+        bne     @fail
+        clc
+        rts
+@fail:
         sec
         rts
