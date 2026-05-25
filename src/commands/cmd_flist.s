@@ -1,8 +1,3 @@
-; *FLIST / *FLS — list directory via FileDevice ListDirectory (hand asm)
-;
-;   *FLS                    formatted lines for current directory
-;   *FLS <path>             formatted lines for <path>
-
         .export  cmd_fs_flist
 
         .export  cfl_copy_uri
@@ -11,11 +6,8 @@
         .export  cfl_print_formatted_blob
         .export  cfl_page_loop
         .export  cfl_rxlen_ok
-        .export  cfl_scan_uri_nul
         .export  cfl_tx_uri
         .export  cfl_tx_uri_done
-        .export  cfl_uri_len_from_nul
-        .export  cfl_uri_len_ok
         .export  cfl_use_current_uri
         .export  cfl_zterm
 
@@ -36,9 +28,6 @@
         .importzp pws_tmp06
         .importzp pws_tmp07
         .importzp pws_tmp09
-        .importzp cws_tmp1
-        .importzp cws_tmp8
-
         .importzp buffer_ptr
         .importzp fuji_bus_tx_command
         .importzp fuji_bus_tx_device
@@ -58,7 +47,7 @@
         .import fujibus_send_packet
         .import get_fuji_fs_uri_addr_to_aws_tmp00
         .import get_fuji_host_uri_addr_to_aws_tmp00
-        .import num_params
+        .import param_count
         .import param_get_string
         .import print_char
         .import print_newline
@@ -82,34 +71,30 @@ CFL_RESP_ENTRY_COUNT    = $0D
 CFL_RESP_ENTRIES_LEN    = $0F
 CFL_RESP_ENTRIES        = $11
 
-;------------------------------------------------------------------------------
-; uint8_t cmd_fs_flist(void)
-;------------------------------------------------------------------------------
-cmd_fs_flist:
-        lda     fuji_current_fs_len
-        sta     aws_tmp04
-        lda     fuji_current_dir_len
-        sta     aws_tmp05
+; *FLIST / *FLS — list directory via FileDevice ListDirectory
+;
+;   *FLS                    formatted lines for current directory
+;   *FLS <path>             formatted lines for <path>
 
+cmd_fs_flist:
         lda     fuji_current_host_len
         bne     parse_flist_params
         jmp     err_no_host
 
 parse_flist_params:
-        jsr     num_params
-        beq     cfl_use_current_uri
+        lda     fuji_current_fs_len
+        sta     aws_tmp04
+        lda     fuji_current_dir_len
+        sta     aws_tmp05
 
-        cmp     #$02
-        bcc     one_param
-        jmp     err_syntax
+        jsr     param_count             ; 0-1 params, C=0 means 0 params
+        bcc     cfl_use_current_uri
 
 one_param:
         jsr     param_get_string
         sta     fuji_filename_len
         jsr     flist_resolve_target
-        bcs     err_bad_flist_path
-
-        jmp     cfl_start_list_restore
+        bcc     cfl_start_list_restore
 
 err_bad_flist_path:
         jsr     err_bad
@@ -158,7 +143,7 @@ cfl_page_loop:
 cfl_page_fail:
         jsr     report_error
         .byte   $CB
-        .byte   "Dir list err", 0
+        .byte   "List err", 0
 
 cfl_page_ok:
         lda     pws_tmp06
@@ -191,7 +176,11 @@ cfl_done_ok:
 ;------------------------------------------------------------------------------
 cfl_flist_one_page:
         lda     fuji_current_fs_len
-        sta     cws_tmp8
+        bne     :+
+        sec
+        rts
+:
+        sta     aws_tmp12
 
         jsr     get_fuji_fs_uri_addr_to_aws_tmp00
 
@@ -200,34 +189,11 @@ cfl_flist_one_page:
         lda     aws_tmp01
         sta     aws_tmp07
 
-        ldy     #$00
-cfl_scan_uri_nul:
-        lda     (aws_tmp00),y
-        beq     cfl_uri_len_from_nul
-        iny
-        cpy     cws_tmp8
-        bcc     cfl_scan_uri_nul
-
-        lda     cws_tmp8
-        sta     cws_tmp1
-        jmp     cfl_uri_len_ok
-
-cfl_uri_len_from_nul:
-        sty     cws_tmp1
-
-cfl_uri_len_ok:
-        lda     cws_tmp1
-        bne     has_length
-
-        sec
-        rts
-
-has_length:
         ldy     #$06
         lda     #FN_PROTOCOL_VERSION
         sta     (buffer_ptr),y
         iny
-        lda     cws_tmp1
+        lda     aws_tmp12
         sta     (buffer_ptr),y
         iny
         lda     #$00
@@ -243,7 +209,7 @@ has_length:
 
         ldy     #$00
 cfl_tx_uri:
-        cpy     cws_tmp1
+        cpy     aws_tmp12
         beq     cfl_tx_uri_done
         lda     (aws_tmp06),y
         sta     (aws_tmp00),y
@@ -253,7 +219,7 @@ cfl_tx_uri:
 cfl_tx_uri_done:
         lda     aws_tmp00
         clc
-        adc     cws_tmp1
+        adc     aws_tmp12
         sta     aws_tmp00
         lda     aws_tmp01
         adc     #$00
@@ -275,7 +241,7 @@ cfl_tx_uri_done:
         lda     #FLIST_LIST_FLAGS_FORMATTED
         sta     (aws_tmp00),y
 
-        lda     cws_tmp1
+        lda     aws_tmp12
         clc
         adc     #8
         sta     aws_tmp12
@@ -395,7 +361,7 @@ cfl_fmt_blob_loop:
         cmp     #$0A
         beq     cfl_fmt_blob_nl
         jsr     print_char
-        jmp     cfl_fmt_blob_adv
+        bne     cfl_fmt_blob_adv        ; always. A is restored last, and is not 0
 
 cfl_fmt_blob_nl:
         jsr     print_newline
@@ -404,7 +370,7 @@ cfl_fmt_blob_adv:
         inc     aws_tmp08
         bne     cfl_fmt_blob_loop
         inc     aws_tmp09
-        jmp     cfl_fmt_blob_loop
+        bne     cfl_fmt_blob_loop       ; always, the upper byte can never roll over to 00
 
 cfl_fmt_blob_done:
         rts

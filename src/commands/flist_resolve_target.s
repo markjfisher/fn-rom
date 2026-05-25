@@ -47,7 +47,7 @@
 flist_resolve_target:
         lda     fuji_current_host_len
         bne     frt_got_host
-        sec                                     ; C=1 is an error
+        sec
         rts
 
 frt_got_host:

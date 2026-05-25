@@ -25,6 +25,5 @@ cmd_fs_funmount:
         tax
         lda     #$FF
         sta     fuji_drive_disk_map,x    ; clear BBC drive -> slot bridge only
-        lda     #$FF
         sta     current_cat             ; invalidate cached catalog after unmapping a drive
         jmp     exit_user_ok
