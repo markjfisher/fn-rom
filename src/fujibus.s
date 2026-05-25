@@ -65,24 +65,6 @@ fujibus_header_size = 6
         sta     zp
 .endmacro
 
-.macro save_send_packet_wrapper_state
-        push_zp aws_tmp00
-        push_zp aws_tmp01
-        push_zp aws_tmp02
-        push_zp aws_tmp03
-        push_zp aws_tmp08
-        push_zp aws_tmp09
-.endmacro
-
-.macro restore_send_packet_wrapper_state
-        pop_zp  aws_tmp09
-        pop_zp  aws_tmp08
-        pop_zp  aws_tmp03
-        pop_zp  aws_tmp02
-        pop_zp  aws_tmp01
-        pop_zp  aws_tmp00
-.endmacro
-
 .macro save_scatter_wrapper_state
         push_zp aws_tmp00
         push_zp aws_tmp01
@@ -113,49 +95,14 @@ fujibus_header_size = 6
         pop_zp  aws_tmp00
 .endmacro
 
-.macro save_receive_packet_wrapper_state
-        push_zp aws_tmp00
-        push_zp aws_tmp01
-        push_zp aws_tmp02
-        push_zp aws_tmp03
-        push_zp aws_tmp04
-        push_zp aws_tmp05
-        push_zp aws_tmp08
-        push_zp aws_tmp09
-        push_zp aws_tmp10
-        push_zp aws_tmp11
-.endmacro
-
-.macro restore_receive_packet_wrapper_state
-        pop_zp  aws_tmp11
-        pop_zp  aws_tmp10
-        pop_zp  aws_tmp09
-        pop_zp  aws_tmp08
-        pop_zp  aws_tmp05
-        pop_zp  aws_tmp04
-        pop_zp  aws_tmp03
-        pop_zp  aws_tmp02
-        pop_zp  aws_tmp01
-        pop_zp  aws_tmp00
-.endmacro
-
 ; void fujibus_send_packet(uint16_t paylen);  A/X = payload byte count
 ;
 ; Caller must set ZP slots (see os.s): fuji_bus_tx_device, fuji_bus_tx_command,
 ; fuji_bus_tx_payload_lo/hi → first byte of payload source to copy after the wire header.
-; Legacy compatibility wrapper: preserves the broad scratch set used by older callers.
+; Legacy compatibility entry: now a thin alias onto the raw transport ABI.
 
 fujibus_send_packet:
-        sta     fuji_ax_save
-        stx     fuji_ax_save+1
-
-        save_send_packet_wrapper_state
-        jsr     fujibus_send_packet_prepare_wrapper_inputs
-
-        jsr     fujibus_send_packet_core
-
-        restore_send_packet_wrapper_state
-        rts
+        jmp     fujibus_send_packet_raw
 
 fujibus_set_payload_buffer_ptr:
         lda     buffer_ptr
@@ -405,21 +352,10 @@ scatter_before_write:
 
 
 ; uint16_t fujibus_receive_packet(void)
-; Legacy compatibility wrapper: preserves the broad scratch set used by older callers.
+; Legacy compatibility entry: now a thin alias onto the raw transport ABI.
 
 fujibus_receive_packet:
-        save_receive_packet_wrapper_state
-
-        jsr     fujibus_receive_packet_core
-
-        sta     fuji_ax_save
-        stx     fuji_ax_save+1
-
-        restore_receive_packet_wrapper_state
-
-        ldx     fuji_ax_save+1
-        lda     fuji_ax_save
-        rts
+        jmp     fujibus_receive_packet_raw
 
 
 ; Raw ABI for migrated callers:
