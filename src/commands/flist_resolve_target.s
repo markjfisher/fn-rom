@@ -207,24 +207,20 @@ frt_recv_ok:
 
         jsr     get_fuji_fs_uri_addr_to_aws_tmp00
 
-        lda     aws_tmp00
-        sta     aws_tmp02
-        lda     aws_tmp01
-        sta     aws_tmp03
-        lda     cws_tmp2
-        sta     aws_tmp00
-        lda     cws_tmp3
-        sta     aws_tmp01
-
-        lda     fuji_current_fs_len
+        ldy     #$00
 frt_copy_fs:
-        jsr     copy_aws_tmp00_to_aws_tmp02_a
+        cpy     fuji_current_fs_len
+        beq     frt_nul_term
+        lda     (cws_tmp2),y
+        sta     (aws_tmp00),y
+        iny
+        bne     frt_copy_fs
 
 frt_nul_term:
         cpy     #FUJI_FS_URI_BUFFER_SIZE
         bcs     frt_success
         lda     #$00
-        sta     (aws_tmp02),y
+        sta     (aws_tmp00),y
 
         ; Read displayPathLen (u16le) immediately after resolvedUri bytes.
         lda     cws_tmp2
