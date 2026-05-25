@@ -19,6 +19,7 @@
         .export  fujibus_disk_unmount
         .export  fujibus_disk_write_sector
         .export  fujibus_resolve_path
+        .export  fd_check_ok_response
 
         .importzp aws_tmp00
         .importzp aws_tmp01
@@ -38,11 +39,9 @@
         .importzp data_ptr
         .importzp fuji_bus_tx_command
         .importzp fuji_bus_tx_device
-        .importzp fuji_bus_tx_payload_hi
-        .importzp fuji_bus_tx_payload_lo
-
         .import calc_checksum
         .import calc_checksum_continue
+        .import copy_aws_tmp00_to_aws_tmp02_a
         .import fhost_ensure_host_trailing_slash
         .import fuji_current_dir_len
         .import fuji_current_fs_len
@@ -50,6 +49,7 @@
         .import fuji_current_sector
         .import fuji_disk_slot
         .import fujibus_receive_packet
+        .import fujibus_set_payload_buffer_ptr
         .import fujibus_send_packet
         .import fuji_link_write_slip_frame_dual
         .import get_fuji_fs_uri_addr_to_aws_tmp00
@@ -142,17 +142,14 @@ fujibus_disk_create:
         lda     buffer_ptr+1
         adc     #$00
         sta     cws_tmp3
+        lda     cws_tmp2
+        sta     aws_tmp02
+        lda     cws_tmp3
+        sta     aws_tmp03
 
         jsr     get_fuji_fs_uri_addr_to_aws_tmp00
-
-        ldy     #$00
-@copy_uri:
-        cpy     fuji_current_fs_len
-        beq     @send_packet
-        lda     (aws_tmp00),y
-        sta     (cws_tmp2),y
-        iny
-        bne     @copy_uri
+        lda     fuji_current_fs_len
+        jsr     copy_aws_tmp00_to_aws_tmp02_a
 
 @send_packet:
         lda     #FN_DEVICE_DISK
@@ -161,13 +158,7 @@ fujibus_disk_create:
         lda     #DISK_CMD_CREATE
         sta     fuji_bus_tx_command
 
-        lda     buffer_ptr
-        clc
-        adc     #$06
-        sta     fuji_bus_tx_payload_lo
-        lda     buffer_ptr+1
-        adc     #$00
-        sta     fuji_bus_tx_payload_hi
+        jsr     fujibus_set_payload_buffer_ptr
 
         ldx     #$00
         lda     fuji_current_fs_len
@@ -179,24 +170,9 @@ fujibus_disk_create:
         jsr     fujibus_send_packet
 
         jsr     fujibus_receive_packet
-
-        cpx     #$00
-        bne     @check_status
-        cmp     #$00
-        beq     @fail
-
         cmp     #$07
-        bcc     @fail
-
-@check_status:
-        ldy     #$05
-        lda     (buffer_ptr),y
-        cmp     #$01
-        bne     @fail
-
-        iny                                     ; y=6
-        lda     (buffer_ptr),y
-        bne     @fail
+        jsr     fd_check_ok_response
+        bcs     @fail
 
         lda     #$01
         ldx     #$00
@@ -267,17 +243,14 @@ fujibus_disk_mount:
         lda     buffer_ptr+1
         adc     #$00
         sta     cws_tmp3
+        lda     cws_tmp2
+        sta     aws_tmp02
+        lda     cws_tmp3
+        sta     aws_tmp03
 
         jsr     get_fuji_fs_uri_addr_to_aws_tmp00
-
-        ldy     #$00
-@copy_uri:
-        cpy     fuji_current_fs_len
-        beq     @send_packet
-        lda     (aws_tmp00),y
-        sta     (cws_tmp2),y
-        iny
-        bne     @copy_uri
+        lda     fuji_current_fs_len
+        jsr     copy_aws_tmp00_to_aws_tmp02_a
 
 @send_packet:
         lda     #FN_DEVICE_DISK
@@ -286,13 +259,7 @@ fujibus_disk_mount:
         lda     #DISK_CMD_MOUNT
         sta     fuji_bus_tx_command
 
-        lda     buffer_ptr
-        clc
-        adc     #$06
-        sta     fuji_bus_tx_payload_lo
-        lda     buffer_ptr+1
-        adc     #$00
-        sta     fuji_bus_tx_payload_hi
+        jsr     fujibus_set_payload_buffer_ptr
 
         ldx     #$00
         lda     fuji_current_fs_len
@@ -305,26 +272,9 @@ fujibus_disk_mount:
 
         ; receive response
         jsr     fujibus_receive_packet
-
-        ; false if response length == 0
-        cpx     #$00
-        bne     @check_status
-        cmp     #$00
-        beq     @fail
-
-        ; optional safety: require at least 7 bytes before reading [6]
         cmp     #$07
-        bcc     @fail
-
-@check_status:
-        ldy     #$05
-        lda     (buffer_ptr),y
-        cmp     #$01
-        bne     @fail
-
-        ldy     #$06
-        lda     (buffer_ptr),y
-        bne     @fail
+        jsr     fd_check_ok_response
+        bcs     @fail
 
         lda     #$01
         ldx     #$00
@@ -361,37 +311,16 @@ fujibus_disk_unmount:
         lda     #DISK_CMD_UNMOUNT
         sta     fuji_bus_tx_command
 
-        lda     buffer_ptr
-        clc
-        adc     #$06
-        sta     fuji_bus_tx_payload_lo
-        lda     buffer_ptr+1
-        adc     #$00
-        sta     fuji_bus_tx_payload_hi
+        jsr     fujibus_set_payload_buffer_ptr
 
         ldx     #$00
         lda     #$02
         jsr     fujibus_send_packet
 
         jsr     fujibus_receive_packet
-
-        cpx     #$00
-        bne     @du_check_status
-        cmp     #$00
-        beq     @du_fail
-
         cmp     #$08
-        bcc     @du_fail
-
-@du_check_status:
-        ldy     #$05
-        lda     (buffer_ptr),y
-        cmp     #$01
-        bne     @du_fail
-
-        iny                             ; y=6
-        lda     (buffer_ptr),y
-        bne     @du_fail
+        jsr     fd_check_ok_response
+        bcs     @du_fail
 
         lda     #$01
         ldx     #$00
@@ -474,37 +403,16 @@ disk_read_sector_common_recv:
         lda     #DISK_CMD_READ_SECTOR
         sta     fuji_bus_tx_command
 
-        lda     buffer_ptr
-        clc
-        adc     #$06
-        sta     fuji_bus_tx_payload_lo
-        lda     buffer_ptr+1
-        adc     #$00
-        sta     fuji_bus_tx_payload_hi
+        jsr     fujibus_set_payload_buffer_ptr
 
         lda     #$08
         ldx     #$00
         jsr     fujibus_send_packet
 
         jsr     fujibus_receive_packet
-
-        cpx     #$00
-        bne     @drc_check_minlen
-        cmp     #$00
-        beq     @drc_fail
-
-@drc_check_minlen:
         cmp     #$12                  ; 18
-        bcc     @drc_fail
-
-        ldy     #$05
-        lda     (buffer_ptr),y
-        cmp     #$01
-        bne     @drc_fail
-
-        iny                             ; y=6
-        lda     (buffer_ptr),y
-        bne     @drc_fail
+        jsr     fd_check_ok_response
+        bcs     @drc_fail
 
         clc
         rts
@@ -788,22 +696,20 @@ fujibus_resolve_path:
         lda     buffer_ptr+1
         adc     #$00
         sta     cws_tmp3
+        lda     cws_tmp2
+        sta     aws_tmp02
+        lda     cws_tmp3
+        sta     aws_tmp03
 
         jsr     get_fuji_host_uri_addr_to_aws_tmp00
-        ldy     #$00
-@copy_base_uri:
-        cpy     fuji_current_host_len
-        beq     @finish_request
-        lda     (aws_tmp00),y
-        sta     (cws_tmp2),y
-        iny
-        bne     @copy_base_uri
+        lda     fuji_current_host_len
+        jsr     copy_aws_tmp00_to_aws_tmp02_a
 
 @finish_request:
         lda     #$00
-        sta     (cws_tmp2),y
+        sta     (aws_tmp02),y
         iny
-        sta     (cws_tmp2),y
+        sta     (aws_tmp02),y
 
         lda     #FN_DEVICE_FILE
         sta     fuji_bus_tx_device
@@ -811,13 +717,7 @@ fujibus_resolve_path:
         lda     #FILE_CMD_RESOLVE_PATH
         sta     fuji_bus_tx_command
 
-        lda     buffer_ptr
-        clc
-        adc     #$06
-        sta     fuji_bus_tx_payload_lo
-        lda     buffer_ptr+1
-        adc     #$00
-        sta     fuji_bus_tx_payload_hi
+        jsr     fujibus_set_payload_buffer_ptr
 
         ldx     #$00
         lda     fuji_current_host_len
@@ -932,4 +832,29 @@ fujibus_resolve_path:
 @rp_success:
         jsr     fhost_ensure_host_trailing_slash
         lda     #$01
+        rts
+
+; Validate a simple disk OK response after fujibus_receive_packet.
+; Input: A = minimum total packet length, X = received length high.
+; Output: C clear = ok, C set = fail.
+fd_check_ok_response:
+        sta     aws_tmp14
+        cpx     #$00
+        bne     @fd_len_ok
+        cmp     #$00
+        beq     @fd_fail
+@fd_len_ok:
+        cmp     aws_tmp14
+        bcc     @fd_fail
+        ldy     #$05
+        lda     (buffer_ptr),y
+        cmp     #$01
+        bne     @fd_fail
+        iny
+        lda     (buffer_ptr),y
+        bne     @fd_fail
+        clc
+        rts
+@fd_fail:
+        sec
         rts
