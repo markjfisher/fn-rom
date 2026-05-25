@@ -78,6 +78,7 @@
         .import fuji_ext_str_len
         .import fuji_ext_str_len_hi
         .import fuji_ext_str_ptr
+        .import copy_aws_tmp00_to_aws_tmp02_a
         .import fujibus_receive_packet
         .import fujibus_set_payload_buffer_ptr
         .import fujibus_send_packet
@@ -181,27 +182,20 @@ fujibus_network_open:
         sta     (cws_tmp6),y
 
         ; bodyLenHint (u32le) - one-shot hint for POST/PUT requests
-        iny
-        ldx     #$00
         lda     fuji_network_body_len
         sta     aws_tmp10
         lda     fuji_network_body_len_hi
         sta     aws_tmp11
-        ldy     #$07
-        lda     (buffer_ptr),y          ; method byte at buffer+7
+        lda     aws_tmp04               ; saved method
         cmp     #NET_METHOD_POST
         beq     @body_hint_ok
         cmp     #NET_METHOD_PUT
         beq     @body_hint_ok
-        ldx     #$01
-@body_hint_ok:
-        ldy     #$02
-        cpx     #$00
-        beq     :+
         lda     #$00
         sta     aws_tmp10
         sta     aws_tmp11
-:
+@body_hint_ok:
+        ldy     #$02
         lda     aws_tmp10
         sta     (cws_tmp6),y
         iny
@@ -263,49 +257,39 @@ fujibus_network_open:
         sta     cws_tmp3
 
         jsr     get_fuji_json_path_addr_to_aws_tmp00
-        ldx     #$00
-@copy_selector:
-        cpx     fuji_json_path_len
-        beq     @open_calc_length
-        ldy     #$00
-        lda     (aws_tmp00),y
-        sta     (cws_tmp2),y
-        inc     aws_tmp00
-        bne     :+
-        inc     aws_tmp01
-:
-        inc     cws_tmp2
-        bne     :+
-        inc     cws_tmp3
-:
-        inx
-        jmp     @copy_selector
+        lda     cws_tmp2
+        sta     aws_tmp02
+        lda     cws_tmp3
+        sta     aws_tmp03
+        lda     fuji_json_path_len
+        jsr     copy_aws_tmp00_to_aws_tmp02_a
 
 @open_no_translation:
 @open_calc_length:
-        ; payload length = 13 + urlLen [+ 8 + selectorLen if translation]
+        ; payload length = 13 + urlLen, or 21 + urlLen + selectorLen with translation
+        lda     fuji_json_path_len
+        beq     @open_no_translation_len
+        clc
+        adc     #21
+        sta     aws_tmp04
+        lda     aws_tmp03
+        adc     #$00
+        sta     aws_tmp05
+        lda     aws_tmp02
+        clc
+        adc     aws_tmp04
+        sta     aws_tmp04
+        lda     aws_tmp05
+        adc     #$00
+        sta     aws_tmp05
+        jmp     @open_payload_len_done
+
+@open_no_translation_len:
         lda     aws_tmp02
         clc
         adc     #13
         sta     aws_tmp04
         lda     aws_tmp03
-        adc     #$00
-        sta     aws_tmp05
-
-        lda     fuji_json_path_len
-        beq     @open_payload_len_done
-        lda     aws_tmp04
-        clc
-        adc     #8
-        sta     aws_tmp04
-        lda     aws_tmp05
-        adc     #$00
-        sta     aws_tmp05
-        lda     fuji_json_path_len
-        clc
-        adc     aws_tmp04
-        sta     aws_tmp04
-        lda     aws_tmp05
         adc     #$00
         sta     aws_tmp05
 @open_payload_len_done:
