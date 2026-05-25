@@ -7,14 +7,16 @@
 ;   handler: jsr work; rts   (handler outside inner block, like .notOSWORD7F)
         .export service08_unrec_osword
 
+        .import fuji_begin_transaction
+        .import fuji_end_transaction
         .import fnnet_dispatch
         .import remember_axy
         .import return_with_a0
-        .import paged_ram_copy
         .import vectors_table
         .import ACTIVE_ROM_ID
         .import OSFILE_V
 
+        .import paged_ram_copy:         zeropage
         .import osword_call_save:       zeropage
         .import osword_x_save:          zeropage
         .import osword_y_save:          zeropage
@@ -87,6 +89,9 @@ service08_exit_remember:
         rts                             ; MMFS line 3528: unwind remember_axy
 
 fnnet_service08_handler:
+        jsr     fuji_begin_transaction   ; OSWORD service calls arrive with IRQs disabled
         ldx     osword_x_save           ; parameter block pointer low
         ldy     osword_y_save           ; parameter block pointer high
-        jmp     fnnet_dispatch
+        jsr     fnnet_dispatch
+        jsr     fuji_end_transaction
+        rts

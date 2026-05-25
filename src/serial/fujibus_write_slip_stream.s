@@ -3,11 +3,20 @@
 
         .export  fuji_link_write_byte
 
-        .import OSWRCH
-
         .include "fujinet.inc"
+
+ACIA_STATUS     := $FE08
+ACIA_DATA       := $FE09
+ACIA_TDRE       := $02
 
         .segment "CODE"
 
 fuji_link_write_byte:
-        jmp     OSWRCH
+        pha
+@wait_tdre:
+        lda     ACIA_STATUS
+        and     #ACIA_TDRE
+        beq     @wait_tdre
+        pla
+        sta     ACIA_DATA
+        rts

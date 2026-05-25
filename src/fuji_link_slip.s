@@ -36,6 +36,7 @@
 
         .import fuji_link_restore_default_io
         .import fuji_link_setup
+        .import fuji_link_setup_write
         .import fuji_link_check_byte_available
         .import fuji_link_read_byte
         .import fuji_link_write_byte
@@ -274,7 +275,7 @@ slip_done:
 
 ; Write one SLIP frame from a contiguous region.
 fuji_link_write_slip_frame:
-        jsr     fuji_link_setup
+        jsr     fuji_link_setup_write
 
         lda     #SLIP_END
         jsr     fuji_link_write_byte
@@ -283,11 +284,11 @@ fuji_link_write_slip_frame:
 
         lda     #SLIP_END
         jsr     fuji_link_write_byte
-        jmp     fuji_link_restore_default_io
+        rts
 
 ; Write one SLIP frame from two contiguous regions.
 fuji_link_write_slip_frame_dual:
-        jsr     fuji_link_setup
+        jsr     fuji_link_setup_write
 
         lda     #SLIP_END
         jsr     fuji_link_write_byte
@@ -307,14 +308,14 @@ fuji_link_write_slip_frame_dual:
 
         lda     #SLIP_END
         jsr     fuji_link_write_byte
-        jmp     fuji_link_restore_default_io
+        rts
 
 ; Write one SLIP frame from three contiguous regions.
 ; Region 1: aws_tmp00/01, aws_tmp02/03
 ; Region 2: aws_tmp06/07, aws_tmp08/09 (skipped if len=0)
 ; Region 3: cws_tmp2/3, cws_tmp6/7 (skipped if len=0)
 fuji_link_write_slip_frame_triple:
-        jsr     fuji_link_setup
+        jsr     fuji_link_setup_write
 
         lda     #SLIP_END
         jsr     fuji_link_write_byte
@@ -351,4 +352,4 @@ fuji_link_write_slip_frame_triple:
 
         lda     #SLIP_END
         jsr     fuji_link_write_byte
-        jmp     fuji_link_restore_default_io
+        rts

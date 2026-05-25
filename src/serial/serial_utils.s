@@ -4,6 +4,7 @@
         .export flush_serial
         .export restore_output_to_screen
         .export setup_serial_19200
+        .export setup_serial_19200_and_flush
 
         ; functions used by C
         .export check_rs423_buffer
@@ -70,7 +71,10 @@ setup_serial_19200:
         ldy     #0
         lda     #OSBYTE_OUTPUT_STREAM
         jsr     OSBYTE
-        ; ... drop through to flush
+        rts
+
+setup_serial_19200_and_flush:
+        jsr     setup_serial_19200
 
 flush_serial:
         ; Flush serial input buffer

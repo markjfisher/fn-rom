@@ -13,6 +13,8 @@
         .importzp aws_tmp00
         .importzp aws_tmp01
         .importzp aws_tmp02
+        .importzp aws_tmp14
+        .importzp aws_tmp15
 
         .import check_channel_yhndl_exyintch
         .import fuji_ch_bptr_hi
@@ -44,7 +46,9 @@ fnnet_call_entry:
 ; Core dispatcher: X/Y=parameter block, reason at (block)+0.
 fnnet_dispatch:
         stx     aws_tmp00
+        stx     aws_tmp14
         sty     aws_tmp01
+        sty     aws_tmp15
 
         ldy     #$00
         lda     (aws_tmp00),y
@@ -62,9 +66,9 @@ fnnet_fail:
         lda     #FNNET_STATUS_BAD_CALL
 fnnet_exit:
         ldy     #$00
-        sta     (aws_tmp00),y
+        sta     (aws_tmp14),y
         ldy     #$01
-        sta     (aws_tmp00),y
+        sta     (aws_tmp14),y
         rts
 
 fnnet_reason_version:
@@ -105,10 +109,13 @@ fnnet_json_channel_ok:
         jsr     fujibus_network_translate_configure
         bcs     fnnet_json_query_failed
 fnnet_json_done:
+        lda     #$00
+        sta     fuji_json_path_len      ; immediate translate should not affect future OPEN requests
         lda     #FNNET_STATUS_OK
         beq     fnnet_exit
 
 fnnet_bad_channel:
+        jsr     fnnet_clear_ext_state
         lda     #FNNET_STATUS_BAD_CHANNEL
         bne     fnnet_exit
 
@@ -124,7 +131,7 @@ fnnet_json_query_failed:
         sta     fuji_ch_bptr_mid,y
         sta     fuji_ch_bptr_hi,y
         sta     fuji_ch_sect_cnt,y
-        sta     fuji_json_path_len
+        jsr     fnnet_clear_ext_state
         lda     #FNNET_STATUS_JSON_QUERY_FAILED
         bne     fnnet_exit
 
@@ -159,6 +166,7 @@ fnnet_load_ok:
         clc
         rts
 fnnet_load_fail:
+        jsr     fnnet_clear_ext_state
         sec
         rts
 
@@ -167,5 +175,15 @@ set_flags_and_len:
         ora     fuji_ext_str_flags
         sta     fuji_ext_str_flags
         lda     fuji_ext_str_len
+        sta     fuji_json_path_len
+        rts
+
+fnnet_clear_ext_state:
+        lda     #$00
+        sta     fuji_ext_str_flags
+        sta     fuji_ext_str_len
+        sta     fuji_ext_str_len_hi
+        sta     fuji_ext_str_ptr
+        sta     fuji_ext_str_ptr+1
         sta     fuji_json_path_len
         rts
