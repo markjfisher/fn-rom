@@ -17,6 +17,7 @@
         .importzp fuji_bus_tx_payload_lo
 
         .import cfl_print_formatted_blob
+        .import err_syntax
         .import exit_user_ok
         .import fujibus_receive_packet
         .import fujibus_send_packet
@@ -42,10 +43,7 @@ FDRIVE_RESP_DATA            = $11
 cmd_fs_fdrive:
         jsr     num_params
         beq     @init
-
-        jsr     report_error
-        .byte   $CB
-        .byte   "FDRIVE", 0
+        jmp     err_syntax
 
 @init:
         lda     #$00
@@ -111,8 +109,7 @@ cmd_fs_fdrive:
 @fail:
         jsr     report_error
         .byte   $CB
-        .byte   "Drive list err", 0
-
+        .byte   "List", 0
 
 
 @check_header:

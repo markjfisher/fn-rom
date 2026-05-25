@@ -10,15 +10,7 @@
 ; and subsequent BGET# reads return only the matched value.
 
         .export  cmd_fs_fjson
-
-        .export  _fjson_copy_loop
-        .export  _fjson_has_params
-        .export  _fjson_one_param
-        .export  _fjson_parse_start
-        .export  _fjson_path_done
-        .export  _fjson_store_channel
-        .export  _fjson_store_idx
-        .export  _fjson_two_params
+        .export  fjson_parse_start
 
         .importzp aws_tmp00
         .importzp aws_tmp03
@@ -29,6 +21,7 @@
 
         .import check_channel_yhndl_exyintch
         .import err_bad
+        .import err_syntax
         .import exit_user_ok
         .import fuji_ch_bptr_hi
         .import fuji_ch_bptr_low
@@ -61,63 +54,58 @@ err_bad_handle:
         .byte   $CB
         .byte   "handle", $00
 
-err_bad_params:
-        ; display message then unset the JSON string
-        lda     #$00
-        sta     fuji_json_path_len
-
-        jsr     err_bad
-        .byte   $CB
-        .byte   "params", $00
-
 cmd_fs_fjson:
-        ; Count parameters: 0 = clear, 1 = store path, 2 = handle + path
+        ; Count parameters: 0 = clear, 2 = handle + path
         jsr     num_params
-        bne     _fjson_has_params
+        beq     params_0
+        cmp     #$02
+        beq     params_2
 
+exit_bad_syntax:
+        jmp     err_syntax
+
+params_0:
         ; no params → clear pending path and exit
         lda     #$00
         sta     fuji_json_path_len
         jmp     exit_user_ok
 
-_fjson_has_params:
-        cmp     #3
-        bcs     err_bad_params
-
-        cmp     #1
-        bne     _fjson_two_params              ; 2+ params → parse handle + path
-        jmp     _fjson_one_param               ; 1 param → store path only
-_fjson_two_params:
+params_2:
         ; Read handle as string first (supports multi-digit)
         clc
         jsr     param_get_string        ; Y must be preserved after this call
 
         tax                             ; X = length, A = length
-        bne     _fjson_parse_start
-        cmp     #$03                    ; check we only had 1-2 digits
-        bcs     err_bad_handle
+        bne     fjson_parse_start
+        cmp     #$02                    ; check we have exactly 2 digits, our minimum is 10
+        bne     err_bad_handle
 
-; either have X=1, and 1 digit, so no multiplication needed
-; or X=2 and 2 digits, first digit needs multiplying up by 10
-
-_fjson_parse_start:
+; Calculate the handle from the input string (atoi) on the 2 digit string.
+fjson_parse_start:
         lda     fuji_filename_buffer
         sec
         sbc     #'0'                    ; first digit
-
-        dex
-        beq     _fjson_parse_done       ; one digit only
+        cmp     #10
+        bcs     err_bad_handle          ; validate we only have digits
 
         asl     a                       ; *2
-        sta     aws_tmp03
+        pha                             ; save on the stack, and add directly to it
         asl     a                       ; *4
         asl     a                       ; *8
+
         clc
-        adc     aws_tmp03               ; first digit *10
+        tsx
+        adc     $0101, x                ; first digit *10 (8x + 2x on stack)
+        ; remove the byte from the stack, we can't use PLA, alternates are TAY/PLA/TYA which is 3 bytes, and trashes Y too
+        inx
+        txs
+
         clc
         adc     fuji_filename_buffer+1
         sec
         sbc     #'0'                    ; + second digit
+        cmp     #100
+        bcs     err_bad_handle
 
 _fjson_parse_done:
         cmp     #filehndl
@@ -127,9 +115,28 @@ _fjson_parse_done:
 
 _fjson_store_idx:
         pha                             ; save channel index
-        jsr     parse_json_path
 
-_fjson_store_channel:
+parse_json_path:
+        ; Y is still valid from text parsing, as we haven't altered it
+        ldx     #FUJI_JSON_PATH_BUFFER_SIZE
+        jsr     param_get_string_max_x
+        bcc     exit_bad_syntax
+
+        sta     fuji_filename_len       ; save length
+        sta     fuji_json_path_len
+
+        ; Copy path from fuji_filename_buffer to PWS
+        jsr     get_fuji_json_path_addr_to_aws_tmp00
+        ldx     fuji_json_path_len
+        ldy     #$00
+
+fjson_copy_loop:
+        lda     fuji_filename_buffer,y
+        sta     (aws_tmp00),y
+        iny
+        dex
+        bne     fjson_copy_loop
+
         ; Use the same file-handle-to-intch conversion that BGET uses
         pla                             ; A = channel index (0-5)
         tay                             ; Y = file handle for conversion
@@ -147,35 +154,6 @@ _fjson_ext_done:
         sta     fuji_json_path_len      ; immediate translate should not affect future OPEN requests
         ; pla                             ; balance stack (intch was pushed)
         jmp     exit_user_ok
-
-_fjson_one_param:
-        ; Single param: path only, no query sent
-        jsr     parse_json_path
-        jmp     exit_user_ok
-
-parse_json_path:
-        ; Y is still valid from text parsing, as we haven't altered it
-        ldx     #FUJI_JSON_PATH_BUFFER_SIZE
-        jsr     param_get_string_max_x
-        bcc     err_bad_params
-
-_fjson_path_done:
-        sta     fuji_filename_len       ; save length
-        sta     fuji_json_path_len
-
-        ; Copy path from fuji_filename_buffer to PWS
-        ; NOTE: get_fuji_json_path_addr_to_aws_tmp00 clobbers X (paged_ram_copy),
-        ; so we must reload X from fuji_json_path_len AFTER the call.
-        jsr     get_fuji_json_path_addr_to_aws_tmp00
-        ldx     fuji_json_path_len
-        ldy     #$00
-_fjson_copy_loop:
-        lda     fuji_filename_buffer,y
-        sta     (aws_tmp00),y
-        iny
-        dex
-        bne     _fjson_copy_loop
-        rts
 
 err_network:
         ; Exhausted/failed JSON translate should behave like an empty result for BASIC.

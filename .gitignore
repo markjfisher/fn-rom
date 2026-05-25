@@ -1,23 +1,22 @@
 build/
 obj/
 test/
+/b2-scripts/
+/scratch/
 
 *.ssd
 *.dsd
 /*.hex
 *.xex
 
-/scratch/
-
-trace_*.txt
-debug_*.txt
+trace_*
+debug_*
 
 /old_*.c
 
-/.vscode/
 
 __pycache__/
 .cursor/
 .continue/
-
-/b2-scripts/
+/.vscode/
+/.kilo/

@@ -49,6 +49,8 @@
         .import fuji_lib_dir
         .import fuji_lib_drive
         .import fuji_network_flush_mode
+        .import fuji_network_body_len
+        .import fuji_network_body_len_hi
         .import fuji_network_retry_max
         .import fuji_open_channels
         .import get_fuji_fs_uri_addr_to_aws_tmp00
@@ -183,7 +185,9 @@ fuji_init:
 
         iny                             ; y = 1, "pws full" flag, or "fuji_own_sws_indicator"
         lda     (aws_tmp00), y
-        bmi     initdfs_noreset         ; if PWS is "empty", after a copy, this is set to 00, before it's FF (empty)
+        bpl     :+
+        jmp     initdfs_noreset         ; if PWS is "empty", after a copy, this is set to 00, before it's FF (empty)
+:
 
         jsr     claim_static_workspace
 
@@ -234,6 +238,8 @@ setdefaults:
         sta     fuji_default_drive
         sta     fuji_open_channels
         sta     fuji_network_flush_mode
+        sta     fuji_network_body_len
+        sta     fuji_network_body_len_hi
         lda     #NET_RETRY_MAX
         sta     fuji_network_retry_max
 

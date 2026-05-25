@@ -11,6 +11,7 @@
         .importzp cws_tmp2
         .importzp cws_tmp3
 
+        .import err_bad_string
         .import err_no_host
         .import exit_user_ok
         .import fhost_ensure_host_trailing_slash
@@ -50,9 +51,9 @@ cmd_fs_fcd:
 
 fcd_set_path:
         lda     fuji_current_host_len
-        bne     :+
+        bne     host_set
         jmp     err_no_host
-:       
+host_set:
         clc
         jsr     param_get_string
         sta     fuji_filename_len
@@ -60,9 +61,7 @@ fcd_set_path:
         jsr     flist_resolve_target
         bcc     fcd_resolved_ok
 
-        jsr     report_error
-        .byte   $CB
-        .byte   "Bad string", 0
+        jmp     err_bad_string
 
 fcd_resolved_ok:
         jsr     fcd_commit_resolved_path

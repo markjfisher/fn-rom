@@ -173,7 +173,7 @@ cmd_table_futils:
         .byte   "MOUNT",     $8A, $04         ; <slot> (<drive>)
         .byte   "UNMOUNT",   $83, $00         ; <drive>
         .byte   "OUT",       $8A, $00         ; <slot>
-        .byte   "JSON",      $93, $00         ; <string>
+        .byte   "JSON",      $96, $00         ; [<handle> <string>]
         .byte   "NEW",       $88, $00         ; <dos name>
         .byte   $00                     ; End of table
 
@@ -270,5 +270,6 @@ parameter_table:
         .byte '<'|$80, "string>"                ; 13
         .byte '('|$80, "L)"                     ; 14
         .byte '<'|$80, "path>"                  ; 15
+        .byte '('|$80, "<handle> <string>)"     ; 16
 
         .byte $FF

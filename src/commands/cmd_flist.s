@@ -47,6 +47,7 @@
 
         .import err_bad
         .import err_no_host
+        .import err_syntax
         .import exit_user_ok
         .import flist_resolve_target
         .import fuji_current_dir_len
@@ -99,20 +100,16 @@ parse_flist_params:
         beq     cfl_use_current_uri
 
         cmp     #$02
-        bcs     err_bad_flist_syntax
+        bcc     one_param
+        jmp     err_syntax
 
-        clc
+one_param:
         jsr     param_get_string
         sta     fuji_filename_len
         jsr     flist_resolve_target
         bcs     err_bad_flist_path
 
         jmp     cfl_start_list_restore
-
-err_bad_flist_syntax:
-        jsr     report_error
-        .byte   $CB
-        .byte   "FLS [path]", 0
 
 err_bad_flist_path:
         jsr     err_bad

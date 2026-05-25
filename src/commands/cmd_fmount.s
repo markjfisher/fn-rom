@@ -2,8 +2,6 @@
 
         .export  cmd_fs_fmount
 
-        .export  err_bad_disk_mount
-        .export  err_failed_to_mount
         .export  mount_ok
 
         .importzp aws_tmp08
@@ -45,17 +43,6 @@ MAX_BBC_DRIVE  := 3
 
 FMOUNT_FLAG_FORCE_RO := DISK_MOUNT_FLAG_READONLY
 
-
-err_fmount_syntax:
-        jsr     report_error
-        .byte   $CB
-        .byte   "FMOUNT slot [drive] [RO]", 0
-
-err_fmount_bad_mode:
-        jsr     report_error
-        .byte   $CB
-        .byte   "Mode must be RO", 0
-
 ;------------------------------------------------------------------------------
 ; Main entry — same layout as cmd_fin.s (parse, FujiBus, exit_user_ok)
 ;------------------------------------------------------------------------------
@@ -68,9 +55,9 @@ cmd_fs_fmount:
 
         jsr     num_params
         cmp     #$01
-        bcc     err_fmount_syntax
+        bcc     err_fmount
         cmp     #$04
-        bcs     err_fmount_syntax
+        bcs     err_fmount
         sta     cws_tmp7                ; number of params
 
         lda     #$00
@@ -101,16 +88,16 @@ cmd_fs_fmount:
         jsr     param_get_string
         tax                             ; length
         cpx     #$02
-        bne     err_fmount_bad_mode
+        bne     err_fmount
 
         lda     fuji_filename_buffer
         and     #$DF                    ; uppercase
         cmp     #'R'
-        bne     err_fmount_bad_mode
+        bne     err_fmount
         lda     fuji_filename_buffer+1
         and     #$DF
         cmp     #'O'
-        bne     err_fmount_bad_mode
+        bne     err_fmount
 
         lda     #FMOUNT_FLAG_FORCE_RO
         sta     fuji_channel_scratch
@@ -118,12 +105,7 @@ cmd_fs_fmount:
 @done:
         jsr     fuji_get_slot
         cmp     #$00
-        bne     mount_ok
-
-err_failed_to_mount:
-        jsr     report_error
-        .byte   $CB
-        .byte   "Err reading slot", 0
+        beq     err_fmount
 
 mount_ok:
         ; put fs_uri location in cws_tmp2/3, do it before set_fuji_data_buffer_ptr
@@ -144,10 +126,11 @@ mount_ok:
         and     #$01
         bne     is_enabled
         ; fall through to error
-
+err_fmount:
         jsr     report_error
         .byte   $CB
-        .byte   "Not enabled", 0
+        .byte   "fmount", 0
+
 
 is_enabled:
         ldy     #$09
@@ -185,8 +168,9 @@ is_enabled:
         lda     fuji_channel_scratch
         jsr     fuji_mount_disk                         ; this uses "remember_xy_only" - can't rely on PLA to keep A set
         cmp     #$00
-        beq     err_bad_disk_mount
+        beq     err_fmount
 
+@mount_checked:
         ; Disk mount response payload: [7]=version [8]=flags
         ; bit1 on flags means effective read-only.
         ldy     #$08
@@ -204,12 +188,6 @@ is_enabled:
         sta     current_cat             ; invalidate cached catalog after remapping a drive
         jmp     exit_user_ok
 
-err_bad_disk_mount:
-        jsr     report_error
-        .byte   $CB
-        .byte   "Failed to mount disk", 0
-
-
 
 str_fmount_readonly:
-        .byte   "Mounted read-only", 0
+        .byte   "RO", 0

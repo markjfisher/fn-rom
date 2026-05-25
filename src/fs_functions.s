@@ -367,10 +367,10 @@ param_syntax_error_if_null:
         beq     err_syntax              ; If no parameters, syntax error
         rts
 
-param_syntax_error_if_not_null:
-        jsr     GSINIT_A
-        bne     err_syntax
-        rts
+; param_syntax_error_if_not_null:
+;         jsr     GSINIT_A
+;         bne     err_syntax
+;         rts
 
 ; err_syntax - Syntax error handler (MMFS line 5566-5571)
 err_syntax:

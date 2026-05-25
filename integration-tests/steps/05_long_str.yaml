@@ -8,6 +8,21 @@ paste:
   - '*CAT'
 
 steps:
+  - name: fnpost01_basic_post
+    paste:
+      - 'CHAIN "FNPOST1"'
+    delay_seconds: 8.0
+    checks:
+      - screen:
+          expect:
+            regex:
+              - 'FujiNet POST body test'
+              - 'Body length: [0-9]+'
+              - 'Set body len status: 0'
+              - 'Write data status: 0'
+              - 'Method query status: 0'
+              - 'Method result: POST'
+              - 'POST response received'
   - name: opin03_long_url
     paste:
       - 'CHAIN "OPIN03"'

@@ -12,6 +12,7 @@
         .export  fujibus_network_open
         .export  fujibus_network_read
         .export  fujibus_network_write
+        .export  fujibus_network_write_ext
         .export  fujibus_network_close
         .export  fujibus_network_translate_configure
         .export  fujibus_write_copy_start
@@ -62,9 +63,14 @@
         .import fuji_ch_handle_high
         .import fuji_ch_handle_low
         .import fuji_ch_sect_cnt
+        .import fuji_ch_write_pos_low
+        .import fuji_ch_write_pos_mid
+        .import fuji_ch_write_pos_hi
         .import fuji_filename_buffer
         .import fuji_intch
         .import fuji_json_path_len
+        .import fuji_network_body_len
+        .import fuji_network_body_len_hi
         .import fuji_network_buf_cnt
         .import fuji_network_buf_cnt_hi
         .import fuji_network_url_flag
@@ -211,15 +217,42 @@ fujibus_network_open:
         iny
         sta     (cws_tmp6),y
 
-        ; bodyLenHint = 0 (u32le)
+        ; bodyLenHint (u32le) - one-shot hint for POST/PUT requests
         iny
+        ldx     #$00
+        lda     fuji_network_body_len
+        sta     aws_tmp10
+        lda     fuji_network_body_len_hi
+        sta     aws_tmp11
+        ldy     #$07
+        lda     (buffer_ptr),y          ; method byte at buffer+7
+        cmp     #NET_METHOD_POST
+        beq     @body_hint_ok
+        cmp     #NET_METHOD_PUT
+        beq     @body_hint_ok
+        ldx     #$01
+@body_hint_ok:
+        ldy     #$02
+        cpx     #$00
+        beq     :+
+        lda     #$00
+        sta     aws_tmp10
+        sta     aws_tmp11
+:
+        lda     aws_tmp10
+        sta     (cws_tmp6),y
+        iny
+        lda     aws_tmp11
+        sta     (cws_tmp6),y
+        iny
+        lda     #$00
         sta     (cws_tmp6),y
         iny
         sta     (cws_tmp6),y
-        iny
-        sta     (cws_tmp6),y
-        iny
-        sta     (cws_tmp6),y
+
+        ; clear one-shot body hint after consuming it
+        sta     fuji_network_body_len
+        sta     fuji_network_body_len_hi
 
         ; respHeaderCount = 0 (u16le)
         iny
@@ -802,6 +835,118 @@ fujibus_write_copy_start:
         rts
 
 @wr_fail:
+        sec
+        rts
+
+
+; bool fujibus_network_write_ext(uint16_t handle, uint32_t offset, uint16_t dataLen)
+;   Input:
+;     fuji_ext_str_ptr / fuji_ext_str_len(_hi) describe the source data in user RAM
+;     aws_tmp06/07/08/09 = 32-bit offset (little-endian)
+;     Y = intch (to read handle from channel block)
+;   Output:
+;     C = 0 on success, 1 on failure
+
+fujibus_network_write_ext:
+        tya
+        tax                             ; move intch into X for indexing
+
+        ; version
+        lda     #FN_PROTOCOL_VERSION
+        ldy     #$06
+        sta     (buffer_ptr),y
+
+        ; handle (u16le)
+        lda     fuji_ch_handle_low,x
+        iny                             ; y=7
+        sta     (buffer_ptr),y
+        lda     fuji_ch_handle_high,x
+        iny                             ; y=8
+        sta     (buffer_ptr),y
+
+        ; offset (u32le)
+        lda     aws_tmp06
+        iny                             ; y=9
+        sta     (buffer_ptr),y
+        lda     aws_tmp07
+        iny                             ; y=10
+        sta     (buffer_ptr),y
+        lda     aws_tmp08
+        iny                             ; y=11
+        sta     (buffer_ptr),y
+        lda     aws_tmp09
+        iny                             ; y=12
+        sta     (buffer_ptr),y
+
+        ; dataLen (u16le)
+        lda     fuji_ext_str_len
+        iny                             ; y=13
+        sta     (buffer_ptr),y
+        lda     fuji_ext_str_len_hi
+        iny                             ; y=14
+        sta     (buffer_ptr),y
+
+        lda     #FN_DEVICE_NETWORK
+        sta     fuji_bus_tx_device
+
+        lda     #NET_CMD_WRITE
+        sta     fuji_bus_tx_command
+
+        ; scatter region 1 = full FujiBus header + write prefix through dataLen (15 bytes)
+        lda     buffer_ptr
+        sta     aws_tmp00
+        lda     buffer_ptr+1
+        sta     aws_tmp01
+        lda     #$0F
+        sta     aws_tmp02
+        lda     #$00
+        sta     aws_tmp03
+
+        ; scatter region 2 = user RAM body bytes
+        lda     fuji_ext_str_ptr
+        sta     aws_tmp06
+        lda     fuji_ext_str_ptr+1
+        sta     aws_tmp07
+        lda     fuji_ext_str_len
+        sta     aws_tmp08
+        lda     fuji_ext_str_len_hi
+        sta     aws_tmp09
+
+        ; no region 3
+        lda     #$00
+        sta     cws_tmp2
+        sta     cws_tmp3
+        sta     cws_tmp6
+        sta     cws_tmp7
+
+        jsr     fujibus_send_packet_scatter
+
+        ; receive response
+        jsr     fujibus_receive_packet
+
+        ; check for valid response
+        cpx     #$00
+        bne     @wrx_check_desc
+        cmp     #$00
+        beq     @wrx_fail
+
+@wrx_check_desc:
+        cmp     #$11                    ; minimum: 7 + 10 bytes protocol response
+        bcc     @wrx_fail
+
+        ldy     #$05
+        lda     (buffer_ptr),y
+        cmp     #$01
+        bne     @wrx_fail
+
+        iny
+        lda     (buffer_ptr),y
+        bne     @wrx_fail
+
+        clc
+        rts
+
+@wrx_fail:
         sec
         rts
 

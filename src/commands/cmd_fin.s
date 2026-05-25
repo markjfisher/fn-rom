@@ -43,7 +43,7 @@ cmd_fs_fin:
 err_no_host:
         jsr     report_error
         .byte   $CB
-        .byte   "No host set", 0
+        .byte   "No host", 0
 
 have_host:
         ; parse parameters
@@ -68,18 +68,14 @@ have_host:
         jsr     param_get_string
         sta     fuji_filename_len
 
-
-
-@have_host:
         jsr     fin_build_full_uri
-
         jsr     fuji_set_slot
         cmp     #$00
         bne     @set_ok
 
         jsr     report_error
         .byte   $CB
-        .byte   "Set Mount error", 0
+        .byte   "mount", 0
 
 @set_ok:
         jmp     exit_user_ok

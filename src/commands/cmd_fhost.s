@@ -162,7 +162,7 @@ fhost_copy_and_resolve:
 
         jsr     report_error
         .byte   $CB
-        .byte   "Could not set host URI", 0
+        .byte   "URI", 0
 
 ;------------------------------------------------------------------------------
 ; Ensure canonical host URI ends with '/' when representing a directory.
