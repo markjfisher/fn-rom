@@ -138,13 +138,9 @@ fujibus_disk_create:
         lda     buffer_ptr
         clc
         adc     #$11
-        sta     cws_tmp2
+        sta     aws_tmp02
         lda     buffer_ptr+1
         adc     #$00
-        sta     cws_tmp3
-        lda     cws_tmp2
-        sta     aws_tmp02
-        lda     cws_tmp3
         sta     aws_tmp03
 
         jsr     get_fuji_fs_uri_addr_to_aws_tmp00
@@ -239,13 +235,9 @@ fujibus_disk_mount:
         lda     buffer_ptr
         clc
         adc     #$0E
-        sta     cws_tmp2
+        sta     aws_tmp02
         lda     buffer_ptr+1
         adc     #$00
-        sta     cws_tmp3
-        lda     cws_tmp2
-        sta     aws_tmp02
-        lda     cws_tmp3
         sta     aws_tmp03
 
         jsr     get_fuji_fs_uri_addr_to_aws_tmp00
@@ -692,13 +684,9 @@ fujibus_resolve_path:
         lda     buffer_ptr
         clc
         adc     #$09
-        sta     cws_tmp2
+        sta     aws_tmp02
         lda     buffer_ptr+1
         adc     #$00
-        sta     cws_tmp3
-        lda     cws_tmp2
-        sta     aws_tmp02
-        lda     cws_tmp3
         sta     aws_tmp03
 
         jsr     get_fuji_host_uri_addr_to_aws_tmp00

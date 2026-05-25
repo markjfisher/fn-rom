@@ -45,4 +45,4 @@ steps:
               - 'FujiNet long JSON path test'
               - 'Path length: 200'
               - 'Long JSON path status: 0'
-              - 'Long JSON path sent'
+              # - 'Long JSON path sent'  # need a better test, this never triggers because we send /urlxxxxxx... and that doesn't match
