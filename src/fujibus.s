@@ -37,10 +37,12 @@
 
         .segment "CODE"
 
-        .export fujibus_send_packet
-        .export fujibus_send_packet_scatter
-        .export fujibus_receive_packet
-        .export fujibus_set_payload_buffer_ptr
+.export fujibus_send_packet
+.export fujibus_send_packet_raw
+.export fujibus_send_packet_scatter
+.export fujibus_receive_packet
+.export fujibus_receive_packet_raw
+.export fujibus_set_payload_buffer_ptr
 
         ; for debug
         .export fujibus_send_packet_impl
@@ -141,6 +143,7 @@ fujibus_header_size = 6
 ;
 ; Caller must set ZP slots (see os.s): fuji_bus_tx_device, fuji_bus_tx_command,
 ; fuji_bus_tx_payload_lo/hi → first byte of payload source to copy after the wire header.
+; Legacy compatibility wrapper: preserves the broad scratch set used by older callers.
 
 fujibus_send_packet:
         sta     fuji_ax_save
@@ -189,6 +192,19 @@ fujibus_send_packet_prepare_wrapper_inputs:
 
 ; Internal core: aws_tmp02/03 = paylen, aws_tmp00/01 = payload ptr,
 ; buffer [0],[1] = dev/cmd. No wrapper stack dependency.
+;
+; Raw ABI for migrated callers:
+;   input  A/X = payload byte count
+;          fuji_bus_tx_device / fuji_bus_tx_command set
+;          fuji_bus_tx_payload_lo/hi set
+;   output none
+;   clobbers aws_tmp00/01/02/03/08/09, A, X, Y
+
+fujibus_send_packet_raw:
+        sta     fuji_ax_save
+        stx     fuji_ax_save+1
+        jsr     fujibus_send_packet_prepare_wrapper_inputs
+        jmp     fujibus_send_packet_core
 
 fujibus_send_packet_core:
 fujibus_send_packet_impl = fujibus_send_packet_core
@@ -389,6 +405,7 @@ scatter_before_write:
 
 
 ; uint16_t fujibus_receive_packet(void)
+; Legacy compatibility wrapper: preserves the broad scratch set used by older callers.
 
 fujibus_receive_packet:
         save_receive_packet_wrapper_state
@@ -404,6 +421,13 @@ fujibus_receive_packet:
         lda     fuji_ax_save
         rts
 
+
+; Raw ABI for migrated callers:
+;   output A/X = decoded packet length, or 0/0 on failure
+;   clobbers aws_tmp00/01/02/03/04/05/08/09/10/11, A, X, Y
+
+fujibus_receive_packet_raw:
+        jmp     fujibus_receive_packet_core
 
 fujibus_receive_packet_core:
 fujibus_receive_packet_impl = fujibus_receive_packet_core

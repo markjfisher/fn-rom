@@ -43,9 +43,9 @@
         .import fuji_current_fs_len
         .import fuji_current_host_len
         .import fuji_filename_len
-        .import fujibus_receive_packet
+        .import fujibus_receive_packet_raw
         .import fujibus_set_payload_buffer_ptr
-        .import fujibus_send_packet
+        .import fujibus_send_packet_raw
         .import get_fuji_fs_uri_addr_to_aws_tmp00
         .import get_fuji_host_uri_addr_to_aws_tmp00
         .import param_count
@@ -255,9 +255,9 @@ cfl_tx_uri_done:
 
         lda     aws_tmp12
         ldx     aws_tmp13
-        jsr     fujibus_send_packet
+        jsr     fujibus_send_packet_raw
 
-        jsr     fujibus_receive_packet
+        jsr     fujibus_receive_packet_raw
         sta     aws_tmp12
         stx     aws_tmp13
 

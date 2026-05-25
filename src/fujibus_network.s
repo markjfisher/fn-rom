@@ -79,9 +79,9 @@
         .import fuji_ext_str_len_hi
         .import fuji_ext_str_ptr
         .import copy_aws_tmp00_to_aws_tmp02_a
-        .import fujibus_receive_packet
+        .import fujibus_receive_packet_raw
         .import fujibus_set_payload_buffer_ptr
-        .import fujibus_send_packet
+        .import fujibus_send_packet_raw
         .import fujibus_send_packet_scatter
         .import get_fuji_json_path_addr_to_aws_tmp00
         .import network_retry_backoff
@@ -308,7 +308,7 @@ fujibus_network_open:
 
         lda     aws_tmp04
         ldx     aws_tmp05
-        jsr     fujibus_send_packet
+        jsr     fujibus_send_packet_raw
         jmp     @open_receive
 
 @open_send_scatter_url:
@@ -363,7 +363,7 @@ fujibus_network_open:
 @open_receive:
         ; receive response
 nw_open_before_receive:
-        jsr     fujibus_receive_packet
+        jsr     fujibus_receive_packet_raw
 nw_open_after_receive:
 
         ; check for valid response
@@ -485,11 +485,19 @@ fujibus_network_read:
 
         lda     #$09                    ; 9 bytes payload (1+2+4+2)
         ldx     #$00
-        jsr     fujibus_send_packet
+        jsr     fujibus_send_packet_raw
+
+        ; Preserve the request offset locally so receive can use the raw ABI too.
+        lda     aws_tmp06
+        sta     cws_tmp6
+        lda     aws_tmp07
+        sta     cws_tmp7
+        lda     aws_tmp08
+        sta     aws_tmp14
 
         ; receive response
 nw_read_before_receive:
-        jsr     fujibus_receive_packet
+        jsr     fujibus_receive_packet_raw
 nw_read_after_receive:
 
         ; check for valid response
@@ -600,14 +608,14 @@ read_success:
         ; Remote EOF known: set EXT = offset + bytes returned so subsequent
         ; EOF#/BGET# stops locally without retrying NotReady at the same offset.
         ldy     fuji_intch
-        lda     aws_tmp06
+        lda     cws_tmp6
         clc
         adc     fuji_network_buf_cnt
         sta     fuji_ch_ext_low,y
-        lda     aws_tmp07
+        lda     cws_tmp7
         adc     fuji_network_buf_cnt_hi
         sta     fuji_ch_ext_mid,y
-        lda     aws_tmp08
+        lda     aws_tmp14
         adc     #$00
         sta     fuji_ch_ext_hi,y
 :
@@ -704,10 +712,10 @@ fujibus_write_copy_start:
 
         ldx     aws_tmp15               ; payload size high
         lda     aws_tmp14               ; payload size low
-        jsr     fujibus_send_packet
+        jsr     fujibus_send_packet_raw
 
         ; receive response
-        jsr     fujibus_receive_packet
+        jsr     fujibus_receive_packet_raw
         cmp     #$11
         jsr     nw_check_ok_response
         rts
@@ -767,7 +775,7 @@ fujibus_network_write_ext:
         jsr     fujibus_send_packet_scatter
 
         ; receive response
-        jsr     fujibus_receive_packet
+        jsr     fujibus_receive_packet_raw
         cmp     #$11                    ; minimum: 7 + 10 bytes protocol response
         jsr     nw_check_ok_response
         rts
@@ -811,10 +819,10 @@ fujibus_network_close:
 
         lda     #$03                    ; 3 bytes payload
         ldx     #$00
-        jsr     fujibus_send_packet
+        jsr     fujibus_send_packet_raw
 
         ; receive response
-        jsr     fujibus_receive_packet
+        jsr     fujibus_receive_packet_raw
         ; minimum: 7 + 4 = 11 bytes
         cmp     #$0B
         jsr     nw_check_ok_response
@@ -982,12 +990,12 @@ fnjq_send_translate_configure:
 fnjq_payload_hi_zero:
         ldx     #$00
 fnjq_send_jq:
-        jsr     fujibus_send_packet
+        jsr     fujibus_send_packet_raw
 
 fnjq_receive:
         ; receive response
 nw_json_before_receive:
-        jsr     fujibus_receive_packet
+        jsr     fujibus_receive_packet_raw
 nw_json_after_receive:
 
         ; check for valid response
