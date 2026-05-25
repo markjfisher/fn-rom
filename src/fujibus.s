@@ -40,6 +40,7 @@
 .export fujibus_send_packet
 .export fujibus_send_packet_raw
 .export fujibus_send_packet_scatter
+.export fujibus_send_packet_scatter_raw
 .export fujibus_receive_packet
 .export fujibus_receive_packet_raw
 .export fujibus_set_payload_buffer_ptr
@@ -54,46 +55,6 @@
         .export scatter_before_write
 
 fujibus_header_size = 6
-
-.macro push_zp zp
-        lda     zp
-        pha
-.endmacro
-
-.macro pop_zp zp
-        pla
-        sta     zp
-.endmacro
-
-.macro save_scatter_wrapper_state
-        push_zp aws_tmp00
-        push_zp aws_tmp01
-        push_zp aws_tmp02
-        push_zp aws_tmp03
-        push_zp aws_tmp08
-        push_zp aws_tmp09
-        push_zp aws_tmp06
-        push_zp aws_tmp07
-        push_zp cws_tmp2
-        push_zp cws_tmp3
-        push_zp cws_tmp6
-        push_zp cws_tmp7
-.endmacro
-
-.macro restore_scatter_wrapper_state
-        pop_zp  cws_tmp7
-        pop_zp  cws_tmp6
-        pop_zp  cws_tmp3
-        pop_zp  cws_tmp2
-        pop_zp  aws_tmp07
-        pop_zp  aws_tmp06
-        pop_zp  aws_tmp09
-        pop_zp  aws_tmp08
-        pop_zp  aws_tmp03
-        pop_zp  aws_tmp02
-        pop_zp  aws_tmp01
-        pop_zp  aws_tmp00
-.endmacro
 
 ; Transport send ABI
 ;   input  A/X = payload byte count
@@ -256,13 +217,23 @@ fujibus_send_packet_write_frame:
         rts
 
 
-; void fujibus_send_packet_scatter(void)
-; Region 1: aws_tmp00/01 ptr, aws_tmp02/03 len (includes FujiBus header)
-; Region 2: aws_tmp06/07 ptr, aws_tmp08/09 len (optional)
-; Region 3: cws_tmp2/3 ptr, cws_tmp6/7 len (optional)
+; Scatter transport send ABI
+;   region 1: aws_tmp00/01 ptr, aws_tmp02/03 len (includes FujiBus header)
+;   region 2: aws_tmp06/07 ptr, aws_tmp08/09 len (optional)
+;   region 3: cws_tmp2/3 ptr, cws_tmp6/7 len (optional)
+;   clobbers aws_tmp00/01/02/03/04/08/09, A, X, Y
 
-fujibus_send_packet_scatter:
-        save_scatter_wrapper_state
+fujibus_send_packet_scatter = fujibus_send_packet_scatter_raw
+
+fujibus_send_packet_scatter_raw:
+        jsr     fujibus_send_packet_scatter_prepare_header
+        jsr     fujibus_send_packet_scatter_store_total_len
+        jsr     fujibus_send_packet_scatter_store_checksum
+        jsr     fujibus_send_packet_scatter_restore_regions_for_write
+scatter_before_write:
+        jmp     fuji_link_write_slip_frame_triple
+
+fujibus_send_packet_scatter_prepare_header:
 
         ldy     #$00
         lda     fuji_bus_tx_device
@@ -270,7 +241,9 @@ fujibus_send_packet_scatter:
         iny
         lda     fuji_bus_tx_command
         sta     (buffer_ptr),y
+        rts
 
+fujibus_send_packet_scatter_store_total_len:
         lda     aws_tmp02
         sta     fuji_ax_save
         lda     aws_tmp03
@@ -301,7 +274,9 @@ fujibus_send_packet_scatter:
         sta     (buffer_ptr),y
         iny
         sta     (buffer_ptr),y
+        rts
 
+fujibus_send_packet_scatter_store_checksum:
         jsr     calc_checksum
 
         lda     aws_tmp08
@@ -336,11 +311,33 @@ scatter_store_checksum:
         ldy     #$04
         lda     aws_tmp04               ; checksum result from calc_checksum(_continue)
         sta     (buffer_ptr),y
+        rts
 
-        restore_scatter_wrapper_state
+fujibus_send_packet_scatter_restore_regions_for_write:
+        ; Rebuild region 1 after checksum calculation repurposed aws_tmp00..03.
+        ; Region 2/3 descriptors remain intact in aws_tmp06..09 and cws_tmp2/3/6/7.
+        lda     buffer_ptr
+        sta     aws_tmp00
+        lda     buffer_ptr+1
+        sta     aws_tmp01
 
-scatter_before_write:
-        jsr     fuji_link_write_slip_frame_triple
+        ldy     #$02
+        lda     (buffer_ptr),y
+        sec
+        sbc     aws_tmp08
+        sta     aws_tmp02
+        iny
+        lda     (buffer_ptr),y
+        sbc     aws_tmp09
+        sta     aws_tmp03
+
+        lda     aws_tmp02
+        sec
+        sbc     cws_tmp6
+        sta     aws_tmp02
+        lda     aws_tmp03
+        sbc     cws_tmp7
+        sta     aws_tmp03
         rts
 
 

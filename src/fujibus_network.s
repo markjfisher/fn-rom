@@ -82,7 +82,7 @@
         .import fujibus_receive_packet_raw
         .import fujibus_set_payload_buffer_ptr
         .import fujibus_send_packet_raw
-        .import fujibus_send_packet_scatter
+        .import fujibus_send_packet_scatter_raw
         .import get_fuji_json_path_addr_to_aws_tmp00
         .import network_retry_backoff
         .import network_retry_init
@@ -356,7 +356,7 @@ fujibus_network_open:
         sta     cws_tmp7
 
 @open_do_scatter:
-        jsr     fujibus_send_packet_scatter
+        jsr     fujibus_send_packet_scatter_raw
         lda     #$00
         sta     fuji_ext_str_flags
 
@@ -772,7 +772,7 @@ fujibus_network_write_ext:
         sta     cws_tmp6
         sta     cws_tmp7
 
-        jsr     fujibus_send_packet_scatter
+        jsr     fujibus_send_packet_scatter_raw
 
         ; receive response
         jsr     fujibus_receive_packet_raw
@@ -941,7 +941,7 @@ fnjq_send_scatter:
         sta     cws_tmp6
         sta     cws_tmp7
 
-        jsr     fujibus_send_packet_scatter
+        jsr     fujibus_send_packet_scatter_raw
         lda     #$00
         sta     fuji_ext_str_flags
         jmp     fnjq_receive
