@@ -53,6 +53,90 @@
 
 fujibus_header_size = 6
 
+.macro push_zp zp
+        lda     zp
+        pha
+.endmacro
+
+.macro pop_zp zp
+        pla
+        sta     zp
+.endmacro
+
+.macro save_send_packet_wrapper_state
+        push_zp aws_tmp00
+        push_zp aws_tmp01
+        push_zp aws_tmp02
+        push_zp aws_tmp03
+        push_zp aws_tmp08
+        push_zp aws_tmp09
+.endmacro
+
+.macro restore_send_packet_wrapper_state
+        pop_zp  aws_tmp09
+        pop_zp  aws_tmp08
+        pop_zp  aws_tmp03
+        pop_zp  aws_tmp02
+        pop_zp  aws_tmp01
+        pop_zp  aws_tmp00
+.endmacro
+
+.macro save_scatter_wrapper_state
+        push_zp aws_tmp00
+        push_zp aws_tmp01
+        push_zp aws_tmp02
+        push_zp aws_tmp03
+        push_zp aws_tmp08
+        push_zp aws_tmp09
+        push_zp aws_tmp06
+        push_zp aws_tmp07
+        push_zp cws_tmp2
+        push_zp cws_tmp3
+        push_zp cws_tmp6
+        push_zp cws_tmp7
+.endmacro
+
+.macro restore_scatter_wrapper_state
+        pop_zp  cws_tmp7
+        pop_zp  cws_tmp6
+        pop_zp  cws_tmp3
+        pop_zp  cws_tmp2
+        pop_zp  aws_tmp07
+        pop_zp  aws_tmp06
+        pop_zp  aws_tmp09
+        pop_zp  aws_tmp08
+        pop_zp  aws_tmp03
+        pop_zp  aws_tmp02
+        pop_zp  aws_tmp01
+        pop_zp  aws_tmp00
+.endmacro
+
+.macro save_receive_packet_wrapper_state
+        push_zp aws_tmp00
+        push_zp aws_tmp01
+        push_zp aws_tmp02
+        push_zp aws_tmp03
+        push_zp aws_tmp04
+        push_zp aws_tmp05
+        push_zp aws_tmp08
+        push_zp aws_tmp09
+        push_zp aws_tmp10
+        push_zp aws_tmp11
+.endmacro
+
+.macro restore_receive_packet_wrapper_state
+        pop_zp  aws_tmp11
+        pop_zp  aws_tmp10
+        pop_zp  aws_tmp09
+        pop_zp  aws_tmp08
+        pop_zp  aws_tmp05
+        pop_zp  aws_tmp04
+        pop_zp  aws_tmp03
+        pop_zp  aws_tmp02
+        pop_zp  aws_tmp01
+        pop_zp  aws_tmp00
+.endmacro
+
 ; void fujibus_send_packet(uint16_t paylen);  A/X = payload byte count
 ;
 ; Caller must set ZP slots (see os.s): fuji_bus_tx_device, fuji_bus_tx_command,
@@ -62,19 +146,29 @@ fujibus_send_packet:
         sta     fuji_ax_save
         stx     fuji_ax_save+1
 
-        lda     aws_tmp00
-        pha
-        lda     aws_tmp01
-        pha
-        lda     aws_tmp02
-        pha
-        lda     aws_tmp03
-        pha
-        lda     aws_tmp08
-        pha
-        lda     aws_tmp09
-        pha
+        save_send_packet_wrapper_state
+        jsr     fujibus_send_packet_prepare_wrapper_inputs
 
+        jsr     fujibus_send_packet_core
+
+        restore_send_packet_wrapper_state
+        rts
+
+fujibus_set_payload_buffer_ptr:
+        lda     buffer_ptr
+        clc
+        adc     #$06
+        sta     fuji_bus_tx_payload_lo
+        lda     buffer_ptr+1
+        adc     #$00
+        sta     fuji_bus_tx_payload_hi
+        rts
+
+
+; Wrapper setup: copy the public call inputs into the internal scratch contract used
+; by the packet-building core, then populate header bytes [0],[1].
+
+fujibus_send_packet_prepare_wrapper_inputs:
         lda     fuji_ax_save
         sta     aws_tmp02
         lda     fuji_ax_save+1
@@ -91,23 +185,21 @@ fujibus_send_packet:
         iny
         lda     fuji_bus_tx_command
         sta     (buffer_ptr),y
-
-        jmp     fujibus_send_packet_impl
-
-fujibus_set_payload_buffer_ptr:
-        lda     buffer_ptr
-        clc
-        adc     #$06
-        sta     fuji_bus_tx_payload_lo
-        lda     buffer_ptr+1
-        adc     #$00
-        sta     fuji_bus_tx_payload_hi
         rts
 
+; Internal core: aws_tmp02/03 = paylen, aws_tmp00/01 = payload ptr,
+; buffer [0],[1] = dev/cmd. No wrapper stack dependency.
 
-; Internal: aws_tmp02/03 = paylen, aws_tmp00/01 = payload ptr, buffer [0],[1] = dev/cmd
+fujibus_send_packet_core:
+fujibus_send_packet_impl = fujibus_send_packet_core
+        jsr     fujibus_send_packet_prepare_payload_destination
+        jsr     fujibus_send_packet_copy_payload
+        jsr     fujibus_send_packet_finalize_header
+        jsr     fujibus_send_packet_store_checksum
+        jsr     fujibus_send_packet_write_frame
+        rts
 
-fujibus_send_packet_impl:
+fujibus_send_packet_prepare_payload_destination:
         ; destination pointer = buffer + header size
         lda     buffer_ptr
         clc
@@ -118,7 +210,9 @@ fujibus_send_packet_impl:
         sta     aws_tmp09
 
         ldy     #$00
+        rts
 
+fujibus_send_packet_copy_payload:
 @copy_payload:
         lda     aws_tmp02
         ora     aws_tmp03
@@ -143,6 +237,9 @@ fujibus_send_packet_impl:
         jmp     @copy_payload
 
 @payload_done:
+        rts
+
+fujibus_send_packet_finalize_header:
         ; total_len = current dest ptr - buffer base
         lda     aws_tmp08
         sec
@@ -164,6 +261,9 @@ fujibus_send_packet_impl:
         iny                             ; Y = 5
         sta     (buffer_ptr),y
 
+        rts
+
+fujibus_send_packet_store_checksum:
         ; save total_len across calc_checksum
         lda     aws_tmp02
         sta     fuji_ax_save
@@ -187,6 +287,9 @@ scatter_after_checksum:
         lda     fuji_ax_save+1
         sta     aws_tmp03
 
+        rts
+
+fujibus_send_packet_write_frame:
         ; stream packet as SLIP over the selected channel
         lda     buffer_ptr
         sta     aws_tmp00
@@ -194,19 +297,6 @@ scatter_after_checksum:
         sta     aws_tmp01
         ; aws_tmp02/03 still = total_len
         jsr     fuji_link_write_slip_frame
-
-        pla
-        sta     aws_tmp09
-        pla
-        sta     aws_tmp08
-        pla
-        sta     aws_tmp03
-        pla
-        sta     aws_tmp02
-        pla
-        sta     aws_tmp01
-        pla
-        sta     aws_tmp00
         rts
 
 
@@ -216,30 +306,7 @@ scatter_after_checksum:
 ; Region 3: cws_tmp2/3 ptr, cws_tmp6/7 len (optional)
 
 fujibus_send_packet_scatter:
-        lda     aws_tmp00
-        pha
-        lda     aws_tmp01
-        pha
-        lda     aws_tmp02
-        pha
-        lda     aws_tmp03
-        pha
-        lda     aws_tmp08
-        pha
-        lda     aws_tmp09
-        pha
-        lda     aws_tmp06
-        pha
-        lda     aws_tmp07
-        pha
-        lda     cws_tmp2
-        pha
-        lda     cws_tmp3
-        pha
-        lda     cws_tmp6
-        pha
-        lda     cws_tmp7
-        pha
+        save_scatter_wrapper_state
 
         ldy     #$00
         lda     fuji_bus_tx_device
@@ -314,30 +381,7 @@ scatter_store_checksum:
         lda     aws_tmp04               ; checksum result from calc_checksum(_continue)
         sta     (buffer_ptr),y
 
-        pla
-        sta     cws_tmp7
-        pla
-        sta     cws_tmp6
-        pla
-        sta     cws_tmp3
-        pla
-        sta     cws_tmp2
-        pla
-        sta     aws_tmp07
-        pla
-        sta     aws_tmp06
-        pla
-        sta     aws_tmp09
-        pla
-        sta     aws_tmp08
-        pla
-        sta     aws_tmp03
-        pla
-        sta     aws_tmp02
-        pla
-        sta     aws_tmp01
-        pla
-        sta     aws_tmp00
+        restore_scatter_wrapper_state
 
 scatter_before_write:
         jsr     fuji_link_write_slip_frame_triple
@@ -347,83 +391,72 @@ scatter_before_write:
 ; uint16_t fujibus_receive_packet(void)
 
 fujibus_receive_packet:
-        lda     aws_tmp00
-        pha
-        lda     aws_tmp01
-        pha
-        lda     aws_tmp02
-        pha
-        lda     aws_tmp03
-        pha
-        lda     aws_tmp04
-        pha
-        lda     aws_tmp05
-        pha
-        lda     aws_tmp08
-        pha
-        lda     aws_tmp09
-        pha
-        lda     aws_tmp10
-        pha
-        lda     aws_tmp11
-        pha
+        save_receive_packet_wrapper_state
 
-        jsr     fujibus_receive_packet_impl
+        jsr     fujibus_receive_packet_core
 
         sta     fuji_ax_save
         stx     fuji_ax_save+1
 
-        pla
-        sta     aws_tmp11
-        pla
-        sta     aws_tmp10
-        pla
-        sta     aws_tmp09
-        pla
-        sta     aws_tmp08
-        pla
-        sta     aws_tmp05
-        pla
-        sta     aws_tmp04
-        pla
-        sta     aws_tmp03
-        pla
-        sta     aws_tmp02
-        pla
-        sta     aws_tmp01
-        pla
-        sta     aws_tmp00
+        restore_receive_packet_wrapper_state
 
         ldx     fuji_ax_save+1
         lda     fuji_ax_save
         rts
 
 
-fujibus_receive_packet_impl:
+fujibus_receive_packet_core:
+fujibus_receive_packet_impl = fujibus_receive_packet_core
         ; receive and decode SLIP into buffer at buffer_ptr
         jsr     fuji_link_read_slip_frame
+        jsr     fujibus_receive_packet_store_decoded_length
+        jsr     fujibus_receive_packet_validate_decoded_length
+        bcc     fujibus_receive_packet_fail
+        jsr     fujibus_receive_packet_validate_checksum
+        bcc     fujibus_receive_packet_fail
 
+        lda     aws_tmp10
+        ldx     aws_tmp11
+        rts
+
+fujibus_receive_packet_store_decoded_length:
         ; dec_len -> aws_tmp02/03
         sta     aws_tmp02
         stx     aws_tmp03
+        rts
 
+fujibus_receive_packet_validate_decoded_length:
         ; if dec_len == 0 return 0
+        ldx     aws_tmp03
         cpx     #$00
         bne     @check_min
+        lda     aws_tmp02
         cmp     #$00
-        beq     @fail
+        beq     @invalid
 
         ; if dec_len < fujibus_header_size return 0
         ; (fujibus_header_size = 6)
 @check_min:
         lda     aws_tmp03
-        bne     @validate_checksum
+        bne     @valid
         lda     aws_tmp02
         cmp     #fujibus_header_size
-        bcs     @validate_checksum
-        jmp     @fail
+        bcs     @valid
 
-@validate_checksum:
+@invalid:
+        clc
+        rts
+
+@valid:
+        sec
+        rts
+
+fujibus_receive_packet_fail:
+        lda     #$00
+        tax
+        rts
+
+fujibus_receive_packet_validate_checksum:
         ; chk_received = rx[4] — must not use aws_tmp04; calc_checksum clobbers it.
         ldy     #$04
         lda     (buffer_ptr),y
@@ -457,7 +490,8 @@ fujibus_receive_packet_impl:
         ldy     #$04
         lda     aws_tmp05
         sta     (buffer_ptr),y
-        jmp     @fail
+        clc
+        rts
 
 :
         ; restore original checksum byte
@@ -465,11 +499,5 @@ fujibus_receive_packet_impl:
         lda     aws_tmp05
         sta     (buffer_ptr),y
 
-        lda     aws_tmp10
-        ldx     aws_tmp11
-        rts
-
-@fail:
-        lda     #$00
-        tax
+        sec
         rts
