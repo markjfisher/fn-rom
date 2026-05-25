@@ -4,9 +4,8 @@ disk: openbas.ssd
 
 paste:
   - 'PRINT "Running long string tests"'
+  - '*FUJI'
   - '*CAT'
-  - '*FHOST'
-  - '*FLS'
 
 steps:
   - name: opin03_long_url
@@ -29,6 +28,6 @@ steps:
           expect:
             regex:
               - 'FujiNet long JSON path test'
-              - 'FujiNet API v'
               - 'Path length: 200'
+              - 'Long JSON path status: 0'
               - 'Long JSON path sent'

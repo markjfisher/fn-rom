@@ -3,53 +3,46 @@ REM
 REM ----------------------------------------------------
 REM OSWORD &78 long JSON path test (200-byte selector)
 REM ----------------------------------------------------
-REM Opens httpbin /get, then scatter-sends a 200-byte JSON
-REM selector via TranslateConfigure (reason finReasonJsonQuery%).
-REM Requires http://192.168.1.101:8080/get
+REM Opens httpbin /get, then sends a 200-byte JSON selector via
+REM OSWORD &78 reason 1. This keeps the long-string coverage from
+REM the original test, but avoids the invalid direct CALL entry path.
 
 finOsword%=&78
 finMosOsword%=&FFF1
-finReasonVersion%=0
 finReasonJsonQuery%=1
-finApiVersion%=1
 finStatusOk%=0
-finStatusBadCall%=1
-finStatusJsonQueryFailed%=2
-finStatusBadChannel%=3
 
 DIM finBuf% 512
 DIM finBlock% 16
-finCallEntry%=0
-finLastStatus%=finStatusOk%
+DIM readBuf% 256
 
-DEF PROCfnnet_init
-IF finCallEntry%=0 THEN PROCfnnet_query_version
-ENDPROC
+CLS
+PRINT "FujiNet long JSON path test"
 
-DEF PROCfnnet_query_version
-finBlock%?0=finReasonVersion%
-IF finCallEntry%=0 THEN PROCfnnet_osword ELSE PROCfnnet_rom_call(finReasonVersion%)
-finLastStatus%=finBlock%?1
-IF finBlock%?1=0 THEN finCallEntry%=finBlock%?8+256*finBlock%?9
-ENDPROC
+X=OPENIN("http://192.168.1.101:8080/get")
+IF X=0 PRINT "No file":END
 
-REM Bootstrap via OSWORD &78 before ROM entry address is known.
-DEF PROCfnnet_osword
+path$="/url"
+path$=path$+STRING$(200-LEN(path$),"x")
+PRINT "Path length: ";LEN(path$)
+
+PROCclear_block
+PROCfnnet_set_str(path$)
+finBlock%?0=finReasonJsonQuery%
+finBlock%?6=X
+
 A%=finOsword%
 X%=finBlock% MOD 256
 Y%=finBlock% DIV 256
 CALL finMosOsword%
-ENDPROC
 
-
-DEF PROCfnnet_rom_call(reason%)
-IF finCallEntry%=0 THEN ERROR 103,"FujiNet API unavailable"
-A%=reason%
-X%=finBlock% MOD 256
-Y%=finBlock% DIV 256
-CALL finCallEntry%
 finLastStatus%=finBlock%?1
-ENDPROC
+PRINT "Long JSON path status: ";finLastStatus%
+
+PROCread_sample(X)
+
+CLOSE#X
+END
 
 DEF PROCfnnet_set_str(s$)
 IF LEN(s$)>512 THEN ERROR 100,"String too long"
@@ -60,34 +53,23 @@ finBlock%?4=LEN(s$) AND &FF
 finBlock%?5=LEN(s$) DIV 256
 ENDPROC
 
-DEF PROCfnnet_set_str_ptr(addr%, len%)
-IF len%>512 THEN ERROR 100,"String too long"
-finBlock%?2=addr% AND &FF
-finBlock%?3=addr% DIV 256
-finBlock%?4=len% AND &FF
-finBlock%?5=len% DIV 256
+DEF PROCread_sample(h%)
+LOCAL count%
+count%=0
+FOR I%=0 TO 255
+readBuf%?I%=0
+NEXT
+
+REPEAT
+IF EOF#h% THEN I%=255 ELSE readBuf%?count%=BGET#h%:count%=count%+1
+UNTIL count%=64 OR I%=255
+
+PRINT "ReadLen : ";count%
+IF count%>0 PRINT "Long JSON path sent"
 ENDPROC
 
-DEF PROCfn_json_query(h%, path$)
-PROCfnnet_init
-PROCfnnet_set_str(path$)
-finBlock%?6=h%
-PROCfnnet_rom_call(finReasonJsonQuery%)
+DEF PROCclear_block
+FOR I%=0 TO 15
+?(finBlock%+I%)=0
+NEXT
 ENDPROC
-
-CLS
-PRINT "FujiNet long JSON path test"
-
-PROCfnnet_init
-PRINT "FujiNet API v";finApiVersion%
-
-X=OPENIN("http://192.168.1.101:8080/get")
-IF X=0 PRINT "No file":END
-
-path$="/url"
-path$=path$+STRING$(200-LEN(path$),"x")
-PRINT "Path length: ";LEN(path$)
-
-PROCfn_json_query(X, path$)
-PRINT "Long JSON path status: ";finLastStatus%
-CLOSE# 0
