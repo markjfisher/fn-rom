@@ -28,6 +28,7 @@
         .export  nw_json_before_receive
         .export  nw_json_after_receive
         .export  nw_check_ok_response
+        .export  nw_build_write_prefix
 
         .importzp aws_tmp00
         .importzp aws_tmp01
@@ -688,40 +689,9 @@ fujibus_network_write:
         tya
         tax                             ; move intch into X for indexing
 
-        ; version
-        lda     #FN_PROTOCOL_VERSION
-        ldy     #$06
-        sta     (buffer_ptr),y
-
-        ; handle (u16le)
-        lda     fuji_ch_handle_low,x
-        iny                             ; y=7
-        sta     (buffer_ptr),y
-        lda     fuji_ch_handle_high,x
-        iny                             ; y=8
-        sta     (buffer_ptr),y
-
-        ; offset (u32le) — from aws_tmp06..09
-        lda     aws_tmp06
-        iny                             ; y=9
-        sta     (buffer_ptr),y
-        lda     aws_tmp07
-        iny                             ; y=10 (A)
-        sta     (buffer_ptr),y
-        lda     aws_tmp08
-        iny                             ; y=11 (B)
-        sta     (buffer_ptr),y
-        lda     aws_tmp09
-        iny                             ; y=12 (C)
-        sta     (buffer_ptr),y
-
-        ; dataLen (u8) — from input aws_tmp02, extended to 16 bit
-        lda     aws_tmp02
-        iny                             ; y=13 (D)
-        sta     (buffer_ptr),y
         lda     #$00                    ; high byte of byte count is always 00
-        iny                             ; y=14 (E)
-        sta     (buffer_ptr),y
+        sta     aws_tmp03
+        jsr     nw_build_write_prefix
         ; OPTIMIZATION: store 00 in source low byte while A=0
         sta     aws_tmp00
 
@@ -806,40 +776,11 @@ fujibus_network_write_ext:
         tya
         tax                             ; move intch into X for indexing
 
-        ; version
-        lda     #FN_PROTOCOL_VERSION
-        ldy     #$06
-        sta     (buffer_ptr),y
-
-        ; handle (u16le)
-        lda     fuji_ch_handle_low,x
-        iny                             ; y=7
-        sta     (buffer_ptr),y
-        lda     fuji_ch_handle_high,x
-        iny                             ; y=8
-        sta     (buffer_ptr),y
-
-        ; offset (u32le)
-        lda     aws_tmp06
-        iny                             ; y=9
-        sta     (buffer_ptr),y
-        lda     aws_tmp07
-        iny                             ; y=10
-        sta     (buffer_ptr),y
-        lda     aws_tmp08
-        iny                             ; y=11
-        sta     (buffer_ptr),y
-        lda     aws_tmp09
-        iny                             ; y=12
-        sta     (buffer_ptr),y
-
-        ; dataLen (u16le)
         lda     fuji_ext_str_len
-        iny                             ; y=13
-        sta     (buffer_ptr),y
+        sta     aws_tmp02
         lda     fuji_ext_str_len_hi
-        iny                             ; y=14
-        sta     (buffer_ptr),y
+        sta     aws_tmp03
+        jsr     nw_build_write_prefix
 
         lda     #FN_DEVICE_NETWORK
         sta     fuji_bus_tx_device
@@ -1208,4 +1149,36 @@ nw_check_ok_response:
         rts
 @fail:
         sec
+        rts
+
+; Build common Network Write request payload prefix at buffer+6.
+; Input: X = intch, aws_tmp02/03 = dataLen, aws_tmp06..09 = offset.
+nw_build_write_prefix:
+        lda     #FN_PROTOCOL_VERSION
+        ldy     #$06
+        sta     (buffer_ptr),y
+        lda     fuji_ch_handle_low,x
+        iny
+        sta     (buffer_ptr),y
+        lda     fuji_ch_handle_high,x
+        iny
+        sta     (buffer_ptr),y
+        lda     aws_tmp06
+        iny
+        sta     (buffer_ptr),y
+        lda     aws_tmp07
+        iny
+        sta     (buffer_ptr),y
+        lda     aws_tmp08
+        iny
+        sta     (buffer_ptr),y
+        lda     aws_tmp09
+        iny
+        sta     (buffer_ptr),y
+        lda     aws_tmp02
+        iny
+        sta     (buffer_ptr),y
+        lda     aws_tmp03
+        iny
+        sta     (buffer_ptr),y
         rts
