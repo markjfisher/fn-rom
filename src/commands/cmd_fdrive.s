@@ -20,6 +20,7 @@
         .import err_syntax
         .import exit_user_ok
         .import fujibus_receive_packet
+        .import fujibus_set_payload_buffer_ptr
         .import fujibus_send_packet
         .import num_params
         .import report_error
@@ -82,13 +83,7 @@ cmd_fs_fdrive:
         lda     #FUJI_CMD_GET_MOUNTS
         sta     fuji_bus_tx_command
 
-        lda     buffer_ptr
-        clc
-        adc     #$06
-        sta     fuji_bus_tx_payload_lo
-        lda     buffer_ptr+1
-        adc     #$00
-        sta     fuji_bus_tx_payload_hi
+        jsr     fujibus_set_payload_buffer_ptr
 
         ldx     #$00
         lda     #$09

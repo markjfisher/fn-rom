@@ -15,6 +15,9 @@
         .export  frt_success
 
         .importzp aws_tmp00
+        .importzp aws_tmp01
+        .importzp aws_tmp02
+        .importzp aws_tmp03
         .importzp cws_tmp1
         .importzp cws_tmp2
         .importzp cws_tmp3
@@ -28,12 +31,14 @@
         .importzp fuji_bus_tx_payload_hi
         .importzp fuji_bus_tx_payload_lo
 
+        .import copy_aws_tmp00_to_aws_tmp02_a
         .import fuji_current_dir_len
         .import fuji_current_fs_len
         .import fuji_current_host_len
         .import fuji_filename_buffer
         .import fuji_filename_len
         .import fujibus_receive_packet
+        .import fujibus_set_payload_buffer_ptr
         .import fujibus_send_packet
         .import get_fuji_fs_uri_addr_to_aws_tmp00
         .import get_fuji_host_uri_addr_to_aws_tmp00
@@ -78,14 +83,13 @@ frt_got_host:
 
         jsr     get_fuji_host_uri_addr_to_aws_tmp00
 
-        ldy     #$00
+        lda     cws_tmp2
+        sta     aws_tmp02
+        lda     cws_tmp3
+        sta     aws_tmp03
+        lda     cws_tmp1
 frt_copy_base:
-        cpy     cws_tmp1
-        beq     frt_after_base
-        lda     (aws_tmp00),y
-        sta     (cws_tmp2),y
-        iny
-        bne     frt_copy_base
+        jsr     copy_aws_tmp00_to_aws_tmp02_a
 
 frt_after_base:
         lda     cws_tmp8
@@ -136,13 +140,7 @@ frt_compute_paylen:
         lda     #FILE_CMD_RESOLVE_PATH
         sta     fuji_bus_tx_command
 
-        lda     buffer_ptr
-        clc
-        adc     #$06
-        sta     fuji_bus_tx_payload_lo
-        lda     buffer_ptr+1
-        adc     #$00
-        sta     fuji_bus_tx_payload_hi
+        jsr     fujibus_set_payload_buffer_ptr
 
         lda     cws_tmp6
         ldx     cws_tmp7
@@ -213,20 +211,24 @@ frt_recv_ok:
 
         jsr     get_fuji_fs_uri_addr_to_aws_tmp00
 
-        ldy     #$00
+        lda     aws_tmp00
+        sta     aws_tmp02
+        lda     aws_tmp01
+        sta     aws_tmp03
+        lda     cws_tmp2
+        sta     aws_tmp00
+        lda     cws_tmp3
+        sta     aws_tmp01
+
+        lda     fuji_current_fs_len
 frt_copy_fs:
-        cpy     fuji_current_fs_len
-        beq     frt_nul_term
-        lda     (cws_tmp2),y
-        sta     (aws_tmp00),y
-        iny
-        bne     frt_copy_fs
+        jsr     copy_aws_tmp00_to_aws_tmp02_a
 
 frt_nul_term:
         cpy     #FUJI_FS_URI_BUFFER_SIZE
         bcs     frt_success
         lda     #$00
-        sta     (aws_tmp00),y
+        sta     (aws_tmp02),y
 
         ; Read displayPathLen (u16le) immediately after resolvedUri bytes.
         lda     cws_tmp2

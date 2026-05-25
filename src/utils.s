@@ -6,6 +6,7 @@
         .export  a_rorx4and3
         .export  a_rorx5
         .export  a_rorx6and3
+        .export  copy_aws_tmp00_to_aws_tmp02_a
         .export  do_vblank_loop
         .export  inc_word_aws_tmp00_dec_word_aws_tmp02
         .export  GSINIT_A
@@ -218,9 +219,24 @@ ucasea2:
         jsr     is_alpha_char
         bcs     @ucasea
         and     #$5F                    ; A = Ucase(A)
+
 @ucasea:
         and     #$7F                    ; Ignore bit 7
         plp
+        rts
+
+; Copy A bytes from (aws_tmp00) to (aws_tmp02). X is clobbered, Y exits at length.
+copy_aws_tmp00_to_aws_tmp02_a:
+        tax
+        beq     @done
+        ldy     #$00
+@copy_loop:
+        lda     (aws_tmp00),y
+        sta     (aws_tmp02),y
+        iny
+        dex
+        bne     @copy_loop
+@done:
         rts
 
 ; Increments aws_tmp00/01 (buffer location) and

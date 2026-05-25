@@ -40,6 +40,7 @@
         .export fujibus_send_packet
         .export fujibus_send_packet_scatter
         .export fujibus_receive_packet
+        .export fujibus_set_payload_buffer_ptr
 
         ; for debug
         .export fujibus_send_packet_impl
@@ -91,8 +92,17 @@ fujibus_send_packet:
         lda     fuji_bus_tx_command
         sta     (buffer_ptr),y
 
-        ; fall through to impl
-        ; jmp     fujibus_send_packet_impl
+        jmp     fujibus_send_packet_impl
+
+fujibus_set_payload_buffer_ptr:
+        lda     buffer_ptr
+        clc
+        adc     #$06
+        sta     fuji_bus_tx_payload_lo
+        lda     buffer_ptr+1
+        adc     #$00
+        sta     fuji_bus_tx_payload_hi
+        rts
 
 
 ; Internal: aws_tmp02/03 = paylen, aws_tmp00/01 = payload ptr, buffer [0],[1] = dev/cmd

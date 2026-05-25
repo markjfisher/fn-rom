@@ -3,9 +3,12 @@
         .export  cmd_fs_fnew
 
         .importzp aws_tmp00
+        .importzp aws_tmp02
+        .importzp aws_tmp03
         .importzp cws_tmp2
         .importzp cws_tmp3
 
+        .import copy_aws_tmp00_to_aws_tmp02_a
         .import err_no_host
         .import err_syntax
         .import exit_user_ok
@@ -43,20 +46,15 @@ one_arg:
 fnew_build_full_uri:
         jsr     fuji_fs_uri_ptr
         sta     cws_tmp2
+        sta     aws_tmp02
         stx     cws_tmp3
+        stx     aws_tmp03
 
         jsr     get_fuji_host_uri_addr_to_aws_tmp00
 
-        ldy     #$00
-@copy_host:
-        cpy     fuji_current_host_len
-        beq     @host_done
-        lda     (aws_tmp00),y
-        sta     (cws_tmp2),y
-        iny
-        bne     @copy_host
+        lda     fuji_current_host_len
+        jsr     copy_aws_tmp00_to_aws_tmp02_a
 
-@host_done:
         ldx     #$00
 
 @copy_name:

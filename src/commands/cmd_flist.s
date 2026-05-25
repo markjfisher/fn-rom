@@ -1,6 +1,5 @@
         .export  cmd_fs_flist
 
-        .export  cfl_copy_uri
         .export  cfl_done_ok
         .export  cfl_flist_one_page
         .export  cfl_print_formatted_blob
@@ -35,6 +34,7 @@
         .importzp fuji_bus_tx_payload_lo
 
         .import err_bad
+        .import copy_aws_tmp00_to_aws_tmp02_a
         .import err_no_host
         .import err_syntax
         .import exit_user_ok
@@ -44,6 +44,7 @@
         .import fuji_current_host_len
         .import fuji_filename_len
         .import fujibus_receive_packet
+        .import fujibus_set_payload_buffer_ptr
         .import fujibus_send_packet
         .import get_fuji_fs_uri_addr_to_aws_tmp00
         .import get_fuji_host_uri_addr_to_aws_tmp00
@@ -112,20 +113,15 @@ cfl_use_current_uri:
         sta     fuji_current_fs_len
 
         jsr     get_fuji_fs_uri_addr_to_aws_tmp00
-        sta     aws_tmp03
         lda     aws_tmp00
         sta     aws_tmp02
+        lda     aws_tmp01
+        sta     aws_tmp03
 
         jsr     get_fuji_host_uri_addr_to_aws_tmp00
 
-        ldy     #$00
-cfl_copy_uri:
-        cpy     fuji_current_fs_len
-        beq     cfl_zterm
-        lda     (aws_tmp00),y
-        sta     (aws_tmp02),y
-        iny
-        bne     cfl_copy_uri
+        lda     fuji_current_fs_len
+        jsr     copy_aws_tmp00_to_aws_tmp02_a
 
 cfl_zterm:
         lda     #$00
@@ -255,13 +251,7 @@ cfl_tx_uri_done:
         lda     #FILE_CMD_LIST_DIRECTORY
         sta     fuji_bus_tx_command
 
-        lda     buffer_ptr
-        clc
-        adc     #$06
-        sta     fuji_bus_tx_payload_lo
-        lda     buffer_ptr+1
-        adc     #$00
-        sta     fuji_bus_tx_payload_hi
+        jsr     fujibus_set_payload_buffer_ptr
 
         lda     aws_tmp12
         ldx     aws_tmp13
@@ -344,20 +334,15 @@ cfl_rxlen_ok:
 ; Print preformatted listing text at aws_tmp00..aws_tmp12:13 ($0A = newline).
 ;------------------------------------------------------------------------------
 cfl_print_formatted_blob:
-        lda     aws_tmp00
-        sta     aws_tmp08
-        lda     aws_tmp01
-        sta     aws_tmp09
-
 cfl_fmt_blob_loop:
-        lda     aws_tmp08
+        lda     aws_tmp00
         cmp     aws_tmp12
-        lda     aws_tmp09
+        lda     aws_tmp01
         sbc     aws_tmp13
         bcs     cfl_fmt_blob_done
 
         ldy     #$00
-        lda     (aws_tmp08),y
+        lda     (aws_tmp00),y
         cmp     #$0A
         beq     cfl_fmt_blob_nl
         jsr     print_char
@@ -367,9 +352,9 @@ cfl_fmt_blob_nl:
         jsr     print_newline
 
 cfl_fmt_blob_adv:
-        inc     aws_tmp08
+        inc     aws_tmp00
         bne     cfl_fmt_blob_loop
-        inc     aws_tmp09
+        inc     aws_tmp01
         bne     cfl_fmt_blob_loop       ; always, the upper byte can never roll over to 00
 
 cfl_fmt_blob_done:

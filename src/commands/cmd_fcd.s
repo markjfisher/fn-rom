@@ -6,11 +6,12 @@
 
         .importzp aws_tmp00
         .importzp aws_tmp01
-        .importzp aws_tmp06
-        .importzp aws_tmp07
+        .importzp aws_tmp02
+        .importzp aws_tmp03
         .importzp cws_tmp2
         .importzp cws_tmp3
 
+        .import copy_aws_tmp00_to_aws_tmp02_a
         .import err_bad_string
         .import err_no_host
         .import exit_user_ok
@@ -77,31 +78,23 @@ fcd_show_current:
 ; This keeps one authoritative current URI for FHOST/FCD/FLS.
 ;------------------------------------------------------------------------------
 fcd_commit_resolved_path:
-        jsr     get_fuji_fs_uri_addr_to_aws_tmp00
-        lda     aws_tmp00
-        sta     aws_tmp06
-        lda     aws_tmp01
-        sta     aws_tmp07
-
         jsr     get_fuji_host_uri_addr_to_aws_tmp00
+        lda     aws_tmp00
+        sta     aws_tmp02
+        lda     aws_tmp01
+        sta     aws_tmp03
+
+        jsr     get_fuji_fs_uri_addr_to_aws_tmp00
 
         lda     fuji_current_fs_len
         sta     fuji_current_host_len
-
-        ldy     #$00
-@copy_uri:
-        cpy     fuji_current_host_len
-        beq     @nul_term
-        lda     (aws_tmp06),y
-        sta     (aws_tmp00),y
-        iny
-        bne     @copy_uri
+        jsr     copy_aws_tmp00_to_aws_tmp02_a
 
 @nul_term:
         cpy     #FUJI_HOST_URI_BUFFER_SIZE
         bcs     @done
         lda     #$00
-        sta     (aws_tmp00),y
+        sta     (aws_tmp02),y
 @done:
         jsr     fhost_ensure_host_trailing_slash
         rts
