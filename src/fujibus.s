@@ -225,7 +225,7 @@ fujibus_send_packet_scatter_raw:
         ; The triple-frame writer consumes region 1 from aws_tmp00..03 and
         ; region 2/3 from their original descriptors, so only region 1 needs
         ; restoring after checksum preparation repurposed aws_tmp00..03.
-        jsr     fujibus_send_packet_scatter_prepare_checksum_region1
+        jsr     fujibus_send_packet_scatter_restore_region1_for_write
 scatter_before_write:
         jmp     fuji_link_write_slip_frame_triple
 
@@ -247,7 +247,6 @@ fujibus_send_packet_scatter_store_total_len:
         rts
 
 fujibus_send_packet_scatter_store_checksum:
-        jsr     fujibus_send_packet_scatter_prepare_checksum_region1
         jsr     calc_checksum
 
         lda     aws_tmp08
@@ -288,7 +287,7 @@ scatter_store_checksum:
         sta     (buffer_ptr),y
         rts
 
-fujibus_send_packet_scatter_prepare_checksum_region1:
+fujibus_send_packet_scatter_restore_region1_for_write:
         lda     buffer_ptr
         sta     aws_tmp00
         lda     buffer_ptr+1
