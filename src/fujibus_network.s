@@ -842,10 +842,7 @@ fujibus_network_close:
 ;   +7  selector bytes (N)
 
 fujibus_network_translate_configure:
-        sty     aws_tmp00               ; save intch (for handle byte reading)
-        sty     cws_tmp3                ; also save in location not clobbered by path copy
-        tya
-        pha                             ; push intch on stack (survives send/receive)
+        sty     fuji_intch              ; canonical channel id for the full request/retry flow
         jsr     network_retry_init
 
 fnjq_build_request:
@@ -854,12 +851,12 @@ fnjq_build_request:
         ldy     #$06
         sta     (buffer_ptr),y
 
-        ; handle (u16le) — use cws_tmp3 (preserved across path copy, unlike aws_tmp00)
-        ldy     cws_tmp3
+        ; handle (u16le)
+        ldy     fuji_intch
         lda     fuji_ch_handle_low,y
         ldy     #$07
         sta     (buffer_ptr),y
-        ldy     cws_tmp3
+        ldy     fuji_intch
         lda     fuji_ch_handle_high,y
         ldy     #$08
         sta     (buffer_ptr),y
@@ -1051,9 +1048,7 @@ fnjq_jq_success:
 :
 
         ; Update EXT/PTR in channel block
-        pla                             ; restore intch from stack
-        tay
-        sty     fuji_intch              ; set for BGET's @net_eof handler
+        ldy     fuji_intch
 
         lda     aws_tmp02
         sta     fuji_ch_ext_low,y
@@ -1073,7 +1068,6 @@ fnjq_jq_success:
         rts
 
 fnjq_jq_fail:
-        pla                             ; balance stack (intch was pushed at start)
         sec
         rts
 
