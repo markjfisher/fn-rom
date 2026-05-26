@@ -469,11 +469,10 @@ disk_read_sector_body:
         lda     cws_tmp1
         beq     @drs_short_setup
 
-        stx     cws_tmp7                ; packet payload length
-        lda     cws_tmp1
-        cmp     cws_tmp7
+        txa
+        cmp     cws_tmp1
         bcc     @drs_short_cap_smaller  ; cap < pkt -> use cap
-        lda     cws_tmp7                ; pkt <= cap -> use pkt
+        txa                             ; pkt <= cap -> use pkt
         jmp     @drs_short_x
 @drs_short_cap_smaller:
         lda     cws_tmp1
@@ -530,8 +529,6 @@ fujibus_disk_write_sector:
         lda     #$0E                            ; 270 = $010E
         iny                                     ; Y = 2
         sta     (buffer_ptr),y
-        ; while A is 0E, store it in tmp02 for first checksum
-        sta     aws_tmp02
 
         lda     #$01
         iny                                     ; Y = 3
@@ -571,9 +568,6 @@ fujibus_disk_write_sector:
         iny                                     ; Y = 12
         sta     (buffer_ptr),y
 
-        ; whilc A = 0, write tmp03 for the hi byte of the checksum length, so save a few bytes
-        sta     aws_tmp03
-
         lda     #$01
         iny                                     ; Y = 13
         sta     (buffer_ptr),y
@@ -584,11 +578,10 @@ fujibus_disk_write_sector:
         lda     buffer_ptr+1
         sta     aws_tmp01
 
-        ; already set above for both these bytes
-        ; lda     #$0E
-        ; sta     aws_tmp02
-        ; lda     #$00
-        ; sta     aws_tmp03
+        lda     #$0E
+        sta     aws_tmp02
+        lda     #$00
+        sta     aws_tmp03
         jsr     calc_checksum
 
         lda     data_ptr
@@ -596,9 +589,10 @@ fujibus_disk_write_sector:
         lda     data_ptr+1
         sta     aws_tmp01
 
-        ; tmp02/03 are both currently 00 from the previous checksum calculation
-        ; so just inc aws_tmp03 to 1, so we have 256 in 02/03
-        inc     aws_tmp03
+        lda     #$00
+        sta     aws_tmp02
+        lda     #$01
+        sta     aws_tmp03
         jsr     calc_checksum_continue
 
         ; write checksum to byte 4
