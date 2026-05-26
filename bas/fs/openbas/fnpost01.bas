@@ -89,8 +89,23 @@ REPEAT
   IF EOF#h% THEN I%=255 ELSE readBuf%?count%=BGET#h%:result$=result$+CHR$(readBuf%?count%):count%=count%+1
 UNTIL count%=16 OR I%=255
 
-PRINT "Method result: ";result$
-IF result$="POST" PRINT "POST response received"
+PRINT "count%: "; count%
+PRINT "Method result: >";result$;"<"
+PRINT "Len: ";LEN(result$)
+FOR I%=1 TO LEN(result$)
+  PRINT FNhex2(ASC(MID$(result$,I%,1)));" ";
+NEXT
+PRINT
+PRINT "Buffer:"
+FOR I%=0 TO count%
+  PRINT FNhex2(readBuf%?I%);" ";
+NEXT
+PRINT
+
+IF result$="POST" THEN PRINT "POST response received"
+
+PRINT "String Len Check: "; LEN("POST")
+
 ENDPROC
 
 DEF PROCclear_block
@@ -98,3 +113,6 @@ FOR I%=0 TO 15
   ?(finBlock%+I%)=0
 NEXT
 ENDPROC
+
+DEF FNhex2(v%)
+=RIGHT$("0"+STR$~(v% AND 255),2)

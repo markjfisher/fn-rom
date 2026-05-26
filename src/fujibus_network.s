@@ -492,9 +492,6 @@ fujibus_network_read:
         sta     cws_tmp6
         lda     aws_tmp07
         sta     cws_tmp7
-        lda     aws_tmp08
-        sta     aws_tmp14
-
         ; receive response
 nw_read_before_receive:
         jsr     fujibus_receive_packet_raw
@@ -615,7 +612,9 @@ read_success:
         lda     cws_tmp7
         adc     fuji_network_buf_cnt_hi
         sta     fuji_ch_ext_mid,y
-        lda     aws_tmp14
+        ; fujibus_network_read is used from BGET, so the channel PTR is the
+        ; canonical request offset throughout this read.
+        lda     fuji_ch_bptr_hi,y
         adc     #$00
         sta     fuji_ch_ext_hi,y
 :

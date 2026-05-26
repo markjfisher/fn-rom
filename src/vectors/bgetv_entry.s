@@ -261,13 +261,18 @@ nwbg_net_have_data:
         rts
 
 nwbg_net_eof:
-        ; For network channels: advance PTR = EXT ($FFFFFF) so EOF# returns TRUE
+        ; For network channels: advance PTR = EXT so EOF# returns TRUE.
+        ; Unknown-length streams initialise EXT to $FFFFFF, but translated/known-
+        ; length reads set a smaller EXT and must not be forced back to $FFFFFF.
         lda     fuji_ch_handle_low,y
         ora     fuji_ch_handle_high,y
         beq     nwbg_net_eof_exit
-        lda     #$FF
+
+        lda     fuji_ch_ext_low,y
         sta     fuji_ch_bptr_low,y
+        lda     fuji_ch_ext_mid,y
         sta     fuji_ch_bptr_mid,y
+        lda     fuji_ch_ext_hi,y
         sta     fuji_ch_bptr_hi,y
 nwbg_net_eof_exit:
         sec                             ; C=1 = EOF
