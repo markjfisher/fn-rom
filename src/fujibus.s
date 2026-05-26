@@ -352,28 +352,10 @@ fujibus_send_packet_scatter_prepare_checksum_region3:
         rts
 
 fujibus_send_packet_scatter_prepare_write_regions:
-        ; The triple-frame writer needs the original region descriptors restored.
+        ; The triple-frame writer consumes region 1 from aws_tmp00..03 and
+        ; region 2/3 from their original descriptors, so only region 1 needs
+        ; restoring after checksum preparation repurposed aws_tmp00..03.
         jsr     fujibus_send_packet_scatter_prepare_checksum_region1
-        lda     aws_tmp00
-        pha
-        lda     aws_tmp01
-        pha
-        lda     aws_tmp02
-        pha
-        lda     aws_tmp03
-        pha
-
-        jsr     fujibus_send_packet_scatter_prepare_checksum_region2
-
-        pla
-        sta     aws_tmp03
-        pla
-        sta     aws_tmp02
-        pla
-        sta     aws_tmp01
-        pla
-        sta     aws_tmp00
-        
         rts
 
 
@@ -383,16 +365,18 @@ fujibus_send_packet_scatter_prepare_write_regions:
 
 fujibus_receive_packet = fujibus_receive_packet_raw
 
-fujibus_receive_packet_raw:
-        jmp     fujibus_receive_packet_core
+fujibus_receive_packet_raw = fujibus_receive_packet_core
 
 fujibus_receive_packet_core:
 fujibus_receive_packet_impl = fujibus_receive_packet_core
         ; receive and decode SLIP into buffer at buffer_ptr
         jsr     fuji_link_read_slip_frame
-        jsr     fujibus_receive_packet_store_decoded_length
+        jsr     fujibus_receive_packet_store_result_length
         jsr     fujibus_receive_packet_validate_decoded_length
         bcc     fujibus_receive_packet_fail
+        jsr     fujibus_receive_packet_store_received_checksum
+        jsr     fujibus_receive_packet_clear_wire_checksum
+        jsr     fujibus_receive_packet_prepare_checksum_input
         jsr     fujibus_receive_packet_validate_checksum
         bcc     fujibus_receive_packet_fail
 
@@ -400,27 +384,27 @@ fujibus_receive_packet_impl = fujibus_receive_packet_core
         ldx     aws_tmp11
         rts
 
-fujibus_receive_packet_store_decoded_length:
-        ; dec_len -> aws_tmp02/03
-        sta     aws_tmp02
-        stx     aws_tmp03
+fujibus_receive_packet_store_result_length:
+        ; Canonical decoded length/result lives in aws_tmp10/11.
+        sta     aws_tmp10
+        stx     aws_tmp11
         rts
 
 fujibus_receive_packet_validate_decoded_length:
         ; if dec_len == 0 return 0
-        ldx     aws_tmp03
+        ldx     aws_tmp11
         cpx     #$00
         bne     @check_min
-        lda     aws_tmp02
+        lda     aws_tmp10
         cmp     #$00
         beq     @invalid
 
         ; if dec_len < fujibus_header_size return 0
         ; (fujibus_header_size = 6)
 @check_min:
-        lda     aws_tmp03
+        lda     aws_tmp11
         bne     @valid
-        lda     aws_tmp02
+        lda     aws_tmp10
         cmp     #fujibus_header_size
         bcs     @valid
 
@@ -437,23 +421,20 @@ fujibus_receive_packet_fail:
         tax
         rts
 
-fujibus_receive_packet_validate_checksum:
+fujibus_receive_packet_store_received_checksum:
         ; chk_received = rx[4] — must not use aws_tmp04; calc_checksum clobbers it.
         ldy     #$04
         lda     (buffer_ptr),y
         sta     aws_tmp05
+        rts
 
-        ; rx[4] = 0
+fujibus_receive_packet_clear_wire_checksum:
+        ldy     #$04
         lda     #$00
         sta     (buffer_ptr),y
+        rts
 
-        ; preserve dec_len across calc_checksum
-        lda     aws_tmp02
-        sta     aws_tmp10
-        lda     aws_tmp03
-        sta     aws_tmp11
-
-        ; calc_checksum(buffer_ptr, dec_len) → A = computed checksum
+fujibus_receive_packet_prepare_checksum_input:
         lda     buffer_ptr
         sta     aws_tmp00
         lda     buffer_ptr+1
@@ -462,6 +443,12 @@ fujibus_receive_packet_validate_checksum:
         sta     aws_tmp02
         lda     aws_tmp11
         sta     aws_tmp03
+        rts
+
+fujibus_receive_packet_validate_checksum:
+        ; calc_checksum(buffer_ptr, dec_len) → A = computed checksum.
+        ; Checksum input was prepared separately so aws_tmp10/11 remain the
+        ; canonical decoded-length result for the caller.
         jsr     calc_checksum
 
         cmp     aws_tmp05
