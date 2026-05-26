@@ -22,8 +22,7 @@ END
 
 finOsword%=&78
 finMosOsword%=&FFF1
-finReasonVersion%=0
-finReasonJsonQuery%=1
+finReasonJsonQuery%=0
 
 DEF PROCset_json_path(hndl%, path$)
 IF LEN(path$)>60 THEN PROCfn_json_query(hndl%, path$) : ENDPROC
@@ -44,34 +43,17 @@ DEF FNget_json(hndl%, path$)
   UNTIL e%=-1 OR idx%>=max_size%
 =json$
 
-REM --- fnnet library (bas/lib/fnnet.bas) ---
+REM --- fnnet helpers (see bas/lib/fnnet.bas) ---
 DIM finBuf% 512
 DIM finBlock% 16
-finCallEntry%=0
+finLastStatus%=0
 
-DEF PROCfnnet_init
-IF finCallEntry%=0 THEN PROCfnnet_query_version
-ENDPROC
-
-DEF PROCfnnet_query_version
-finBlock%?0=finReasonVersion%
-IF finCallEntry%=0 THEN PROCfnnet_osword ELSE PROCfnnet_rom_call(finReasonVersion%)
-IF finBlock%?1=0 THEN finCallEntry%=finBlock%?8+256*finBlock%?9
-ENDPROC
-
-DEF PROCfnnet_osword
+DEF PROCfnnet_call
 A%=finOsword%
 X%=finBlock% MOD 256
 Y%=finBlock% DIV 256
-=USRfinMosOsword%
-ENDPROC
-
-DEF PROCfnnet_rom_call(reason%)
-IF finCallEntry%=0 THEN ERROR 103,"FujiNet API unavailable"
-A%=reason%
-X%=finBlock% MOD 256
-Y%=finBlock% DIV 256
-=USRfinCallEntry%
+CALL finMosOsword%
+finLastStatus%=finBlock%?1
 ENDPROC
 
 DEF PROCfnnet_set_str(s$)
@@ -84,8 +66,8 @@ finBlock%?5=LEN(s$) DIV 256
 ENDPROC
 
 DEF PROCfn_json_query(h%, path$)
-PROCfnnet_init
 PROCfnnet_set_str(path$)
+finBlock%?0=finReasonJsonQuery%
 finBlock%?6=h%
-PROCfnnet_rom_call(finReasonJsonQuery%)
+PROCfnnet_call
 ENDPROC

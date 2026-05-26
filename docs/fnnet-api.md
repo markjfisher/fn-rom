@@ -1,17 +1,16 @@
-# FujiNet BBC API (OSWORD &78 / CALL)
+# FujiNet BBC API (OSWORD &78)
 
 Long URIs and JSON paths (up to 512 bytes) use a pointer+length descriptor in user RAM instead of ROM buffers.
 
-## Entry points
+## Entry point
 
 | Entry | Usage |
 |-------|--------|
-| OSWORD `&78` | `(X,Y)` = 16-byte parameter block; reason at block+0 |
-| CALL | `A` = reason, `(X,Y)` = block; returns status in `A` |
+| OSWORD `&78` | `A=&78`, `(X,Y)` = 16-byte parameter block; reason at block+0 |
 
 OSWORD numbers `&80` and above are not offered via service call 8; `&E0`–`&FF` route via USERV (`&0200`) instead. FujiNet uses `&78`, which MOS passes to sideways ROMs as service 8 with the function code in `&EF` and `(X,Y)` saved in `&F0`/`&F1`.
 
-Reason `0` returns API version in block+1 and CALL entry address in block+8/9. The first call uses OSWORD via `USR &FFF1` with `A=&78`; later calls use `USR finCallEntry%` with `A=reason`, `(X,Y)=finBlock%`.
+From BASIC: poke the parameter block, set `A%=&78`, pass `(X,Y)` as the block address, and `CALL &FFF1`.
 
 ## Parameter block
 
@@ -24,27 +23,21 @@ Every call uses a 16-byte block. All calls share:
 
 Each reason then reads its own inputs starting at offset 2. Handlers ignore all other bytes.
 
-### Reason `&00` — version
-
-| Offset | Field |
-|--------|-------|
-| 8-9 | Out: CALL entry lo/hi |
-
-### Reasons `&01`, `&02`, `&04` — string operations
+### Reasons `&00`, `&01`, `&03` — string operations
 
 | Offset | Field |
 |--------|-------|
 | 2-3 | String pointer in user RAM |
 | 4-5 | String length (u16, max 512) |
-| 6 | BASIC file handle (`&10`..`&15`) for reasons `&01` and `&04` only |
+| 6 | BASIC file handle (`&10`..`&15`) for reasons `&00` and `&03` only |
 
-### Reason `&03` — set POST/PUT body length
+### Reason `&02` — set POST/PUT body length
 
 | Offset | Field |
 |--------|-------|
 | 2-3 | Body length u16le (one-shot; consumed on next network open) |
 
-### Reason `&05` — set request content profile
+### Reason `&04` — set request content profile
 
 | Offset | Field |
 |--------|-------|
@@ -54,14 +47,13 @@ Each reason then reads its own inputs starting at offset 2. Handlers ignore all 
 
 | Code | Action |
 |------|--------|
-| `&00` | Return API version |
-| `&01` | JSON query on open channel (TranslateConfigure) |
-| `&02` | Stash JSON path for next open-with-translation |
-| `&03` | Set one-shot HTTP POST/PUT body length |
-| `&04` | Write request body bytes to an open channel |
-| `&05` | Set one-shot request content profile |
+| `&00` | JSON query on open channel (TranslateConfigure) |
+| `&01` | Stash JSON path for next open-with-translation |
+| `&02` | Set one-shot HTTP POST/PUT body length |
+| `&03` | Write request body bytes to an open channel |
+| `&04` | Set one-shot request content profile |
 
-## Content profiles (reason `&05`, block+2)
+## Content profiles (reason `&04`, block+2)
 
 | Value | Meaning |
 |------:|---------|
@@ -81,7 +73,7 @@ The profile applies to the next `OPENIN` / `OPENUP` / `OPENOUT` network open and
 | `&02` | JSON query could not be configured on the open channel |
 | `&03` | Bad or unopened BASIC channel |
 
-For reason `&01`, status `&02` is a recoverable runtime failure. The ROM also marks the translated read as immediate EOF so callers that proceed to `BGET#` simply read zero bytes. This matches the short-path `*FJSON` behaviour used by polling applications such as `bas/iss/iss.bas`.
+For reason `&00`, status `&02` is a recoverable runtime failure. The ROM also marks the translated read as immediate EOF so callers that proceed to `BGET#` simply read zero bytes. This matches the short-path `*FJSON` behaviour used by polling applications such as `bas/iss/iss.bas`.
 
 ## Long URLs
 
@@ -89,7 +81,7 @@ Use normal `OPENIN(url$)` for URLs up to **255 characters** (BBC BASIC string li
 
 URLs longer than 255 bytes require assembling the URI in a user RAM buffer and a separate API path (not yet exposed for OPENIN; see `PROCfnnet_set_str_ptr` for the JSON/query side). That case is intentionally out of scope for the default BASIC story until needed.
 
-Short JSON paths may still use `OSCLI "*FJSON handle path"`. Use OSWORD/CALL reason `&01` for longer paths (up to 512 bytes via buffer + pointer).
+Short JSON paths may still use `OSCLI "*FJSON handle path"`. Use OSWORD reason `&00` for longer paths (up to 512 bytes via buffer + pointer).
 
 ## BASIC library
 
@@ -101,15 +93,14 @@ OSWORD `&78` handlers compile as one CODE object from [src/fnnet.s](../src/fnnet
 
 | File | Purpose |
 |------|---------|
-| `fnnet.s` | Entry point, jump-table dispatch |
+| `fnnet.s` | Jump-table dispatch |
 | `ext_str.inc` | Long-string load/clear helpers |
 | `exit.inc` | Shared fail/exit tail (placed before large handlers for short branches) |
-| `reason_version.inc` | Reason `&00` |
-| `reason_json_query.inc` | Reason `&01` |
-| `reason_stash_json.inc` | Reason `&02` |
-| `reason_set_body_len.inc` | Reason `&03` |
-| `reason_write_data.inc` | Reason `&04` |
-| `reason_set_content_profile.inc` | Reason `&05` |
+| `reason_json_query.inc` | Reason `&00` |
+| `reason_stash_json.inc` | Reason `&01` |
+| `reason_set_body_len.inc` | Reason `&02` |
+| `reason_write_data.inc` | Reason `&03` |
+| `reason_set_content_profile.inc` | Reason `&04` |
 
 BBC BASIC reserves the `FN` prefix for user functions (case-insensitive) — use the `fin*` prefix for names, not `fn*` or `FNNET_*`.
 

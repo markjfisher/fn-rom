@@ -1,8 +1,7 @@
-; FujiNet OSWORD &78 / CALL API for long URIs and JSON paths.
+; FujiNet OSWORD &78 API for long URIs and JSON paths.
 ; Parameter block layout: see docs/fnnet-api.md
 ; Handler bodies live in fnnet/*.inc (single CODE object for local branches).
 
-        .export fnnet_call_entry
         .export fnnet_dispatch
 
         .importzp aws_tmp00
@@ -43,13 +42,6 @@
 
         .segment "CODE"
 
-; CALL entry: A=reason, X/Y=parameter block pointer. Returns status in A.
-fnnet_call_entry:
-        stx     aws_tmp00
-        sty     aws_tmp01
-        ldy     #$00
-        sta     (aws_tmp00),y
-
 ; Core dispatcher: X/Y=parameter block, reason at (block)+0.
 fnnet_dispatch:
         stx     aws_tmp00
@@ -59,7 +51,7 @@ fnnet_dispatch:
 
         ldy     #$00
         lda     (aws_tmp00),y
-        cmp     #$06
+        cmp     #$05
         bcs     fnnet_dispatch_fail
         tax
         lda     fnnet_jmp_hi,x
@@ -69,9 +61,8 @@ fnnet_dispatch:
         rts
 
 .feature line_continuations +
-        ; Reason index -> handler (reasons &00..&05)
+        ; Reason index -> handler (reasons &00..&04)
         .define FNNET_JMP_TABLE \
-                fnnet_reason_version             - 1, \
                 fnnet_reason_json_query          - 1, \
                 fnnet_reason_stash_json          - 1, \
                 fnnet_reason_set_body_len        - 1, \
@@ -80,14 +71,12 @@ fnnet_dispatch:
 
 fnnet_jmp_lo: .lobytes FNNET_JMP_TABLE
 fnnet_jmp_hi: .hibytes FNNET_JMP_TABLE
-
 .feature line_continuations -
 
 fnnet_dispatch_fail:
         jmp     fnnet_fail
 
         .include "fnnet/ext_str.inc"
-        .include "fnnet/reason_version.inc"
         .include "fnnet/reason_json_query.inc"
         .include "fnnet/reason_stash_json.inc"
         .include "fnnet/reason_set_body_len.inc"

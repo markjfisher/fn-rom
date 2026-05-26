@@ -6,10 +6,10 @@ REM ----------------------------------------------------
 
 finOsword%=&78
 finMosOsword%=&FFF1
-finReasonJsonQuery%=1
-finReasonSetBodyLen%=3
-finReasonWriteData%=4
-finReasonSetContentProfile%=5
+finReasonJsonQuery%=0
+finReasonSetBodyLen%=2
+finReasonWriteData%=3
+finReasonSetContentProfile%=4
 finProfileJson%=1
 
 DIM finBuf% 512

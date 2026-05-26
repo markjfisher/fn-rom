@@ -159,7 +159,6 @@ OS_INC = 1
         .import  fuji_ext_str_len
         .import  fuji_ext_str_len_hi
         .import  fuji_ext_str_flags
-        .import  fnnet_call_entry
         .import  fuji_network_buf_cnt
         .import  fuji_network_buf_cnt_hi
         .import  fuji_network_flush_mode

@@ -6,7 +6,7 @@ REM ----------------------------------------------------
 
 finOsword%=&78
 finMosOsword%=&FFF1
-finReasonJsonQuery%=1
+finReasonJsonQuery%=0
 
 DIM finBlock% 16
 DIM finBuf% 32

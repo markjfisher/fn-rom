@@ -1,15 +1,15 @@
 REM filename: fnnet1
 REM
 REM ----------------------------------------------------
+REM ----------------------------------------------------
 REM OSWORD &78 long JSON path test (200-byte selector)
 REM ----------------------------------------------------
 REM Opens httpbin /get, then sends a 200-byte JSON selector via
-REM OSWORD &78 reason 1. This keeps the long-string coverage from
-REM the original test, but avoids the invalid direct CALL entry path.
+REM OSWORD &78 reason 0.
 
 finOsword%=&78
 finMosOsword%=&FFF1
-finReasonJsonQuery%=1
+finReasonJsonQuery%=0
 finStatusOk%=0
 
 DIM finBuf% 512
