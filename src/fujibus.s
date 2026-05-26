@@ -104,8 +104,7 @@ fujibus_send_packet_impl = fujibus_send_packet_core
         jsr     fujibus_send_packet_store_descriptor_bytes
         jsr     fujibus_send_packet_store_checksum
         jsr     fujibus_send_packet_prepare_write_region
-        jsr     fujibus_send_packet_write_frame
-        rts
+        jmp     fuji_link_write_slip_frame
 
 fujibus_send_packet_prepare_payload_destination:
         ; destination pointer = buffer + header size
@@ -198,12 +197,6 @@ fujibus_send_packet_prepare_write_region:
         sta     aws_tmp03
         rts
 
-fujibus_send_packet_write_frame:
-        ; stream packet as SLIP over the selected channel
-        jsr     fuji_link_write_slip_frame
-        rts
-
-
 ; Scatter transport send ABI
 ;   region 1: aws_tmp00/01 ptr, aws_tmp02/03 len (includes FujiBus header)
 ;   region 2: aws_tmp06/07 ptr, aws_tmp08/09 len (optional)
@@ -213,23 +206,34 @@ fujibus_send_packet_write_frame:
 fujibus_send_packet_scatter = fujibus_send_packet_scatter_raw
 
 fujibus_send_packet_scatter_raw:
-        jsr     fujibus_send_packet_scatter_prepare_header
-        jsr     fujibus_send_packet_scatter_store_total_len
-        jsr     fujibus_send_packet_scatter_store_descriptor_bytes
-        jsr     fujibus_send_packet_scatter_store_checksum
-        jsr     fujibus_send_packet_scatter_prepare_write_regions
-scatter_before_write:
-        jmp     fuji_link_write_slip_frame_triple
-
-fujibus_send_packet_scatter_prepare_header:
-
         ldy     #$00
         lda     fuji_bus_tx_device
         sta     (buffer_ptr),y
         iny
         lda     fuji_bus_tx_command
         sta     (buffer_ptr),y
-        rts
+
+        jsr     fujibus_send_packet_scatter_store_total_len
+
+        ldy     #$02
+        lda     fuji_ax_save
+        sta     (buffer_ptr),y
+        iny
+        lda     fuji_ax_save+1
+        sta     (buffer_ptr),y
+        iny
+        lda     #$00
+        sta     (buffer_ptr),y
+        iny
+        sta     (buffer_ptr),y
+
+        jsr     fujibus_send_packet_scatter_store_checksum
+        ; The triple-frame writer consumes region 1 from aws_tmp00..03 and
+        ; region 2/3 from their original descriptors, so only region 1 needs
+        ; restoring after checksum preparation repurposed aws_tmp00..03.
+        jsr     fujibus_send_packet_scatter_prepare_checksum_region1
+scatter_before_write:
+        jmp     fuji_link_write_slip_frame_triple
 
 fujibus_send_packet_scatter_store_total_len:
         ; total_len = region1 + region2 + region3
@@ -252,20 +256,6 @@ fujibus_send_packet_scatter_store_total_len:
         adc     fuji_ax_save+1
         sta     fuji_ax_save+1
 
-        rts
-
-fujibus_send_packet_scatter_store_descriptor_bytes:
-        ldy     #$02
-        lda     fuji_ax_save
-        sta     (buffer_ptr),y
-        iny
-        lda     fuji_ax_save+1
-        sta     (buffer_ptr),y
-        iny
-        lda     #$00
-        sta     (buffer_ptr),y
-        iny
-        sta     (buffer_ptr),y
         rts
 
 fujibus_send_packet_scatter_store_checksum:
@@ -340,14 +330,6 @@ fujibus_send_packet_scatter_prepare_checksum_region3:
         lda     cws_tmp7
         sta     aws_tmp03
         rts
-
-fujibus_send_packet_scatter_prepare_write_regions:
-        ; The triple-frame writer consumes region 1 from aws_tmp00..03 and
-        ; region 2/3 from their original descriptors, so only region 1 needs
-        ; restoring after checksum preparation repurposed aws_tmp00..03.
-        jsr     fujibus_send_packet_scatter_prepare_checksum_region1
-        rts
-
 
 ; Transport receive ABI
 ;   output A/X = decoded packet length, or 0/0 on failure
