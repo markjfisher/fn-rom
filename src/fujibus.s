@@ -262,17 +262,35 @@ fujibus_send_packet_scatter_store_checksum:
         jsr     fujibus_send_packet_scatter_prepare_checksum_region1
         jsr     calc_checksum
 
-        jsr     fujibus_send_packet_scatter_prepare_checksum_region2
         lda     aws_tmp08
         ora     aws_tmp09
         beq     scatter_after_checksum_r2
+
+        lda     aws_tmp06
+        sta     aws_tmp00
+        lda     aws_tmp07
+        sta     aws_tmp01
+        lda     aws_tmp08
+        sta     aws_tmp02
+        lda     aws_tmp09
+        sta     aws_tmp03
+
         jsr     calc_checksum_continue
 scatter_after_checksum_r2:
 
-        jsr     fujibus_send_packet_scatter_prepare_checksum_region3
         lda     cws_tmp6
         ora     cws_tmp7
         beq     scatter_after_checksum_r3
+
+        lda     cws_tmp2
+        sta     aws_tmp00
+        lda     cws_tmp3
+        sta     aws_tmp01
+        lda     cws_tmp6
+        sta     aws_tmp02
+        lda     cws_tmp7
+        sta     aws_tmp03
+
         jsr     calc_checksum_continue
 scatter_after_checksum_r3:
 
@@ -304,30 +322,6 @@ fujibus_send_packet_scatter_prepare_checksum_region1:
         sta     aws_tmp02
         lda     aws_tmp03
         sbc     cws_tmp7
-        sta     aws_tmp03
-        rts
-
-fujibus_send_packet_scatter_prepare_checksum_region2:
-        lda     aws_tmp06
-        sta     aws_tmp00
-        lda     aws_tmp07
-        sta     aws_tmp01
-
-        lda     aws_tmp08
-        sta     aws_tmp02
-        lda     aws_tmp09
-        sta     aws_tmp03
-        rts
-
-fujibus_send_packet_scatter_prepare_checksum_region3:
-        lda     cws_tmp2
-        sta     aws_tmp00
-        lda     cws_tmp3
-        sta     aws_tmp01
-
-        lda     cws_tmp6
-        sta     aws_tmp02
-        lda     cws_tmp7
         sta     aws_tmp03
         rts
 
