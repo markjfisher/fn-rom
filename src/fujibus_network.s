@@ -79,10 +79,10 @@
         .import fuji_ext_str_len_hi
         .import fuji_ext_str_ptr
         .import copy_aws_tmp00_to_aws_tmp02_a
-        .import fujibus_receive_packet_raw
+        .import fujibus_receive_packet
         .import fujibus_set_payload_buffer_ptr
-        .import fujibus_send_packet_raw
-        .import fujibus_send_packet_scatter_raw
+        .import fujibus_send_packet
+        .import fujibus_send_packet_scatter
         .import get_fuji_json_path_addr_to_aws_tmp00
         .import network_retry_backoff
         .import network_retry_init
@@ -308,7 +308,7 @@ fujibus_network_open:
 
         lda     aws_tmp04
         ldx     aws_tmp05
-        jsr     fujibus_send_packet_raw
+        jsr     fujibus_send_packet
         jmp     @open_receive
 
 @open_send_scatter_url:
@@ -356,14 +356,14 @@ fujibus_network_open:
         sta     cws_tmp7
 
 @open_do_scatter:
-        jsr     fujibus_send_packet_scatter_raw
+        jsr     fujibus_send_packet_scatter
         lda     #$00
         sta     fuji_ext_str_flags
 
 @open_receive:
         ; receive response
 nw_open_before_receive:
-        jsr     fujibus_receive_packet_raw
+        jsr     fujibus_receive_packet
 nw_open_after_receive:
 
         ; check for valid response
@@ -485,11 +485,11 @@ fujibus_network_read:
 
         lda     #$09                    ; 9 bytes payload (1+2+4+2)
         ldx     #$00
-        jsr     fujibus_send_packet_raw
+        jsr     fujibus_send_packet
 
         ; receive response
 nw_read_before_receive:
-        jsr     fujibus_receive_packet_raw
+        jsr     fujibus_receive_packet
 nw_read_after_receive:
 
         ; check for valid response
@@ -706,10 +706,10 @@ fujibus_write_copy_start:
 
         ldx     aws_tmp15               ; payload size high
         lda     aws_tmp14               ; payload size low
-        jsr     fujibus_send_packet_raw
+        jsr     fujibus_send_packet
 
         ; receive response
-        jsr     fujibus_receive_packet_raw
+        jsr     fujibus_receive_packet
         cmp     #$11
         jsr     nw_check_ok_response
         rts
@@ -766,10 +766,10 @@ fujibus_network_write_ext:
         sta     cws_tmp6
         sta     cws_tmp7
 
-        jsr     fujibus_send_packet_scatter_raw
+        jsr     fujibus_send_packet_scatter
 
         ; receive response
-        jsr     fujibus_receive_packet_raw
+        jsr     fujibus_receive_packet
         cmp     #$11                    ; minimum: 7 + 10 bytes protocol response
         jsr     nw_check_ok_response
         rts
@@ -813,10 +813,10 @@ fujibus_network_close:
 
         lda     #$03                    ; 3 bytes payload
         ldx     #$00
-        jsr     fujibus_send_packet_raw
+        jsr     fujibus_send_packet
 
         ; receive response
-        jsr     fujibus_receive_packet_raw
+        jsr     fujibus_receive_packet
         ; minimum: 7 + 4 = 11 bytes
         cmp     #$0B
         jsr     nw_check_ok_response
@@ -932,7 +932,7 @@ fnjq_send_scatter:
         sta     cws_tmp6
         sta     cws_tmp7
 
-        jsr     fujibus_send_packet_scatter_raw
+        jsr     fujibus_send_packet_scatter
         lda     #$00
         sta     fuji_ext_str_flags
         jmp     fnjq_receive
@@ -981,12 +981,12 @@ fnjq_send_translate_configure:
 fnjq_payload_hi_zero:
         ldx     #$00
 fnjq_send_jq:
-        jsr     fujibus_send_packet_raw
+        jsr     fujibus_send_packet
 
 fnjq_receive:
         ; receive response
 nw_json_before_receive:
-        jsr     fujibus_receive_packet_raw
+        jsr     fujibus_receive_packet
 nw_json_after_receive:
 
         ; check for valid response

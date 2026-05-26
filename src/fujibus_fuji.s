@@ -17,8 +17,8 @@
 
         .import fuji_current_fs_len
         .import fuji_disk_slot
-        .import fujibus_receive_packet_raw
-        .import fujibus_send_packet_raw
+        .import fujibus_receive_packet
+        .import fujibus_send_packet
         .import get_fuji_fs_uri_addr_to_aws_tmp00
 
         .include "fujinet.inc"
@@ -167,8 +167,8 @@ fujibus_clear_mount_slot:
         lda     #$04
 
 do_send_recv_check:
-        jsr     fujibus_send_packet_raw
-        jsr     fujibus_receive_packet_raw
+        jsr     fujibus_send_packet
+        jsr     fujibus_receive_packet
         ; fall through
 
 ; Shared: receive in A/X; [5]=1 param count, [6]=0 status

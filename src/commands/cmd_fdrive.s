@@ -19,9 +19,9 @@
         .import cfl_print_formatted_blob
         .import err_syntax
         .import exit_user_ok
-        .import fujibus_receive_packet_raw
+        .import fujibus_receive_packet
         .import fujibus_set_payload_buffer_ptr
-        .import fujibus_send_packet_raw
+        .import fujibus_send_packet
         .import num_params
         .import report_error
 
@@ -87,9 +87,9 @@ cmd_fs_fdrive:
 
         ldx     #$00
         lda     #$09
-        jsr     fujibus_send_packet_raw
+        jsr     fujibus_send_packet
 
-        jsr     fujibus_receive_packet_raw
+        jsr     fujibus_receive_packet
         sta     aws_tmp12
         stx     aws_tmp13
         ora     aws_tmp13

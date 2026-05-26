@@ -48,9 +48,9 @@
         .import fuji_current_host_len
         .import fuji_current_sector
         .import fuji_disk_slot
-        .import fujibus_receive_packet_raw
+        .import fujibus_receive_packet
         .import fujibus_set_payload_buffer_ptr
-        .import fujibus_send_packet_raw
+        .import fujibus_send_packet
         .import fuji_link_write_slip_frame_dual
         .import get_fuji_fs_uri_addr_to_aws_tmp00
         .import get_fuji_host_uri_addr_to_aws_tmp00
@@ -162,9 +162,9 @@ fujibus_disk_create:
         bcc     :+
         inx
 :
-        jsr     fujibus_send_packet_raw
+        jsr     fujibus_send_packet
 
-        jsr     fujibus_receive_packet_raw
+        jsr     fujibus_receive_packet
         cmp     #$07
         jsr     fd_check_ok_response
         bcs     @fail
@@ -256,10 +256,10 @@ fujibus_disk_mount:
         bcc     :+
         inx
 :
-        jsr     fujibus_send_packet_raw
+        jsr     fujibus_send_packet
 
         ; receive response
-        jsr     fujibus_receive_packet_raw
+        jsr     fujibus_receive_packet
         cmp     #$07
         jsr     fd_check_ok_response
         bcs     @fail
@@ -300,9 +300,9 @@ fujibus_disk_unmount:
 
         ldx     #$00
         lda     #$02
-        jsr     fujibus_send_packet_raw
+        jsr     fujibus_send_packet
 
-        jsr     fujibus_receive_packet_raw
+        jsr     fujibus_receive_packet
         cmp     #$08
         jsr     fd_check_ok_response
         bcs     @du_fail
@@ -389,9 +389,9 @@ disk_read_sector_common_recv:
 
         lda     #$08
         ldx     #$00
-        jsr     fujibus_send_packet_raw
+        jsr     fujibus_send_packet
 
-        jsr     fujibus_receive_packet_raw
+        jsr     fujibus_receive_packet
         cmp     #$12                  ; 18
         jsr     fd_check_ok_response
         bcs     @drc_fail
@@ -619,7 +619,7 @@ fujibus_disk_write_sector:
         sta     aws_tmp09
         jsr     fuji_link_write_slip_frame_dual
 
-        jsr     fujibus_receive_packet_raw
+        jsr     fujibus_receive_packet
 
         cpx     #$00
         bne     @ws_check_minlen
@@ -693,9 +693,9 @@ fujibus_resolve_path:
         bcc     :+
         inx
 :
-        jsr     fujibus_send_packet_raw
+        jsr     fujibus_send_packet
 
-        jsr     fujibus_receive_packet_raw
+        jsr     fujibus_receive_packet
 
         cpx     #$00
         bne     @rp_check_status

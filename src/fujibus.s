@@ -38,17 +38,11 @@
         .segment "CODE"
 
 .export fujibus_send_packet
-.export fujibus_send_packet_raw
 .export fujibus_send_packet_scatter
-.export fujibus_send_packet_scatter_raw
 .export fujibus_receive_packet
-.export fujibus_receive_packet_raw
 .export fujibus_set_payload_buffer_ptr
 
-        ; for debug
-        .export fujibus_send_packet_impl
-        .export fujibus_receive_packet_impl
-        .export scatter_after_checksum
+.export scatter_after_checksum
         .export scatter_after_checksum_r2
         .export scatter_after_checksum_r3
         .export scatter_store_checksum
@@ -62,8 +56,6 @@ fujibus_header_size = 6
 ;          fuji_bus_tx_payload_lo/hi set
 ;   output none
 ;   clobbers aws_tmp00/01/02/03/08/09, A, X, Y
-
-fujibus_send_packet = fujibus_send_packet_raw
 
 fujibus_set_payload_buffer_ptr:
         lda     buffer_ptr
@@ -79,7 +71,7 @@ fujibus_set_payload_buffer_ptr:
 ; Internal core: aws_tmp02/03 = paylen, aws_tmp00/01 = payload ptr,
 ; buffer [0],[1] = dev/cmd.
 
-fujibus_send_packet_raw:
+fujibus_send_packet:
         sta     aws_tmp02
         stx     aws_tmp03
 
@@ -94,10 +86,8 @@ fujibus_send_packet_raw:
         iny
         lda     fuji_bus_tx_command
         sta     (buffer_ptr),y
-        jmp     fujibus_send_packet_core
 
-fujibus_send_packet_core:
-fujibus_send_packet_impl = fujibus_send_packet_core
+fujibus_send_packet_body:
         jsr     fujibus_send_packet_prepare_payload_destination
         jsr     fujibus_send_packet_copy_payload
         jsr     fujibus_send_packet_store_total_len
@@ -203,9 +193,7 @@ fujibus_send_packet_prepare_write_region:
 ;   region 3: cws_tmp2/3 ptr, cws_tmp6/7 len (optional)
 ;   clobbers aws_tmp00/01/02/03/04/08/09, A, X, Y
 
-fujibus_send_packet_scatter = fujibus_send_packet_scatter_raw
-
-fujibus_send_packet_scatter_raw:
+fujibus_send_packet_scatter:
         ldy     #$00
         lda     fuji_bus_tx_device
         sta     (buffer_ptr),y
@@ -316,12 +304,7 @@ fujibus_send_packet_scatter_restore_region1_for_write:
 ;   output A/X = decoded packet length, or 0/0 on failure
 ;   clobbers aws_tmp00/01/02/03/04/05/08/09/10/11, A, X, Y
 
-fujibus_receive_packet = fujibus_receive_packet_raw
-
-fujibus_receive_packet_raw = fujibus_receive_packet_core
-
-fujibus_receive_packet_core:
-fujibus_receive_packet_impl = fujibus_receive_packet_core
+fujibus_receive_packet:
         ; receive and decode SLIP into buffer at buffer_ptr
         jsr     fuji_link_read_slip_frame
 

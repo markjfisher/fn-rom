@@ -296,8 +296,8 @@ aws_tmp13       := $BD
 aws_tmp14       := $BE
 aws_tmp15       := $BF
 
-; FujiBus TX transport ABI — before jsr fujibus_send_packet_raw: payload length in A/X;
-; payload pointer below. Legacy fujibus_send_packet is an alias of the same clobbering entry.
+; FujiBus TX transport ABI — before jsr fujibus_send_packet: payload length in A/X;
+; payload pointer below.
 ; Device/command slots are defined after pws_tmp15 — must not use aws_tmp14/15 (see there).
 fuji_bus_tx_payload_lo  := aws_tmp10
 fuji_bus_tx_payload_hi  := aws_tmp11

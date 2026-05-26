@@ -37,9 +37,9 @@
         .import fuji_current_host_len
         .import fuji_filename_buffer
         .import fuji_filename_len
-        .import fujibus_receive_packet_raw
+        .import fujibus_receive_packet
         .import fujibus_set_payload_buffer_ptr
-        .import fujibus_send_packet_raw
+        .import fujibus_send_packet
         .import get_fuji_fs_uri_addr_to_aws_tmp00
         .import get_fuji_host_uri_addr_to_aws_tmp00
 
@@ -140,9 +140,9 @@ frt_compute_paylen:
 
         lda     cws_tmp6
         ldx     cws_tmp7
-        jsr     fujibus_send_packet_raw
+        jsr     fujibus_send_packet
 
-        jsr     fujibus_receive_packet_raw
+        jsr     fujibus_receive_packet
 
         cpx     #$00
         bne     frt_recv_ok
