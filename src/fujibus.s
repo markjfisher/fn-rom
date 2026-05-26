@@ -201,7 +201,7 @@ fujibus_send_packet_prepare_write_region:
 ;   region 1: aws_tmp00/01 ptr, aws_tmp02/03 len (includes FujiBus header)
 ;   region 2: aws_tmp06/07 ptr, aws_tmp08/09 len (optional)
 ;   region 3: cws_tmp2/3 ptr, cws_tmp6/7 len (optional)
-;   clobbers aws_tmp00/01/02/03/04/08/09, fuji_ax_save, A, X, Y
+;   clobbers aws_tmp00/01/02/03/04/08/09, A, X, Y
 
 fujibus_send_packet_scatter = fujibus_send_packet_scatter_raw
 
@@ -215,13 +215,7 @@ fujibus_send_packet_scatter_raw:
 
         jsr     fujibus_send_packet_scatter_store_total_len
 
-        ldy     #$02
-        lda     fuji_ax_save
-        sta     (buffer_ptr),y
-        iny
-        lda     fuji_ax_save+1
-        sta     (buffer_ptr),y
-        iny
+        ldy     #$04
         lda     #$00
         sta     (buffer_ptr),y
         iny
@@ -238,23 +232,17 @@ scatter_before_write:
 fujibus_send_packet_scatter_store_total_len:
         ; total_len = region1 + region2 + region3
         lda     aws_tmp02
-        sta     fuji_ax_save
+        clc
+        adc     aws_tmp08
+        adc     cws_tmp6
+        ldy     #$02
+        sta     (buffer_ptr),y
+
         lda     aws_tmp03
-        sta     fuji_ax_save+1
-        lda     aws_tmp08
-        clc
-        adc     fuji_ax_save
-        sta     fuji_ax_save
-        lda     aws_tmp09
-        adc     fuji_ax_save+1
-        sta     fuji_ax_save+1
-        lda     cws_tmp6
-        clc
-        adc     fuji_ax_save
-        sta     fuji_ax_save
-        lda     cws_tmp7
-        adc     fuji_ax_save+1
-        sta     fuji_ax_save+1
+        adc     aws_tmp09
+        adc     cws_tmp7
+        iny
+        sta     (buffer_ptr),y
 
         rts
 
