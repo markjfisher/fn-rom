@@ -76,34 +76,24 @@ fujibus_set_payload_buffer_ptr:
         rts
 
 
-; Send setup helpers
-;   payload pointer comes from fuji_bus_tx_payload_lo/hi
-;   payload length is already in aws_tmp02/03
-
-fujibus_send_packet_prepare_payload_source:
-        lda     fuji_bus_tx_payload_lo
-        sta     aws_tmp00
-        lda     fuji_bus_tx_payload_hi
-        sta     aws_tmp01
-        rts
-
-fujibus_send_packet_prepare_header:
-        ldy     #$00
-        lda     fuji_bus_tx_device
-        sta     (buffer_ptr),y
-        iny
-        lda     fuji_bus_tx_command
-        sta     (buffer_ptr),y
-        rts
-
 ; Internal core: aws_tmp02/03 = paylen, aws_tmp00/01 = payload ptr,
 ; buffer [0],[1] = dev/cmd.
 
 fujibus_send_packet_raw:
         sta     aws_tmp02
         stx     aws_tmp03
-        jsr     fujibus_send_packet_prepare_payload_source
-        jsr     fujibus_send_packet_prepare_header
+
+        lda     fuji_bus_tx_payload_lo
+        sta     aws_tmp00
+        lda     fuji_bus_tx_payload_hi
+        sta     aws_tmp01
+
+        ldy     #$00
+        lda     fuji_bus_tx_device
+        sta     (buffer_ptr),y
+        iny
+        lda     fuji_bus_tx_command
+        sta     (buffer_ptr),y
         jmp     fujibus_send_packet_core
 
 fujibus_send_packet_core:
@@ -371,23 +361,36 @@ fujibus_receive_packet_core:
 fujibus_receive_packet_impl = fujibus_receive_packet_core
         ; receive and decode SLIP into buffer at buffer_ptr
         jsr     fuji_link_read_slip_frame
-        jsr     fujibus_receive_packet_store_result_length
+
+        ; Canonical decoded length/result lives in aws_tmp10/11.
+        sta     aws_tmp10
+        stx     aws_tmp11
+
         jsr     fujibus_receive_packet_validate_decoded_length
         bcc     fujibus_receive_packet_fail
-        jsr     fujibus_receive_packet_store_received_checksum
-        jsr     fujibus_receive_packet_clear_wire_checksum
-        jsr     fujibus_receive_packet_prepare_checksum_input
+
+        ; chk_received = rx[4] — must not use aws_tmp04; calc_checksum clobbers it.
+        ldy     #$04
+        lda     (buffer_ptr),y
+        sta     aws_tmp05
+
+        lda     #$00
+        sta     (buffer_ptr),y
+
+        lda     buffer_ptr
+        sta     aws_tmp00
+        lda     buffer_ptr+1
+        sta     aws_tmp01
+        lda     aws_tmp10
+        sta     aws_tmp02
+        lda     aws_tmp11
+        sta     aws_tmp03
+
         jsr     fujibus_receive_packet_validate_checksum
         bcc     fujibus_receive_packet_fail
 
         lda     aws_tmp10
         ldx     aws_tmp11
-        rts
-
-fujibus_receive_packet_store_result_length:
-        ; Canonical decoded length/result lives in aws_tmp10/11.
-        sta     aws_tmp10
-        stx     aws_tmp11
         rts
 
 fujibus_receive_packet_validate_decoded_length:
@@ -419,30 +422,6 @@ fujibus_receive_packet_validate_decoded_length:
 fujibus_receive_packet_fail:
         lda     #$00
         tax
-        rts
-
-fujibus_receive_packet_store_received_checksum:
-        ; chk_received = rx[4] — must not use aws_tmp04; calc_checksum clobbers it.
-        ldy     #$04
-        lda     (buffer_ptr),y
-        sta     aws_tmp05
-        rts
-
-fujibus_receive_packet_clear_wire_checksum:
-        ldy     #$04
-        lda     #$00
-        sta     (buffer_ptr),y
-        rts
-
-fujibus_receive_packet_prepare_checksum_input:
-        lda     buffer_ptr
-        sta     aws_tmp00
-        lda     buffer_ptr+1
-        sta     aws_tmp01
-        lda     aws_tmp10
-        sta     aws_tmp02
-        lda     aws_tmp11
-        sta     aws_tmp03
         rts
 
 fujibus_receive_packet_validate_checksum:
