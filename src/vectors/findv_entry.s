@@ -299,17 +299,7 @@ close_network_channel:
         ; jsr     fuji_end_transaction
 
         ldy     fuji_intch               ; restore intch
-
-        ; clear the open bit
-        lda     fuji_ch_bitmask,y
-        eor     #$FF
-        and     fuji_open_channels
-        sta     fuji_open_channels
-
-        ; zero the handle bytes in channel block
-        lda     #$00
-        sta     fuji_ch_handle_low,y
-        sta     fuji_ch_handle_high,y
+        jsr     network_release_channel_y
 
 close_file_exit_plp:
         plp                             ; was there an error flushing?
@@ -644,9 +634,20 @@ nof_return_handle:
 nof_open_failed:
         jsr     fuji_end_transaction
 
-        ; clear the open bit
         ldy     fuji_intch
-        lda     fuji_channel_flag_bit
+        jsr     network_release_channel_y
+
+        ; clear network URL flag
+        sta     fuji_network_url_flag
+
+        ; Return 0 = file not opened
+        plp
+        lda     #$00
+        rts
+
+network_release_channel_y:
+        ; clear the open bit
+        lda     fuji_ch_bitmask,y
         eor     #$FF
         and     fuji_open_channels
         sta     fuji_open_channels
@@ -655,13 +656,6 @@ nof_open_failed:
         lda     #$00
         sta     fuji_ch_handle_low,y
         sta     fuji_ch_handle_high,y
-
-        ; clear network URL flag
-        sta     fuji_network_url_flag
-
-        ; Return 0 = file not opened
-        plp
-        lda     #$00
         rts
 
 
@@ -776,4 +770,3 @@ fop_matchifcset:
         bne     fop_main_loop           ; If flag bit <> 0
 fop_exit:
         rts                             ; Exit: A=flag (1000 000 for channel 1, 0100 0000 for channel 2, etc) Y=intch if slot available/found, C=1 if it got a channel
-

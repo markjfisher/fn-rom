@@ -53,7 +53,6 @@ fnnet_call_entry:
         sty     aws_tmp01
         ldy     #$00
         sta     (aws_tmp00),y
-        jmp     fnnet_dispatch
 
 ; Core dispatcher: X/Y=parameter block, reason at (block)+0.
 fnnet_dispatch:
@@ -216,13 +215,7 @@ fnnet_json_query_failed:
         ; and the caller can inspect the non-zero fnnet status to distinguish it.
         ldy     aws_tmp02
         lda     #$00
-        sta     fuji_ch_ext_low,y
-        sta     fuji_ch_ext_mid,y
-        sta     fuji_ch_ext_hi,y
-        sta     fuji_ch_bptr_low,y
-        sta     fuji_ch_bptr_mid,y
-        sta     fuji_ch_bptr_hi,y
-        sta     fuji_ch_sect_cnt,y
+        jsr     fnnet_clear_channel_read_state_y
         jsr     fnnet_clear_ext_state
         lda     #FNNET_STATUS_JSON_QUERY_FAILED
         jmp     fnnet_exit
@@ -283,4 +276,15 @@ fnnet_clear_ext_state:
         sta     fuji_ext_str_ptr
         sta     fuji_ext_str_ptr+1
         sta     fuji_json_path_len
+        rts
+
+; Entry: Y = intch, A = $00
+fnnet_clear_channel_read_state_y:
+        sta     fuji_ch_ext_low,y
+        sta     fuji_ch_ext_mid,y
+        sta     fuji_ch_ext_hi,y
+        sta     fuji_ch_bptr_low,y
+        sta     fuji_ch_bptr_mid,y
+        sta     fuji_ch_bptr_hi,y
+        sta     fuji_ch_sect_cnt,y
         rts
