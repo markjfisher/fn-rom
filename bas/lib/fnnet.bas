@@ -6,10 +6,9 @@ REM DIM finBlock% … then finBlock%?n for bytes; finBlock% is the base address.
 finOsword%=&78
 finMosOsword%=&FFF1
 finReasonJsonQuery%=0
-finReasonStashJson%=1
-finReasonSetBodyLen%=2
-finReasonWriteData%=3
-finReasonSetContentProfile%=4
+finReasonSetBodyLen%=1
+finReasonWriteData%=2
+finReasonSetContentProfile%=3
 finStatusOk%=0
 finStatusBadCall%=1
 finStatusJsonQueryFailed%=2
@@ -51,12 +50,6 @@ DEF PROCfn_json_query(h%, path$)
 PROCfnnet_set_str(path$)
 finBlock%?0=finReasonJsonQuery%
 finBlock%?6=h%
-PROCfnnet_call
-ENDPROC
-
-DEF PROCfn_stash_json(path$)
-PROCfnnet_set_str(path$)
-finBlock%?0=finReasonStashJson%
 PROCfnnet_call
 ENDPROC
 

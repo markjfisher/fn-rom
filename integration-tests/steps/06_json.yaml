@@ -20,6 +20,22 @@ steps:
               - 'Handle    : [1-2][0-9]+'
               - 'ReadLen   : 29'
               - 'String : http://192.168.1.101:8080/get'
+  - name: fnjson2
+    paste:
+      - 'CH."FNJSON2"'
+    delay_seconds: 10.0
+    checks:
+      - screen:
+          expect:
+            regex:
+              - 'FujiNet multi JSON query test'
+              - 'Handle    : [1-2][0-9]+'
+              - 'url query stat: 0'
+              - 'url Len: 29'
+              - 'String : http://192.168.1.101:8080/get'
+              - 'headers/Host query stat: 0'
+              - 'headers/Host Len: 18'
+              - 'String : 192.168.1.101:8080'
   - name: fnosw78
     paste:
       - 'CH."FNOSW78"'
