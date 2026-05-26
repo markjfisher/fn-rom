@@ -248,8 +248,7 @@ FOR row%=1 TO 22
   PRINT TAB(0,row%);CHR$(147);CHR$(238);CHR$(135);STRING$(35," ");CHR$(147);CHR$(189);
 NEXT
 PRINT TAB(0,23);CHR$(147);CHR$(238);STRING$(12,CHR$(172)+CHR$(188)+CHR$(236));CHR$(172);CHR$(189);
-PRINT TAB(7,1);CHR$(134);CHR$(131);"FUJINET WEATHER";
-PRINT TAB(24,1);CHR$(135);"METEO ";
+PRINT TAB(0,1);CHR$(147);CHR$(238);CHR$(133);" ";CHR$(157);CHR$(132);"   FUJINET WEATHER ";CHR$(134);"METEO      ";CHR$(156);CHR$(147);CHR$(189);
 PRINT TAB(4,22);CHR$(132);"L";CHR$(135);" locn ";CHR$(132);"R";CHR$(135);" refresh ";CHR$(132);"Q";CHR$(135);" quit";
 ENDPROC
 
@@ -279,7 +278,7 @@ DEF PROCdraw_big_icon(col%, row%, code%)
 LOCAL kind%
 kind%=FNicon_kind(code%)
 IF kind%=0 THEN PRINT TAB(col%,row%);CHR$(131);"  / | / "; : PRINT TAB(col%,row%+1);CHR$(131);" -- O --"; : PRINT TAB(col%,row%+2);CHR$(131);"  / | / "; : ENDPROC
-IF kind%=1 THEN PRINT TAB(col%,row%);CHR$(135);"   .--.  "; : PRINT TAB(col%,row%+1);CHR$(135);".-(____)."; : PRINT TAB(col%,row%+2);CHR$(134);" `-.__.-'"; : ENDPROC
+IF kind%=1 THEN PRINT TAB(col%,row%);CHR$(135);"   .--.  "; : PRINT TAB(col%,row%+1);CHR$(135);".-(____)."; : PRINT TAB(col%,row%+2);CHR$(134);" '-.__.-'"; : ENDPROC
 IF kind%=2 THEN PRINT TAB(col%,row%);CHR$(135);"   .--.  "; : PRINT TAB(col%,row%+1);CHR$(135);".-(____)."; : PRINT TAB(col%,row%+2);CHR$(132);" ' ' ' ' "; : ENDPROC
 IF kind%=3 THEN PRINT TAB(col%,row%);CHR$(135);"   .--.  "; : PRINT TAB(col%,row%+1);CHR$(133);".-(____)."; : PRINT TAB(col%,row%+2);CHR$(131);"  / / /  "; : ENDPROC
 IF kind%=4 THEN PRINT TAB(col%,row%);CHR$(135);"   .--.  "; : PRINT TAB(col%,row%+1);CHR$(135);".-(____)."; : PRINT TAB(col%,row%+2);CHR$(135);"  *  *   "; : ENDPROC
