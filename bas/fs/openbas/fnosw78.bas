@@ -74,6 +74,8 @@ UNTIL count%=64 OR I%=127
 PRINT "ReadLen   : ";count%
 PRINT "ReadHex   : ";
 PROCprint_hex_bytes(readBuf%,count%)
+PROCprint_string(readBuf%,count%)
+
 ENDPROC
 
 DEF PROCclear_block
@@ -85,6 +87,14 @@ ENDPROC
 DEF PROCprint_hex_bytes(addr%,count%)
 FOR I%=0 TO count%-1
 PRINT FNhex2(?(addr%+I%));" ";
+NEXT
+PRINT
+ENDPROC
+
+DEF PROCprint_string(addr%,count%)
+PRINT "String : ";
+FOR I%=0 TO count%-1
+  PRINT CHR$(?(addr%+I%));
 NEXT
 PRINT
 ENDPROC

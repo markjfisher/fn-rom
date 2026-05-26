@@ -40,17 +40,28 @@ readBuf%?I%=0
 NEXT
 
 REPEAT
-IF EOF#h% THEN I%=127 ELSE readBuf%?count%=BGET#h%:count%=count%+1
-UNTIL count%=64 OR I%=127
+IF EOF#h% THEN I%=255 ELSE readBuf%?count%=BGET#h%:count%=count%+1
+UNTIL count%=64 OR I%=255
 
 PRINT "ReadLen   : ";count%
-PRINT "ReadHex   : ";
+PRINT "ReadHex   : "
 PROCprint_hex_bytes(readBuf%,count%)
+PROCprint_string(readBuf%,count%)
+
 ENDPROC
 
 DEF PROCprint_hex_bytes(addr%,count%)
 FOR I%=0 TO count%-1
-PRINT FNhex2(?(addr%+I%));" ";
+  PRINT FNhex2(?(addr%+I%));" ";
+  IF (I%+1) MOD 8 = 0 THEN PRINT
+NEXT
+PRINT
+ENDPROC
+
+DEF PROCprint_string(addr%,count%)
+PRINT "String : ";
+FOR I%=0 TO count%-1
+  PRINT CHR$(?(addr%+I%));
 NEXT
 PRINT
 ENDPROC

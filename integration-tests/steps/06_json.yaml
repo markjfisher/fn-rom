@@ -1,0 +1,34 @@
+group: BBC / Network / JSON strings
+
+disk: openbas.ssd
+
+paste:
+  - 'PRINT "Running JSON tests"'
+  - '*FUJI'
+  - '*CAT'
+
+steps:
+  - name: fnjsonq
+    paste:
+      - 'CH."FNJSONQ"'
+    delay_seconds: 8.0
+    checks:
+      - screen:
+          expect:
+            regex:
+              - 'FujiNet FJSON test'
+              - 'Handle    : [1-2][0-9]+'
+              - 'ReadLen   : 29'
+              - 'String : http://192.168.1.101:8080/get'
+  - name: fnosw78
+    paste:
+      - 'CH."FNOSW78"'
+    delay_seconds: 8.0
+    checks:
+      - screen:
+          expect:
+            regex:
+              - 'FujiNet OSWORD 78 Test'
+              - 'Handle    : [1-2][0-9]+'
+              - 'ReadLen   : 29'
+              - 'String : http://192.168.1.101:8080/get'
