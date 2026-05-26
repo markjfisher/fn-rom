@@ -8,9 +8,9 @@ finMosOsword%=&FFF1
 finReasonVersion%=0
 finReasonJsonQuery%=1
 finReasonStashJson%=2
-finReasonSetBodyLen%=4
-finReasonWriteData%=5
-finReasonSetContentProfile%=6
+finReasonSetBodyLen%=3
+finReasonWriteData%=4
+finReasonSetContentProfile%=5
 finStatusOk%=0
 finStatusBadCall%=1
 finStatusJsonQueryFailed%=2
@@ -84,14 +84,14 @@ ENDPROC
 
 DEF PROCfnnet_set_body_len(n%)
 finBlock%?0=finReasonSetBodyLen%
-finBlock%?4=n% AND &FF
-finBlock%?5=n% DIV 256
+finBlock%?2=n% AND &FF
+finBlock%?3=n% DIV 256
 PROCfnnet_rom_call(finReasonSetBodyLen%)
 ENDPROC
 
 DEF PROCfnnet_set_content_profile(profile%)
 finBlock%?0=finReasonSetContentProfile%
-finBlock%?6=profile%
+finBlock%?2=profile%
 PROCfnnet_rom_call(finReasonSetContentProfile%)
 ENDPROC
 

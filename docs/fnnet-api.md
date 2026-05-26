@@ -15,14 +15,40 @@ Reason `0` returns API version in block+1 and CALL entry address in block+8/9. T
 
 ## Parameter block
 
+Every call uses a 16-byte block. All calls share:
+
 | Offset | Field |
 |--------|-------|
 | 0 | Reason in / status out |
 | 1 | Status out (duplicate for convenience) |
+
+Each reason then reads its own inputs starting at offset 2. Handlers ignore all other bytes.
+
+### Reason `&00` — version
+
+| Offset | Field |
+|--------|-------|
+| 8-9 | Out: CALL entry lo/hi |
+
+### Reasons `&01`, `&02`, `&04` — string operations
+
+| Offset | Field |
+|--------|-------|
 | 2-3 | String pointer in user RAM |
 | 4-5 | String length (u16, max 512) |
-| 6-7 | BASIC file handle (`&10`..`&15`) for JSON query |
-| 8-9 | Out: CALL entry lo/hi (reason 0 only) |
+| 6 | BASIC file handle (`&10`..`&15`) for reasons `&01` and `&04` only |
+
+### Reason `&03` — set POST/PUT body length
+
+| Offset | Field |
+|--------|-------|
+| 2-3 | Body length u16le (one-shot; consumed on next network open) |
+
+### Reason `&05` — set request content profile
+
+| Offset | Field |
+|--------|-------|
+| 2 | Content profile u8 (one-shot; consumed on next network open) |
 
 ## Reason codes
 
@@ -31,11 +57,11 @@ Reason `0` returns API version in block+1 and CALL entry address in block+8/9. T
 | `&00` | Return API version |
 | `&01` | JSON query on open channel (TranslateConfigure) |
 | `&02` | Stash JSON path for next open-with-translation |
-| `&04` | Set one-shot HTTP POST/PUT body length (bytes at block+4/+5) |
-| `&05` | Write request body bytes to an open channel |
-| `&06` | Set one-shot request content profile (byte at block+6) |
+| `&03` | Set one-shot HTTP POST/PUT body length |
+| `&04` | Write request body bytes to an open channel |
+| `&05` | Set one-shot request content profile |
 
-## Content profiles (reason `&06`, block+6)
+## Content profiles (reason `&05`, block+2)
 
 | Value | Meaning |
 |------:|---------|
@@ -68,6 +94,22 @@ Short JSON paths may still use `OSCLI "*FJSON handle path"`. Use OSWORD/CALL rea
 ## BASIC library
 
 See [bas/lib/fnnet.bas](../bas/lib/fnnet.bas).
+
+## ROM source layout
+
+OSWORD `&78` handlers compile as one CODE object from [src/fnnet.s](../src/fnnet.s), with handler bodies in [src/fnnet/](../src/fnnet/) as `.inc` fragments:
+
+| File | Purpose |
+|------|---------|
+| `fnnet.s` | Entry point, jump-table dispatch |
+| `ext_str.inc` | Long-string load/clear helpers |
+| `exit.inc` | Shared fail/exit tail (placed before large handlers for short branches) |
+| `reason_version.inc` | Reason `&00` |
+| `reason_json_query.inc` | Reason `&01` |
+| `reason_stash_json.inc` | Reason `&02` |
+| `reason_set_body_len.inc` | Reason `&03` |
+| `reason_write_data.inc` | Reason `&04` |
+| `reason_set_content_profile.inc` | Reason `&05` |
 
 BBC BASIC reserves the `FN` prefix for user functions (case-insensitive) — use the `fin*` prefix for names, not `fn*` or `FNNET_*`.
 
