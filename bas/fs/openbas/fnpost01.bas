@@ -9,6 +9,8 @@ finMosOsword%=&FFF1
 finReasonJsonQuery%=1
 finReasonSetBodyLen%=4
 finReasonWriteData%=5
+finReasonSetContentProfile%=6
+finProfileJson%=1
 
 DIM finBuf% 512
 DIM finBlock% 16
@@ -29,6 +31,15 @@ Y%=finBlock% DIV 256
 CALL finMosOsword%
 
 PRINT "Set body len status: ";finBlock%?1
+
+PROCfnnet_set_content_profile(finProfileJson%)
+
+A%=finOsword%
+X%=finBlock% MOD 256
+Y%=finBlock% DIV 256
+CALL finMosOsword%
+
+PRINT "Set content profile status: ";finBlock%?1
 
 H%=OPENUP("http://192.168.1.101:8080/anything")
 IF H%=0 PRINT "No file":END
@@ -66,6 +77,11 @@ DEF PROCfnnet_set_body_len(n%)
 finBlock%?0=finReasonSetBodyLen%
 finBlock%?4=n% AND &FF
 finBlock%?5=n% DIV 256
+ENDPROC
+
+DEF PROCfnnet_set_content_profile(profile%)
+finBlock%?0=finReasonSetContentProfile%
+finBlock%?6=profile%
 ENDPROC
 
 DEF PROCfnnet_set_str(s$)

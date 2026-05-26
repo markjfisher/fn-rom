@@ -39,6 +39,7 @@
         .import fuji_json_path_len
         .import fuji_network_body_len
         .import fuji_network_body_len_hi
+        .import fuji_network_content_profile
         .import fujibus_network_write_ext
         .import fujibus_network_translate_configure
         .import network_flush_write
@@ -83,6 +84,11 @@ fnnet_dispatch:
         jmp     fnnet_reason_set_body_len
 :
 
+        cmp     #FNNET_REASON_SET_CONTENT_PROFILE
+        bne     :+
+        jmp     fnnet_reason_set_content_profile
+:
+
         cmp     #FNNET_REASON_WRITE_DATA
         bne     :+
         jmp     fnnet_reason_write_data
@@ -124,6 +130,13 @@ fnnet_reason_set_body_len:
         iny
         lda     (aws_tmp00),y
         sta     fuji_network_body_len_hi
+        lda     #FNNET_STATUS_OK
+        beq     fnnet_exit
+
+fnnet_reason_set_content_profile:
+        ldy     #$06
+        lda     (aws_tmp00),y
+        sta     fuji_network_content_profile
         lda     #FNNET_STATUS_OK
         beq     fnnet_exit
 

@@ -71,6 +71,7 @@
         .import fuji_json_path_len
         .import fuji_network_body_len
         .import fuji_network_body_len_hi
+        .import fuji_network_content_profile
         .import fuji_network_buf_cnt
         .import fuji_network_buf_cnt_hi
         .import fuji_network_url_flag
@@ -111,10 +112,9 @@
 ;   +5+urlLen+6 respHeaderCount = 0 (u16le)
 ;   [optional] +5+urlLen+8 openExtFlags (u32le)
 ;   if NET_OPEN_EXT_TRANSLATION:
-;     +5+urlLen+12 translationType (u8)
-;     +5+urlLen+13 translationFlags (u8)
-;     +5+urlLen+14 selectorLen (u16le)
-;     +5+urlLen+16 selector bytes (N)
+;     translationType (u8), translationFlags (u8), selectorLen (u16le), selector bytes
+;   if NET_OPEN_EXT_CONTENT_PROFILE:
+;     contentProfile (u8)
 
 fujibus_network_open:
         stx     aws_tmp05               ; save flags
@@ -217,80 +217,19 @@ fujibus_network_open:
         iny
         sta     (cws_tmp6),y
 
-        ; optional open extension block for translation
-        lda     fuji_json_path_len
-        beq     @open_no_translation
+        jsr     nw_open_ext_extra_len
 
-        lda     #<NET_OPEN_EXT_TRANSLATION
-        iny
-        sta     (cws_tmp6),y
-        lda     #>NET_OPEN_EXT_TRANSLATION
-        iny
-        sta     (cws_tmp6),y
-        lda     #$00
-        iny
-        sta     (cws_tmp6),y
-        iny
-        sta     (cws_tmp6),y
+        ldy     #$08
+        jsr     nw_write_open_extensions
 
-        lda     #$01
-        iny
-        sta     (cws_tmp6),y
-        lda     #$00
-        iny
-        sta     (cws_tmp6),y
-
-        lda     fuji_json_path_len
-        iny
-        sta     (cws_tmp6),y
-        lda     #$00
-        iny
-        sta     (cws_tmp6),y
-
-        ; copy selector from PWS to packet buffer
-        lda     cws_tmp6
-        clc
-        adc     #$10
-        sta     cws_tmp2
-        lda     cws_tmp7
-        adc     #$00
-        sta     cws_tmp3
-
-        jsr     get_fuji_json_path_addr_to_aws_tmp00
-        lda     cws_tmp2
-        sta     aws_tmp02
-        lda     cws_tmp3
-        sta     aws_tmp03
-        lda     fuji_json_path_len
-        jsr     copy_aws_tmp00_to_aws_tmp02_a
-
-@open_no_translation:
 @open_calc_length:
-        ; payload length = 13 + urlLen, or 21 + urlLen + selectorLen with translation
-        lda     fuji_json_path_len
-        beq     @open_no_translation_len
-        clc
-        adc     #21
-        sta     aws_tmp04
-        lda     aws_tmp03
-        adc     #$00
-        sta     aws_tmp05
-        lda     aws_tmp02
-        clc
-        adc     aws_tmp04
-        sta     aws_tmp04
-        lda     aws_tmp05
-        adc     #$00
-        sta     aws_tmp05
-        jmp     @open_payload_len_done
-
-@open_no_translation_len:
         lda     aws_tmp02
         clc
         adc     #13
+        adc     aws_tmp14
         sta     aws_tmp04
         lda     aws_tmp03
-        adc     #$00
+        adc     aws_tmp15
         sta     aws_tmp05
 @open_payload_len_done:
 
@@ -340,19 +279,12 @@ fujibus_network_open:
         lda     buffer_ptr+1
         adc     #$00
         sta     cws_tmp3
-        lda     fuji_json_path_len
-        beq     @open_tail8
-        lda     #$10
+        lda     aws_tmp14
         clc
-        adc     fuji_json_path_len
+        adc     #$08
         sta     cws_tmp6
-        lda     #$00
-        sta     cws_tmp7
-        jmp     @open_do_scatter
-@open_tail8:
-        lda     #$08
-        sta     cws_tmp6
-        lda     #$00
+        lda     aws_tmp15
+        adc     #$00
         sta     cws_tmp7
 
 @open_do_scatter:
@@ -1134,4 +1066,136 @@ nw_build_open_prefix:
         lda     aws_tmp03
         iny
         sta     (buffer_ptr),y
+        rts
+
+; Compute optional Open extension byte count (excludes fixed 8-byte trailing fields).
+; Output: aws_tmp14/15 = extension length (u16le).
+nw_open_ext_extra_len:
+        lda     #$00
+        sta     aws_tmp14
+        sta     aws_tmp15
+
+        lda     fuji_json_path_len
+        bne     @has_ext
+        lda     fuji_network_content_profile
+        beq     @done
+@has_ext:
+        lda     aws_tmp14
+        clc
+        adc     #$04
+        sta     aws_tmp14
+        bcc     :+
+        inc     aws_tmp15
+:
+
+        lda     fuji_json_path_len
+        beq     @profile_only
+
+        lda     aws_tmp14
+        clc
+        adc     #$04
+        sta     aws_tmp14
+        lda     aws_tmp15
+        adc     #$00
+        sta     aws_tmp15
+
+        lda     aws_tmp14
+        clc
+        adc     fuji_json_path_len
+        sta     aws_tmp14
+        lda     aws_tmp15
+        adc     #$00
+        sta     aws_tmp15
+
+@profile_only:
+        lda     fuji_network_content_profile
+        beq     @done
+        inc     aws_tmp14
+        bne     @done
+        inc     aws_tmp15
+@done:
+        rts
+
+; Write optional Open extension blocks after respHeaderCount.
+; Entry: (cws_tmp6),Y = write index (typically 8).
+; Output: Y = updated write index. Clears fuji_network_content_profile after writing.
+nw_write_open_extensions:
+        lda     fuji_json_path_len
+        bne     @write_ext
+        lda     fuji_network_content_profile
+        beq     @done
+@write_ext:
+        lda     #$00
+        sta     aws_tmp10
+
+        lda     fuji_json_path_len
+        beq     @skip_trans_flag
+        lda     aws_tmp10
+        ora     #NET_OPEN_EXT_TRANSLATION
+        sta     aws_tmp10
+@skip_trans_flag:
+        lda     fuji_network_content_profile
+        beq     @skip_profile_flag
+        lda     aws_tmp10
+        ora     #NET_OPEN_EXT_CONTENT_PROFILE
+        sta     aws_tmp10
+@skip_profile_flag:
+        lda     aws_tmp10
+        sta     (cws_tmp6),y
+        iny
+        lda     #$00
+        sta     (cws_tmp6),y
+        iny
+        sta     (cws_tmp6),y
+        iny
+        sta     (cws_tmp6),y
+        iny
+
+        lda     fuji_json_path_len
+        beq     @skip_trans_block
+
+        lda     #$01
+        sta     (cws_tmp6),y
+        iny
+        lda     #$00
+        sta     (cws_tmp6),y
+        iny
+        lda     fuji_json_path_len
+        sta     (cws_tmp6),y
+        iny
+        lda     #$00
+        sta     (cws_tmp6),y
+        iny
+
+        tya
+        pha
+
+        clc
+        adc     cws_tmp6
+        sta     cws_tmp2
+        lda     cws_tmp7
+        adc     #$00
+        sta     cws_tmp3
+
+        jsr     get_fuji_json_path_addr_to_aws_tmp00
+        lda     cws_tmp2
+        sta     aws_tmp02
+        lda     cws_tmp3
+        sta     aws_tmp03
+        lda     fuji_json_path_len
+        jsr     copy_aws_tmp00_to_aws_tmp02_a
+
+        pla
+        clc
+        adc     fuji_json_path_len
+        tay
+
+@skip_trans_block:
+        lda     fuji_network_content_profile
+        beq     @done
+        sta     (cws_tmp6),y
+        iny
+        lda     #$00
+        sta     fuji_network_content_profile
+@done:
         rts

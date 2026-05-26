@@ -51,6 +51,7 @@
         .import fuji_network_flush_mode
         .import fuji_network_body_len
         .import fuji_network_body_len_hi
+        .import fuji_network_content_profile
         .import fuji_network_retry_max
         .import fuji_open_channels
         .import get_fuji_fs_uri_addr_to_aws_tmp00
@@ -240,6 +241,7 @@ setdefaults:
         sta     fuji_network_flush_mode
         sta     fuji_network_body_len
         sta     fuji_network_body_len_hi
+        sta     fuji_network_content_profile
         lda     #NET_RETRY_MAX
         sta     fuji_network_retry_max
 

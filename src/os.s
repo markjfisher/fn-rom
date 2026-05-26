@@ -152,6 +152,7 @@
         .export  fuji_network_flush_mode
         .export  fuji_network_body_len
         .export  fuji_network_body_len_hi
+        .export  fuji_network_content_profile
         .export  fuji_network_retry_delay
         .export  fuji_network_retry_left
         .export  fuji_network_retry_max
@@ -542,6 +543,7 @@ fuji_network_retry_left  := fuji_workspace_root + $10B5   ; attempts remaining
 fuji_max_string_length   := fuji_workspace_root + $10B6   ; field for storing max string length allowed in param_get_string
 fuji_network_body_len    := fuji_workspace_root + $10B7   ; one-shot HTTP request body length hint (low)
 fuji_network_body_len_hi := fuji_workspace_root + $10B8   ; one-shot HTTP request body length hint (high)
+fuji_network_content_profile := fuji_workspace_root + $10B9 ; one-shot request content profile for next open
 
 ; workspace_utils.s references 10C0-10FF and 1100-11BF as static workspace
 ; this is essentially channels/files information for a filing system

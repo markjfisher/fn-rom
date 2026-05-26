@@ -31,6 +31,20 @@ Reason `0` returns API version in block+1 and CALL entry address in block+8/9. T
 | `&00` | Return API version |
 | `&01` | JSON query on open channel (TranslateConfigure) |
 | `&02` | Stash JSON path for next open-with-translation |
+| `&04` | Set one-shot HTTP POST/PUT body length (bytes at block+4/+5) |
+| `&05` | Write request body bytes to an open channel |
+| `&06` | Set one-shot request content profile (byte at block+6) |
+
+## Content profiles (reason `&06`, block+6)
+
+| Value | Meaning |
+|------:|---------|
+| `0` | None (default) |
+| `1` | JSON body → `Content-Type: application/json` |
+| `2` | Form body → `Content-Type: application/x-www-form-urlencoded` |
+| `3` | Text body → `Content-Type: text/plain` |
+
+The profile applies to the next `OPENIN` / `OPENUP` / `OPENOUT` network open and is cleared after use. Fujinet injects the corresponding request header; explicit headers from other clients still take precedence.
 
 ## Status codes
 
