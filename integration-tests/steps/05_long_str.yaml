@@ -21,8 +21,14 @@ steps:
               - 'Set body len status: 0'
               - 'Write data status: 0'
               - 'Method query status: 0'
-              - 'Method result: POST'
+              - 'count%: 4'
+              - 'Method result: >POST<'
+              - 'Len: 4'
+              - 'String bytes: 50 4F 53 54'
+              - 'Buffer: 50 4F 53 54 00'
               - 'POST response received'
+              - 'String Len Check: 4'
+
   - name: opin03_long_url
     paste:
       - 'CHAIN "OPIN03"'

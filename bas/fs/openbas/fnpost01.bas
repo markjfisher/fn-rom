@@ -92,11 +92,12 @@ UNTIL count%=16 OR I%=255
 PRINT "count%: "; count%
 PRINT "Method result: >";result$;"<"
 PRINT "Len: ";LEN(result$)
+PRINT "String bytes: ";
 FOR I%=1 TO LEN(result$)
   PRINT FNhex2(ASC(MID$(result$,I%,1)));" ";
 NEXT
 PRINT
-PRINT "Buffer:"
+PRINT "Buffer: ";
 FOR I%=0 TO count%
   PRINT FNhex2(readBuf%?I%);" ";
 NEXT
