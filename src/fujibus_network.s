@@ -532,8 +532,8 @@ check_read_length:
         lda     (buffer_ptr),y
         sta     aws_tmp04               ; response flags (e.g. EOF)
 
-        lda     aws_tmp05
         ; minimum length: 7 + 12 = 19 bytes (FujiBus hdr + network protocol hdr)
+        lda     aws_tmp05
         cmp     #$13
         bcc     read_fail
 
@@ -1033,13 +1033,15 @@ fnjq_jq_success:
         ; Read translatedSize from response (u32le at buffer+13)
         ldy     #$0D
         lda     (buffer_ptr),y          ; size low
-        sta     aws_tmp02               ; save low
-        iny
+        ldy     fuji_intch
+        sta     fuji_ch_ext_low,y
+        ldy     #$0E
         lda     (buffer_ptr),y          ; size mid
-        sta     aws_tmp03               ; save high
-        iny
+        ldy     fuji_intch
+        sta     fuji_ch_ext_mid,y
+        ldy     #$0F
         lda     (buffer_ptr),y          ; size high
-        sta     aws_tmp04
+        sta     aws_tmp04               ; upper 24 bits after validation below
         iny
         lda     (buffer_ptr),y          ; size upper24-31, ignored unless non-zero
         beq     :+
@@ -1050,10 +1052,6 @@ fnjq_jq_success:
         ; Update EXT/PTR in channel block
         ldy     fuji_intch
 
-        lda     aws_tmp02
-        sta     fuji_ch_ext_low,y
-        lda     aws_tmp03
-        sta     fuji_ch_ext_mid,y
         lda     aws_tmp04
         sta     fuji_ch_ext_hi,y
 
