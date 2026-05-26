@@ -76,20 +76,18 @@ fujibus_set_payload_buffer_ptr:
         rts
 
 
-; Wrapper setup: copy the public call inputs into the internal scratch contract used
-; by the packet-building core, then populate header bytes [0],[1].
+; Send setup helpers
+;   payload pointer comes from fuji_bus_tx_payload_lo/hi
+;   payload length is already in aws_tmp02/03
 
-fujibus_send_packet_prepare_wrapper_inputs:
-        lda     fuji_ax_save
-        sta     aws_tmp02
-        lda     fuji_ax_save+1
-        sta     aws_tmp03
-
+fujibus_send_packet_prepare_payload_source:
         lda     fuji_bus_tx_payload_lo
         sta     aws_tmp00
         lda     fuji_bus_tx_payload_hi
         sta     aws_tmp01
+        rts
 
+fujibus_send_packet_prepare_header:
         ldy     #$00
         lda     fuji_bus_tx_device
         sta     (buffer_ptr),y
@@ -102,17 +100,20 @@ fujibus_send_packet_prepare_wrapper_inputs:
 ; buffer [0],[1] = dev/cmd.
 
 fujibus_send_packet_raw:
-        sta     fuji_ax_save
-        stx     fuji_ax_save+1
-        jsr     fujibus_send_packet_prepare_wrapper_inputs
+        sta     aws_tmp02
+        stx     aws_tmp03
+        jsr     fujibus_send_packet_prepare_payload_source
+        jsr     fujibus_send_packet_prepare_header
         jmp     fujibus_send_packet_core
 
 fujibus_send_packet_core:
 fujibus_send_packet_impl = fujibus_send_packet_core
         jsr     fujibus_send_packet_prepare_payload_destination
         jsr     fujibus_send_packet_copy_payload
-        jsr     fujibus_send_packet_finalize_header
+        jsr     fujibus_send_packet_store_total_len
+        jsr     fujibus_send_packet_store_descriptor_bytes
         jsr     fujibus_send_packet_store_checksum
+        jsr     fujibus_send_packet_prepare_write_region
         jsr     fujibus_send_packet_write_frame
         rts
 
@@ -156,19 +157,24 @@ fujibus_send_packet_copy_payload:
 @payload_done:
         rts
 
-fujibus_send_packet_finalize_header:
+fujibus_send_packet_store_total_len:
         ; total_len = current dest ptr - buffer base
         lda     aws_tmp08
         sec
         sbc     buffer_ptr
         sta     aws_tmp02
-        ldy     #$02
-        sta     (buffer_ptr),y
 
         lda     aws_tmp09
         sbc     buffer_ptr+1
         sta     aws_tmp03
+        rts
+
+fujibus_send_packet_store_descriptor_bytes:
+        ldy     #$02
+        lda     aws_tmp02
+        sta     (buffer_ptr),y
         iny                             ; Y = 3
+        lda     aws_tmp03
         sta     (buffer_ptr),y
 
         ; checksum placeholder + descriptor
@@ -181,38 +187,29 @@ fujibus_send_packet_finalize_header:
         rts
 
 fujibus_send_packet_store_checksum:
-        ; save total_len across calc_checksum
-        lda     aws_tmp02
-        sta     fuji_ax_save
-        lda     aws_tmp03
-        sta     fuji_ax_save+1
-
         ; checksum over full packet
-        lda     buffer_ptr
-        sta     aws_tmp00
-        lda     buffer_ptr+1
-        sta     aws_tmp01
-        ; aws_tmp02/03 = total_len for checksum input
+        jsr     fujibus_send_packet_prepare_write_region
         jsr     calc_checksum
 scatter_after_checksum:
         ldy     #$04
         sta     (buffer_ptr),y
-
-        ; restore total_len, since calc_checksum consumed it
-        lda     fuji_ax_save
-        sta     aws_tmp02
-        lda     fuji_ax_save+1
-        sta     aws_tmp03
-
         rts
 
-fujibus_send_packet_write_frame:
-        ; stream packet as SLIP over the selected channel
+fujibus_send_packet_prepare_write_region:
         lda     buffer_ptr
         sta     aws_tmp00
         lda     buffer_ptr+1
         sta     aws_tmp01
-        ; aws_tmp02/03 still = total_len
+        ldy     #$02
+        lda     (buffer_ptr),y
+        sta     aws_tmp02
+        iny
+        lda     (buffer_ptr),y
+        sta     aws_tmp03
+        rts
+
+fujibus_send_packet_write_frame:
+        ; stream packet as SLIP over the selected channel
         jsr     fuji_link_write_slip_frame
         rts
 
@@ -221,15 +218,16 @@ fujibus_send_packet_write_frame:
 ;   region 1: aws_tmp00/01 ptr, aws_tmp02/03 len (includes FujiBus header)
 ;   region 2: aws_tmp06/07 ptr, aws_tmp08/09 len (optional)
 ;   region 3: cws_tmp2/3 ptr, cws_tmp6/7 len (optional)
-;   clobbers aws_tmp00/01/02/03/04/08/09, A, X, Y
+;   clobbers aws_tmp00/01/02/03/04/08/09, fuji_ax_save, A, X, Y
 
 fujibus_send_packet_scatter = fujibus_send_packet_scatter_raw
 
 fujibus_send_packet_scatter_raw:
         jsr     fujibus_send_packet_scatter_prepare_header
         jsr     fujibus_send_packet_scatter_store_total_len
+        jsr     fujibus_send_packet_scatter_store_descriptor_bytes
         jsr     fujibus_send_packet_scatter_store_checksum
-        jsr     fujibus_send_packet_scatter_restore_regions_for_write
+        jsr     fujibus_send_packet_scatter_prepare_write_regions
 scatter_before_write:
         jmp     fuji_link_write_slip_frame_triple
 
@@ -244,6 +242,7 @@ fujibus_send_packet_scatter_prepare_header:
         rts
 
 fujibus_send_packet_scatter_store_total_len:
+        ; total_len = region1 + region2 + region3
         lda     aws_tmp02
         sta     fuji_ax_save
         lda     aws_tmp03
@@ -263,6 +262,9 @@ fujibus_send_packet_scatter_store_total_len:
         adc     fuji_ax_save+1
         sta     fuji_ax_save+1
 
+        rts
+
+fujibus_send_packet_scatter_store_descriptor_bytes:
         ldy     #$02
         lda     fuji_ax_save
         sta     (buffer_ptr),y
@@ -277,33 +279,20 @@ fujibus_send_packet_scatter_store_total_len:
         rts
 
 fujibus_send_packet_scatter_store_checksum:
+        jsr     fujibus_send_packet_scatter_prepare_checksum_region1
         jsr     calc_checksum
 
+        jsr     fujibus_send_packet_scatter_prepare_checksum_region2
         lda     aws_tmp08
         ora     aws_tmp09
         beq     scatter_after_checksum_r2
-        lda     aws_tmp06
-        sta     aws_tmp00
-        lda     aws_tmp07
-        sta     aws_tmp01
-        lda     aws_tmp08
-        sta     aws_tmp02
-        lda     aws_tmp09
-        sta     aws_tmp03
         jsr     calc_checksum_continue
 scatter_after_checksum_r2:
 
+        jsr     fujibus_send_packet_scatter_prepare_checksum_region3
         lda     cws_tmp6
         ora     cws_tmp7
         beq     scatter_after_checksum_r3
-        lda     cws_tmp2
-        sta     aws_tmp00
-        lda     cws_tmp3
-        sta     aws_tmp01
-        lda     cws_tmp6
-        sta     aws_tmp02
-        lda     cws_tmp7
-        sta     aws_tmp03
         jsr     calc_checksum_continue
 scatter_after_checksum_r3:
 
@@ -313,9 +302,7 @@ scatter_store_checksum:
         sta     (buffer_ptr),y
         rts
 
-fujibus_send_packet_scatter_restore_regions_for_write:
-        ; Rebuild region 1 after checksum calculation repurposed aws_tmp00..03.
-        ; Region 2/3 descriptors remain intact in aws_tmp06..09 and cws_tmp2/3/6/7.
+fujibus_send_packet_scatter_prepare_checksum_region1:
         lda     buffer_ptr
         sta     aws_tmp00
         lda     buffer_ptr+1
@@ -338,6 +325,55 @@ fujibus_send_packet_scatter_restore_regions_for_write:
         lda     aws_tmp03
         sbc     cws_tmp7
         sta     aws_tmp03
+        rts
+
+fujibus_send_packet_scatter_prepare_checksum_region2:
+        lda     aws_tmp06
+        sta     aws_tmp00
+        lda     aws_tmp07
+        sta     aws_tmp01
+
+        lda     aws_tmp08
+        sta     aws_tmp02
+        lda     aws_tmp09
+        sta     aws_tmp03
+        rts
+
+fujibus_send_packet_scatter_prepare_checksum_region3:
+        lda     cws_tmp2
+        sta     aws_tmp00
+        lda     cws_tmp3
+        sta     aws_tmp01
+
+        lda     cws_tmp6
+        sta     aws_tmp02
+        lda     cws_tmp7
+        sta     aws_tmp03
+        rts
+
+fujibus_send_packet_scatter_prepare_write_regions:
+        ; The triple-frame writer needs the original region descriptors restored.
+        jsr     fujibus_send_packet_scatter_prepare_checksum_region1
+        lda     aws_tmp00
+        pha
+        lda     aws_tmp01
+        pha
+        lda     aws_tmp02
+        pha
+        lda     aws_tmp03
+        pha
+
+        jsr     fujibus_send_packet_scatter_prepare_checksum_region2
+
+        pla
+        sta     aws_tmp03
+        pla
+        sta     aws_tmp02
+        pla
+        sta     aws_tmp01
+        pla
+        sta     aws_tmp00
+        
         rts
 
 
