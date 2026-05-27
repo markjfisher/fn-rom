@@ -80,9 +80,9 @@ ENDPROC
 DEF PROCrefresh_weather(city$)
 fetchOk%=FALSE
 PROCclear_forecast_arrays
-PROCstatus("Looking up "+city$)
+IF mainImageLoaded%=TRUE THEN PROCstatus("Looking up "+city$)
 IF FNlookup_location(city$)=FALSE THEN PROCshow_error(city$, "No matching location") : ENDPROC
-PROCstatus("Fetching "+locName$)
+IF mainImageLoaded%=TRUE THEN PROCstatus("Fetching "+locName$)
 IF FNfetch_weather_data=FALSE THEN PROCshow_error(locName$, "Unable to load weather") : ENDPROC
 IF mainImageLoaded%=FALSE THEN PROCload_img("MAINIMG") : mainImageLoaded%=TRUE
 PROCshow_image
