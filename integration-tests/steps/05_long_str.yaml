@@ -40,6 +40,18 @@ steps:
               - 'Long URL OPENIN test'
               - 'URL length: 2[0-4][0-9]'
               - 'FujiNet OPENIN BGET Test'
+
+  - name: opin04_buffer_url
+    paste:
+      - 'CHAIN "OPIN04"'
+    delay_seconds: 8.0
+    checks:
+      - screen:
+          expect:
+            regex:
+              - 'Long URL buffer OPENIN test'
+              - 'URL length: 28[0-9]'
+              - 'FujiNet OPENIN BGET Test'
   - name: fnnet01_long_json
     paste:
       - 'CHAIN "FNNET1"'

@@ -110,6 +110,7 @@
         .import load_cur_drv_cat2
         .import network_flush_write
         .import parameter_fsp
+        .import read_fspba
         .import read_fspba_find_cat_entry
         .import read_fspba_reset
         .import remember_axy
@@ -333,7 +334,7 @@ findv_openfile:
         sta     aws_tmp04               ; A=Operation
         bit     aws_tmp04
         php                             ; Save flags, 7(N)->write, 6(V)->read from
-        jsr     read_fspba_reset        ; Copies file name to fuji_filename_buffer (padding to 64 spaces), and to pws_tmp05-pws_tmp11
+        jsr     read_fspba              ; Parse filename; network URLs set fuji_network_url_flag
 
         ; check if this is a network URL (contains "://")
         lda     fuji_network_url_flag

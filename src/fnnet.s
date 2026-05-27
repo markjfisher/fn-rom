@@ -51,7 +51,7 @@ fnnet_dispatch:
 
         ldy     #$00
         lda     (aws_tmp00),y
-        cmp     #$04
+        cmp     #$05
         bcs     fnnet_dispatch_fail
         tax
         lda     fnnet_jmp_hi,x
@@ -61,12 +61,13 @@ fnnet_dispatch:
         rts
 
 .feature line_continuations +
-        ; Reason index -> handler (reasons &00..&03)
+        ; Reason index -> handler (reasons &00..&04)
         .define FNNET_JMP_TABLE \
                 fnnet_reason_json_query          - 1, \
                 fnnet_reason_set_body_len        - 1, \
                 fnnet_reason_write_data          - 1, \
-                fnnet_reason_set_content_profile - 1
+                fnnet_reason_set_content_profile - 1, \
+                fnnet_reason_set_open_url        - 1
 
 fnnet_jmp_lo: .lobytes FNNET_JMP_TABLE
 fnnet_jmp_hi: .hibytes FNNET_JMP_TABLE
@@ -81,3 +82,4 @@ fnnet_dispatch_fail:
         .include "fnnet/exit.inc"
         .include "fnnet/reason_write_data.inc"
         .include "fnnet/reason_set_content_profile.inc"
+        .include "fnnet/reason_set_open_url.inc"

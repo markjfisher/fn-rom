@@ -6,7 +6,7 @@ REM ----------------------------------------------------
 REM Requires simple.txt at the path below (same as opin02).
 REM Query padding exercises ROM scatter path (>64-byte old limit).
 REM BBC BASIC string variables max 255 chars; URLs beyond that need
-REM a buffer approach (see bas/lib/fnnet.bas / docs/fnnet-api.md).
+REM reason &04 + OPENIN("://") (see bas/lib/fnnet.bas / docs/fnnet-api.md).
 
 TARGET_LEN%=240
 

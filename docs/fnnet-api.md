@@ -43,6 +43,17 @@ Each reason then reads its own inputs starting at offset 2. Handlers ignore all 
 |--------|-------|
 | 2 | Content profile u8 (one-shot; consumed on next network open) |
 
+### Reason `&04` — set open URL (one-shot)
+
+| Offset | Field |
+|--------|-------|
+| 2-3 | URL pointer in user RAM |
+| 4-5 | URL length (u16, max 512) |
+
+Arms a URI for the **next** `OPENIN` / `OPENUP` / `OPENOUT`. The BASIC filename passed to OSFIND must be exactly the sentinel `"://"` (three characters plus CR). The ROM uses the armed bytes from user RAM instead of the sentinel string. Any scheme Fujinet supports (`http://`, `https://`, `ftp://`, `smb://`, …) works because the full URI lives in the buffer.
+
+The armed URL is consumed when the network open completes (same as other one-shot open options). HTTP/TCP connection happens at **open** time, not on the first `BGET#`.
+
 ## Reason codes
 
 | Code | Action |
@@ -51,6 +62,7 @@ Each reason then reads its own inputs starting at offset 2. Handlers ignore all 
 | `&01` | Set one-shot HTTP POST/PUT body length |
 | `&02` | Write request body bytes to an open channel |
 | `&03` | Set one-shot request content profile |
+| `&04` | Arm URL in user RAM for next `OPENIN("://")` |
 
 ## JSON query (reason `&00`)
 
@@ -86,9 +98,17 @@ For reason `&00`, status `&02` is a recoverable runtime failure. The ROM also ma
 
 ## Long URLs
 
-Use normal `OPENIN(url$)` for URLs up to **255 characters** (BBC BASIC string limit). The ROM reads the string in place and scatter-sends it to FujiNet (replacing the old ~64-byte filename buffer path).
+Use normal `OPENIN(url$)` for URLs up to **255 characters** (BBC BASIC string limit). The ROM reads the string in place and scatter-sends it to FujiNet.
 
-URLs longer than 255 bytes require assembling the URI in a user RAM buffer and a separate API path (not yet exposed for OPENIN; see `PROCfnnet_set_str_ptr` for the JSON/query side). That case is intentionally out of scope for the default BASIC story until needed.
+URLs longer than 255 bytes (or any URI you prefer not to embed in a BASIC string) use reason `&04` plus the sentinel open:
+
+1. Assemble the full URI in a user RAM buffer (512-byte max, same as other long-string calls).
+2. `PROCfnnet_set_open_url(addr%, len%)` — OSWORD `&78` reason `&04`.
+3. `h%=OPENIN("://")` — or `FNfnnet_open_url(addr%, len%)` in [bas/lib/fnnet.bas](../bas/lib/fnnet.bas).
+
+Split assembly across two BASIC strings if needed (base + query tail); only the buffer length matters to the API.
+
+Examples: [bas/fs/openbas/openin03.bas](../bas/fs/openbas/openin03.bas) (255-char `OPENIN`), [bas/fs/openbas/openin04.bas](../bas/fs/openbas/openin04.bas) (buffer + sentinel), [bas/weather/weather.bas](../bas/weather/weather.bas) (Open-Meteo forecast query).
 
 ## BASIC library
 
@@ -107,6 +127,7 @@ OSWORD `&78` handlers compile as one CODE object from [src/fnnet.s](../src/fnnet
 | `reason_set_body_len.inc` | Reason `&01` |
 | `reason_write_data.inc` | Reason `&02` |
 | `reason_set_content_profile.inc` | Reason `&03` |
+| `reason_set_open_url.inc` | Reason `&04` |
 
 BBC BASIC reserves the `FN` prefix for user functions (case-insensitive) — use the `fin*` prefix for names, not `fn*` or `FNNET_*`.
 

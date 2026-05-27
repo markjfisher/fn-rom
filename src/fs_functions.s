@@ -505,7 +505,9 @@ param_drive_no_syntax:
 
 param_drive_no_bad_drive:
         jsr     GSREAD_A
-        bcs     err_bad_name
+        bcc     @pdnbd_have_char
+        jmp     err_bad_name
+@pdnbd_have_char:
         cmp     #':'
         beq     param_drive_no_bad_drive
         sec
@@ -541,6 +543,23 @@ read_fspba_reset:
         jsr     set_curdir_drv_to_defaults      ; Set current directory and drive
 
 read_fspba:
+        jsr     set_curdir_drv_to_defaults
+
+        ; OSWORD &78 reason &04 + OPENIN("://") uses pre-armed URL in user RAM.
+        lda     fuji_ext_str_flags
+        and     #FUJI_EXT_STR_OPEN_ARMED
+        beq     @clear_ext_str
+        jsr     fs_check_open_url_sentinel
+        bcs     @clear_ext_str          ; sec = not "://" sentinel
+        lda     fuji_ext_str_flags
+        and     #(FUJI_EXT_STR_ACTIVE | FUJI_EXT_STR_IS_URL)
+        cmp     #(FUJI_EXT_STR_ACTIVE | FUJI_EXT_STR_IS_URL)
+        bne     @clear_ext_str
+        lda     #$01
+        sta     fuji_network_url_flag
+        rts
+
+@clear_ext_str:
         ; Clear network URL / external string state at start of filename parsing
         lda     #$00
         sta     fuji_network_url_flag
@@ -704,6 +723,33 @@ rdafsp_padx:
 rdafsp_url_exit:
         lda     #$01
         sta     fuji_network_url_flag
+        rts
+
+; OPENIN("://") sentinel — exactly three characters, no URL body in BASIC.
+; Entry: aws_tmp10/11 = filename pointer from findv_openfile.
+fs_check_open_url_sentinel:
+        ldy     #$00
+        lda     (aws_tmp10),y
+        cmp     #':'
+        bne     @fail
+        iny
+        lda     (aws_tmp10),y
+        cmp     #'/'
+        bne     @fail
+        iny
+        lda     (aws_tmp10),y
+        cmp     #'/'
+        bne     @fail
+        iny
+        lda     (aws_tmp10),y
+        beq     @ok
+        cmp     #$0D
+        beq     @ok
+@fail:
+        sec
+        rts
+@ok:
+        clc
         rts
 
 ; prt_filename_yoffset - Print filename with directory and lock status

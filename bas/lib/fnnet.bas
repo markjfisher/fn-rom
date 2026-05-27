@@ -9,6 +9,8 @@ finReasonJsonQuery%=0
 finReasonSetBodyLen%=1
 finReasonWriteData%=2
 finReasonSetContentProfile%=3
+finReasonSetOpenUrl%=4
+finOpenUrlSentinel$="://"
 finStatusOk%=0
 finStatusBadCall%=1
 finStatusJsonQueryFailed%=2
@@ -65,6 +67,18 @@ finBlock%?0=finReasonSetContentProfile%
 finBlock%?2=profile%
 PROCfnnet_call
 ENDPROC
+
+DEF PROCfnnet_set_open_url(addr%, len%)
+IF len%>512 THEN ERROR 100,"String too long"
+PROCfnnet_set_str_ptr(addr%, len%)
+finBlock%?0=finReasonSetOpenUrl%
+PROCfnnet_call
+ENDPROC
+
+DEF FNfnnet_open_url(addr%, len%)
+PROCfnnet_set_open_url(addr%, len%)
+IF finLastStatus%<>finStatusOk% THEN =0
+=OPENIN(finOpenUrlSentinel$)
 
 DEF PROCset_json_path(hndl%, path$)
 LOCAL cmd$

@@ -2,26 +2,31 @@ REM filename: weather
 
 DIM jsonBuf% 127
 
-DIM fcDate$(7)
-DIM fcMax$(7)
-DIM fcMin$(7)
-DIM fcWind$(7)
-DIM fcWindDeg$(7)
-DIM fcRain$(7)
-DIM fcUv$(7)
-DIM fcCode$(7)
-DIM fcRise$(7)
-DIM fcSet$(7)
+DIM fcDate$(1)
+DIM fcMax$(1)
+DIM fcMin$(1)
+DIM fcWind$(1)
+DIM fcWindDeg$(1)
+DIM fcCode$(1)
+DIM fcRise$(1)
+DIM fcSet$(1)
 
 currentCity$="London"
 statusLine$=""
 fetchOk%=FALSE
-splashActive%=TRUE
+mainImageLoaded%=FALSE
 SCREEN%=0
 geoHead$="https://geocoding-api.open-meteo.com/v1/search?name="
 geoTail$="&count=1&language=en&format=json"
 omHead$="https://api.open-meteo.com/v1/forecast?latitude="
 omLon$="&longitude="
+omQueryTail$="&timezone=auto&forecast_days=3&current=temperature_2m,wind_speed_10m,wind_direction_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,wind_speed_10m_max,wind_direction_10m_dominant,sunrise,sunset"
+
+finOsword%=&78
+finMosOsword%=&FFF1
+finReasonSetOpenUrl%=4
+finOpenUrlSentinel$="://"
+finStatusOk%=0
 
 MODE 7
 VDU 23,1,0;0;0;0;
@@ -32,8 +37,11 @@ HIMEM=HIMEM-size%
 IMAGE%=HIMEM
 
 DIM CODE% 70
+DIM finBuf% 512
+DIM finBlock% 16
+forecastLen%=0
 PROC_assemble
-PROCload_sun
+PROCload_img("SUNIMG")
 PROCshow_image
 
 REPEAT
@@ -70,22 +78,16 @@ SCREEN%=?&350+256*?&351
 ENDPROC
 
 DEF PROCrefresh_weather(city$)
-LOCAL ok%
-ok%=FALSE
 fetchOk%=FALSE
 PROCclear_forecast_arrays
-IF splashActive%=FALSE THEN PROCstatus("Looking up "+city$+"...")
-IF splashActive%=FALSE THEN PROCdraw_frame
-IF splashActive%=FALSE THEN PROCstatus("Looking up "+city$+"...")
-IF FNlookup_location(city$)=FALSE THEN weatherDesc$="Location not found" : PROCshow_error(city$, "No matching location from Open-Meteo") : ENDPROC
-IF splashActive%=FALSE THEN PROCstatus("Fetching live weather for "+locName$+"...")
-IF FNfetch_current_weather=FALSE THEN weatherDesc$="Current weather unavailable" : PROCshow_error(locName$, "Unable to read current conditions") : ENDPROC
-IF FNfetch_forecast=FALSE THEN weatherDesc$="Forecast unavailable" : PROCshow_error(locName$, "Unable to read forecast data") : ENDPROC
-weatherDesc$=FNweather_desc(VAL(weatherCode$))
+PROCstatus("Looking up "+city$)
+IF FNlookup_location(city$)=FALSE THEN PROCshow_error(city$, "No matching location") : ENDPROC
+PROCstatus("Fetching "+locName$)
+IF FNfetch_weather_data=FALSE THEN PROCshow_error(locName$, "Unable to load weather") : ENDPROC
+IF mainImageLoaded%=FALSE THEN PROCload_img("MAINIMG") : mainImageLoaded%=TRUE
+PROCshow_image
 fetchOk%=TRUE
-splashActive%=FALSE
 PROCdraw_dashboard
-PROCstatus("")
 ENDPROC
 
 DEF FNlookup_location(city$)
@@ -115,124 +117,46 @@ DEF PROCbuild_om_base
 omBase$=omHead$+locLat$+omLon$+locLon$
 ENDPROC
 
-DEF FNfetch_current_weather
-IF FNfetch_current_segment1=FALSE THEN =FALSE
-IF FNfetch_current_segment2=FALSE THEN =FALSE
-IF FNfetch_current_segment3=FALSE THEN =FALSE
-=TRUE
+DEF PROCbuild_forecast_url
+LOCAL n%
+n%=LEN(omBase$)
+$(finBuf%)=omBase$+CHR$(0)
+$(finBuf%+n%)=omQueryTail$
+forecastLen%=n%+LEN(omQueryTail$)
+ENDPROC
 
-DEF FNfetch_current_segment1
-LOCAL h%
-url$=omBase$+"&timezone=auto&current=relative_humidity_2m,weather_code,cloud_cover,surface_pressure"
-h%=OPENIN(url$)
-IF h%=0 THEN =FALSE
-PROCjson_read(h%, "/current/time")
-weatherTime$=jsonValue$
-PROCjson_read(h%, "/timezone_abbreviation")
-weatherZone$=jsonValue$
-PROCjson_read(h%, "/current/surface_pressure")
-weatherPressure$=jsonValue$
-PROCjson_read(h%, "/current/relative_humidity_2m")
-weatherHumidity$=jsonValue$
-PROCjson_read(h%, "/current/weather_code")
-weatherCode$=jsonValue$
-PROCjson_read(h%, "/current/cloud_cover")
-weatherClouds$=jsonValue$
-CLOSE#h%
-=TRUE
-
-DEF FNfetch_current_segment2
-LOCAL h%
-url$=omBase$+"&current=temperature_2m,apparent_temperature,wind_speed_10m,wind_direction_10m"
-h%=OPENIN(url$)
+DEF FNfetch_weather_data
+LOCAL h%, i%, src%
+PROCbuild_forecast_url
+h%=FNfnnet_open_url(finBuf%, forecastLen%)
 IF h%=0 THEN =FALSE
 PROCjson_read(h%, "/current/temperature_2m")
 weatherTemp$=jsonValue$
-PROCjson_read(h%, "/current/apparent_temperature")
-weatherFeels$=jsonValue$
 PROCjson_read(h%, "/current/wind_speed_10m")
 weatherWind$=jsonValue$
 PROCjson_read(h%, "/current/wind_direction_10m")
 weatherWindDeg$=jsonValue$
-CLOSE#h%
-=TRUE
-
-DEF FNfetch_current_segment3
-LOCAL h%
-url$=omBase$+"&hourly=dew_point_2m,visibility&forecast_hours=1"
-h%=OPENIN(url$)
-IF h%=0 THEN =FALSE
-PROCjson_read(h%, "/hourly/dew_point_2m/0")
-weatherDew$=jsonValue$
-PROCjson_read(h%, "/hourly/visibility/0")
-weatherVis$=jsonValue$
-CLOSE#h%
-=TRUE
-
-DEF FNfetch_forecast
-IF FNfetch_forecast_segment1=FALSE THEN =FALSE
-IF FNfetch_forecast_segment2=FALSE THEN =FALSE
-IF FNfetch_forecast_segment3=FALSE THEN =FALSE
-IF FNfetch_forecast_segment4=FALSE THEN =FALSE
-weatherSunrise$=fcRise$(0)
-weatherSunset$=fcSet$(0)
-=TRUE
-
-DEF FNfetch_forecast_segment1
-LOCAL h%, i%
-url$=omBase$+"&timezone=auto&forecast_days=8&forecast_hours=1&daily=temperature_2m_max,temperature_2m_min"
-h%=OPENIN(url$)
-IF h%=0 THEN =FALSE
-FOR i%=0 TO 7
-  PROCjson_read(h%, "/daily/time/"+STR$(i%))
+PROCjson_read(h%, "/daily/sunrise/0")
+weatherSunrise$=jsonValue$
+PROCjson_read(h%, "/daily/sunset/0")
+weatherSunset$=jsonValue$
+FOR i%=0 TO 1
+  src%=i%+1
+  PROCjson_read(h%, "/daily/time/"+STR$(src%))
   fcDate$(i%)=jsonValue$
-  PROCjson_read(h%, "/daily/temperature_2m_max/"+STR$(i%))
-  fcMax$(i%)=jsonValue$
-  PROCjson_read(h%, "/daily/temperature_2m_min/"+STR$(i%))
-  fcMin$(i%)=jsonValue$
-NEXT
-CLOSE#h%
-=TRUE
-
-DEF FNfetch_forecast_segment2
-LOCAL h%, i%
-url$=omBase$+"&timezone=auto&forecast_days=8&forecast_hours=1&daily=wind_speed_10m_max,wind_direction_10m_dominant"
-h%=OPENIN(url$)
-IF h%=0 THEN =FALSE
-FOR i%=0 TO 7
-  PROCjson_read(h%, "/daily/wind_speed_10m_max/"+STR$(i%))
-  fcWind$(i%)=jsonValue$
-  PROCjson_read(h%, "/daily/wind_direction_10m_dominant/"+STR$(i%))
-  fcWindDeg$(i%)=jsonValue$
-NEXT
-CLOSE#h%
-=TRUE
-
-DEF FNfetch_forecast_segment3
-LOCAL h%, i%
-url$=omBase$+"&timezone=auto&forecast_days=8&forecast_hours=1&daily=precipitation_sum,uv_index_max"
-h%=OPENIN(url$)
-IF h%=0 THEN =FALSE
-FOR i%=0 TO 7
-  PROCjson_read(h%, "/daily/precipitation_sum/"+STR$(i%))
-  fcRain$(i%)=jsonValue$
-  PROCjson_read(h%, "/daily/uv_index_max/"+STR$(i%))
-  fcUv$(i%)=jsonValue$
-NEXT
-CLOSE#h%
-=TRUE
-
-DEF FNfetch_forecast_segment4
-LOCAL h%, i%
-url$=omBase$+"&timezone=auto&forecast_days=8&forecast_hours=1&daily=weather_code,sunrise,sunset"
-h%=OPENIN(url$)
-IF h%=0 THEN =FALSE
-FOR i%=0 TO 7
-  PROCjson_read(h%, "/daily/weather_code/"+STR$(i%))
+  PROCjson_read(h%, "/daily/weather_code/"+STR$(src%))
   fcCode$(i%)=jsonValue$
-  PROCjson_read(h%, "/daily/sunrise/"+STR$(i%))
+  PROCjson_read(h%, "/daily/temperature_2m_max/"+STR$(src%))
+  fcMax$(i%)=jsonValue$
+  PROCjson_read(h%, "/daily/temperature_2m_min/"+STR$(src%))
+  fcMin$(i%)=jsonValue$
+  PROCjson_read(h%, "/daily/wind_speed_10m_max/"+STR$(src%))
+  fcWind$(i%)=jsonValue$
+  PROCjson_read(h%, "/daily/wind_direction_10m_dominant/"+STR$(src%))
+  fcWindDeg$(i%)=jsonValue$
+  PROCjson_read(h%, "/daily/sunrise/"+STR$(src%))
   fcRise$(i%)=jsonValue$
-  PROCjson_read(h%, "/daily/sunset/"+STR$(i%))
+  PROCjson_read(h%, "/daily/sunset/"+STR$(src%))
   fcSet$(i%)=jsonValue$
 NEXT
 CLOSE#h%
@@ -259,94 +183,56 @@ OSCLI cmd$
 ENDPROC
 
 DEF PROCdraw_dashboard
-PROCdraw_frame
-PROCdraw_location_panel
 PROCdraw_current_panel
-PROCdraw_forecast_row(0,14)
-PROCdraw_forecast_row(4,18)
-ENDPROC
-
-DEF PROCdraw_frame
-LOCAL row%
-CLS
-PRINT TAB(0,0);CHR$(147);CHR$(238);STRING$(12,CHR$(172)+CHR$(173)+CHR$(174));CHR$(172);CHR$(189);
-FOR row%=1 TO 22
-  PRINT TAB(0,row%);CHR$(147);CHR$(238);CHR$(135);STRING$(35," ");CHR$(147);CHR$(189);
-NEXT
-PRINT TAB(0,23);CHR$(147);CHR$(238);STRING$(12,CHR$(172)+CHR$(188)+CHR$(236));CHR$(172);CHR$(189);
-PRINT TAB(0,1);CHR$(147);CHR$(238);CHR$(133);" ";CHR$(157);CHR$(132);"   FUJINET WEATHER ";CHR$(134);"METEO      ";CHR$(156);CHR$(147);CHR$(189);
-PRINT TAB(4,22);CHR$(132);"L";CHR$(135);" locn ";CHR$(132);"R";CHR$(135);" refresh ";CHR$(132);"Q";CHR$(135);" quit";
-ENDPROC
-
-DEF PROCdraw_location_panel
-LOCAL place$
-place$=locName$
-IF LEN(locState$)>0 THEN place$=place$+", "+locState$
-IF LEN(locCountry$)>0 THEN place$=place$+" ("+locCountry$+")"
-PRINT TAB(2,2);CHR$(131);FNpad(place$,35);
-PRINT TAB(2,3);CHR$(135);"Updated ";FNtime_only(weatherTime$);" ";weatherZone$;
-PRINT TAB(2,4);CHR$(134);FNpad(weatherDesc$,20);CHR$(135);" ";FNpad(FNicon_label(VAL(weatherCode$)),10);
+PROCdraw_outlook_panel
+PROCdraw_status_keys
 ENDPROC
 
 DEF PROCdraw_current_panel
-PROCdraw_big_icon(2,6,VAL(weatherCode$))
-PRINT TAB(16,6);CHR$(131);"Now ";weatherTemp$;CHR$(135);"C";
-PRINT TAB(16,7);CHR$(134);"Feels ";weatherFeels$;CHR$(135);"C";
-PRINT TAB(16,8);CHR$(132);"Wind ";FNpad(weatherWind$,5);CHR$(135);" ";FNwind_dir(weatherWindDeg$);
-PRINT TAB(16,9);CHR$(133);"Hum ";FNpad(weatherHumidity$,4);CHR$(135);" Cld ";FNcloud(weatherClouds$);
-PRINT TAB(16,10);CHR$(130);"Pres ";FNpad(weatherPressure$,6);
-PRINT TAB(16,11);CHR$(131);"Dew ";FNpad(weatherDew$,5);CHR$(135);" Vis ";FNvis(weatherVis$);
-PRINT TAB(16,12);CHR$(134);"Sun ";FNtime_only(weatherSunrise$);CHR$(135);"-";FNtime_only(weatherSunset$);
-PRINT TAB(2,13);CHR$(131);FNpad("8 DAY OUTLOOK",35);
+PRINT TAB(13,4);CHR$(131);FNpad(locName$,20);
+PRINT TAB(13,5);CHR$(134);"Temp ";weatherTemp$;"C";
+PRINT TAB(13,6);CHR$(132);"Wind ";FNtrim(weatherWind$);" ";FNwind_dir(weatherWindDeg$);
+PRINT TAB(13,7);CHR$(135);"Sun ";FNtime_only(weatherSunrise$);"-";FNtime_only(weatherSunset$);
 ENDPROC
 
-DEF PROCdraw_big_icon(col%, row%, code%)
-LOCAL kind%
-kind%=FNicon_kind(code%)
-IF kind%=0 THEN PRINT TAB(col%,row%);CHR$(131);"  / | / "; : PRINT TAB(col%,row%+1);CHR$(131);" -- O --"; : PRINT TAB(col%,row%+2);CHR$(131);"  / | / "; : ENDPROC
-IF kind%=1 THEN PRINT TAB(col%,row%);CHR$(135);"   .--.  "; : PRINT TAB(col%,row%+1);CHR$(135);".-(____)."; : PRINT TAB(col%,row%+2);CHR$(134);" '-.__.-'"; : ENDPROC
-IF kind%=2 THEN PRINT TAB(col%,row%);CHR$(135);"   .--.  "; : PRINT TAB(col%,row%+1);CHR$(135);".-(____)."; : PRINT TAB(col%,row%+2);CHR$(132);" ' ' ' ' "; : ENDPROC
-IF kind%=3 THEN PRINT TAB(col%,row%);CHR$(135);"   .--.  "; : PRINT TAB(col%,row%+1);CHR$(133);".-(____)."; : PRINT TAB(col%,row%+2);CHR$(131);"  / / /  "; : ENDPROC
-IF kind%=4 THEN PRINT TAB(col%,row%);CHR$(135);"   .--.  "; : PRINT TAB(col%,row%+1);CHR$(135);".-(____)."; : PRINT TAB(col%,row%+2);CHR$(135);"  *  *   "; : ENDPROC
-PRINT TAB(col%,row%);CHR$(134);" ~~~~~~~~";
-PRINT TAB(col%,row%+1);CHR$(135);"  ~~~~~~ ";
-PRINT TAB(col%,row%+2);CHR$(134);" ~~~~~~~~";
+DEF PROCdraw_outlook_panel
+PROCdraw_day_column(2,12,0,"Tomorrow")
+PROCdraw_day_column(21,12,1,"Next day")
 ENDPROC
 
-DEF PROCdraw_forecast_row(start%, row%)
-LOCAL idx%, x%, code%, label$
-FOR idx%=0 TO 3
-  x%=2+idx%*9
-  PRINT TAB(x%,row%);CHR$(131);FNpad(FNshort_date(fcDate$(start%+idx%)),8);
-  PRINT TAB(x%,row%+1);CHR$(135);FNpad(FNshort_icon(VAL(fcCode$(start%+idx%))),8);
-  PRINT TAB(x%,row%+2);CHR$(134);FNpad(fcMax$(start%+idx%)+"/"+fcMin$(start%+idx%),8);
-  PRINT TAB(x%,row%+3);CHR$(132);FNpad(FNforecast_metric(start%+idx%),8);
-NEXT
+DEF PROCdraw_day_column(col%, row%, idx%, title$)
+PRINT TAB(col%,row%);CHR$(131);title$;
+PRINT TAB(col%,row%+1);CHR$(135);FNshort_date(fcDate$(idx%));"  ";FNshort_icon(VAL(fcCode$(idx%)));
+PRINT TAB(col%,row%+3);CHR$(134);"High ";fcMax$(idx%);"C";
+PRINT TAB(col%,row%+4);CHR$(134);"Low  ";fcMin$(idx%);"C";
+PRINT TAB(col%,row%+6);CHR$(132);"Wind ";FNtrim(fcWind$(idx%));" ";FNwind_dir(fcWindDeg$(idx%));
+PRINT TAB(col%,row%+7);CHR$(135);"Rise ";FNtime_only(fcRise$(idx%));
+PRINT TAB(col%,row%+8);CHR$(135);"Set  ";FNtime_only(fcSet$(idx%));
+ENDPROC
+
+DEF PROCdraw_status_keys
+PRINT TAB(4,23);CHR$(132);"L";CHR$(129);"ocn  ";CHR$(132);"R";CHR$(129);"efresh  ";CHR$(132);"Q";CHR$(129);"uit";
 ENDPROC
 
 DEF PROCshow_error(city$, msg$)
-PROCdraw_frame
-PRINT TAB(2,4);CHR$(129);"Weather fetch failed";
-PRINT TAB(2,7);CHR$(135);FNpad(city$,34);
-PRINT TAB(2,9);CHR$(131);FNpad(msg$,34);
-PRINT TAB(2,11);CHR$(134);"Use L for location or R to retry";
-PRINT TAB(2,13);CHR$(135);"Try London, Glasgow, Reykjavik";
-PROCstatus("L=location  R=retry")
+IF mainImageLoaded%=FALSE THEN PROCshow_image
+PRINT TAB(13,4);CHR$(129);FNpad(city$,20);
+PRINT TAB(13,5);CHR$(131);FNpad(msg$,20);
+PRINT TAB(13,6);CHR$(135);"Use L or R";
+PROCdraw_status_keys
 ENDPROC
 
 DEF PROCstatus(msg$)
-PRINT TAB(2,5);CHR$(130);FNpad(msg$,35);
+PRINT TAB(4,23);CHR$(129);FNpad(msg$,35);
 ENDPROC
 
 DEF PROCclear_forecast_arrays
-FOR I%=0 TO 7
+FOR I%=0 TO 1
   fcDate$(I%)=""
   fcMax$(I%)=""
   fcMin$(I%)=""
   fcWind$(I%)=""
   fcWindDeg$(I%)=""
-  fcRain$(I%)=""
-  fcUv$(I%)=""
   fcCode$(I%)=""
   fcRise$(I%)=""
   fcSet$(I%)=""
@@ -359,7 +245,7 @@ inputBuf$=currentCity$
 done%=FALSE
 cancelled%=FALSE
 REPEAT
-  PRINT TAB(2,5);CHR$(131);FNpad("Location: "+inputBuf$+"_",35);
+  PRINT TAB(4,23);CHR$(131);FNpad("Location: "+inputBuf$+"_",35);
   key%=GET
   IF key%=13 THEN done%=TRUE
   IF key%=27 THEN done%=TRUE : cancelled%=TRUE
@@ -403,24 +289,6 @@ DEF FNshort_date(s$)
 IF LEN(s$)>=10 THEN =MID$(s$,9,2)+"/"+MID$(s$,6,2)
 ="--/--"
 
-DEF FNvis(s$)
-LOCAL km, out$
-IF LEN(s$)=0 THEN ="--"
-km=VAL(s$)/1000
-out$=STR$(INT(km+0.5))
-=FNtrim(out$)+"k"
-
-DEF FNcloud(s$)
-IF LEN(s$)=0 THEN ="--"
-=FNtrim(s$)+"%"
-
-DEF FNforecast_metric(idx%)
-LOCAL rain$, wind$
-rain$=fcRain$(idx%)
-IF LEN(rain$)=0 THEN rain$="-"
-wind$=FNwind_dir(fcWindDeg$(idx%))
-=LEFT$(rain$+"m "+wind$,8)
-
 DEF FNwind_dir(deg$)
 LOCAL d%, i%
 IF LEN(deg$)=0 THEN ="--"
@@ -458,25 +326,8 @@ LOCAL label$
 label$=FNicon_label(code%)
 =LEFT$(label$+"    ",8)
 
-DEF FNweather_desc(code%)
-IF code%=0 THEN ="Clear sky"
-IF code%=1 THEN ="Mostly clear"
-IF code%=2 THEN ="Partly cloudy"
-IF code%=3 THEN ="Overcast"
-IF code%=45 OR code%=48 THEN ="Fog"
-IF code%=51 OR code%=53 OR code%=55 THEN ="Drizzle"
-IF code%=56 OR code%=57 THEN ="Freezing drizzle"
-IF code%=61 OR code%=63 OR code%=65 THEN ="Rain"
-IF code%=66 OR code%=67 THEN ="Freezing rain"
-IF code%=71 OR code%=73 OR code%=75 OR code%=77 THEN ="Snow"
-IF code%=80 OR code%=81 OR code%=82 THEN ="Showers"
-IF code%=85 OR code%=86 THEN ="Snow showers"
-IF code%=95 THEN ="Thunderstorm"
-IF code%=96 OR code%=99 THEN ="Storm with hail"
-="Conditions unknown"
-
-DEF PROCload_sun
-MYSTR$="LOAD SUNIMG "+STR$~IMAGE%
+DEF PROCload_img(img$)
+MYSTR$="LOAD "+img$+" "+STR$~IMAGE%
 OSCLI MYSTR$
 ENDPROC
 
@@ -538,3 +389,21 @@ copy%=copy
 page_src%=page_src
 page_dst%=page_dst
 ENDPROC
+
+DEF PROCfnnet_set_open_url(addr%, len%)
+IF len%>512 THEN ERROR 100,"String too long"
+finBlock%?2=addr% AND &FF
+finBlock%?3=addr% DIV 256
+finBlock%?4=len% AND &FF
+finBlock%?5=len% DIV 256
+finBlock%?0=finReasonSetOpenUrl%
+A%=finOsword%
+X%=finBlock% MOD 256
+Y%=finBlock% DIV 256
+CALL finMosOsword%
+ENDPROC
+
+DEF FNfnnet_open_url(addr%, len%)
+PROCfnnet_set_open_url(addr%, len%)
+IF finBlock%?1<>finStatusOk% THEN =0
+=OPENIN(finOpenUrlSentinel$)

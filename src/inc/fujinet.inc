@@ -187,6 +187,7 @@ FUJI_EXT_STR_MAX_LEN = 512
 FUJI_EXT_STR_ACTIVE = $01
 FUJI_EXT_STR_IS_URL = $02
 FUJI_EXT_STR_IS_JSON = $04
+FUJI_EXT_STR_OPEN_ARMED = $08
 
 ; FujiNet OSWORD/CALL API (see docs/fnnet-api.md)
 ; Must be < &80 so MOS offers it via service call 8 (&EF/&F0/&F1).
@@ -196,6 +197,7 @@ FNNET_REASON_JSON_QUERY = $00
 FNNET_REASON_SET_BODY_LEN = $01
 FNNET_REASON_WRITE_DATA = $02
 FNNET_REASON_SET_CONTENT_PROFILE = $03
+FNNET_REASON_SET_OPEN_URL = $04
 
 ; fnnet status codes returned in parameter block +0/+1
 FNNET_STATUS_OK = $00
