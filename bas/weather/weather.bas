@@ -20,9 +20,22 @@ DIM fcSet$(7)
 currentCity$="London"
 statusLine$=""
 fetchOk%=FALSE
+SCREEN%=0
 
 MODE 7
 VDU 23,1,0;0;0;0;
+
+size%=1024
+HIMEM=HIMEM-size%
+IMAGE%=HIMEM
+
+DIM CODE% 70
+PROC_assemble
+PROCload_sun
+PROCshow_image
+
+TIME=0:UNTIL TIME>=100
+
 PROCdraw_frame
 PROCstatus("Initialising weather feed...")
 
@@ -448,3 +461,67 @@ IF code%=85 OR code%=86 THEN ="Snow showers"
 IF code%=95 THEN ="Thunderstorm"
 IF code%=96 OR code%=99 THEN ="Storm with hail"
 ="Conditions unknown"
+
+DEF PROCload_sun
+MYSTR$="LOAD SUNIMG "+STR$~IMAGE%
+OSCLI MYSTR$
+ENDPROC
+
+DEF PROCshow_image
+?(page_src%+1)=IMAGE% MOD 256
+?(page_src%+2)=IMAGE% DIV 256
+?(page_dst%+1)=SCREEN% MOD 256
+?(page_dst%+2)=SCREEN% DIV 256
+CALL copy%
+ENDPROC
+
+DEF PROC_assemble
+FOR pass%=0 TO 2 STEP 1
+  P%=CODE%
+  [OPT pass%
+  .copy
+    LDA page_src+1 : STA rem_src+1
+    LDA page_src+2 : STA rem_src+2
+    LDA page_dst+1 : STA rem_dst+1
+    LDA page_dst+2 : STA rem_dst+2
+
+    LDX #3
+
+  .page_loop_outer
+    LDY #0
+
+  .page_loop_inner
+  .page_src
+    LDA &FFFF,Y
+  .page_dst
+    STA &FFFF,Y
+    INY
+    BNE page_loop_inner
+
+    INC page_src+2
+    INC rem_src+2
+    INC page_dst+2
+    INC rem_dst+2
+
+    DEX
+    BNE page_loop_outer
+
+    LDY #0
+
+  .rem_loop
+  .rem_src
+    LDA &FFFF,Y
+  .rem_dst
+    STA &FFFF,Y
+    INY
+    CPY #232
+    BNE rem_loop
+
+    RTS
+  ]
+NEXT
+
+copy%=copy
+page_src%=page_src
+page_dst%=page_dst
+ENDPROC

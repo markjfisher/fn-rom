@@ -50,8 +50,6 @@ PRINT "Initialising data..."
 PROCinit_globe
 PROCshow_globe
 
-*OPT7,2
-
 REPEAT
   PROCfetch_iss_position
   IF fetch_ok% THEN PROCupdate_iss_position
