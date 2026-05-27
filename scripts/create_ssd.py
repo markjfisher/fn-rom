@@ -65,11 +65,12 @@ def is_hidden_host_file(name: str) -> bool:
     return name.startswith(".")
 
 
-def parse_inf_line(inf_path: Path) -> Tuple[int, int, bool]:
+def parse_inf_line(inf_path: Path) -> Tuple[str, int, int, bool]:
     """
     Parse first non-empty line: <DFS name> <load hex> <exec hex> [L]
 
     Load/exec may be 4- or 8-digit hex (e.g. ffff0e00); low 16 bits are used.
+    Returns (dfs_name, load_addr, exec_addr, locked).
     """
     text = inf_path.read_text()
     line = ""
@@ -87,12 +88,13 @@ def parse_inf_line(inf_path: Path) -> Tuple[int, int, bool]:
             f"{inf_path}: expected 'name load exec [L]', got: {line!r}"
         )
 
+    dfs_name = parts[0]
     load_raw = parse_hex_address(parts[1])
     exec_raw = parse_hex_address(parts[2])
     load_addr = normalize_bbc_address_word(load_raw)
     exec_addr = normalize_bbc_address_word(exec_raw)
     locked = len(parts) > 3 and parts[3].upper().startswith("L")
-    return load_addr, exec_addr, locked
+    return dfs_name, load_addr, exec_addr, locked
 
 
 _DFS_HOST_PREFIX_RE = re.compile(r"^(.)\.(.+)$")
@@ -213,11 +215,11 @@ def process_inf_paired_file(
     Returns (directory, leaf, path, load_bbc, exec_bbc, locked).
     """
     inf_path = companion_inf_path(data_file)
-    load_i, exec_i, locked = parse_inf_line(inf_path)
+    dfs_name, load_i, exec_i, locked = parse_inf_line(inf_path)
+    directory, filename = parse_dfs_directory_and_leaf(dfs_name)
     load_bbc = format_bbc_address(load_i)
     exec_bbc = format_bbc_address(exec_i)
 
-    directory, filename = parse_dfs_directory_and_leaf(data_file.name)
     output_path = temp_dir / staging_temp_name(directory, filename)
 
     print(

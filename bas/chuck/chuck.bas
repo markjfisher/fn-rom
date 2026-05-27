@@ -1,4 +1,4 @@
-REM filename: CHUCK2
+REM filename: CHUCK
 REM Chuck Norris Jokes Fetcher - FN-ROM version
 
 DIM jsonValue 400

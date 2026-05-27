@@ -1,4 +1,4 @@
-REM filename: CHUCK
+REM filename: CH-OLD
 REM Chuck Norris Jokes Fetcher
 
 DIM asmTransaction 375
