@@ -15,6 +15,7 @@ currentCity$="London"
 statusLine$=""
 fetchOk%=FALSE
 mainImageLoaded%=FALSE
+unitMode%=0
 SCREEN%=0
 geoHead$="https://geocoding-api.open-meteo.com/v1/search?name="
 geoTail$="&count=1&language=en&format=json"
@@ -57,6 +58,7 @@ REPEAT
   key%=INKEY(5)
   IF key%=ASC("Q") OR key%=ASC("q") THEN PROCquit
   IF key%=ASC("R") OR key%=ASC("r") OR key%=ASC("N") OR key%=ASC("n") OR key%=32 THEN done%=TRUE
+  IF key%=ASC("C") OR key%=ASC("c") THEN PROCtoggle_units
   IF key%=ASC("L") OR key%=ASC("l") THEN nextCity$=FNprompt_location : IF LEN(nextCity$)>0 THEN currentCity$=nextCity$ : done%=TRUE
 UNTIL done%
 ENDPROC
@@ -65,6 +67,11 @@ DEF PROCquit
 CLS
 VDU 23,1,1;0;0;0;
 END
+ENDPROC
+
+DEF PROCtoggle_units
+unitMode%=1-unitMode%
+IF fetchOk%=TRUE THEN PROCshow_image : PROCdraw_dashboard
 ENDPROC
 
 DEF PROCmaster_init
@@ -138,6 +145,8 @@ h%=FNfnnet_open_url(finBuf%, forecastLen%)
 IF h%=0 THEN =FALSE
 PROCjson_read(h%, "/current/temperature_2m")
 weatherTemp$=jsonValue$
+PROCjson_read(h%, "/current/time")
+weatherTime$=jsonValue$
 PROCjson_read(h%, "/current/wind_speed_10m")
 weatherWind$=jsonValue$
 PROCjson_read(h%, "/current/wind_direction_10m")
@@ -196,9 +205,9 @@ ENDPROC
 
 DEF PROCdraw_current_panel
 PRINT TAB(13,4);CHR$(131);FNpad(locName$,20);
-PRINT TAB(13,5);CHR$(134);"Temp ";weatherTemp$;"C";
-PRINT TAB(13,6);CHR$(132);"Wind ";FNtrim(weatherWind$);" ";FNwind_dir(weatherWindDeg$);
-PRINT TAB(13,7);CHR$(135);"Sun ";FNtime_only(weatherSunrise$);"-";FNtime_only(weatherSunset$);
+PRINT TAB(13,5);CHR$(134);"Time ";FNtime_only(weatherTime$);
+PRINT TAB(13,6);CHR$(134);"T:";FNdisp_temp(weatherTemp$);" W:";FNtrim(weatherWind$);" ";FNwind_dir(weatherWindDeg$);
+PRINT TAB(13,7);CHR$(134);"Sun ";FNtime_only(weatherSunrise$);"-";FNtime_only(weatherSunset$);
 ENDPROC
 
 DEF PROCdraw_outlook_panel
@@ -209,15 +218,17 @@ ENDPROC
 DEF PROCdraw_day_column(col%, row%, idx%, title$)
 PRINT TAB(col%,row%);CHR$(131);title$;
 PRINT TAB(col%,row%+1);CHR$(135);FNshort_date(fcDate$(idx%));"  ";FNshort_icon(VAL(fcCode$(idx%)));
-PRINT TAB(col%,row%+3);CHR$(134);"High ";fcMax$(idx%);"C";
-PRINT TAB(col%,row%+4);CHR$(134);"Low  ";fcMin$(idx%);"C";
-PRINT TAB(col%,row%+6);CHR$(132);"Wind ";FNtrim(fcWind$(idx%));" ";FNwind_dir(fcWindDeg$(idx%));
-PRINT TAB(col%,row%+7);CHR$(135);"Rise ";FNtime_only(fcRise$(idx%));
-PRINT TAB(col%,row%+8);CHR$(135);"Set  ";FNtime_only(fcSet$(idx%));
+PRINT TAB(col%,row%+3);CHR$(134);"High ";FNdisp_temp(fcMax$(idx%));
+PRINT TAB(col%,row%+4);CHR$(134);"Low  ";FNdisp_temp(fcMin$(idx%));
+PRINT TAB(col%,row%+6);CHR$(134);"Wind ";FNtrim(fcWind$(idx%));" ";FNwind_dir(fcWindDeg$(idx%));
+PRINT TAB(col%,row%+7);CHR$(134);"Rise ";FNtime_only(fcRise$(idx%));
+PRINT TAB(col%,row%+8);CHR$(134);"Set  ";FNtime_only(fcSet$(idx%));
 ENDPROC
 
 DEF PROCdraw_status_keys
-PRINT TAB(4,23);CHR$(132);"L";CHR$(129);"ocn  ";CHR$(132);"R";CHR$(129);"efresh  ";CHR$(132);"Q";CHR$(129);"uit";
+LOCAL unit$
+IF unitMode%=0 THEN unit$="C" ELSE unit$="F"
+PRINT TAB(4,23);CHR$(129);"<L>ocn <R>efresh <Q>uit <C>onvert";
 ENDPROC
 
 DEF PROCshow_error(city$, msg$)
@@ -294,6 +305,23 @@ IF LEN(s$)>=16 THEN =MID$(s$,12,5)
 DEF FNshort_date(s$)
 IF LEN(s$)>=10 THEN =MID$(s$,9,2)+"/"+MID$(s$,6,2)
 ="--/--"
+
+DEF FNdisp_temp(s$)
+LOCAL v
+IF LEN(s$)=0 THEN ="--"
+v=VAL(s$)
+IF unitMode%=0 THEN =FNtemp_num(v)+"C"
+v=v*9/5+32
+=FNtemp_num(v)+"F"
+
+DEF FNtemp_num(v)
+LOCAL sign$, scaled%, whole%, frac%
+sign$=""
+IF v<0 THEN sign$="-" : v=-v
+scaled%=INT(v*10+0.5)
+whole%=scaled% DIV 10
+frac%=scaled% MOD 10
+=sign$+FNtrim(STR$(whole%))+"."+STR$(frac%)
 
 DEF FNwind_dir(deg$)
 LOCAL d%, i%
