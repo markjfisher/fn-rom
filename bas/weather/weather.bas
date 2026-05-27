@@ -93,6 +93,11 @@ ENDPROC
 DEF FNlookup_location(city$)
 LOCAL h%, ok%, query$
 ok%=FALSE
+locName$=""
+locLat$=""
+locLon$=""
+locCountry$=""
+locState$=""
 query$=FNurl_encode(city$)
 url$=geoHead$+query$+geoTail$
 h%=OPENIN(url$)
@@ -108,6 +113,7 @@ PROCjson_read(h%, "/results/0/country_code")
 locCountry$=jsonValue$
 PROCjson_read(h%, "/results/0/admin1")
 locState$=jsonValue$
+IF LEN(locLat$)=0 OR LEN(locLon$)=0 OR LEN(locCountry$)<>2 THEN CLOSE#h% : locName$="" : =FALSE
 IF locState$=locName$ THEN locState$=""
 CLOSE#h%
 PROCbuild_om_base

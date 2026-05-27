@@ -8,6 +8,18 @@ paste:
   - '*CAT'
 
 steps:
+  - name: fnjson0
+    paste:
+      - 'CH."FNJSON0"'
+    delay_seconds: 8.0
+    checks:
+      - screen:
+          expect:
+            regex:
+              - 'FujiNet missing JSON path test'
+              - 'Handle    : [1-2][0-9]+'
+              - 'ReadLen   : 0'
+              - 'Empty     : yes'
   - name: fnjsonq
     paste:
       - 'CH."FNJSONQ"'
