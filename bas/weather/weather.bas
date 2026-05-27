@@ -1,8 +1,4 @@
 REM filename: weather
-REM
-REM ----------------------------------------------------
-REM FujiNet Open-Meteo weather dashboard for BBC Micro
-REM ----------------------------------------------------
 
 DIM jsonBuf% 127
 
@@ -20,10 +16,16 @@ DIM fcSet$(7)
 currentCity$="London"
 statusLine$=""
 fetchOk%=FALSE
+splashActive%=TRUE
 SCREEN%=0
+geoHead$="https://geocoding-api.open-meteo.com/v1/search?name="
+geoTail$="&count=1&language=en&format=json"
+omHead$="https://api.open-meteo.com/v1/forecast?latitude="
+omLon$="&longitude="
 
 MODE 7
 VDU 23,1,0;0;0;0;
+PROCinit_screen
 
 size%=1024
 HIMEM=HIMEM-size%
@@ -33,11 +35,6 @@ DIM CODE% 70
 PROC_assemble
 PROCload_sun
 PROCshow_image
-
-TIME=0:UNTIL TIME>=100
-
-PROCdraw_frame
-PROCstatus("Initialising weather feed...")
 
 REPEAT
   PROCrefresh_weather(currentCity$)
@@ -62,20 +59,31 @@ VDU 23,1,1;0;0;0;
 END
 ENDPROC
 
+DEF PROCmaster_init
+OSCLI "*FX112,0"
+OSCLI "*FX113,0"
+ENDPROC
+
+DEF PROCinit_screen
+IF (INKEY(-256) AND &FF)=253 THEN PROCmaster_init
+SCREEN%=?&350+256*?&351
+ENDPROC
+
 DEF PROCrefresh_weather(city$)
 LOCAL ok%
 ok%=FALSE
 fetchOk%=FALSE
 PROCclear_forecast_arrays
-PROCstatus("Looking up "+city$+"...")
-PROCdraw_frame
-PROCstatus("Looking up "+city$+"...")
+IF splashActive%=FALSE THEN PROCstatus("Looking up "+city$+"...")
+IF splashActive%=FALSE THEN PROCdraw_frame
+IF splashActive%=FALSE THEN PROCstatus("Looking up "+city$+"...")
 IF FNlookup_location(city$)=FALSE THEN weatherDesc$="Location not found" : PROCshow_error(city$, "No matching location from Open-Meteo") : ENDPROC
-PROCstatus("Fetching live weather for "+locName$+"...")
+IF splashActive%=FALSE THEN PROCstatus("Fetching live weather for "+locName$+"...")
 IF FNfetch_current_weather=FALSE THEN weatherDesc$="Current weather unavailable" : PROCshow_error(locName$, "Unable to read current conditions") : ENDPROC
 IF FNfetch_forecast=FALSE THEN weatherDesc$="Forecast unavailable" : PROCshow_error(locName$, "Unable to read forecast data") : ENDPROC
 weatherDesc$=FNweather_desc(VAL(weatherCode$))
 fetchOk%=TRUE
+splashActive%=FALSE
 PROCdraw_dashboard
 PROCstatus("")
 ENDPROC
@@ -84,7 +92,7 @@ DEF FNlookup_location(city$)
 LOCAL h%, ok%, query$
 ok%=FALSE
 query$=FNurl_encode(city$)
-url$="https://geocoding-api.open-meteo.com/v1/search?name="+query$+"&count=1&language=en&format=json"
+url$=geoHead$+query$+geoTail$
 h%=OPENIN(url$)
 IF h%=0 THEN =FALSE
 PROCjson_read(h%, "/results/0/name")
@@ -100,7 +108,12 @@ PROCjson_read(h%, "/results/0/admin1")
 locState$=jsonValue$
 IF locState$=locName$ THEN locState$=""
 CLOSE#h%
+PROCbuild_om_base
 =TRUE
+
+DEF PROCbuild_om_base
+omBase$=omHead$+locLat$+omLon$+locLon$
+ENDPROC
 
 DEF FNfetch_current_weather
 IF FNfetch_current_segment1=FALSE THEN =FALSE
@@ -110,7 +123,7 @@ IF FNfetch_current_segment3=FALSE THEN =FALSE
 
 DEF FNfetch_current_segment1
 LOCAL h%
-url$="https://api.open-meteo.com/v1/forecast?latitude="+locLat$+"&longitude="+locLon$+"&timezone=auto&current=relative_humidity_2m,weather_code,cloud_cover,surface_pressure"
+url$=omBase$+"&timezone=auto&current=relative_humidity_2m,weather_code,cloud_cover,surface_pressure"
 h%=OPENIN(url$)
 IF h%=0 THEN =FALSE
 PROCjson_read(h%, "/current/time")
@@ -130,7 +143,7 @@ CLOSE#h%
 
 DEF FNfetch_current_segment2
 LOCAL h%
-url$="https://api.open-meteo.com/v1/forecast?latitude="+locLat$+"&longitude="+locLon$+"&current=temperature_2m,apparent_temperature,wind_speed_10m,wind_direction_10m"
+url$=omBase$+"&current=temperature_2m,apparent_temperature,wind_speed_10m,wind_direction_10m"
 h%=OPENIN(url$)
 IF h%=0 THEN =FALSE
 PROCjson_read(h%, "/current/temperature_2m")
@@ -146,7 +159,7 @@ CLOSE#h%
 
 DEF FNfetch_current_segment3
 LOCAL h%
-url$="https://api.open-meteo.com/v1/forecast?latitude="+locLat$+"&longitude="+locLon$+"&hourly=dew_point_2m,visibility&forecast_hours=1"
+url$=omBase$+"&hourly=dew_point_2m,visibility&forecast_hours=1"
 h%=OPENIN(url$)
 IF h%=0 THEN =FALSE
 PROCjson_read(h%, "/hourly/dew_point_2m/0")
@@ -167,7 +180,7 @@ weatherSunset$=fcSet$(0)
 
 DEF FNfetch_forecast_segment1
 LOCAL h%, i%
-url$="https://api.open-meteo.com/v1/forecast?latitude="+locLat$+"&longitude="+locLon$+"&timezone=auto&forecast_days=8&forecast_hours=1&daily=temperature_2m_max,temperature_2m_min"
+url$=omBase$+"&timezone=auto&forecast_days=8&forecast_hours=1&daily=temperature_2m_max,temperature_2m_min"
 h%=OPENIN(url$)
 IF h%=0 THEN =FALSE
 FOR i%=0 TO 7
@@ -183,7 +196,7 @@ CLOSE#h%
 
 DEF FNfetch_forecast_segment2
 LOCAL h%, i%
-url$="https://api.open-meteo.com/v1/forecast?latitude="+locLat$+"&longitude="+locLon$+"&timezone=auto&forecast_days=8&forecast_hours=1&daily=wind_speed_10m_max,wind_direction_10m_dominant"
+url$=omBase$+"&timezone=auto&forecast_days=8&forecast_hours=1&daily=wind_speed_10m_max,wind_direction_10m_dominant"
 h%=OPENIN(url$)
 IF h%=0 THEN =FALSE
 FOR i%=0 TO 7
@@ -197,7 +210,7 @@ CLOSE#h%
 
 DEF FNfetch_forecast_segment3
 LOCAL h%, i%
-url$="https://api.open-meteo.com/v1/forecast?latitude="+locLat$+"&longitude="+locLon$+"&timezone=auto&forecast_days=8&forecast_hours=1&daily=precipitation_sum,uv_index_max"
+url$=omBase$+"&timezone=auto&forecast_days=8&forecast_hours=1&daily=precipitation_sum,uv_index_max"
 h%=OPENIN(url$)
 IF h%=0 THEN =FALSE
 FOR i%=0 TO 7
@@ -211,7 +224,7 @@ CLOSE#h%
 
 DEF FNfetch_forecast_segment4
 LOCAL h%, i%
-url$="https://api.open-meteo.com/v1/forecast?latitude="+locLat$+"&longitude="+locLon$+"&timezone=auto&forecast_days=8&forecast_hours=1&daily=weather_code,sunrise,sunset"
+url$=omBase$+"&timezone=auto&forecast_days=8&forecast_hours=1&daily=weather_code,sunrise,sunset"
 h%=OPENIN(url$)
 IF h%=0 THEN =FALSE
 FOR i%=0 TO 7
@@ -476,7 +489,7 @@ CALL copy%
 ENDPROC
 
 DEF PROC_assemble
-FOR pass%=0 TO 2 STEP 1
+FOR pass%=0 TO 2 STEP 2
   P%=CODE%
   [OPT pass%
   .copy
