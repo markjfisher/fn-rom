@@ -79,7 +79,7 @@ def cmd_peek(args: argparse.Namespace) -> requests.Response:
     url = f"{base_url(args.host, args.port)}/peek/{args.win}/{args.begin}/{args.end}"
     params = {}
     if args.s is not None:
-        params["s"] = args.s
+        params["dso"] = args.s
     if args.mos is not None:
         params["mos"] = "true" if args.mos else "false"
     if params:
@@ -182,8 +182,8 @@ def cmd_screen(args: argparse.Namespace) -> requests.Response:
     second_chunk = size - first_chunk
 
     params = {}
-    if getattr(args, "s", None) is not None:
-        params["s"] = args.s
+    if getattr(args, "dso", None) is not None:
+        params["dso"] = args.dso
     if getattr(args, "mos", None) is not None:
         params["mos"] = "true" if args.mos else "false"
 
@@ -245,6 +245,7 @@ Examples:
     %(prog)s screen --start 7c00 --lines 25
     %(prog)s screen --start 7e30 --wrap-adjustment 5000 --screen-size 1024
     %(prog)s screen --start 7c00 -o screen.txt
+    %(prog)s screen --start 3000 --wrap-adjustment 3000 --screen-size 20000 --chars 40 --stride 40 --lines 32 --suffix s
   %(prog)s launch --path /path/to/file.ssd
         """,
     )
@@ -327,6 +328,11 @@ Examples:
     )
     p_screen.add_argument(
         "--start", "-s", default="7c00", help="Start address in hex (default 7c00)"
+    )
+    p_screen.add_argument(
+        "--suffix",
+        dest="dso",
+        help="Debugger address suffix / DSO override (e.g. s for shadow RAM)",
     )
     p_screen.add_argument(
         "--wrap-adjustment",

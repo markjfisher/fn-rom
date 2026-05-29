@@ -1,6 +1,6 @@
 REM filename: weather
 
-DIM jsonBuf% 127
+DIM jsonXBuf% 127
 
 DIM fcDate$(1)
 DIM fcMax$(1)
@@ -109,17 +109,12 @@ query$=FNurl_encode(city$)
 url$=geoHead$+query$+geoTail$
 h%=OPENIN(url$)
 IF h%=0 THEN =FALSE
-PROCjson_read(h%, "/results/0/name")
-IF LEN(jsonValue$)=0 THEN CLOSE#h% : =FALSE
-locName$=jsonValue$
-PROCjson_read(h%, "/results/0/latitude")
-locLat$=jsonValue$
-PROCjson_read(h%, "/results/0/longitude")
-locLon$=jsonValue$
-PROCjson_read(h%, "/results/0/country_code")
-locCountry$=jsonValue$
-PROCjson_read(h%, "/results/0/admin1")
-locState$=jsonValue$
+locName$=FNjson_read(h%, "/results/0/name")
+IF LEN(locName$)=0 THEN CLOSE#h% : =FALSE
+locLat$=FNjson_read(h%, "/results/0/latitude")
+locLon$=FNjson_read(h%, "/results/0/longitude")
+locCountry$=FNjson_read(h%, "/results/0/country_code")
+locState$=FNjson_read(h%, "/results/0/admin1")
 IF LEN(locLat$)=0 OR LEN(locLon$)=0 OR LEN(locCountry$)<>2 THEN CLOSE#h% : locName$="" : =FALSE
 IF locState$=locName$ THEN locState$=""
 CLOSE#h%
@@ -143,43 +138,29 @@ LOCAL h%, i%, src%
 PROCbuild_forecast_url
 h%=FNfnnet_open_url(finBuf%, forecastLen%)
 IF h%=0 THEN =FALSE
-PROCjson_read(h%, "/current/temperature_2m")
-weatherTemp$=jsonValue$
-PROCjson_read(h%, "/current/time")
-weatherTime$=jsonValue$
-PROCjson_read(h%, "/current/wind_speed_10m")
-weatherWind$=jsonValue$
-PROCjson_read(h%, "/current/wind_direction_10m")
-weatherWindDeg$=jsonValue$
-PROCjson_read(h%, "/daily/sunrise/0")
-weatherSunrise$=jsonValue$
-PROCjson_read(h%, "/daily/sunset/0")
-weatherSunset$=jsonValue$
+weatherTemp$=FNjson_read(h%, "/current/temperature_2m")
+weatherTime$=FNjson_read(h%, "/current/time")
+weatherWind$=FNjson_read(h%, "/current/wind_speed_10m")
+weatherWindDeg$=FNjson_read(h%, "/current/wind_direction_10m")
+weatherSunrise$=FNjson_read(h%, "/daily/sunrise/0")
+weatherSunset$=FNjson_read(h%, "/daily/sunset/0")
 FOR i%=0 TO 1
   src%=i%+1
-  PROCjson_read(h%, "/daily/time/"+STR$(src%))
-  fcDate$(i%)=jsonValue$
-  PROCjson_read(h%, "/daily/weather_code/"+STR$(src%))
-  fcCode$(i%)=jsonValue$
-  PROCjson_read(h%, "/daily/temperature_2m_max/"+STR$(src%))
-  fcMax$(i%)=jsonValue$
-  PROCjson_read(h%, "/daily/temperature_2m_min/"+STR$(src%))
-  fcMin$(i%)=jsonValue$
-  PROCjson_read(h%, "/daily/wind_speed_10m_max/"+STR$(src%))
-  fcWind$(i%)=jsonValue$
-  PROCjson_read(h%, "/daily/wind_direction_10m_dominant/"+STR$(src%))
-  fcWindDeg$(i%)=jsonValue$
-  PROCjson_read(h%, "/daily/sunrise/"+STR$(src%))
-  fcRise$(i%)=jsonValue$
-  PROCjson_read(h%, "/daily/sunset/"+STR$(src%))
-  fcSet$(i%)=jsonValue$
+  fcDate$(i%)=FNjson_read(h%, "/daily/time/"+STR$(src%))
+  fcCode$(i%)=FNjson_read(h%, "/daily/weather_code/"+STR$(src%))
+  fcMax$(i%)=FNjson_read(h%, "/daily/temperature_2m_max/"+STR$(src%))
+  fcMin$(i%)=FNjson_read(h%, "/daily/temperature_2m_min/"+STR$(src%))
+  fcWind$(i%)=FNjson_read(h%, "/daily/wind_speed_10m_max/"+STR$(src%))
+  fcWindDeg$(i%)=FNjson_read(h%, "/daily/wind_direction_10m_dominant/"+STR$(src%))
+  fcRise$(i%)=FNjson_read(h%, "/daily/sunrise/"+STR$(src%))
+  fcSet$(i%)=FNjson_read(h%, "/daily/sunset/"+STR$(src%))
 NEXT
 CLOSE#h%
 =TRUE
 
-DEF PROCjson_read(hndl%, path$)
-LOCAL idx%, ch%, e%
-jsonValue$=""
+DEF FNjson_read(hndl%, path$)
+LOCAL idx%, ch%, e%, out$
+out$=""
 PROCset_json_path(hndl%, path$)
 idx%=0
 REPEAT
@@ -187,9 +168,9 @@ REPEAT
   IF e%<>-1 THEN ch%=BGET#hndl% : IF idx%<128 THEN jsonBuf%?idx%=ch% : idx%=idx%+1
 UNTIL e%=-1 OR idx%>=128
 FOR I%=0 TO idx%-1
-  jsonValue$=jsonValue$+CHR$(jsonBuf%?I%)
+  out$=out$+CHR$(jsonBuf%?I%)
 NEXT
-ENDPROC
+=out$
 
 DEF PROCset_json_path(hndl%, path$)
 LOCAL cmd$
