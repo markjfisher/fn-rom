@@ -3,16 +3,11 @@ from __future__ import annotations
 from fujinet_tools import fujiproto as fuji
 
 from fuji_device import full_stack_responder, mounted_disk_responder
-
-
-def _command(bbc, text: str) -> None:
-    with bbc.keyboard.text_input():
-        bbc.keyboard.type(text)
-        bbc.keyboard.press_return()
+from helpers import command
 
 
 def test_fdrive_requests_formatted_mounts(beebium, fuji_device):
-    _command(beebium, "*FDRIVE")
+    command(beebium, "*FDRIVE")
 
     pkt = fuji_device.wait_for_command(fuji.FUJI_DEVICE_ID, fuji.CMD_GET_MOUNTS, timeout=6.0)
     assert pkt is not None
@@ -27,11 +22,11 @@ def test_fin_emits_set_mount_request(beebium, fuji_device):
         mount_slot=0,
     ))
 
-    _command(beebium, "*FHOST tnfs://example.invalid/bbc/")
+    command(beebium, "*FHOST tnfs://example.invalid/bbc/")
     assert fuji_device.wait_for_command(0xFE, 0x05, timeout=6.0)
 
     fuji_device.clear()
-    _command(beebium, "*FIN 3 boot.ssd")
+    command(beebium, "*FIN 3 boot.ssd")
     pkt = fuji_device.wait_for_command(fuji.FUJI_DEVICE_ID, fuji.CMD_SET_MOUNT, timeout=6.0)
 
     assert pkt is not None
@@ -49,7 +44,7 @@ def test_fin_emits_set_mount_request(beebium, fuji_device):
 def test_fout_round_trip_gets_then_clears_mount(beebium, fuji_device):
     fuji_device.set_responder(mounted_disk_responder(slot=2, uri="tnfs://example.invalid/bbc/BOOT.SSD"))
 
-    _command(beebium, "*FOUT 2")
+    command(beebium, "*FOUT 2")
 
     get_pkt = fuji_device.wait_for_command(fuji.FUJI_DEVICE_ID, fuji.CMD_GET_MOUNT, timeout=6.0)
     assert get_pkt is not None

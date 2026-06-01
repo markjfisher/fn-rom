@@ -1,19 +1,14 @@
 from __future__ import annotations
 
 from fujinet_tools import fileproto as fp
-
-from fuji_device import build_list_response, file_listing_responder
 from fujinet_tools import fujibus as fb
 
-
-def _command(bbc, text: str) -> None:
-    with bbc.keyboard.text_input():
-        bbc.keyboard.type(text)
-        bbc.keyboard.press_return()
+from fuji_device import build_list_response, file_listing_responder
+from helpers import command
 
 
 def test_fhost_request_payload_is_structured(beebium, fuji_device):
-    _command(beebium, "*FHOST tnfs://example.invalid/bbc/")
+    command(beebium, "*FHOST tnfs://example.invalid/bbc/")
 
     pkt = fuji_device.wait_for_command(fp.FILE_DEVICE_ID, fp.CMD_RESOLVE_PATH, timeout=6.0)
     assert pkt is not None
@@ -31,11 +26,11 @@ def test_fcd_emits_relative_resolve_path_request(beebium, fuji_device):
         formatted_text="",
     ))
 
-    _command(beebium, "*FHOST tnfs://example.invalid/bbc/")
+    command(beebium, "*FHOST tnfs://example.invalid/bbc/")
     assert fuji_device.wait_for_command(fp.FILE_DEVICE_ID, fp.CMD_RESOLVE_PATH, timeout=6.0)
 
     fuji_device.clear()
-    _command(beebium, "*FCD games")
+    command(beebium, "*FCD games")
     pkt = fuji_device.wait_for_command(fp.FILE_DEVICE_ID, fp.CMD_RESOLVE_PATH, timeout=6.0)
 
     assert pkt is not None
@@ -53,11 +48,11 @@ def test_fls_round_trip_uses_formatted_list_response(beebium, fuji_device):
         formatted_text=listing,
     ))
 
-    _command(beebium, "*FHOST tnfs://example.invalid/bbc/")
+    command(beebium, "*FHOST tnfs://example.invalid/bbc/")
     assert fuji_device.wait_for_command(fp.FILE_DEVICE_ID, fp.CMD_RESOLVE_PATH, timeout=6.0)
 
     fuji_device.clear()
-    _command(beebium, "*FLS")
+    command(beebium, "*FLS")
     pkt = fuji_device.wait_for_command(fp.FILE_DEVICE_ID, fp.CMD_LIST, timeout=6.0)
 
     assert pkt is not None

@@ -391,6 +391,59 @@ def build_network_open_response(
     return fb.build_fuji_response_wire(netp.NETWORK_DEVICE_ID, netp.CMD_OPEN, status, body)
 
 
+def build_network_read_response(
+    *,
+    handle: int,
+    offset: int,
+    data: bytes,
+    eof: bool = False,
+    truncated: bool = False,
+    status: int = 0,
+) -> bytes:
+    if netp is None:
+        raise RuntimeError("fujinet_tools.netproto is unavailable")
+    flags = 0
+    if eof:
+        flags |= 0x01
+    if truncated:
+        flags |= 0x02
+    body = (
+        bytes([netp.NETPROTO_VERSION, flags])
+        + struct.pack("<H", 0)
+        + struct.pack("<H", handle)
+        + struct.pack("<I", offset)
+        + struct.pack("<H", len(data))
+        + data
+    )
+    return fb.build_fuji_response_wire(netp.NETWORK_DEVICE_ID, netp.CMD_READ, status, body)
+
+
+def build_network_write_response(
+    *,
+    handle: int,
+    offset: int,
+    written: int,
+    status: int = 0,
+) -> bytes:
+    if netp is None:
+        raise RuntimeError("fujinet_tools.netproto is unavailable")
+    body = (
+        bytes([netp.NETPROTO_VERSION, 0])
+        + struct.pack("<H", 0)
+        + struct.pack("<H", handle)
+        + struct.pack("<I", offset)
+        + struct.pack("<H", written)
+    )
+    return fb.build_fuji_response_wire(netp.NETWORK_DEVICE_ID, netp.CMD_WRITE, status, body)
+
+
+def build_network_close_response(status: int = 0) -> bytes:
+    if netp is None:
+        raise RuntimeError("fujinet_tools.netproto is unavailable")
+    body = bytes([netp.NETPROTO_VERSION, 0]) + struct.pack("<H", 0)
+    return fb.build_fuji_response_wire(netp.NETWORK_DEVICE_ID, netp.CMD_CLOSE, status, body)
+
+
 def resolving_responder(resolved_uri: str, display_path: str) -> Responder:
     """A responder that answers RESOLVE_PATH properly and others generically."""
     def _resp(pkt: FujiPacket) -> Optional[bytes]:

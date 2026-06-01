@@ -63,8 +63,8 @@ FUJINET_TOOLS = _env_path(
 )
 
 # Make the two external packages importable from their source checkouts, and
-# this directory (for the local fuji_device helper module).
-for _src in (BEEBIUM_CLIENT_SRC, FUJINET_TOOLS, _HERE.parent):
+# this test tree (for local helper modules under scripted/ and real/).
+for _src in (BEEBIUM_CLIENT_SRC, FUJINET_TOOLS, _HERE.parent, _HERE):
     if _src.is_dir() and str(_src) not in sys.path:
         sys.path.insert(0, str(_src))
 

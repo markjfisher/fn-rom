@@ -75,17 +75,22 @@ BEEBIUM_HOME=~/src/beebium FUJINET_TOOLS=~/src/fujinet-nio/py uv run pytest
 
 ## Two test layers
 
-### 1. Transport/protocol tests (deterministic — the CI gate)
+### 1. Scripted transport/protocol tests (deterministic — the CI gate)
 
-`test_serial_e2e.py` substitutes a scripted `FujiDevice` for the real firmware
+`scripted/` substitutes a scripted `FujiDevice` for the real firmware
 and asserts the exact FujiBus/SLIP frames the ROM emits. **Beebium creates the
 PTY** here (`--serial pty:`) and the test plugs into the slave.
 
 | Test | Command | Asserted frame |
 |------|---------|----------------|
-| `test_fhost_emits_resolve_path_request` | `*FHOST <uri>` | FileService `RESOLVE_PATH` (0xFE/0x05), URI in payload, checksum OK |
-| `test_fdrive_emits_fuji_get_mounts_request` | `*FDRIVE` | Fuji `GET_MOUNTS` (0x70/0xFD), checksum OK |
-| `test_fhost_then_fls_round_trip` | `*FHOST` then `*FLS` | RESOLVE_PATH answered by the device, then FileService `LIST` (0xFE/0x02) — proves responses flow back over the PTY |
+| `scripted/test_serial_e2e.py::test_fhost_emits_resolve_path_request` | `*FHOST <uri>` | FileService `RESOLVE_PATH` (0xFE/0x05), URI in payload, checksum OK |
+| `scripted/test_serial_e2e.py::test_fdrive_emits_fuji_get_mounts_request` | `*FDRIVE` | Fuji `GET_MOUNTS` (0x70/0xFD), checksum OK |
+| `scripted/test_serial_e2e.py::test_fhost_then_fls_round_trip` | `*FHOST` then `*FLS` | RESOLVE_PATH answered by the device, then FileService `LIST` (0xFE/0x02) — proves responses flow back over the PTY |
+| `scripted/test_network_device.py::test_openin_bget_close_cycle_emits_open_read_close` | `OPENIN`/`BGET#`/`CLOSE#` | Network `OPEN`, `READ`, `CLOSE` |
+| `scripted/test_network_device.py::test_openin_fjson_bget_close_cycle_emits_open_translate_read_close` | `OPENIN`/`*FJSON`/`BGET#`/`CLOSE#` | Network `OPEN`, `TRANSLATE_CONFIGURE`, `READ`, `CLOSE` |
+| `scripted/test_network_device.py::test_osword78_reason04_long_url_then_openin_uses_buffered_url` | OSWORD `&78` reason `&04` + `OPENIN("://")` | Network `OPEN` with buffered long URL |
+| `scripted/test_network_device.py::test_osword78_reason00_long_json_query_emits_translate_configure` | OSWORD `&78` reason `&00` | Network `TRANSLATE_CONFIGURE` |
+| `scripted/test_network_device.py::test_osword78_reason01_02_03_post_flow_emits_open_write_close` | OSWORD `&78` reasons `&01/&02/&03` + `OPENUP` | Network `OPEN`, `WRITE`, `CLOSE` |
 
 The `tnfs://example.invalid/...` URIs used in scripted tests are synthetic. The scripted `FujiDevice` does not connect to a real TNFS server; it only validates the ROM's emitted FujiBus packets and returns protocol-correct replies. The Beebium tests now type commands inside `bbc.keyboard.text_input()` so the BBC's CAPS LOCK startup state does not distort the command line before `fn-rom` sees it, and asserts expect the path casing exactly as typed.
 
@@ -93,16 +98,16 @@ The `tnfs://example.invalid/...` URIs used in scripted tests are synthetic. The 
 
 | Device | ID | Scripted transport coverage | Real-firmware interop coverage | Notes |
 |--------|----|-----------------------------|-------------------------------|-------|
-| Fuji | `0x70` | `test_fuji_device_e2e.py` (`*FDRIVE`, `*FIN`, `*FOUT`) | `test_real_fujinet_receives_fdrive`, `test_real_fujinet_receives_fmount` | Covers `GET_MOUNTS`, `GET_MOUNT`, `SET_MOUNT` |
-| Clock | `0x45` | `test_clock_device.py` | `test_real_fujinet_clock_unreachable_from_fn_rom` | `fn-rom` currently has no BBC command/vector path to Clock |
-| Modem | `0xFB` | `test_modem_device.py` | `test_real_fujinet_modem_unreachable_from_fn_rom` | `fn-rom` currently has no BBC command/vector path to Modem |
-| Disk | `0xFC` | `test_disk_device.py` (`*FMOUNT`, `*FNEW`, `*FOUT`) | `test_real_fujinet_receives_fmount` | Covers `MOUNT`, `UNMOUNT`, `CREATE`; real interop proves live `MOUNT` |
-| Network | `0xFD` | `test_network_device.py` (`OPENIN`) | `test_real_fujinet_receives_openin` | Current automated coverage proves direct OPEN; `fnnet.s` OSWORD `&78` paths remain an explicit gap |
-| File | `0xFE` | `test_file_device.py` (`*FHOST`, `*FCD`, `*FLS`) | `test_real_fujinet_receives_fhost` | Covers `RESOLVE_PATH`, `LIST` |
+| Fuji | `0x70` | `scripted/test_fuji_device_e2e.py` (`*FDRIVE`, `*FIN`, `*FOUT`) | `real/test_real_fujinet_e2e.py` (`*FDRIVE`, `*FMOUNT`) | Covers `GET_MOUNTS`, `GET_MOUNT`, `SET_MOUNT` |
+| Clock | `0x45` | `scripted/test_clock_device.py` | `real/test_real_fujinet_e2e.py` skip | `fn-rom` currently has no BBC command/vector path to Clock |
+| Modem | `0xFB` | `scripted/test_modem_device.py` | `real/test_real_fujinet_e2e.py` skip | `fn-rom` currently has no BBC command/vector path to Modem |
+| Disk | `0xFC` | `scripted/test_disk_device.py` (`*FMOUNT`, `*FNEW`, `*FOUT`) | `real/test_real_fujinet_e2e.py` (`*FMOUNT`) | Covers `MOUNT`, `UNMOUNT`, `CREATE`; real interop proves live `MOUNT` |
+| Network | `0xFD` | `scripted/test_network_device.py` (`OPENIN`, `OPENIN`/`BGET#`/`CLOSE#`, `OPENIN`/`*FJSON`/`BGET#`/`CLOSE#`, OSWORD `&78` reasons `&00..&04`) | `real/test_real_fujinet_e2e.py` (`OPENIN`, `OPENIN`+`*FJSON`, OSWORD long URL, OSWORD POST/write) | Covers representative chuck/iss/weather-style ROM flows and the `fnnet.s` jump table |
+| File | `0xFE` | `scripted/test_file_device.py` (`*FHOST`, `*FCD`, `*FLS`) | `real/test_real_fujinet_e2e.py` (`*FHOST`) | Covers `RESOLVE_PATH`, `LIST` |
 
 ### 2. Real-firmware interop tests (opt-in)
 
-`test_real_fujinet_e2e.py` brings up the **actual posix fujinet-nio** and has
+`real/` brings up the **actual posix fujinet-nio** and has
 beebium talk to it over the real serial link. These skip unless the fujinet
 binary is found.
 
@@ -130,9 +135,12 @@ repo) or point `--fujinet-bin` / `FUJINET_BIN` at the binary.
 
 | Test | Checks |
 |------|--------|
-| `test_real_fujinet_receives_fdrive` | firmware logs a Fuji `GET_MOUNTS` receive (`dev=0x70 cmd=0xFD`) **and** a reply |
-| `test_real_fujinet_receives_fhost` | firmware logs a FileService `RESOLVE_PATH` receive (`dev=0xFE cmd=0x05`) |
-| `test_fujinet_created_the_pty` | the firmware created the advertised PTY slave |
+| `real/test_real_fujinet_e2e.py::test_real_fujinet_receives_fdrive` | firmware logs a Fuji `GET_MOUNTS` receive (`dev=0x70 cmd=0xFD`) **and** a reply |
+| `real/test_real_fujinet_e2e.py::test_real_fujinet_receives_fhost` | firmware logs a FileService `RESOLVE_PATH` receive (`dev=0xFE cmd=0x05`) |
+| `real/test_real_fujinet_e2e.py::test_real_fujinet_receives_openin_then_fjson` | firmware logs Network `OPEN`, `TRANSLATE_CONFIGURE`, `READ`, `CLOSE` |
+| `real/test_real_fujinet_e2e.py::test_real_fujinet_receives_osword78_long_open_url` | firmware logs Network `OPEN` from OSWORD long-URL path |
+| `real/test_real_fujinet_e2e.py::test_real_fujinet_receives_osword78_post_write` | firmware logs Network `OPEN`, `WRITE`, `CLOSE` from OSWORD body/profile/write flow |
+| `real/test_real_fujinet_e2e.py::test_fujinet_created_the_pty` | the firmware created the advertised PTY slave |
 
 These assert on the **firmware's own log** — fujinet-nio logs
 `fujibus: receive: ... dev=.. cmd=..` for every request and `fujibus: send: ..`
