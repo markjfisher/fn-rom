@@ -1,6 +1,6 @@
 REM filename: weather
 
-DIM jsonXBuf% 127
+DIM jsonBuf% 127
 
 DIM fcDate$(1)
 DIM fcMax$(1)
@@ -165,7 +165,7 @@ PROCset_json_path(hndl%, path$)
 idx%=0
 REPEAT
   e%=EOF#hndl%
-  IF e%<>-1 THEN ch%=BGET#hndl% : IF idx%<128 THEN jsonBuf%?idx%=ch% : idx%=idx%+1
+  IF e%<>-1 THEN ch%=BGET#hndl%:IF idx%<128 THEN jsonBuf%?idx%=ch%:idx%=idx%+1
 UNTIL e%=-1 OR idx%>=128
 FOR I%=0 TO idx%-1
   out$=out$+CHR$(jsonBuf%?I%)
