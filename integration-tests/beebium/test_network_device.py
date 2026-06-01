@@ -8,8 +8,9 @@ from fuji_device import build_network_open_response
 
 
 def _command(bbc, text: str) -> None:
-    bbc.keyboard.type(text)
-    bbc.keyboard.press_return()
+    with bbc.keyboard.text_input():
+        bbc.keyboard.type(text)
+        bbc.keyboard.press_return()
 
 
 def _type_basic_program(beebium) -> None:

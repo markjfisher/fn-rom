@@ -12,6 +12,10 @@ This exercises the whole serial path end to end:
 
 from __future__ import annotations
 
+import time
+
+from beebium.screen import dump_screen
+
 from fujinet_tools import fileproto as fp
 from fujinet_tools import fujiproto as fuji
 
@@ -20,8 +24,40 @@ from fuji_device import resolving_responder
 
 def _command(bbc, text: str) -> None:
     """Type a ``*`` command at the BBC prompt and press RETURN."""
-    bbc.keyboard.type(text)
-    bbc.keyboard.press_return()
+    with bbc.keyboard.text_input():
+        bbc.keyboard.type(text)
+        bbc.keyboard.press_return()
+
+
+def test_fhost_screen_text_and_wire_payload_case(beebium, fuji_device):
+    """Determine whether case changes before RETURN or during command handling."""
+    typed = "*FHOST tnfs://example.invalid/bbc/"
+
+    with beebium.keyboard.text_input():
+        beebium.keyboard.type(typed)
+
+        deadline = time.monotonic() + 2.0
+        screen = ""
+        while time.monotonic() < deadline:
+            screen = dump_screen(beebium.memory)
+            if "tnfs://example.invalid/bbc/" in screen or "TNFS://EXAMPLE.INVALID/BBC/" in screen:
+                break
+            time.sleep(0.02)
+
+        assert "tnfs://example.invalid/bbc/" in screen, screen
+        assert "TNFS://EXAMPLE.INVALID/BBC/" not in screen, screen
+
+        beebium.keyboard.press_return()
+
+    screen = ""
+    pkt = fuji_device.wait_for_command(fp.FILE_DEVICE_ID, fp.CMD_RESOLVE_PATH, timeout=6.0)
+
+    assert pkt is not None
+    assert pkt.checksum_ok
+
+    base_uri, arg = fp.parse_resolve_path_req(pkt.payload)
+    assert arg == ""
+    assert base_uri == "tnfs://example.invalid/bbc/"
 
 
 def test_fhost_emits_resolve_path_request(beebium, fuji_device):
@@ -31,8 +67,9 @@ def test_fhost_emits_resolve_path_request(beebium, fuji_device):
     pkt = fuji_device.wait_for_command(fp.FILE_DEVICE_ID, fp.CMD_RESOLVE_PATH, timeout=6.0)
     assert pkt is not None, "no RESOLVE_PATH request observed on the serial/PTY link"
     assert pkt.checksum_ok, "FujiBus checksum mismatch on the emitted frame"
-    # The ROM upper-cases the command-line URI.
-    assert b"TNFS://EXAMPLE.INVALID/BBC/" in pkt.payload
+    base_uri, arg = fp.parse_resolve_path_req(pkt.payload)
+    assert base_uri == "tnfs://example.invalid/bbc/"
+    assert arg == ""
 
 
 def test_fdrive_emits_fuji_get_mounts_request(beebium, fuji_device):

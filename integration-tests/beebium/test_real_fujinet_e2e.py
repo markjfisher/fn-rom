@@ -25,8 +25,9 @@ from __future__ import annotations
 
 
 def _command(bbc, text: str) -> None:
-    bbc.keyboard.type(text)
-    bbc.keyboard.press_return()
+    with bbc.keyboard.text_input():
+        bbc.keyboard.type(text)
+        bbc.keyboard.press_return()
 
 
 def test_real_fujinet_receives_fdrive(beebium_real, real_fujinet):

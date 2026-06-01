@@ -7,8 +7,9 @@ from fujinet_tools import fujibus as fb
 
 
 def _command(bbc, text: str) -> None:
-    bbc.keyboard.type(text)
-    bbc.keyboard.press_return()
+    with bbc.keyboard.text_input():
+        bbc.keyboard.type(text)
+        bbc.keyboard.press_return()
 
 
 def test_fhost_request_payload_is_structured(beebium, fuji_device):
@@ -19,14 +20,14 @@ def test_fhost_request_payload_is_structured(beebium, fuji_device):
     assert pkt.checksum_ok
 
     base_uri, arg = fp.parse_resolve_path_req(pkt.payload)
-    assert base_uri == "TNFS://EXAMPLE.INVALID/BBC/"
+    assert base_uri == "tnfs://example.invalid/bbc/"
     assert arg == ""
 
 
 def test_fcd_emits_relative_resolve_path_request(beebium, fuji_device):
     fuji_device.set_responder(file_listing_responder(
-        resolved_uri="TNFS://EXAMPLE.INVALID/BBC/",
-        display_path="BBC/",
+        resolved_uri="tnfs://example.invalid/bbc/",
+        display_path="bbc/",
         formatted_text="",
     ))
 
@@ -40,15 +41,15 @@ def test_fcd_emits_relative_resolve_path_request(beebium, fuji_device):
     assert pkt is not None
     assert pkt.checksum_ok
     base_uri, arg = fp.parse_resolve_path_req(pkt.payload)
-    assert base_uri == "TNFS://EXAMPLE.INVALID/BBC/"
-    assert arg == "GAMES"
+    assert base_uri == "tnfs://example.invalid/bbc/"
+    assert arg == "games"
 
 
 def test_fls_round_trip_uses_formatted_list_response(beebium, fuji_device):
     listing = "A.$.BOOT\nA.$.GAMES\n"
     fuji_device.set_responder(file_listing_responder(
-        resolved_uri="TNFS://EXAMPLE.INVALID/BBC/",
-        display_path="BBC/",
+        resolved_uri="tnfs://example.invalid/bbc/",
+        display_path="bbc/",
         formatted_text=listing,
     ))
 
@@ -61,7 +62,7 @@ def test_fls_round_trip_uses_formatted_list_response(beebium, fuji_device):
 
     assert pkt is not None
     assert pkt.checksum_ok
-    assert pkt.payload == fp.build_list_req("TNFS://EXAMPLE.INVALID/BBC/", 0, 220, list_flags=0x06)
+    assert pkt.payload == fp.build_list_req("tnfs://example.invalid/bbc/", 0, 220, list_flags=0x06)
 
     resp_wire = build_list_response(formatted_text=listing)
     resp_pkt = fb.parse_fuji_packet(fb.slip_decode(resp_wire))
