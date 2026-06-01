@@ -1,0 +1,21 @@
+[project]
+name = "fnrom-beebium-tests"
+version = "0.0.0"
+description = "End-to-end serial/PTY tests for fn-rom running under the Beebium BBC emulator"
+requires-python = ">=3.11"
+
+# Third-party runtime deps. The beebium client and fujinet_tools themselves are
+# NOT installed here -- they are imported from their source checkouts via the
+# sys.path wiring in conftest.py (see env vars below). We only need their
+# third-party dependencies available in this environment.
+dependencies = [
+    "grpcio>=1.60.0",   # beebium gRPC client
+    "protobuf>=4.25.0", # beebium generated stubs
+    "pyserial>=3.5",    # fujinet_tools.fujibus
+    "pytest>=7.0.0",
+    "pytest-timeout>=2.0.0",
+]
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+timeout = 120
