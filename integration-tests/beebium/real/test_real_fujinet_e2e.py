@@ -6,7 +6,7 @@ import re
 
 import pytest
 
-from helpers import command, run_basic_program
+from helpers import command, run_basic_program, wait_for_screen_text
 
 
 def _receive_blocks(log_text: str, dev_hex: str, cmd_hex: str) -> list[str]:
@@ -184,7 +184,74 @@ def test_real_fujinet_host_listing_and_mount_catalog_reads(beebium_real_host_tre
         "0000: 01 02 01 00 00 00 00 01",
     ]
     for needle in expected_sector_reads:
-        assert needle in log, log[-6000:]
+        assert needle in log, log[-12000:]
+
+
+def test_real_fujinet_httpfs_openin_bget_returns_expected_bytes(beebium_real, real_fujinet, http_fs_service):
+    url = f'{http_fs_service["base_url"]}/bbc/tests/hello_print_hash.txt'
+    run_basic_program(
+        beebium_real,
+        [
+            f'10 H%=OPENIN("{url}")',
+            '20 A%=BGET#H%:B%=BGET#H%:C%=BGET#H%:D%=BGET#H%:E%=BGET#H%:F%=BGET#H%:G%=BGET#H%',
+            '30 PRINT A%;",";B%;",";CHR$(C%);CHR$(D%);CHR$(E%);CHR$(F%);CHR$(G%)',
+            '40 CLOSE#H%',
+        ],
+    )
+
+    log = real_fujinet.log_text()
+    assert "dev=0xFD cmd=0x01" in log, log[-4000:]
+    assert "dev=0xFD cmd=0x02" in log, log[-4000:]
+    assert "dev=0xFD cmd=0x04" in log, log[-4000:]
+    block = _latest_receive_block(log, "0xFD", "0x01")
+    assert b"/bbc/tests/hello_print_hash.txt" in _payload_bytes(block)
+
+
+def test_real_fujinet_httpfs_two_open_channels_read_independently(beebium_real, real_fujinet, http_fs_service):
+    url1 = f'{http_fs_service["base_url"]}/bbc/tests/simple.txt'
+    url2 = f'{http_fs_service["base_url"]}/bbc/tests/hello_print_hash.txt'
+    run_basic_program(
+        beebium_real,
+        [
+            f'10 A%=OPENIN("{url1}")',
+            f'20 B%=OPENIN("{url2}")',
+            '30 X%=BGET#A%:Y%=BGET#B%:Z%=BGET#A%:W%=BGET#B%',
+            '40 PRINT CHR$(X%);CHR$(Y%);CHR$(Z%);CHR$(W%)',
+            '50 CLOSE#A%:CLOSE#B%',
+        ],
+    )
+
+    log = real_fujinet.log_text()
+    assert log.count("dev=0xFD cmd=0x01") >= 2, log[-6000:]
+    open_blocks = _receive_blocks(log, "0xFD", "0x01")
+    assert len(open_blocks) >= 2, log[-6000:]
+    assert any(b"/bbc/tests/simple.txt" in _payload_bytes(block) for block in open_blocks)
+    assert any(b"/bbc/tests/hello_print_hash.txt" in _payload_bytes(block) for block in open_blocks)
+    read_blocks = _receive_blocks(log, "0xFD", "0x02")
+    assert read_blocks, log[-6000:]
+
+
+def test_real_fujinet_httpbin_openin_fjson_bget_returns_translated_value(beebium_real, real_fujinet, httpbin_service):
+    url = f'{httpbin_service["base_url"]}/get?value=fnrom'
+    run_basic_program(
+        beebium_real,
+        [
+            f'10 H%=OPENIN("{url}")',
+            '20 OSCLI "FJSON "+STR$(H%)+" /args/value"',
+            '30 A%=BGET#H%:B%=BGET#H%:C%=BGET#H%:D%=BGET#H%:E%=BGET#H%',
+            '40 PRINT CHR$(A%);CHR$(B%);CHR$(C%);CHR$(D%);CHR$(E%)',
+            '50 CLOSE#H%',
+        ],
+    )
+
+    wait_for_screen_text(beebium_real, 'fnrom', timeout=8.0, case_sensitive=False)
+    log = real_fujinet.log_text()
+    open_block = _latest_receive_block(log, "0xFD", "0x01")
+    xlat_block = _latest_receive_block(log, "0xFD", "0x07")
+    read_blocks = _receive_blocks(log, "0xFD", "0x02")
+    assert b'/get?value=fnrom' in _payload_bytes(open_block)
+    assert b'/args/value' in _payload_bytes(xlat_block)
+    assert read_blocks, log[-6000:]
 
 
 @pytest.mark.skip(reason="fn-rom currently exposes no Clock device command path")

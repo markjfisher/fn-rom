@@ -36,10 +36,12 @@ pytest_addoption below.
 from __future__ import annotations
 
 import os
+import subprocess
 import sys
 import time
 from pathlib import Path
 import shutil
+import socket
 
 import pytest
 
@@ -294,6 +296,70 @@ def real_fujinet_host_tree(pytestconfig):
 def beebium_real_host_tree(beebium_paths, real_fujinet_host_tree):
     with _launch_beebium(beebium_paths, f"device:{real_fujinet_host_tree.pty_path}") as bbc:
         yield bbc
+
+
+@pytest.fixture(scope="session")
+def http_fs_service():
+    """Ensure the controlled HTTP filesystem test service is available on localhost:18080."""
+    port = 18080
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.settimeout(0.5)
+    try:
+        if sock.connect_ex(("127.0.0.1", port)) == 0:
+            return {"base_url": f"http://127.0.0.1:{port}"}
+    finally:
+        sock.close()
+
+    script = _FN_ROM_ROOT.parent / "fujinet-nio" / "scripts" / "start_test_services.sh"
+    if not script.is_file():
+        pytest.skip(f"test services script not found at {script}")
+
+    subprocess.run([str(script), "http-fs"], check=True, cwd=str(_FN_ROM_ROOT.parent / "fujinet-nio"))
+
+    deadline = time.monotonic() + 20.0
+    while time.monotonic() < deadline:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(0.5)
+        try:
+            if sock.connect_ex(("127.0.0.1", port)) == 0:
+                return {"base_url": f"http://127.0.0.1:{port}"}
+        finally:
+            sock.close()
+        time.sleep(0.25)
+
+    pytest.skip("http-fs service could not be started on localhost:18080")
+
+
+@pytest.fixture(scope="session")
+def httpbin_service():
+    """Ensure the controlled httpbin test service is available on localhost:8080."""
+    port = 8080
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.settimeout(0.5)
+    try:
+        if sock.connect_ex(("127.0.0.1", port)) == 0:
+            return {"base_url": f"http://127.0.0.1:{port}"}
+    finally:
+        sock.close()
+
+    script = _FN_ROM_ROOT.parent / "fujinet-nio" / "scripts" / "start_test_services.sh"
+    if not script.is_file():
+        pytest.skip(f"test services script not found at {script}")
+
+    subprocess.run([str(script), "http"], check=True, cwd=str(_FN_ROM_ROOT.parent / "fujinet-nio"))
+
+    deadline = time.monotonic() + 20.0
+    while time.monotonic() < deadline:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(0.5)
+        try:
+            if sock.connect_ex(("127.0.0.1", port)) == 0:
+                return {"base_url": f"http://127.0.0.1:{port}"}
+        finally:
+            sock.close()
+        time.sleep(0.25)
+
+    pytest.skip("httpbin service could not be started on localhost:8080")
 
 
 @pytest.fixture()
