@@ -62,6 +62,19 @@ def _payload_bytes(block: str) -> bytes:
     return bytes(payload)
 
 
+def _wait_for_receive_payloads(real_fujinet, dev_hex: str, cmd_hex: str, expected_payloads: set[bytes], *, timeout: float = 8.0) -> set[bytes]:
+    import time
+
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        log = real_fujinet.log_text()
+        seen = {_payload_bytes(block) for block in _receive_blocks(log, dev_hex, cmd_hex)}
+        if expected_payloads.issubset(seen):
+            return seen
+        time.sleep(0.1)
+    return {_payload_bytes(block) for block in _receive_blocks(real_fujinet.log_text(), dev_hex, cmd_hex)}
+
+
 def test_real_fujinet_receives_fdrive(beebium_real, real_fujinet):
     command(beebium_real, "*FDRIVE")
 
@@ -171,20 +184,33 @@ def test_real_fujinet_host_listing_and_mount_catalog_reads(beebium_real_host_tre
     command(beebium_real_host_tree, "*. :0.$")
     command(beebium_real_host_tree, "*. :1.$")
 
+    expected_payloads = {
+        bytes.fromhex("01 01 00 00 00 00 00 01"),
+        bytes.fromhex("01 01 01 00 00 00 00 01"),
+        bytes.fromhex("01 02 00 00 00 00 00 01"),
+        bytes.fromhex("01 02 01 00 00 00 00 01"),
+    }
+    seen_payloads = _wait_for_receive_payloads(
+        real_fujinet_host_tree,
+        "0xFC",
+        "0x03",
+        expected_payloads,
+        timeout=8.0,
+    )
+
     log = real_fujinet_host_tree.log_text()
     assert "dev=0xFE cmd=0x05" in log
     assert "dev=0xFE cmd=0x02" in log
     assert log.count("dev=0x70 cmd=0xFC") >= 2, log[-4000:]
     assert log.count("dev=0x70 cmd=0xFB") >= 2, log[-4000:]
 
-    expected_sector_reads = [
-        "0000: 01 01 00 00 00 00 00 01",
-        "0000: 01 01 01 00 00 00 00 01",
-        "0000: 01 02 00 00 00 00 00 01",
-        "0000: 01 02 01 00 00 00 00 01",
-    ]
-    for needle in expected_sector_reads:
-        assert needle in log, log[-12000:]
+    missing = expected_payloads - seen_payloads
+    assert not missing, (
+        "missing expected catalog sector reads: "
+        + ", ".join(payload.hex(" ") for payload in sorted(missing))
+        + "\nseen: "
+        + ", ".join(payload.hex(" ") for payload in sorted(seen_payloads))
+    )
 
 
 def test_real_fujinet_httpfs_openin_bget_returns_expected_bytes(beebium_real, real_fujinet, http_fs_service):
