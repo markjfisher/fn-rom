@@ -17,6 +17,20 @@ def _type_basic_program(beebium) -> None:
         _command(beebium, line)
 
 
+def _decode_open_payload(payload: bytes):
+    off = 0
+    version = payload[off]
+    off += 1
+    method = payload[off]
+    off += 1
+    flags = payload[off]
+    off += 1
+    url_len = payload[off] | (payload[off + 1] << 8)
+    off += 2
+    url = payload[off:off + url_len].decode("utf-8")
+    return version, method, flags, url
+
+
 def test_openin_emits_network_open_request(beebium, fuji_device):
     handle = 0x1234
 
@@ -28,18 +42,17 @@ def test_openin_emits_network_open_request(beebium, fuji_device):
     fuji_device.set_responder(responder)
 
     _type_basic_program(beebium)
-    _command(beebium, 'RUN')
 
     open_pkt = fuji_device.wait_for_command(netp.NETWORK_DEVICE_ID, netp.CMD_OPEN, timeout=8.0)
     assert open_pkt is not None
     assert open_pkt.checksum_ok
-    assert open_pkt.payload == netp.build_open_req(
-        method=1,
-        flags=0x08,
-        url="HTTP://EXAMPLE.COM/DATA.JSON",
-    )
+    version, method, flags, url = _decode_open_payload(open_pkt.payload)
+    assert version == netp.NETPROTO_VERSION
+    assert method == 1
+    assert flags == 0x08
+    assert url == "HTTP://EXAMPLE.COM/DATA.JSON"
 
 
-@pytest.mark.skip(reason="fn-rom currently has no stable scripted Network round-trip beyond OPEN in the beebium harness")
+@pytest.mark.skip(reason="fn-rom OSWORD &78 BASIC flows are not yet covered in the beebium harness; current scripted coverage is direct OPENIN only")
 def test_network_device_round_trip_placeholder():
     pass

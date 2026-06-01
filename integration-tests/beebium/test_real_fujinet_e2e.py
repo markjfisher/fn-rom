@@ -46,7 +46,7 @@ def test_real_fujinet_receives_fdrive(beebium_real, real_fujinet):
 
 def test_real_fujinet_receives_fhost(beebium_real, real_fujinet):
     """``*FHOST <uri>`` reaches the firmware as a FileService RESOLVE_PATH (0xFE/0x05)."""
-    _command(beebium_real, "*FHOST tnfs://192.168.1.101/bbc/")
+    _command(beebium_real, "*FHOST tnfs://example.invalid/bbc/")
 
     assert real_fujinet.wait_for_log("dev=0xFE cmd=0x05", timeout=8.0), (
         "firmware never logged a RESOLVE_PATH receive for *FHOST:\n"
@@ -78,6 +78,11 @@ def test_real_fujinet_receives_openin(beebium_real, real_fujinet):
 
 
 import pytest
+
+
+@pytest.mark.skip(reason="fn-rom OSWORD &78 BASIC flows are not yet covered by the real-firmware beebium harness")
+def test_real_fujinet_fnnet_osword78_placeholder():
+    pass
 
 
 @pytest.mark.skip(reason="fn-rom currently exposes no Clock device command path")

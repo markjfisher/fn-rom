@@ -11,7 +11,7 @@ def _command(bbc, text: str) -> None:
 
 
 def test_fmount_gets_slot_then_mounts_disk(beebium, fuji_device):
-    fuji_device.set_responder(mounted_disk_responder(slot=2, uri="TNFS://192.168.1.101/BBC/BOOT.SSD"))
+    fuji_device.set_responder(mounted_disk_responder(slot=2, uri="TNFS://EXAMPLE.INVALID/BBC/BOOT.SSD"))
 
     _command(beebium, "*FMOUNT 2 0 RO")
 
@@ -20,7 +20,7 @@ def test_fmount_gets_slot_then_mounts_disk(beebium, fuji_device):
     assert pkt.checksum_ok
     req = dp.build_mount_req(
         slot=3,
-        uri="TNFS://192.168.1.101/BBC/BOOT.SSD",
+        uri="TNFS://EXAMPLE.INVALID/BBC/BOOT.SSD",
         readonly=True,
         type_override=0,
         sector_size_hint=0,
@@ -30,12 +30,12 @@ def test_fmount_gets_slot_then_mounts_disk(beebium, fuji_device):
 
 def test_fnew_emits_disk_create_request(beebium, fuji_device):
     fuji_device.set_responder(full_stack_responder(
-        resolved_uri="TNFS://192.168.1.101/BBC/",
+        resolved_uri="TNFS://EXAMPLE.INVALID/BBC/",
         display_path="BBC/",
         mount_slot=0,
     ))
 
-    _command(beebium, "*FHOST tnfs://192.168.1.101/bbc/")
+    _command(beebium, "*FHOST tnfs://example.invalid/bbc/")
     assert fuji_device.wait_for_command(0xFE, 0x05, timeout=6.0)
 
     fuji_device.clear()
@@ -44,7 +44,7 @@ def test_fnew_emits_disk_create_request(beebium, fuji_device):
     assert pkt is not None
     assert pkt.checksum_ok
     assert pkt.payload == dp.build_create_req(
-        uri="TNFS://192.168.1.101/BBC/BLANK.SSD",
+        uri="TNFS://EXAMPLE.INVALID/BBC/BLANK.SSD",
         img_type=dp.TYPE_SSD,
         sector_size=256,
         sector_count=800,
@@ -53,7 +53,7 @@ def test_fnew_emits_disk_create_request(beebium, fuji_device):
 
 
 def test_fmount_then_fout_unmounts_disk_when_slot_is_mapped(beebium, fuji_device):
-    fuji_device.set_responder(mounted_disk_responder(slot=2, uri="TNFS://192.168.1.101/BBC/BOOT.SSD"))
+    fuji_device.set_responder(mounted_disk_responder(slot=2, uri="TNFS://EXAMPLE.INVALID/BBC/BOOT.SSD"))
 
     _command(beebium, "*FMOUNT 2 0")
     assert fuji_device.wait_for_command(dp.DISK_DEVICE_ID, dp.CMD_MOUNT, timeout=6.0)

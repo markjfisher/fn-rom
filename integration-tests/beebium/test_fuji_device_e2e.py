@@ -21,12 +21,12 @@ def test_fdrive_requests_formatted_mounts(beebium, fuji_device):
 
 def test_fin_emits_set_mount_request(beebium, fuji_device):
     fuji_device.set_responder(full_stack_responder(
-        resolved_uri="TNFS://192.168.1.101/BBC/",
+        resolved_uri="TNFS://EXAMPLE.INVALID/BBC/",
         display_path="BBC/",
         mount_slot=0,
     ))
 
-    _command(beebium, "*FHOST tnfs://192.168.1.101/bbc/")
+    _command(beebium, "*FHOST tnfs://example.invalid/bbc/")
     assert fuji_device.wait_for_command(0xFE, 0x05, timeout=6.0)
 
     fuji_device.clear()
@@ -41,12 +41,12 @@ def test_fin_emits_set_mount_request(beebium, fuji_device):
     uri = pkt.payload[3:3 + uri_len].decode("utf-8")
     mode_len = pkt.payload[3 + uri_len]
     mode = pkt.payload[4 + uri_len:4 + uri_len + mode_len].decode("utf-8")
-    assert uri == "TNFS://192.168.1.101/BBC/BOOT.SSD"
+    assert uri == "TNFS://EXAMPLE.INVALID/BBC/BOOT.SSD"
     assert mode == "auto"
 
 
 def test_fout_round_trip_gets_then_clears_mount(beebium, fuji_device):
-    fuji_device.set_responder(mounted_disk_responder(slot=2, uri="TNFS://192.168.1.101/BBC/BOOT.SSD"))
+    fuji_device.set_responder(mounted_disk_responder(slot=2, uri="TNFS://EXAMPLE.INVALID/BBC/BOOT.SSD"))
 
     _command(beebium, "*FOUT 2")
 

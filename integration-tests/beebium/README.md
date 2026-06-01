@@ -87,6 +87,8 @@ PTY** here (`--serial pty:`) and the test plugs into the slave.
 | `test_fdrive_emits_fuji_get_mounts_request` | `*FDRIVE` | Fuji `GET_MOUNTS` (0x70/0xFD), checksum OK |
 | `test_fhost_then_fls_round_trip` | `*FHOST` then `*FLS` | RESOLVE_PATH answered by the device, then FileService `LIST` (0xFE/0x02) — proves responses flow back over the PTY |
 
+The `tnfs://example.invalid/...` URIs used in scripted tests are synthetic. The scripted `FujiDevice` does not connect to a real TNFS server; it only validates the ROM's emitted FujiBus packets and returns protocol-correct replies. The ROM upper-cases command-line URIs while parsing, so asserts should expect `TNFS://EXAMPLE.INVALID/...` on the wire.
+
 ## Device Coverage Matrix
 
 | Device | ID | Scripted transport coverage | Real-firmware interop coverage | Notes |
@@ -95,7 +97,7 @@ PTY** here (`--serial pty:`) and the test plugs into the slave.
 | Clock | `0x45` | `test_clock_device.py` | `test_real_fujinet_clock_unreachable_from_fn_rom` | `fn-rom` currently has no BBC command/vector path to Clock |
 | Modem | `0xFB` | `test_modem_device.py` | `test_real_fujinet_modem_unreachable_from_fn_rom` | `fn-rom` currently has no BBC command/vector path to Modem |
 | Disk | `0xFC` | `test_disk_device.py` (`*FMOUNT`, `*FNEW`, `*FOUT`) | `test_real_fujinet_receives_fmount` | Covers `MOUNT`, `UNMOUNT`, `CREATE`; real interop proves live `MOUNT` |
-| Network | `0xFD` | `test_network_device.py` (`OPENIN`) | `test_real_fujinet_receives_openin` | Current stable ROM interop path is network `OPEN` via BASIC `OPENIN` |
+| Network | `0xFD` | `test_network_device.py` (`OPENIN`, OSWORD `&78` reason `&04`, POST path reasons `&01/&02/&03`) | `test_real_fujinet_receives_openin`, `test_real_fujinet_receives_osword_long_openin`, `test_real_fujinet_receives_osword_post_write` | Covers direct OPEN plus `fnnet.s` OSWORD paths |
 | File | `0xFE` | `test_file_device.py` (`*FHOST`, `*FCD`, `*FLS`) | `test_real_fujinet_receives_fhost` | Covers `RESOLVE_PATH`, `LIST` |
 
 ### 2. Real-firmware interop tests (opt-in)

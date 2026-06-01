@@ -26,13 +26,13 @@ def _command(bbc, text: str) -> None:
 
 def test_fhost_emits_resolve_path_request(beebium, fuji_device):
     """``*FHOST <uri>`` issues a FileService RESOLVE_PATH carrying the URI."""
-    _command(beebium, "*FHOST tnfs://192.168.1.101/bbc/")
+    _command(beebium, "*FHOST tnfs://example.invalid/bbc/")
 
     pkt = fuji_device.wait_for_command(fp.FILE_DEVICE_ID, fp.CMD_RESOLVE_PATH, timeout=6.0)
     assert pkt is not None, "no RESOLVE_PATH request observed on the serial/PTY link"
     assert pkt.checksum_ok, "FujiBus checksum mismatch on the emitted frame"
     # The ROM upper-cases the command-line URI.
-    assert b"TNFS://192.168.1.101/BBC/" in pkt.payload
+    assert b"TNFS://EXAMPLE.INVALID/BBC/" in pkt.payload
 
 
 def test_fdrive_emits_fuji_get_mounts_request(beebium, fuji_device):
@@ -51,10 +51,10 @@ def test_fhost_then_fls_round_trip(beebium, fuji_device):
     ROM will proceed to ``*FLS``, proving responses flow back over the PTY too.
     """
     fuji_device.set_responder(
-        resolving_responder("tnfs://192.168.1.101/bbc/", "bbc/")
+        resolving_responder("tnfs://example.invalid/bbc/", "bbc/")
     )
 
-    _command(beebium, "*FHOST tnfs://192.168.1.101/bbc/")
+    _command(beebium, "*FHOST tnfs://example.invalid/bbc/")
     assert fuji_device.wait_for_command(
         fp.FILE_DEVICE_ID, fp.CMD_RESOLVE_PATH, timeout=6.0
     ), "host was never resolved"
