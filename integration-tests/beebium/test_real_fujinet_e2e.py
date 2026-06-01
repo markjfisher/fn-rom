@@ -54,6 +54,42 @@ def test_real_fujinet_receives_fhost(beebium_real, real_fujinet):
     )
 
 
+def test_real_fujinet_receives_fmount(beebium_real, real_fujinet):
+    _command(beebium_real, "*FMOUNT 0 0")
+
+    assert real_fujinet.wait_for_log("dev=0x70 cmd=0xFB", timeout=8.0), (
+        "firmware never logged a GET_MOUNT receive for *FMOUNT:\n"
+        + real_fujinet.log_text()[-2000:]
+    )
+    assert real_fujinet.wait_for_log("send: dev=0x70", timeout=2.0), (
+        "firmware received the GET_MOUNT request but logged no Fuji reply:\n"
+        + real_fujinet.log_text()[-2000:]
+    )
+
+
+def test_real_fujinet_receives_openin(beebium_real, real_fujinet):
+    for line in ('10 A%=OPENIN("HTTP://EXAMPLE.COM/DATA.JSON")', 'RUN'):
+        _command(beebium_real, line)
+
+    assert real_fujinet.wait_for_log("dev=0xFD cmd=0x01", timeout=8.0), (
+        "firmware never logged a Network OPEN receive for OPENIN:\n"
+        + real_fujinet.log_text()[-2000:]
+    )
+
+
+import pytest
+
+
+@pytest.mark.skip(reason="fn-rom currently exposes no Clock device command path")
+def test_real_fujinet_clock_unreachable_from_fn_rom():
+    pass
+
+
+@pytest.mark.skip(reason="fn-rom currently exposes no Modem device command path")
+def test_real_fujinet_modem_unreachable_from_fn_rom():
+    pass
+
+
 def test_fujinet_created_the_pty(real_fujinet):
     """Sanity: the firmware created the advertised PTY slave path."""
     import os

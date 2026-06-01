@@ -19,14 +19,20 @@ import struct
 import threading
 import time
 import tty
-from typing import Callable, List, Optional
+from typing import Callable, Iterable, List, Optional
 
 from fujinet_tools import fujibus as fb
 
 try:  # protocol constants/helpers (optional -- only needed by some helpers)
+    from fujinet_tools import diskproto as dp
     from fujinet_tools import fileproto as fp
+    from fujinet_tools import fujiproto as fuji
+    from fujinet_tools import netproto as netp
 except Exception:  # pragma: no cover - defensive
+    dp = None
     fp = None
+    fuji = None
+    netp = None
 
 FujiPacket = fb.FujiPacket
 Responder = Callable[[FujiPacket], Optional[bytes]]
@@ -171,10 +177,320 @@ def build_resolve_path_response(resolved_uri: str, display_path: str, status: in
     return fb.build_fuji_response_wire(fp.FILE_DEVICE_ID, fp.CMD_RESOLVE_PATH, status, body)
 
 
+def build_list_response(
+    entries: Iterable[tuple[bool, str, int, int]] = (),
+    *,
+    start_index: int = 0,
+    more: bool = False,
+    compact: bool = False,
+    formatted_text: str = "",
+    status: int = 0,
+) -> bytes:
+    """A FileService LIST (0x02) reply.
+
+    Wire format mirrors ``fujinet_tools.fileproto.parse_list_resp``.
+    ``entries`` items are ``(is_dir, name, size_bytes, mtime_unix)``.
+    """
+    if fp is None:
+        raise RuntimeError("fujinet_tools.fileproto is unavailable")
+
+    flags = 0
+    blob = bytearray()
+    entry_count = 0
+
+    if formatted_text:
+        flags |= fp.LIST_RESP_FLAG_FORMATTED
+        if more:
+            flags |= 0x01
+        text_bytes = formatted_text.encode("utf-8")
+        entry_count = formatted_text.count("\n") + (1 if formatted_text and not formatted_text.endswith("\n") else 0)
+        body = (
+            bytes([fp.FILEPROTO_VERSION, flags])
+            + struct.pack("<H", 0)
+            + struct.pack("<H", start_index)
+            + struct.pack("<H", entry_count)
+            + struct.pack("<H", len(text_bytes))
+            + text_bytes
+        )
+        return fb.build_fuji_response_wire(fp.FILE_DEVICE_ID, fp.CMD_LIST, status, body)
+
+    if compact:
+        flags |= 0x02
+    if more:
+        flags |= 0x01
+
+    for is_dir, name, size_bytes, mtime_unix in entries:
+        name_b = name.encode("utf-8")
+        blob.append(0x01 if is_dir else 0x00)
+        blob.append(len(name_b) & 0xFF)
+        blob.extend(name_b)
+        if not compact:
+            blob.extend(struct.pack("<Q", size_bytes))
+            blob.extend(struct.pack("<Q", mtime_unix))
+        entry_count += 1
+
+    body = (
+        bytes([fp.FILEPROTO_VERSION, flags])
+        + struct.pack("<H", 0)
+        + struct.pack("<H", start_index)
+        + struct.pack("<H", entry_count)
+        + struct.pack("<H", len(blob))
+        + bytes(blob)
+    )
+    return fb.build_fuji_response_wire(fp.FILE_DEVICE_ID, fp.CMD_LIST, status, body)
+
+
+def build_get_mounts_response(
+    text: str,
+    *,
+    first_slot: int = 0,
+    start_index: int = 0,
+    more: bool = False,
+    status: int = 0,
+) -> bytes:
+    """A Fuji GET_MOUNTS (0xFD) formatted response."""
+    if fuji is None:
+        raise RuntimeError("fujinet_tools.fujiproto is unavailable")
+    flags = fuji.GET_MOUNTS_RESP_FLAG_FORMATTED
+    if more:
+        flags |= fuji.GET_MOUNTS_RESP_FLAG_MORE
+    text_b = text.encode("utf-8")
+    entry_count = text.count("\n") + (1 if text and not text.endswith("\n") else 0)
+    body = (
+        bytes([fuji.GET_MOUNTS_VERSION, flags])
+        + struct.pack("<H", first_slot)
+        + struct.pack("<H", start_index)
+        + struct.pack("<H", entry_count)
+        + struct.pack("<H", len(text_b))
+        + text_b
+    )
+    return fb.build_fuji_response_wire(fuji.FUJI_DEVICE_ID, fuji.CMD_GET_MOUNTS, status, body)
+
+
+def build_get_mount_response(
+    *,
+    slot: int,
+    enabled: bool,
+    uri: str,
+    mode: str = "auto",
+    status: int = 0,
+) -> bytes:
+    """A Fuji GET_MOUNT (0xFB) reply matching the ROM's expected compact format."""
+    if fuji is None:
+        raise RuntimeError("fujinet_tools.fujiproto is unavailable")
+    uri_b = uri.encode("utf-8")
+    mode_b = mode.encode("utf-8")
+    body = bytes([
+        slot & 0xFF,
+        0x01 if enabled else 0x00,
+        len(uri_b) & 0xFF,
+    ]) + uri_b + bytes([len(mode_b) & 0xFF]) + mode_b
+    return fb.build_fuji_response_wire(fuji.FUJI_DEVICE_ID, fuji.CMD_GET_MOUNT, status, body)
+
+
+def build_set_mount_response(status: int = 0) -> bytes:
+    if fuji is None:
+        raise RuntimeError("fujinet_tools.fujiproto is unavailable")
+    return fb.build_fuji_response_wire(fuji.FUJI_DEVICE_ID, fuji.CMD_SET_MOUNT, status, b"")
+
+
+def build_disk_mount_response(
+    *,
+    slot: int,
+    mounted: bool = True,
+    readonly: bool = False,
+    img_type: int = 2,
+    sector_size: int = 256,
+    sector_count: int = 800,
+    status: int = 0,
+) -> bytes:
+    if dp is None:
+        raise RuntimeError("fujinet_tools.diskproto is unavailable")
+    flags = 0
+    if mounted:
+        flags |= 0x01
+    if readonly:
+        flags |= 0x02
+    body = (
+        bytes([dp.DISKPROTO_VERSION, flags])
+        + struct.pack("<H", 0)
+        + bytes([slot & 0xFF, img_type & 0xFF])
+        + struct.pack("<H", sector_size)
+        + struct.pack("<I", sector_count)
+    )
+    return fb.build_fuji_response_wire(dp.DISK_DEVICE_ID, dp.CMD_MOUNT, status, body)
+
+
+def build_disk_create_response(
+    *,
+    img_type: int = 2,
+    sector_size: int = 256,
+    sector_count: int = 800,
+    status: int = 0,
+) -> bytes:
+    if dp is None:
+        raise RuntimeError("fujinet_tools.diskproto is unavailable")
+    body = (
+        bytes([dp.DISKPROTO_VERSION, 0])
+        + struct.pack("<H", 0)
+        + bytes([img_type & 0xFF])
+        + struct.pack("<H", sector_size)
+        + struct.pack("<I", sector_count)
+    )
+    return fb.build_fuji_response_wire(dp.DISK_DEVICE_ID, dp.CMD_CREATE, status, body)
+
+
+def build_disk_unmount_response(status: int = 0) -> bytes:
+    if dp is None:
+        raise RuntimeError("fujinet_tools.diskproto is unavailable")
+    return fb.build_fuji_response_wire(dp.DISK_DEVICE_ID, dp.CMD_UNMOUNT, status, b"")
+
+
+def build_translate_configure_response(
+    *,
+    handle: int,
+    ready: bool = True,
+    translated_size: int = 0,
+    status: int = 0,
+) -> bytes:
+    if netp is None:
+        raise RuntimeError("fujinet_tools.netproto is unavailable")
+    flags = 0x01 if ready else 0x00
+    body = (
+        bytes([netp.NETPROTO_VERSION, flags])
+        + struct.pack("<H", 0)
+        + struct.pack("<H", handle)
+        + struct.pack("<I", translated_size)
+    )
+    return fb.build_fuji_response_wire(
+        netp.NETWORK_DEVICE_ID, netp.CMD_TRANSLATE_CONFIGURE, status, body
+    )
+
+
+def build_network_open_response(
+    *,
+    handle: int,
+    accepted: bool = True,
+    needs_body_write: bool = False,
+    proto_flags: int = 0x01,
+    status: int = 0,
+) -> bytes:
+    if netp is None:
+        raise RuntimeError("fujinet_tools.netproto is unavailable")
+    flags = 0
+    if accepted:
+        flags |= 0x01
+    if needs_body_write:
+        flags |= 0x02
+    body = (
+        bytes([netp.NETPROTO_VERSION, flags])
+        + struct.pack("<H", 0)
+        + struct.pack("<H", handle)
+        + bytes([proto_flags & 0xFF])
+    )
+    return fb.build_fuji_response_wire(netp.NETWORK_DEVICE_ID, netp.CMD_OPEN, status, body)
+
+
 def resolving_responder(resolved_uri: str, display_path: str) -> Responder:
     """A responder that answers RESOLVE_PATH properly and others generically."""
     def _resp(pkt: FujiPacket) -> Optional[bytes]:
         if fp is not None and pkt.device == fp.FILE_DEVICE_ID and pkt.command == fp.CMD_RESOLVE_PATH:
             return build_resolve_path_response(resolved_uri, display_path)
         return default_success_responder(pkt)
+    return _resp
+
+
+def file_listing_responder(
+    *,
+    resolved_uri: str,
+    display_path: str,
+    formatted_text: str,
+) -> Responder:
+    """Resolve a host/path then answer LIST with formatted directory text."""
+
+    def _resp(pkt: FujiPacket) -> Optional[bytes]:
+        if fp is None:
+            return default_success_responder(pkt)
+        if pkt.device == fp.FILE_DEVICE_ID and pkt.command == fp.CMD_RESOLVE_PATH:
+            return build_resolve_path_response(resolved_uri, display_path)
+        if pkt.device == fp.FILE_DEVICE_ID and pkt.command == fp.CMD_LIST:
+            return build_list_response(formatted_text=formatted_text)
+        return default_success_responder(pkt)
+
+    return _resp
+
+
+def mounted_disk_responder(
+    *,
+    slot: int,
+    uri: str,
+    mode: str = "auto",
+    readonly: bool = False,
+) -> Responder:
+    """Answer Fuji slot lookup plus subsequent Disk mount/unmount requests."""
+
+    def _resp(pkt: FujiPacket) -> Optional[bytes]:
+        if fuji is not None and pkt.device == fuji.FUJI_DEVICE_ID:
+            if pkt.command == fuji.CMD_GET_MOUNT:
+                return build_get_mount_response(slot=slot, enabled=True, uri=uri, mode=mode)
+            if pkt.command == fuji.CMD_SET_MOUNT:
+                return build_set_mount_response()
+        if dp is not None and pkt.device == dp.DISK_DEVICE_ID:
+            if pkt.command == dp.CMD_MOUNT:
+                return build_disk_mount_response(slot=slot + 1, readonly=readonly)
+            if pkt.command == dp.CMD_UNMOUNT:
+                return build_disk_unmount_response()
+        return default_success_responder(pkt)
+
+    return _resp
+
+
+def full_stack_responder(
+    *,
+    resolved_uri: str,
+    display_path: str,
+    mount_slot: int,
+    mount_uri: Optional[str] = None,
+    formatted_mounts: str = "0: AUTO\n",
+    translated_handle: int = 1,
+    translated_size: int = 0,
+) -> Responder:
+    """Handle the common File/Fuji/Disk/Network flows used by fn-rom tests."""
+
+    effective_mount_uri = mount_uri or resolved_uri
+
+    def _resp(pkt: FujiPacket) -> Optional[bytes]:
+        if fp is not None and pkt.device == fp.FILE_DEVICE_ID:
+            if pkt.command == fp.CMD_RESOLVE_PATH:
+                return build_resolve_path_response(resolved_uri, display_path)
+            if pkt.command == fp.CMD_LIST:
+                return build_list_response(formatted_text="FILE\n")
+        if fuji is not None and pkt.device == fuji.FUJI_DEVICE_ID:
+            if pkt.command == fuji.CMD_GET_MOUNTS:
+                return build_get_mounts_response(formatted_mounts)
+            if pkt.command == fuji.CMD_GET_MOUNT:
+                return build_get_mount_response(
+                    slot=mount_slot,
+                    enabled=True,
+                    uri=effective_mount_uri,
+                )
+            if pkt.command == fuji.CMD_SET_MOUNT:
+                return build_set_mount_response()
+        if dp is not None and pkt.device == dp.DISK_DEVICE_ID:
+            if pkt.command == dp.CMD_MOUNT:
+                return build_disk_mount_response(slot=mount_slot + 1)
+            if pkt.command == dp.CMD_CREATE:
+                return build_disk_create_response()
+            if pkt.command == dp.CMD_UNMOUNT:
+                return build_disk_unmount_response()
+        if netp is not None and pkt.device == netp.NETWORK_DEVICE_ID and pkt.command == netp.CMD_TRANSLATE_CONFIGURE:
+            return build_translate_configure_response(
+                handle=translated_handle,
+                ready=True,
+                translated_size=translated_size,
+            )
+        if netp is not None and pkt.device == netp.NETWORK_DEVICE_ID and pkt.command == netp.CMD_OPEN:
+            return build_network_open_response(handle=translated_handle)
+        return default_success_responder(pkt)
+
     return _resp
