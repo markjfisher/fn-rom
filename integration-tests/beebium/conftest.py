@@ -39,6 +39,7 @@ import os
 import sys
 import time
 from pathlib import Path
+import shutil
 
 import pytest
 
@@ -216,6 +217,83 @@ def real_fujinet(pytestconfig):
         yield fn
     finally:
         fn.cleanup()
+
+
+@pytest.fixture()
+def real_fujinet_host_tree(pytestconfig):
+    """A real fujinet instance with a controlled host:/ tree populated for file/disk tests."""
+    from fujinet_runner import IsolatedFujinet
+
+    binary = Path(pytestconfig.getoption("--fujinet-bin")).expanduser()
+    if not binary.is_file() or not os.access(binary, os.X_OK):
+        pytest.skip(
+            f"real fujinet-nio binary not found/executable at {binary} "
+            f"(build with `./build.sh -cp fujibus-pty-debug`, or set FUJINET_BIN)"
+        )
+
+    fn = IsolatedFujinet(binary)
+
+    data_root = fn.run_dir / "fujinet-data"
+    (data_root / "foo" / "bar").mkdir(parents=True, exist_ok=True)
+    (data_root / "foo" / "baz").mkdir(parents=True, exist_ok=True)
+
+    create_ssd = _FN_ROM_ROOT / "scripts" / "create_ssd.py"
+    if not create_ssd.is_file():
+        pytest.skip(f"SSD generator not found at {create_ssd}")
+
+    basictool = shutil.which("basictool")
+    if not basictool:
+        beebium_basictool = BEEBIUM_HOME / "integration_tests" / "adfs" / "src" / "adfs_test_support" / "basictool.py"
+        if beebium_basictool.is_file():
+            basictool = str(beebium_basictool)
+    if not basictool:
+        pytest.skip("basictool not available in PATH and no fallback beebium basictool.py found")
+
+    dfstool = shutil.which("dfstool")
+    if not dfstool:
+        pytest.skip("dfstool not available in PATH; required to generate representative SSD images")
+
+    weather_src = _FN_ROM_ROOT / "bas" / "weather"
+    iss_src = _FN_ROM_ROOT / "bas" / "iss"
+    if not weather_src.is_dir() or not iss_src.is_dir():
+        pytest.skip("weather/iss BASIC source trees not found for SSD generation")
+
+    import subprocess
+    env = os.environ.copy()
+    env["PATH"] = f"{Path(basictool).parent}:{env.get('PATH', '')}"
+    env["PATH"] = f"{Path(dfstool).parent}:{env['PATH']}"
+    if basictool.endswith(".py"):
+        shim_dir = fn.run_dir / "tool-shims"
+        shim_dir.mkdir(parents=True, exist_ok=True)
+        shim = shim_dir / "basictool"
+        shim.write_text(f"#!/usr/bin/env bash\nexec python3 \"{basictool}\" \"$@\"\n")
+        shim.chmod(0o755)
+        env["PATH"] = f"{shim_dir}:{env['PATH']}"
+
+    subprocess.run(
+        [str(create_ssd), "-i", str(weather_src), "-o", str(data_root / "foo" / "bar" / "weather.ssd")],
+        check=True,
+        cwd=str(_FN_ROM_ROOT),
+        env=env,
+    )
+    subprocess.run(
+        [str(create_ssd), "-i", str(iss_src), "-o", str(data_root / "foo" / "baz" / "iss.ssd")],
+        check=True,
+        cwd=str(_FN_ROM_ROOT),
+        env=env,
+    )
+
+    fn.start()
+    try:
+        yield fn
+    finally:
+        fn.cleanup()
+
+
+@pytest.fixture()
+def beebium_real_host_tree(beebium_paths, real_fujinet_host_tree):
+    with _launch_beebium(beebium_paths, f"device:{real_fujinet_host_tree.pty_path}") as bbc:
+        yield bbc
 
 
 @pytest.fixture()

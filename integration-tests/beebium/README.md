@@ -140,6 +140,7 @@ repo) or point `--fujinet-bin` / `FUJINET_BIN` at the binary.
 | `real/test_real_fujinet_e2e.py::test_real_fujinet_receives_openin_then_fjson` | firmware logs Network `OPEN`, `TRANSLATE_CONFIGURE`, `READ`, `CLOSE` |
 | `real/test_real_fujinet_e2e.py::test_real_fujinet_receives_osword78_long_open_url` | firmware logs Network `OPEN` from OSWORD long-URL path |
 | `real/test_real_fujinet_e2e.py::test_real_fujinet_receives_osword78_post_write` | firmware logs Network `OPEN`, `WRITE`, `CLOSE` from OSWORD body/profile/write flow |
+| `real/test_real_fujinet_e2e.py::test_real_fujinet_host_listing_and_mount_catalog_reads` | controlled `host:/` tree, FileService `LIST`, Fuji `SET/GET_MOUNT`, and Disk `READ_SECTOR` sector-0/1 catalog fetches for mounted drives |
 | `real/test_real_fujinet_e2e.py::test_fujinet_created_the_pty` | the firmware created the advertised PTY slave |
 
 These assert on the **firmware's own log** — fujinet-nio logs
@@ -162,6 +163,13 @@ a backing filesystem. Either point `*FHOST` at a TNFS server you control, or
 pre-populate the isolated run dir's host filesystem and use a local URI. The
 `IsolatedFujinet` constructor takes `extra_config=` to inject extra YAML (e.g.
 `mounts:`), and the run dir's `fujinet-data/` is the host filesystem root.
+
+The suite now uses that mechanism for a representative `host:/` scenario: it
+creates `foo/bar/weather.ssd` and `foo/baz/iss.ssd` under the isolated
+`fujinet-data/`, then drives `*FHOST host:/`, `*FIN`, `*FMOUNT`, and `*.` to
+assert the real firmware performs the expected File, Fuji, and Disk traffic,
+including the two `READ_SECTOR` catalog fetches (sectors 0 and 1) per mounted
+drive.
 
 ## Writing more tests
 
