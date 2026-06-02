@@ -225,6 +225,7 @@ def test_real_fujinet_httpfs_openin_bget_returns_expected_bytes(beebium_real, re
         ],
     )
 
+    wait_for_screen_text(beebium_real, '0,5,OLLEH', timeout=8.0)
     log = real_fujinet.log_text()
     assert "dev=0xFD cmd=0x01" in log, log[-4000:]
     assert "dev=0xFD cmd=0x02" in log, log[-4000:]
@@ -242,11 +243,15 @@ def test_real_fujinet_httpfs_two_open_channels_read_independently(beebium_real, 
             f'10 A%=OPENIN("{url1}")',
             f'20 B%=OPENIN("{url2}")',
             '30 X%=BGET#A%:Y%=BGET#B%:Z%=BGET#A%:W%=BGET#B%',
-            '40 PRINT CHR$(X%);CHR$(Y%);CHR$(Z%);CHR$(W%)',
+            '40 PRINT X%;",";Y%;",";Z%;",";W%',
             '50 CLOSE#A%:CLOSE#B%',
         ],
     )
 
+    # from A: "FujiNet" are first bytes, decimal 70 = F, 117 = u
+    # from B: 0x00, 0x05 OLLEH, so first two bytes are 0, 5.
+    # so interweved, it's 70,0,117,5
+    wait_for_screen_text(beebium_real, '70,0,117,5', timeout=8.0)
     log = real_fujinet.log_text()
     assert log.count("dev=0xFD cmd=0x01") >= 2, log[-6000:]
     open_blocks = _receive_blocks(log, "0xFD", "0x01")
