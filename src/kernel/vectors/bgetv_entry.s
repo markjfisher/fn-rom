@@ -8,6 +8,7 @@
         .export load_then_inc_seq_ptr_yintch
         .export err_eof
 
+.if .defined(FEATURE_NET)
         .export network_bget
         .export nwbg_no_data_available
         .export nwbg_net_eof_j
@@ -15,6 +16,7 @@
         .export nwbg_net_have_data
         .export nwbg_net_eof
         .export nwbg_net_eof_exit
+.endif
 
         .importzp aws_tmp06
         .importzp aws_tmp07
@@ -52,9 +54,11 @@
         .import fuji_error_flag
         .import fuji_filev_load_hi
         .import fuji_intch
+.if .defined(FEATURE_NET)
         .import fuji_network_buf_cnt
         .import fuji_network_buf_cnt_hi
         .import fujibus_network_read
+.endif
         .import load_mem_block
         .import network_retry_backoff
         .import network_retry_init
@@ -82,11 +86,13 @@ bgetv_entry:
         jsr     check_channel_yhndl_exyintch_tya_cmpptr         ; exits with Y=intch
         php                                                     ; save Z flag
 
+.if .defined(FEATURE_NET)
         ; Check for network channel by testing handle bytes
         ; (Z flag from PTR/EXT comparison is lost after this check)
         lda     fuji_ch_handle_low,y
         ora     fuji_ch_handle_high,y
         bne     network_bget
+.endif
 
         ; Disk channel - restore processor status flag
         plp
@@ -125,8 +131,9 @@ bgetv_entry:
 ; network_bget - Network-aware byte read
 ; For network channels, the buffer is refilled via NET_CMD_READ
 ; when exhausted. Buffer count is stored in fuji_ch_1118,y.
+; FEATURE_NET only — the disk BGET path above is always present.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
+.if .defined(FEATURE_NET)
 network_bget:
         plp                             ; clear the status that was stashed, not needed here
 
@@ -277,6 +284,7 @@ nwbg_net_eof:
 nwbg_net_eof_exit:
         sec                             ; C=1 = EOF
         rts
+.endif  ; FEATURE_NET
 
 err_eof:
         jsr     report_error_cb

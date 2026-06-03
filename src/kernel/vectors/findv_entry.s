@@ -19,7 +19,9 @@
         .export fscv6_shutdown_filing_system
         .export setup_channel_info_block_yintch
         .export channel_set_dir_drive_get_cat_entry_yintch
+.if .defined(FEATURE_NET)
         .export network_open_file
+.endif
 
         .export findv_createfile
         .export findv_filefound
@@ -29,6 +31,7 @@
         .export close_file_yintch
         .export close_files_yhandle
         .export close_file_buftodisk
+.if .defined(FEATURE_NET)
         .export close_network_channel
 
         .export nof_not_read
@@ -39,10 +42,13 @@
         .export nof_open_ok
         .export nof_return_handle
         .export nof_open_failed
+.endif
 
         .export calling_createfile
         .export chklock_exit
+.if .defined(FEATURE_NET)
         .export network_allocate_channel
+.endif
         .export convert_intch_to_buf_page
         .export no_flush_error
 
@@ -102,13 +108,17 @@
         .import fuji_intch
         .import fuji_network_url_flag
         .import fuji_open_channels
+.if .defined(FEATURE_NET)
         .import fujibus_network_close
         .import fujibus_network_open
+.endif
         .import get_cat_firstentry80
         .import get_cat_firstentry80_fname
         .import is_hndlin_use_yintch
         .import load_cur_drv_cat2
+.if .defined(FEATURE_NET)
         .import network_flush_write
+.endif
         .import parameter_fsp
         .import read_fspba
         .import read_fspba_find_cat_entry
@@ -252,10 +262,12 @@ close_file_yintch:
         pha                             ; current intch, e.g. $20, $40, ...
         jsr     is_hndlin_use_yintch
         bcs     close_file_exit
+.if .defined(FEATURE_NET)
         ; check if this is a network channel (has handle)
         lda     fuji_ch_handle_low,y
         ora     fuji_ch_handle_high,y
         bne     close_network_channel
+.endif
 
         ; existing disk close path
         lda     fuji_ch_bitmask,y
@@ -286,6 +298,7 @@ close_file_buftodisk:
         jsr     channel_buffer_to_disk_yintch   ; Y=intch, not handle!
         jmp     close_file_exit
 
+.if .defined(FEATURE_NET)
 close_network_channel:
         ; network close path
         ; Flush any buffered writes before closing
@@ -308,12 +321,14 @@ close_file_exit_plp:
 
         ; stack already setup with flush error message, this resets the stack to "sane"
         jmp     $0100
+.endif  ; FEATURE_NET (close_network_channel)
 
 close_file_exit:
 no_flush_error:
         pla
         rts
 
+.if .defined(FEATURE_NET)
 error_closing:
         ; balance the stack and check if we had error flushing as well as closing
         plp
@@ -326,6 +341,7 @@ err_flushing_and_closing:
         jsr     report_error_cb
         .byte   $C3
         .byte   "Err flushing and closing", 0
+.endif  ; FEATURE_NET
 
 findv_openfile:
         jsr     remember_xy_only        ; Save X, Y as A will be returned
@@ -336,10 +352,12 @@ findv_openfile:
         php                             ; Save flags, 7(N)->write, 6(V)->read from
         jsr     read_fspba              ; Parse filename; network URLs set fuji_network_url_flag
 
+.if .defined(FEATURE_NET)
         ; check if this is a network URL (contains "://")
         lda     fuji_network_url_flag
         beq     not_url
         jmp     network_open_file       ; If non-zero, route to network open
+.endif
 
 not_url:
         jsr     parameter_fsp           ; puts $FF into wild star and wild hash
@@ -523,8 +541,9 @@ chklock_exit:
 ; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Network URL file open - routes to fujinet network device
 ; Called from findv_openfile when fuji_network_url_flag is non-zero
+; FEATURE_NET only; includes network_release_channel_y / network_allocate_channel.
 ; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
+.if .defined(FEATURE_NET)
 network_open_file:
         ; fuji_network_url_flag contains the URL length
         ; aws_tmp04 contains the BBC operation ($40=openin, $80=openout, $C0=openup)
@@ -686,6 +705,7 @@ nac_loop:
 nac_found:
         sty     fuji_intch
         rts
+.endif  ; FEATURE_NET (network_open_file .. network_allocate_channel)
 
 is_file_open_continue:
         txa

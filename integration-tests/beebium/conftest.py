@@ -89,6 +89,14 @@ def pytest_addoption(parser):
         help="fn-rom sideways ROM image to load",
     )
     group.addoption(
+        "--fn-profile",
+        action="store",
+        choices=("net", "disk"),
+        default=os.environ.get("FN_PROFILE", "net"),
+        help="role-split build profile the loaded ROM represents: 'net' (DISK+NET, "
+             "default) or 'disk' (no network device). Drives feature-tagged test skips.",
+    )
+    group.addoption(
         "--fn-rom-slot",
         action="store",
         type=int,
@@ -123,6 +131,38 @@ def pytest_addoption(parser):
         help="path to the real posix fujinet-nio binary (fujibus-pty profile) "
         "for the optional real-firmware interop tests",
     )
+
+
+# --- Role-split build profiles (Lever A) -------------------------------------
+# Tests declare the feature they need; the runner is pointed at one profile's ROM
+# (FN_ROM) and told which profile it is (--fn-profile / FN_PROFILE). Feature-tagged
+# tests that don't apply to the loaded ROM are skipped, so the same suite runs
+# against both the DISK+NET and DISK builds. See docs/ROM_ROLE_SPLIT_PLAN.md C.3.
+
+def pytest_configure(config):
+    config.addinivalue_line(
+        "markers", "needs_net: requires the network device (skipped on the DISK profile)"
+    )
+    config.addinivalue_line(
+        "markers", "disk_only: only meaningful on the DISK profile (skipped on net)"
+    )
+
+
+def pytest_collection_modifyitems(config, items):
+    profile = config.getoption("--fn-profile")
+    skip_net = pytest.mark.skip(reason="needs the network device; --fn-profile is 'disk'")
+    skip_disk = pytest.mark.skip(reason="DISK-profile test; --fn-profile is 'net'")
+    for item in items:
+        if profile == "disk" and "needs_net" in item.keywords:
+            item.add_marker(skip_net)
+        if profile != "disk" and "disk_only" in item.keywords:
+            item.add_marker(skip_disk)
+
+
+@pytest.fixture()
+def fn_profile(pytestconfig):
+    """The role-split profile the loaded ROM represents ('net' or 'disk')."""
+    return pytestconfig.getoption("--fn-profile")
 
 
 # --- Fixtures ----------------------------------------------------------------

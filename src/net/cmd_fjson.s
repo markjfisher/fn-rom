@@ -43,6 +43,12 @@
 
         .include "fujinet.inc"
 
+        ; Register *FJSON into the FUTILS command group. Built only when
+        ; FEATURE_NET is on (src/net/ is linked), so *FJSON is present iff the
+        ; network device is — no .if in the command table (see ROM_ROLE_SPLIT_PLAN
+        ; §5.3/§5.4).
+        cmd_entry "FUTILS_EXT", "JSON", $16, $00, cmd_fs_fjson   ; [<handle> <string>]
+
         .segment "CODE"
 
 err_bad_handle:

@@ -116,8 +116,8 @@ cmd_str_futils:
         cmd_entry "FUTILS", "MOUNT",   $A, $04, cmd_fs_fmount    ; <slot> (<drive>)
         cmd_entry "FUTILS", "UNMOUNT", $3, $00, cmd_fs_funmount  ; <drive>
         cmd_entry "FUTILS", "OUT",     $A, $00, cmd_fs_fout      ; <slot>
-        cmd_entry "FUTILS", "JSON",    $16, $00, cmd_fs_fjson    ; [<handle> <string>]
         cmd_entry "FUTILS", "NEW",     $8, $00, cmd_fs_fnew      ; <dos name>
+        ; *FJSON registers into CMDSTR_FUTILS_EXT from src/net/cmd_fjson.s (FEATURE_NET only).
         .segment "CMDSTR_FUTILS_T"
         .byte   $00
 

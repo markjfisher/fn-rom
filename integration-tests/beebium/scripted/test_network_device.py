@@ -14,6 +14,10 @@ from fuji_device import (
 )
 from helpers import command, run_basic_program
 
+# Every test here drives the network device (OPENIN "scheme://", *FJSON, OSWORD &78),
+# which only exists in the DISK+NET build (FEATURE_NET). Skipped on --fn-profile disk.
+pytestmark = pytest.mark.needs_net
+
 
 def _decode_open_payload(payload: bytes):
     off = 0

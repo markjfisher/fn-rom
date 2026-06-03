@@ -9,7 +9,9 @@
 
         .import fuji_begin_transaction
         .import fuji_end_transaction
+.if .defined(FEATURE_NET)
         .import fnnet_dispatch
+.endif
         .import remember_axy
         .import return_with_a0
         .import vectors_table
@@ -50,6 +52,7 @@
 ; We will return the ones given to us, but set A=0 if we accept the call.
 service08_unrec_osword:
         jsr     remember_axy
+.if .defined(FEATURE_NET)
 
         ldy     osword_call_save
         bmi     service08_exit_remember
@@ -96,3 +99,6 @@ fnnet_service08_handler:
         ldy     osword_y_save           ; parameter block pointer high
         jsr     fnnet_dispatch
         jmp     fuji_end_transaction
+.else
+        rts                             ; FEATURE_NET off: claim no OSWORD (incl. &78)
+.endif

@@ -4,7 +4,15 @@
 PROGRAM = fujinet
 CURRENT_TARGET = none
 BUILD_MACHINE ?= BBC
-BUILD_VARIANT = $(CURRENT_TARGET)-$(BUILD_MACHINE)
+
+# Network device feature (role-split Lever A; see docs/ROM_ROLE_SPLIT_PLAN.md).
+# FEATURE_NET=1 (default) is the DISK+NET build: OPENIN "scheme://", *FJSON and
+# the OSWORD &78 network API. FEATURE_NET=0 is the DISK build: src/net/ is not
+# linked and the network branch in the filing vectors is gated out.
+FEATURE_NET ?= 1
+
+# obj/ is keyed by variant so net-on and net-off objects never collide.
+BUILD_VARIANT = $(CURRENT_TARGET)-$(BUILD_MACHINE)$(if $(filter 0,$(FEATURE_NET)),-disk)
 SUPPORTED_BUILD_MACHINES := BBC MASTER
 
 # Interface selection - can be overridden on command line
@@ -103,6 +111,16 @@ ASFLAGS += --asm-define _FREE_MAP_
 CFLAGS += -D_FREE_MAP_
 endif
 
+# Lever A: compile + link src/net/ only when the network feature is on. When off,
+# drop the network modules entirely (cc65 omits unlinked object modules wholesale)
+# and define nothing, so the gated network branch in the vectors is not assembled.
+ifeq ($(FEATURE_NET),1)
+ASFLAGS += --asm-define FEATURE_NET
+CFLAGS += -DFEATURE_NET
+else
+SOURCES := $(filter-out $(call rwildcard,$(SRCDIR)/net/,*.s),$(SOURCES))
+endif
+
 # convert from src/your/long/path/foo.[c|s] to obj/<variant>/your/long/path/foo.o
 # we need the variant because target/machine macro changes must not reuse stale objects
 OBJ1 := $(SOURCES:.c=.o)
@@ -116,7 +134,7 @@ ASFLAGS += --asm-include-dir $(SRCDIR) --asm-include-dir $(SRCDIR)/inc
 CFLAGS += --include-dir $(SRCDIR) --include-dir $(SRCDIR)/inc
 
 .SUFFIXES:
-.PHONY: all clean release $(DISK_TASKS) $(BUILD_TASKS) $(PROGRAM_TGT) all-machines ssd clean-imports sizes
+.PHONY: all clean release $(DISK_TASKS) $(BUILD_TASKS) $(PROGRAM_TGT) all-machines ssd clean-imports sizes disk net all-rom
 
 all: $(PROGRAM_TGT)
 
@@ -124,6 +142,14 @@ all-machines:
 	@for machine in $(SUPPORTED_BUILD_MACHINES); do \
 	  $(MAKE) BUILD_MACHINE=$$machine all || exit $$?; \
 	done
+
+# Role-split shipped builds (Lever A; Lever B / UTILITIES is Phase 4).
+disk:                       ## DISK profile: no network device
+	$(MAKE) FEATURE_NET=0 all
+net:                        ## DISK+NET profile (default)
+	$(MAKE) FEATURE_NET=1 all
+all-rom:                    ## ALL profile (kitchen-sink; == DISK+NET until Phase 4)
+	$(MAKE) FEATURE_NET=1 all
 
 # Report ROM size usage (segment usage, free bytes, per-feature subtotals) from
 # the .map files in build/. Build first (e.g. `make all-machines`).
