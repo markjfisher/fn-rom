@@ -312,8 +312,8 @@ consistent.
 
 ## 6. Phased implementation plan (each phase independently mergeable, ROM always builds)
 
-> **Testing runs through every phase, not just at the end.** The two existing suites (soft65c02 unit
-> tests; beebium scripted/real integration tests) are the regression net for this refactor — see
+> **Testing runs through every phase, not just at the end.** The existing suite (
+> beebium scripted/real integration tests) are the regression net for this refactor — see
 > **Appendix C** for the strategy, coverage model, and the new scenarios the transition requires.
 > Each phase below carries a concrete **Test gate**.
 
@@ -321,7 +321,7 @@ consistent.
 - Add `make sizes` (segment usage + free bytes from `.map` per ROM).
 - Experimentally exclude `src/net` (network) and the management-command set; record real KB deltas to
   confirm §2.5 and size the three builds.
-- **Test gate:** establish the **golden baseline** — run the full soft65c02 suite and the beebium
+- **Test gate:** establish the **golden baseline** — run the full beebium
   scripted suite **locally** on today's `main` and record results; this is the behaviour every refactor
   phase must preserve. Confirm the local toolchain is installed (Appendix C.5).
 - **Acceptance:** documented byte budget per feature/build; green baseline captured.
@@ -329,16 +329,13 @@ consistent.
 ### Phase 1 — Composable command table (prove on one group)
 - Implement the `cmd_entry` macro + segment-collected table (§5.3); migrate **only** FREE/MAP off
   `.if .defined(_FREE_MAP_)` as the proving ground.
-- **Test gate:** add soft65c02 dispatch tests that exercise command matching **across segment
-  boundaries** (a kernel command, a feature command, the leading-`F` boundary, an unknown command) —
-  this is the riskiest mechanism, so unit-test it directly. Beebium scripted frames must be unchanged.
 - **Acceptance:** command behaviour byte-identical to today; no `.if` left for FREE/MAP; new
   table-dispatch unit tests green.
 
 ### Phase 2 — Source reorg into kernel/disk/net/utils
 - Move files (§5.2); update Makefile `SOURCES`, `--asm-include-dir`, import lists
   (`scripts/clean_imports.py`). Still all-compiled (≈ `ALL`).
-- **Test gate:** full soft65c02 + beebium scripted suites green and **emitted FujiBus frames identical**
+- **Test gate:** full beebium scripted suites green and **emitted FujiBus frames identical**
   to the Phase 0 baseline (pure move ⇒ no behaviour change).
 - **Acceptance:** `ALL` ROM byte-identical (or trivially close); diff is moves + import fixes only.
 
@@ -360,8 +357,7 @@ consistent.
   and/or ROM auto-mount of the utils disk + `*LIB`.
 - **Test gate:** new **command-from-disk** scenario (Appendix C.4) — in beebium, mount `FN-UTLS.ssd`,
   set the library, then run e.g. `*FLS`/`*FORM` and assert the *same* FujiBus frames / results as when
-  resident in `ALL`. Re-home the existing `*COPY`/`*FLS` soft65c02 tests to whichever path they now
-  live on (resident in `ALL`, disk-loaded in `DISK`/`DISK+NET`).
+  resident in `ALL`.
 - **Acceptance:** in `DISK`/`DISK+NET`, e.g. `*FORM`/`*COPY` are absent from ROM but run from the
   library-mounted utilities disk with identical behaviour; `make all-rom` keeps them in ROM.
 
@@ -391,7 +387,7 @@ consistent.
 | Source reorg churns imports | Phase 2 is a pure move; verify `ALL` byte-identical |
 | ZP/workspace divergence | Single feature-tagged map in `os.s` (§5.6) |
 | Behaviour regression hidden by a "pure refactor" | Per-phase test gates assert emitted FujiBus frames identical to the Phase 0 baseline (Appendix C) |
-| Test tooling is the author's own (soft65c02 fork; beebium serial PR un-merged upstream) — not generally packaged | Local-first testing during this transition (Appendix C.5); install soft65c02 from the author's fork, build beebium; soft65c02 is the always-available gate; promote beebium once its serial support lands |
+| Test tooling is the author's own (beebium serial PR un-merged upstream) — not generally packaged | Local-first testing during this transition (Appendix C.5); build beebium; promote beebium once its serial support lands |
 | New disk-loaded command path (Phase 4) untested by existing suites | New "command-from-disk" beebium scenario added in Phase 4 (Appendix C.4) |
 | `ALL` still won't fit after future growth | It's the convenience build; DISK/DISK+NET are the lean primaries; bank-switch is the escape hatch (§8.6) |
 
@@ -556,11 +552,10 @@ but the real invariant is **the FujiBus/SLIP frames the ROM emits and the ROM-in
 the same for the same inputs. Tests — not byte diffs — are the source of truth, because feature
 gating and the composable table will legitimately move bytes around.
 
-### C.2 The two suites and what each protects
+### C.2 The suites and what each protects
 
 | Suite | Where | Level | Protects |
 |-------|-------|-------|----------|
-| **soft65c02 unit tests** | `unit-tests/` (`run_unit_tests.sh`, DSL/YAML) | ROM-internal: memory, registers, dispatch | Command matching/dispatch, parsing, per-routine logic. Ideal for the **composable command table** (Phase 1) and re-homed command tests (Phase 4). Today: `fuji_init`, `fls`, `copy`, `fin`, serial checksum. |
 | **beebium scripted** | `integration-tests/beebium/scripted/` | End-to-end over real serial+PTY, scripted `FujiDevice` mock | The **contract**: exact FujiBus frames per command (the README device-coverage matrix). Deterministic — **the primary merge gate (run locally)**. |
 | **beebium real interop** | `integration-tests/beebium/real/` (opt-in) | Real posix `fujinet-nio`, asserts on firmware logs | Live interop; catches drift between ROM and firmware. Opt-in (needs the firmware binary). |
 
@@ -601,16 +596,9 @@ gates are **run locally by the implementer before merging each phase**. The plan
 suites stay CI-ready, but nothing here blocks on CI existing.
 
 - **Local toolchain (both pieces are the author's own):**
-  - **soft65c02** — the unit harness calls `soft65c02_unit`; the relevant changes currently live only
-    in the author's fork. Install it locally (e.g. `cargo install --git <author-fork>` or a local
-    `cargo build`); CI would later install it the same way (cargo-from-git).
   - **beebium** — build the server(s) and wire the env vars per `integration-tests/beebium/README.md`
     (`BEEBIUM_HOME`, `FUJINET_TOOLS`, `FN_ROM`, …). Its serial support is a recently-submitted PR still
     being integrated upstream.
-- **Always-available gate:** because beebium serial support isn't generally available yet, treat the
-  **soft65c02 unit tests as the reliable gate** that must pass for every phase, and run the beebium
-  scripted suite locally where the build is available. Promote beebium scripted to the primary contract
-  gate once its serial support lands. The real-interop suite stays opt-in (needs the firmware binary).
-- **Future CI (when it comes):** install soft65c02 via cargo-from-git, provision the beebium build +
+- **Future CI (when it comes):** provision the beebium build +
   `FUJINET_TOOLS`/`BEEBIUM_HOME` paths, build all three profiles, gate on `make sizes` + the
   feature-appropriate suite subset. (fujinet has its own automation scripts; out of scope here.)

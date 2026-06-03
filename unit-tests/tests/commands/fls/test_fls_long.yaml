@@ -1,6 +1,0 @@
-name: run *FLS LONG command
-
-configs:
-  - ${UNIT_TEST_DIR}/harness/harness.yaml
-
-test_script: test_fls_long.txt

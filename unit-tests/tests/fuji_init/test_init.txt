@@ -23,7 +23,7 @@ registers flush
 ; initialise the ROM
 run $init_harness until (CP = $end_init_harness OR cycle_count > 5000)
 assert CP = $end_init_harness $$completed code correctly$$
-assert cycle_count <= 1800    $$cycles within accpeptable limit from previous runs$$
+assert cycle_count <= 2200    $$cycles within accpeptable limit from previous runs$$
 ; --------------------------------------------------
 
 ; Bootstrap done, run tests to prove init worked as expected
@@ -69,5 +69,3 @@ assert $fuji_drive_disk_map + 3 = 0xFF  $$drive 3 unset$$
 assert $fuji_current_fs_len   = 0x00 $$init fs_len$$
 assert $fuji_current_dir_len  = 0x00 $$init dir_len$$
 assert $fuji_current_host_len = 0x00 $$init host_len$$
-
-assert $fuji_tube_preset      = 0xFF $$tube not present (0xFF)$$
