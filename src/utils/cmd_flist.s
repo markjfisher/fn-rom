@@ -56,6 +56,11 @@
 
         .include "fujinet.inc"
 
+        ; Self-register into the command group (Lever B). Present iff this
+        ; module is linked (UTILITIES=resident) -- no .if in the command table.
+        cmd_entry "FUTILS_EXT", "LS",      $7, $00, cmd_fs_flist     ; (<path>)
+        cmd_entry "FUTILS_EXT", "LIST",    $7, $00, cmd_fs_flist     ; (<path>)
+
         .segment "CODE"
 
 FLIST_URI_BUFFER_SIZE      = FUJI_FS_URI_BUFFER_SIZE

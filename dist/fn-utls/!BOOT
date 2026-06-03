@@ -1,0 +1,4 @@
+*FHOST sd0:/
+*FIN 7 fn-utls.ssd
+*FMOUNT 7 3
+*LIB :3

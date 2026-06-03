@@ -18,6 +18,10 @@
 
         .include "fujinet.inc"
 
+        ; Self-register into the command group (Lever B). Present iff this
+        ; module is linked (UTILITIES=resident) -- no .if in the command table.
+        cmd_entry "FUJIFS_EXT", "TITLE",   $D, $00, cmd_fs_title     ; <title>
+
         .segment "CODE"
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

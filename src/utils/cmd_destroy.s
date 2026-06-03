@@ -19,6 +19,10 @@
 
         .include "fujinet.inc"
 
+        ; Self-register into the command group (Lever B). Present iff this
+        ; module is linked (UTILITIES=resident) -- no .if in the command table.
+        cmd_entry "FUJIFS_EXT", "DESTROY", $2, $00, cmd_fs_destroy   ; <afsp>
+
         .segment "CODE"
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

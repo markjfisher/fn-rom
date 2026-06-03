@@ -11,8 +11,15 @@ BUILD_MACHINE ?= BBC
 # linked and the network branch in the filing vectors is gated out.
 FEATURE_NET ?= 1
 
-# obj/ is keyed by variant so net-on and net-off objects never collide.
-BUILD_VARIANT = $(CURRENT_TARGET)-$(BUILD_MACHINE)$(if $(filter 0,$(FEATURE_NET)),-disk)
+# Transient utilities (role-split Lever B). UTILITIES=resident links the
+# management/informational commands (src/utils/) into the ROM; UTILITIES=disk
+# drops them (they ship on FN-UTLS.ssd and load on demand via the *RUN
+# fallthrough). Default is 'resident' so the bare `make all` is the ALL build;
+# the lean shipped builds use the disk/net targets below.
+UTILITIES ?= resident
+
+# obj/ is keyed by variant so net-on/off and utils resident/disk never collide.
+BUILD_VARIANT = $(CURRENT_TARGET)-$(BUILD_MACHINE)$(if $(filter 0,$(FEATURE_NET)),-nonet)$(if $(filter disk,$(UTILITIES)),-utld)
 SUPPORTED_BUILD_MACHINES := BBC MASTER
 
 # Interface selection - can be overridden on command line
@@ -121,6 +128,18 @@ else
 SOURCES := $(filter-out $(call rwildcard,$(SRCDIR)/net/,*.s),$(SOURCES))
 endif
 
+# Lever B: link src/utils/ only when UTILITIES=resident. When on disk, drop the
+# modules (their command-table fragments self-register from src/utils/, so they
+# vanish from the table too) and they are instead built as FN-UTLS.ssd binaries.
+ifeq ($(UTILITIES),resident)
+ASFLAGS += --asm-define UTILITIES_RESIDENT
+CFLAGS += -DUTILITIES_RESIDENT
+else ifeq ($(UTILITIES),disk)
+SOURCES := $(filter-out $(call rwildcard,$(SRCDIR)/utils/,*.s),$(SOURCES))
+else
+$(error Invalid UTILITIES: $(UTILITIES). Must be resident or disk)
+endif
+
 # convert from src/your/long/path/foo.[c|s] to obj/<variant>/your/long/path/foo.o
 # we need the variant because target/machine macro changes must not reuse stale objects
 OBJ1 := $(SOURCES:.c=.o)
@@ -143,13 +162,14 @@ all-machines:
 	  $(MAKE) BUILD_MACHINE=$$machine all || exit $$?; \
 	done
 
-# Role-split shipped builds (Lever A; Lever B / UTILITIES is Phase 4).
-disk:                       ## DISK profile: no network device
-	$(MAKE) FEATURE_NET=0 all
-net:                        ## DISK+NET profile (default)
-	$(MAKE) FEATURE_NET=1 all
-all-rom:                    ## ALL profile (kitchen-sink; == DISK+NET until Phase 4)
-	$(MAKE) FEATURE_NET=1 all
+# Role-split shipped builds. disk/net ship the utilities on FN-UTLS.ssd;
+# all-rom (== bare `make all`) keeps everything resident.
+disk:                       ## DISK profile: no network device, utils on disk
+	$(MAKE) FEATURE_NET=0 UTILITIES=disk all
+net:                        ## DISK+NET profile: network device, utils on disk
+	$(MAKE) FEATURE_NET=1 UTILITIES=disk all
+all-rom:                    ## ALL profile: network + utilities resident
+	$(MAKE) FEATURE_NET=1 UTILITIES=resident all
 
 # Report ROM size usage (segment usage, free bytes, per-feature subtotals) from
 # the .map files in build/. Build first (e.g. `make all-machines`).

@@ -29,35 +29,24 @@
         .export cmd_table_info
         .export parameter_table
 
-        .import cmd_fs_access
+        ; Resident command handlers only. Transient management/informational
+        ; commands self-register into CMDSTR_<grp>_EXT from their src/utils/
+        ; modules (Lever B), and *FJSON from src/net/ — so they are absent here
+        ; and vanish from the table when their module is not linked.
         .import cmd_fs_close
-        .import cmd_fs_copy
         .import cmd_fs_delete
-        .import cmd_fs_destroy
         .import cmd_fs_dir
         .import cmd_fs_disc
         .import cmd_fs_drive
         .import cmd_fs_enable
         .import cmd_fs_ex
         .import cmd_fs_fboot
-        .import cmd_fs_fcd
-        .import cmd_fs_fdrive
         .import cmd_fs_fhost
         .import cmd_fs_fin
-        .import cmd_fs_fjson
-        .import cmd_fs_flist
         .import cmd_fs_fmount
-        .import cmd_fs_fnew
-        .import cmd_fs_form
-        .import cmd_fs_fout
         .import cmd_fs_fuji
-        .import cmd_fs_funmount
         .import cmd_fs_info
         .import cmd_fs_lib
-        .import cmd_fs_rename
-        .import cmd_fs_title
-        .import cmd_fs_verify
-        .import cmd_fs_wipe
         .import cmd_help_fuji
         .import cmd_help_futils
 .if .defined(_UTILS_) .or .defined(_ROMS_)
@@ -74,26 +63,19 @@
 cmd_adr_fujifs:
         .segment "CMDSTR_FUJIFS"
 cmd_str_fujifs:
-        cmd_entry "FUJIFS", "ACCESS",  $2, $14, cmd_fs_access   ; <afsp> (L)
         cmd_entry "FUJIFS", "CLOSE",   $0, $00, cmd_fs_close
-        cmd_entry "FUJIFS", "COPY",    $F, $02, cmd_fs_copy      ; <src> <dest> <afsp>
         cmd_entry "FUJIFS", "DELETE",  $1, $00, cmd_fs_delete    ; <fsp>
-        cmd_entry "FUJIFS", "DESTROY", $2, $00, cmd_fs_destroy   ; <afsp>
         cmd_entry "FUJIFS", "DIR",     $6, $00, cmd_fs_dir       ; (<dir>)
         cmd_entry "FUJIFS", "DRIVE",   $3, $00, cmd_fs_drive     ; <drive>
         cmd_entry "FUJIFS", "ENABLE",  $0, $00, cmd_fs_enable
         cmd_entry "FUJIFS", "EX",      $6, $00, cmd_fs_ex        ; (<dir>)
-        cmd_entry "FUJIFS", "FORM",    $5, $12, cmd_fs_form      ; (<drive>)... 40/80
 ; cmd_table_info marks the *INFO entry so cmd_info.s can print its help line.
 cmd_table_info:
         cmd_entry "FUJIFS", "INFO",    $2, $00, cmd_fs_info      ; <afsp>
         cmd_entry "FUJIFS", "LIB",     $6, $00, cmd_fs_lib       ; (<dir>)
-        cmd_entry "FUJIFS", "RENAME",  $10, $00, cmd_fs_rename   ; <old fsp> <new fsp>
-        cmd_entry "FUJIFS", "TITLE",   $D, $00, cmd_fs_title     ; <title>
-        cmd_entry "FUJIFS", "VERIFY",  $5, $00, cmd_fs_verify    ; (<drive>)...
-        cmd_entry "FUJIFS", "WIPE",    $2, $00, cmd_fs_wipe      ; <afsp>
-        ; *FREE / *MAP register into CMDSTR_FUJIFS_EXT (from cmd_free_map.s), which
-        ; the cfg places between here and the $00 terminator below.
+        ; Transient (Lever B), self-registering into CMDSTR_FUJIFS_EXT from
+        ; src/utils/: ACCESS, COPY, DESTROY, FORM, RENAME, TITLE, VERIFY, WIPE,
+        ; and FREE/MAP (cmd_free_map.s).
         .segment "CMDSTR_FUJIFS_T"
         .byte   $00
 
@@ -106,18 +88,12 @@ cmd_adr_futils:
         .segment "CMDSTR_FUTILS"
 cmd_str_futils:
         cmd_entry "FUTILS", "BOOT",    $C, $08, cmd_fs_fboot     ; <slot>/<dos name>
-        cmd_entry "FUTILS", "CD",      $7, $00, cmd_fs_fcd       ; (<path>)
         cmd_entry "FUTILS", "FS",      $15, $00, cmd_fs_fhost    ; <path>
         cmd_entry "FUTILS", "HOST",    $15, $00, cmd_fs_fhost    ; <path>
-        cmd_entry "FUTILS", "DRIVE",   $0, $00, cmd_fs_fdrive
         cmd_entry "FUTILS", "IN",      $B, $08, cmd_fs_fin       ; (<slot>) <dos name>
-        cmd_entry "FUTILS", "LS",      $7, $00, cmd_fs_flist     ; (<path>)
-        cmd_entry "FUTILS", "LIST",    $7, $00, cmd_fs_flist     ; (<path>)
         cmd_entry "FUTILS", "MOUNT",   $A, $04, cmd_fs_fmount    ; <slot> (<drive>)
-        cmd_entry "FUTILS", "UNMOUNT", $3, $00, cmd_fs_funmount  ; <drive>
-        cmd_entry "FUTILS", "OUT",     $A, $00, cmd_fs_fout      ; <slot>
-        cmd_entry "FUTILS", "NEW",     $8, $00, cmd_fs_fnew      ; <dos name>
-        ; *FJSON registers into CMDSTR_FUTILS_EXT from src/net/cmd_fjson.s (FEATURE_NET only).
+        ; Transient (Lever B), self-registering into CMDSTR_FUTILS_EXT from
+        ; src/utils/: CD, DRIVE, LS, LIST, UNMOUNT, OUT, NEW. *FJSON from src/net/.
         .segment "CMDSTR_FUTILS_T"
         .byte   $00
 
