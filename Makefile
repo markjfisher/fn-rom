@@ -116,7 +116,7 @@ ASFLAGS += --asm-include-dir $(SRCDIR) --asm-include-dir $(SRCDIR)/inc
 CFLAGS += --include-dir $(SRCDIR) --include-dir $(SRCDIR)/inc
 
 .SUFFIXES:
-.PHONY: all clean release $(DISK_TASKS) $(BUILD_TASKS) $(PROGRAM_TGT) all-machines ssd clean-imports
+.PHONY: all clean release $(DISK_TASKS) $(BUILD_TASKS) $(PROGRAM_TGT) all-machines ssd clean-imports sizes
 
 all: $(PROGRAM_TGT)
 
@@ -124,6 +124,16 @@ all-machines:
 	@for machine in $(SUPPORTED_BUILD_MACHINES); do \
 	  $(MAKE) BUILD_MACHINE=$$machine all || exit $$?; \
 	done
+
+# Report ROM size usage (segment usage, free bytes, per-feature subtotals) from
+# the .map files in build/. Build first (e.g. `make all-machines`).
+sizes:
+	@maps="$(wildcard $(BUILD_DIR)/*.rom.map)"; \
+	if [ -z "$$maps" ]; then \
+	  echo "No .map files in $(BUILD_DIR) — run 'make all-machines' first."; \
+	else \
+	  python3 scripts/rom_sizes.py $$maps; \
+	fi
 
 $(OBJDIR):
 	@mkdir -p $(OBJDIR)
