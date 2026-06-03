@@ -1,19 +1,32 @@
 ; Command tables for FujiNet ROM
-        .export cmd_table_fujifs
-        .export cmd_table_futils
-        .export cmd_table_utils
-        .export cmd_table_help
-        .export cmd_table_fs
+;
+; Each command is declared with the cmd_entry macro (see src/inc/macros.inc),
+; which emits the matched text + parameter bytes into a per-group CMDSTR_<grp>
+; segment and the handler address into the parallel CMDADR_<grp> segment. The
+; matcher (service09.s) walks a group's CMDSTR segment to a $00 terminator and
+; dispatches through CMDADR by entry position, so a command is present in the
+; ROM iff its object module is linked — there is no inline .if in the tables.
+; See docs/ROM_ROLE_SPLIT_PLAN.md §5.3.
+;
+; Groups: FUJIFS (DFS file-system commands), FUTILS ("F"-prefixed FujiNet
+; commands), UTILS (non-FS), FS (filing-system selection), HELP (*HELP topics).
 
-        .export cmd_table_fujifs_cmds
-        .export cmd_table_futils_cmds
-        .export cmd_table_utils_cmds
-        .export cmd_table_help_cmds
-        .export cmd_table_fs_cmds
-        .export cmd_table_END
+        ; Group start markers — the matcher/help printer index these by group id.
+        ; A group's commands may be extended by other modules appending entries
+        ; into its CMDSTR_/CMDADR_ segment (e.g. cmd_free_map.s -> FUJIFS), so the
+        ; start label is always the first byte of the group.
+        .export cmd_str_fujifs
+        .export cmd_str_futils
+        .export cmd_str_utils
+        .export cmd_str_fs
+        .export cmd_str_help
+        .export cmd_adr_fujifs
+        .export cmd_adr_futils
+        .export cmd_adr_utils
+        .export cmd_adr_fs
+        .export cmd_adr_help
 
         .export cmd_table_info
-
         .export parameter_table
 
         .import cmd_fs_access
@@ -37,217 +50,125 @@
         .import cmd_fs_fnew
         .import cmd_fs_form
         .import cmd_fs_fout
-.if .defined(_FREE_MAP_)
-        .import cmd_fs_free
-.endif
         .import cmd_fs_fuji
         .import cmd_fs_funmount
         .import cmd_fs_info
         .import cmd_fs_lib
-.if .defined(_FREE_MAP_)
-        .import cmd_fs_map
-.endif
         .import cmd_fs_rename
         .import cmd_fs_title
         .import cmd_fs_verify
         .import cmd_fs_wipe
         .import cmd_help_fuji
         .import cmd_help_futils
+.if .defined(_UTILS_) .or .defined(_ROMS_)
         .import cmd_help_utils
         .import cmd_utils_roms
-        .import not_cmd_fs
-        .import not_cmd_fujifs
-        .import not_cmd_futils
-        .import not_cmd_help
-        .import not_cmd_utils
-
-        ; .import cmd_fs_fls
-
-
-
-; These all come after the HEADER in the ROM.
-; and ensures all the strings are in the same page as each other.
-        .segment "RODATA"
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; COMMAND STRINGS
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-; NOTE: The tables have to be in the same order
-; as the old cmdtable* defines as there is logic to
-; determine if we're after a certain table to start
-; printing 'F' at the beginning of the command.
-;
-; Command entry format:
-;   .byte "COMMAND", $80|<param slot 1>, <param slot 2>
-; Bit 7 of the first parameter byte terminates the command text for the
-; matcher/help printer, while bits 0-6 still hold parameter slot 1.
-
-; COMMAND TABLE - FujiNet file system commands [FILE SYSTEM COMMANDS], help = "*HELP FUJI"
-; old cmdtable1
-cmd_table_fujifs:
-        .byte   $FF                ; Last command number (-1)
-
-        .byte   "ACCESS",    $82, $14         ; <afsp> (L)
-        .byte   "CLOSE",     $80, $00
-        .byte   "COPY",      $8F, $02         ; <source> <dest.> <afsp>
-        .byte   "DELETE",    $81, $00         ; <fsp>
-        .byte   "DESTROY",   $82, $00         ; <afsp>
-        .byte   "DIR",       $86, $00         ; (<dir>)
-        .byte   "DRIVE",     $83, $00         ; <drive>
-        .byte   "ENABLE",    $80, $00
-        .byte   "EX",        $86, $00         ; (<dir>)
-        .byte   "FORM",      $85, $12         ; (<drive>)... 40/80
-.if .defined(_FREE_MAP_)
-        .byte   "FREE",      $84, $00         ; (<drive>)
 .endif
-; equivalent of .info_cmd_index
+
+        .include "fujinet.inc"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; COMMAND TABLE - FujiNet file system commands, help = "*HELP FUJI"
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        .segment "CMDADR_FUJIFS"
+cmd_adr_fujifs:
+        .segment "CMDSTR_FUJIFS"
+cmd_str_fujifs:
+        cmd_entry "FUJIFS", "ACCESS",  $2, $14, cmd_fs_access   ; <afsp> (L)
+        cmd_entry "FUJIFS", "CLOSE",   $0, $00, cmd_fs_close
+        cmd_entry "FUJIFS", "COPY",    $F, $02, cmd_fs_copy      ; <src> <dest> <afsp>
+        cmd_entry "FUJIFS", "DELETE",  $1, $00, cmd_fs_delete    ; <fsp>
+        cmd_entry "FUJIFS", "DESTROY", $2, $00, cmd_fs_destroy   ; <afsp>
+        cmd_entry "FUJIFS", "DIR",     $6, $00, cmd_fs_dir       ; (<dir>)
+        cmd_entry "FUJIFS", "DRIVE",   $3, $00, cmd_fs_drive     ; <drive>
+        cmd_entry "FUJIFS", "ENABLE",  $0, $00, cmd_fs_enable
+        cmd_entry "FUJIFS", "EX",      $6, $00, cmd_fs_ex        ; (<dir>)
+        cmd_entry "FUJIFS", "FORM",    $5, $12, cmd_fs_form      ; (<drive>)... 40/80
+; cmd_table_info marks the *INFO entry so cmd_info.s can print its help line.
 cmd_table_info:
-        .byte   "INFO",      $82, $00         ; <afsp>
-        .byte   "LIB",       $86, $00         ; (<dir>)
-.if .defined(_FREE_MAP_)
-        .byte   "MAP",       $84, $00         ; (<drive>)
-.endif
-        .byte   "RENAME",    $90, $00         ; <old fsp> <new fsp>
-        .byte   "TITLE",     $8D, $00         ; <title>
-        .byte   "VERIFY",    $85, $00         ; (<drive>)...
-        .byte   "WIPE",      $82, $00         ; <afsp>
-        .byte   $00                     ; End of table
-
-; COMMAND TABLE - Utils commands [NON-FS COMMANDS], help = "*HELP UTILS"
-; old cmdtable2
-cmd_table_utils:
-.if .defined(_UTILS_) .or .defined(_ROMS_)
-        .byte   (cmd_table_utils_cmds - cmd_table_fujifs_cmds) / 2 - 1
-
-        .if .defined(_UTILS_)
-        ; TODO: BUILD/DUMP/LIST
-        .endif
-
-        .if .defined(_ROMS_)
-        .byte   "ROMS",      $80, $00         ; no parameter
+        cmd_entry "FUJIFS", "INFO",    $2, $00, cmd_fs_info      ; <afsp>
+        cmd_entry "FUJIFS", "LIB",     $6, $00, cmd_fs_lib       ; (<dir>)
+        cmd_entry "FUJIFS", "RENAME",  $10, $00, cmd_fs_rename   ; <old fsp> <new fsp>
+        cmd_entry "FUJIFS", "TITLE",   $D, $00, cmd_fs_title     ; <title>
+        cmd_entry "FUJIFS", "VERIFY",  $5, $00, cmd_fs_verify    ; (<drive>)...
+        cmd_entry "FUJIFS", "WIPE",    $2, $00, cmd_fs_wipe      ; <afsp>
+        ; *FREE / *MAP register into CMDSTR_FUJIFS_EXT (from cmd_free_map.s), which
+        ; the cfg places between here and the $00 terminator below.
+        .segment "CMDSTR_FUJIFS_T"
         .byte   $00
-        .endif
-
-        .if .defined(_UTILS_)
-        ; TODO: TYPE
-        .endif
-
-.endif
-
-; COMMAND TABLE - File System INIT commands, NO HELP COMMAND
-; old cmdtable22
-cmd_table_fs:
-        .byte   (cmd_table_fs_cmds - cmd_table_fujifs_cmds) / 2 - 1
-
-        .byte   "DISC", $80, $00
-        .byte   "DISK", $80, $00
-        .byte   "FUJI", $80, $00
-        .byte   $00                     ; End of table
-
-; COMMAND TABLE - Help commands [HELP COMMANDS], help = "*HELP"
-; old cmdtable3
-cmd_table_help:
-        .byte   (cmd_table_help_cmds - cmd_table_fujifs_cmds) / 2 - 1
-
-        .byte   "FUJI",      $80, $00
-        .byte   "FUTILS",    $80, $00
-.if .defined(_UTILS_) .or .defined(_ROMS_)
-        .byte   "UTILS",     $80, $00
-.endif
-        .byte   $00                     ; End of table
-
-; These are prefixed with "F", e.g. "FBOOT" etc [FILE SYSTEM COMMANDS], help = "*HELP FUTILS"
-; old cmdtable4
-cmd_table_futils:
-        .byte   (cmd_table_futils_cmds - cmd_table_fujifs_cmds) / 2 - 1
-
-        .byte   "BOOT",      $8C, $08         ; <slot>/<dos name>
-        .byte   "CD",        $87, $00         ; (<path>)
-        .byte   "FS",        $95, $00         ; <path>
-        .byte   "HOST",      $95, $00         ; <path>
-        .byte   "DRIVE",     $80, $00
-        .byte   "IN",        $8B, $08         ; (<slot>) <dos name>
-        .byte   "LS",        $87, $00         ; (<path>)
-        .byte   "LIST",      $87, $00         ; (<path>)
-        .byte   "MOUNT",     $8A, $04         ; <slot> (<drive>)
-        .byte   "UNMOUNT",   $83, $00         ; <drive>
-        .byte   "OUT",       $8A, $00         ; <slot>
-        .byte   "JSON",      $96, $00         ; [<handle> <string>]
-        .byte   "NEW",       $88, $00         ; <dos name>
-        .byte   $00                     ; End of table
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; COMMAND FUNCTIONS
+; COMMAND TABLE - "F"-prefixed FujiNet commands, help = "*HELP FUTILS"
+; Stored without the leading "F" (the matcher consumes it; help re-adds it).
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        .segment "CMDADR_FUTILS"
+cmd_adr_futils:
+        .segment "CMDSTR_FUTILS"
+cmd_str_futils:
+        cmd_entry "FUTILS", "BOOT",    $C, $08, cmd_fs_fboot     ; <slot>/<dos name>
+        cmd_entry "FUTILS", "CD",      $7, $00, cmd_fs_fcd       ; (<path>)
+        cmd_entry "FUTILS", "FS",      $15, $00, cmd_fs_fhost    ; <path>
+        cmd_entry "FUTILS", "HOST",    $15, $00, cmd_fs_fhost    ; <path>
+        cmd_entry "FUTILS", "DRIVE",   $0, $00, cmd_fs_fdrive
+        cmd_entry "FUTILS", "IN",      $B, $08, cmd_fs_fin       ; (<slot>) <dos name>
+        cmd_entry "FUTILS", "LS",      $7, $00, cmd_fs_flist     ; (<path>)
+        cmd_entry "FUTILS", "LIST",    $7, $00, cmd_fs_flist     ; (<path>)
+        cmd_entry "FUTILS", "MOUNT",   $A, $04, cmd_fs_fmount    ; <slot> (<drive>)
+        cmd_entry "FUTILS", "UNMOUNT", $3, $00, cmd_fs_funmount  ; <drive>
+        cmd_entry "FUTILS", "OUT",     $A, $00, cmd_fs_fout      ; <slot>
+        cmd_entry "FUTILS", "JSON",    $16, $00, cmd_fs_fjson    ; [<handle> <string>]
+        cmd_entry "FUTILS", "NEW",     $8, $00, cmd_fs_fnew      ; <dos name>
+        .segment "CMDSTR_FUTILS_T"
+        .byte   $00
 
-; OLD: cmdaddr1
-cmd_table_fujifs_cmds:
-        .word   cmd_fs_access-1
-        .word   cmd_fs_close-1
-        .word   cmd_fs_copy-1
-        .word   cmd_fs_delete-1
-        .word   cmd_fs_destroy-1
-        .word   cmd_fs_dir-1
-        .word   cmd_fs_drive-1
-        .word   cmd_fs_enable-1
-        .word   cmd_fs_ex-1
-        .word   cmd_fs_form-1
-.if .defined(_FREE_MAP_)
-        .word   cmd_fs_free-1
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; COMMAND TABLE - Utils (non-FS) commands, help = "*HELP UTILS"
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        .segment "CMDADR_UTILS"
+cmd_adr_utils:
+        .segment "CMDSTR_UTILS"
+cmd_str_utils:
+.if .defined(_ROMS_)
+        cmd_entry "UTILS", "ROMS",     $0, $00, cmd_utils_roms
 .endif
-        .word   cmd_fs_info-1
-        .word   cmd_fs_lib-1
-.if .defined(_FREE_MAP_)
-        .word   cmd_fs_map-1
+.if .defined(_UTILS_)
+        ; TODO: BUILD/DUMP/LIST/TYPE
 .endif
-        .word   cmd_fs_rename-1
-        .word   cmd_fs_title-1
-        .word   cmd_fs_verify-1
-        .word   cmd_fs_wipe-1
-        .word   not_cmd_fujifs-1
+        .segment "CMDSTR_UTILS_T"
+        .byte   $00
 
-; OLD: cmdaddr2
-cmd_table_utils_cmds:
-        .word   cmd_utils_roms-1
-        .word   not_cmd_utils-1
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; COMMAND TABLE - Filing-system selection (no help topic)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        .segment "CMDADR_FS"
+cmd_adr_fs:
+        .segment "CMDSTR_FS"
+cmd_str_fs:
+        cmd_entry "FS", "DISC",        $0, $00, cmd_fs_disc
+        cmd_entry "FS", "DISK",        $0, $00, cmd_fs_disc       ; DISK same as DISC
+        cmd_entry "FS", "FUJI",        $0, $00, cmd_fs_fuji
+        .segment "CMDSTR_FS_T"
+        .byte   $00
 
-; OLD: cmdaddr22
-cmd_table_fs_cmds:
-        .word   cmd_fs_disc-1
-        .word   cmd_fs_disc-1           ; DISK same as DISC
-        .word   cmd_fs_fuji-1
-        .word   not_cmd_fs-1
-
-; OLD: cmdaddr3
-cmd_table_help_cmds:
-        .word   cmd_help_fuji-1
-        .word   cmd_help_futils-1
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; COMMAND TABLE - *HELP topics, help = "*HELP"
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        .segment "CMDADR_HELP"
+cmd_adr_help:
+        .segment "CMDSTR_HELP"
+cmd_str_help:
+        cmd_entry "HELP", "FUJI",      $0, $00, cmd_help_fuji
+        cmd_entry "HELP", "FUTILS",    $0, $00, cmd_help_futils
 .if .defined(_UTILS_) .or .defined(_ROMS_)
-        .word   cmd_help_utils-1
+        cmd_entry "HELP", "UTILS",     $0, $00, cmd_help_utils
 .endif
-        .word   not_cmd_help-1
+        .segment "CMDSTR_HELP_T"
+        .byte   $00
 
-; OLD: cmdaddr4
-cmd_table_futils_cmds:
-        .word   cmd_fs_fboot-1
-        .word   cmd_fs_fcd-1
-        .word   cmd_fs_fhost-1
-        .word   cmd_fs_fhost-1
-        .word   cmd_fs_fdrive-1
-        .word   cmd_fs_fin-1
-        .word   cmd_fs_flist-1
-        .word   cmd_fs_flist-1
-        .word   cmd_fs_fmount-1
-        .word   cmd_fs_funmount-1
-        .word   cmd_fs_fout-1
-        .word   cmd_fs_fjson-1
-        .word   cmd_fs_fnew-1
-        .word   not_cmd_futils-1
-
-cmd_table_END:
-
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; PARAMETER STRINGS (shared by the help printer; indexed by param slot)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        .segment "RODATA"
 parameter_table:
         .byte '<'|$80, "fsp>"                   ; 1
         .byte '<'|$80, "afsp>"                  ; 2

@@ -13,10 +13,11 @@
         .export unrec_loop_skip_rest
         .export unrec_loop_end_of_cmd
         .export unrec_dispatch_command
-        .export set_cmd_table_ptr_x
         .export inc_cmd_table_ptr
         .export dec_cmd_table_ptr
         .export read_cmd_table_byte
+        .export grp_str_lo
+        .export grp_str_hi
 
         .importzp aws_tmp10
         .importzp aws_tmp11
@@ -32,9 +33,23 @@
         .import is_alpha_char
         .import morehelp
         .import not_cmd_futils
-        .import print_help_table
+        .import not_cmd_utils
+        .import not_cmd_help
+        .import print_group_help
         .import remember_axy
         .import set_text_pointer_yx
+
+        ; Command-group table boundaries (see cmd_tables.s / macros.inc cmd_entry).
+        .import cmd_str_fujifs
+        .import cmd_str_futils
+        .import cmd_str_utils
+        .import cmd_str_fs
+        .import cmd_str_help
+        .import cmd_adr_fujifs
+        .import cmd_adr_futils
+        .import cmd_adr_utils
+        .import cmd_adr_fs
+        .import cmd_adr_help
 
 .ifdef FN_DEBUG
 .endif
@@ -61,14 +76,10 @@ service09_help:
         cmp     #$0D                    ; CHR$(13) = carriage return
         bne     help_check_command      ; If not CR, match against *HELP topics
 
-        lda     #<cmd_table_help
-        sta     aws_tmp14
-        lda     #>cmd_table_help
-        sta     aws_tmp15
-        tya                             ; Y contains offset to first non-space char
-        ldy     #cmdtab_help_cmds_size
-        ; Just *HELP - print basic help
-        jmp     print_help_table
+        ; Just *HELP - print the *HELP topic list
+        tya                             ; A = offset to first non-space char
+        ldx     #cmdtab_group_help
+        jmp     print_group_help
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -80,19 +91,19 @@ service09_help:
 
 service04_unrec_command:
         jsr     remember_axy
-        ldx     #cmdtab_offset_fs        ; Start with file system commands
+        ldx     #cmdtab_group_fs        ; Start with file system commands
 
 check_command:
         jmp     unrec_command_text_pointer
 
 help_check_command:
-        ldx     #cmdtab_offset_help
+        ldx     #cmdtab_group_help
         jmp     unrec_command_text_pointer
 
 not_cmd_fs:
 .ifndef FUJINET_MACHINE_MASTER
 
-        ldx     #cmdtab_offset_utils    ; Try UTILS commands
+        ldx     #cmdtab_group_utils    ; Try UTILS commands
         bne     check_command           ; Always branch
 
 .else
@@ -106,7 +117,7 @@ not_cmd_fs:
         jmp     morehelp
 
 not_cmd_fujifs:
-        ldx     #cmdtab_offset_futils
+        ldx     #cmdtab_group_futils
         jsr     GSINIT_A
         lda     (text_pointer),y
         iny
@@ -119,22 +130,30 @@ not_cmd_fujifs:
 
 fscv3_unreccommand:
         jsr     set_text_pointer_yx
-        ldx     #$00
+        ldx     #cmdtab_group_fujifs
         ; fall through to unrec_command_text_pointer
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; UNRECOGNIZED COMMAND TEXT POINTER
 ;
-; This function tries to match the command line against the command tables.
-; X = offset to first byte of cmd table, e.g. cmdtab_offset_futils
+; Match the command line against one command group's table.
+; X = group id (cmdtab_group_*). On no match, jumps to the group's not_cmd
+; handler (which typically chains to the next group). On match, dispatches the
+; handler via the group's CMDADR_<grp> segment.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 unrec_command_text_pointer:
-        jsr     set_cmd_table_ptr_x
-        tya                             ; Save incoming command line position before clobbering Y
+        lda     grp_str_lo,x            ; table pointer = cmd_str_<grp> - 1
+        sta     aws_tmp12               ; (the loop leads with an inc)
+        lda     grp_str_hi,x
+        sta     aws_tmp13
+        txa                             ; Save group id on the stack (below the
+        pha                             ; command-line position) - the aws_tmp ZP
+                                        ; bytes are not safe across GSINIT/GSREAD,
+                                        ; but the stack frame is.
+        tya                             ; Save incoming command line position
         pha
-        ldy     #$00
-        lda     (aws_tmp12),y
+        lda     #$FF                    ; first inc -> entry index 0
         sta     aws_tmp10
 
 unrec_loop_next_command:
@@ -149,7 +168,7 @@ unrec_loop_next_command:
         jsr     inc_cmd_table_ptr
         jsr     read_cmd_table_byte
         ora     #$00
-        beq     unrec_dispatch_command  ; If end of table
+        beq     unrec_no_match          ; $00 = end of this group's strings
 
         jsr     dec_cmd_table_ptr       ; Rewind so loop starts on first command char
         dey
@@ -193,50 +212,61 @@ unrec_loop_end_of_cmd:
         ; end of command match checks against $0D for the CR from command, so falls through...
 
 unrec_dispatch_command:
-        pla                             ; Clean up stack
+        pla                             ; discard saved command line position
+        pla                             ; recover group id
+        tax
 
-        ; Calculate function address
+        ; Function address comes from the group's CMDADR segment at 2*index.
+        ; Y still holds the post-match command-line offset that the handler will
+        ; parse its arguments from, so stash it while we use Y to index the table.
+        sty     aws_tmp11
+        lda     grp_adr_lo,x
+        sta     aws_tmp12
+        lda     grp_adr_hi,x
+        sta     aws_tmp13
         lda     aws_tmp10
         asl     a                       ; Multiply by 2 (addresses are 2 bytes)
-        tax
-        lda     cmd_table_fujifs_cmds+1, x
-
-        pha                             ; Push high byte
-        lda     cmd_table_fujifs_cmds, x
-        pha                             ; Push low byte
+        tay
+        iny
+        lda     (aws_tmp12),y           ; Push high byte of (handler-1)
+        pha
+        dey
+        lda     (aws_tmp12),y           ; Push low byte
+        pha
+        ldy     aws_tmp11               ; restore command-line offset for the handler
         rts                             ; Jump to function
 
-set_cmd_table_ptr_x:
-        cpx     #cmdtab_offset_utils
-        beq     @utils
-        cpx     #cmdtab_offset_fs
-        beq     @fs
-        cpx     #cmdtab_offset_help
-        beq     @help
-        cpx     #cmdtab_offset_futils
-        beq     @futils
-        lda     #<cmd_table_fujifs
-        ldx     #>cmd_table_fujifs
-        bne     @store
-@utils:
-        lda     #<cmd_table_utils
-        ldx     #>cmd_table_utils
-        bne     @store
-@fs:
-        lda     #<cmd_table_fs
-        ldx     #>cmd_table_fs
-        bne     @store
-@help:
-        lda     #<cmd_table_help
-        ldx     #>cmd_table_help
-        bne     @store
-@futils:
-        lda     #<cmd_table_futils
-        ldx     #>cmd_table_futils
-@store:
-        sta     aws_tmp12
-        stx     aws_tmp13
+; No command in this group matched - run the group's not_cmd handler, which
+; chains to the next group (or, e.g. for FUTILS, *RUN the command from disk).
+unrec_no_match:
+        pla                             ; discard saved command line position
+        pla                             ; recover group id
+        tax
+        lda     grp_not_hi,x
+        pha
+        lda     grp_not_lo,x
+        pha
         rts
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; Per-group descriptors, indexed by group id (cmdtab_group_*):
+;   grp_str = first byte of the group's CMDSTR run, minus 1 (loops lead with inc)
+;   grp_adr = base of the group's CMDADR run (.word handler-1 per entry)
+;   grp_not = not_cmd handler, minus 1 (rts convention), run on no match
+; Group id order: fujifs, futils, utils, fs, help.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+grp_str_lo:
+        .byte   <(cmd_str_fujifs-1), <(cmd_str_futils-1), <(cmd_str_utils-1), <(cmd_str_fs-1), <(cmd_str_help-1)
+grp_str_hi:
+        .byte   >(cmd_str_fujifs-1), >(cmd_str_futils-1), >(cmd_str_utils-1), >(cmd_str_fs-1), >(cmd_str_help-1)
+grp_adr_lo:
+        .byte   <cmd_adr_fujifs, <cmd_adr_futils, <cmd_adr_utils, <cmd_adr_fs, <cmd_adr_help
+grp_adr_hi:
+        .byte   >cmd_adr_fujifs, >cmd_adr_futils, >cmd_adr_utils, >cmd_adr_fs, >cmd_adr_help
+grp_not_lo:
+        .byte   <(not_cmd_fujifs-1), <(not_cmd_futils-1), <(not_cmd_utils-1), <(not_cmd_fs-1), <(not_cmd_help-1)
+grp_not_hi:
+        .byte   >(not_cmd_fujifs-1), >(not_cmd_futils-1), >(not_cmd_utils-1), >(not_cmd_fs-1), >(not_cmd_help-1)
 
 inc_cmd_table_ptr:
         inc     aws_tmp12
@@ -261,21 +291,12 @@ read_cmd_table_byte:
         rts
 
 cmd_help_futils:
-        lda     #<cmd_table_futils
-        sta     aws_tmp14
-        lda     #>cmd_table_futils
-        sta     aws_tmp15
         tya
-        ldy     #cmdtab_futils_cmds_size
-do_print_help_table:
-        jmp     print_help_table
+        ldx     #cmdtab_group_futils
+        jmp     print_group_help
 
 ; THIS NEEDS TO BE IMPLEMENTED CORRECTLY TO DISPLAY THE *HELP UTILS COMMANDS
 cmd_help_utils:
-        lda     #<cmd_table_utils
-        sta     aws_tmp14
-        lda     #>cmd_table_utils
-        sta     aws_tmp15
         tya
-        ldy     #cmdtab_utils_cmds_size
-        bne     do_print_help_table
+        ldx     #cmdtab_group_utils
+        jmp     print_group_help

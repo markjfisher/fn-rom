@@ -40,6 +40,12 @@
 
         .include "fujinet.inc"
 
+        ; Register *FREE / *MAP into the FujiNet (FUJIFS) command group. Because
+        ; this whole file is built only when _FREE_MAP_ is defined, the commands
+        ; are present iff the feature is built — no .if in the command table.
+        cmd_entry "FUJIFS_EXT", "FREE", $4, $00, cmd_fs_free   ; (<drive>)
+        cmd_entry "FUJIFS_EXT", "MAP",  $4, $00, cmd_fs_map    ; (<drive>)
+
         .segment "CODE"
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

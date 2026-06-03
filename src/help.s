@@ -1,7 +1,7 @@
         .export cmd_help_fuji
         .export morehelp
         .export not_cmd_help
-        .export print_help_table
+        .export print_group_help
         .export prtcmd_at_bc_add_1
         .export prtcmd_prtchr
         .export help_print_loop
@@ -14,7 +14,6 @@
         .export help_param_printloop
         .export help_inc_table_ptr
 
-        .importzp aws_tmp07
         .importzp aws_tmp08
         .importzp aws_tmp09
         .importzp aws_tmp14
@@ -22,6 +21,9 @@
 
         .import GSINIT_A
         .import GSREAD_A
+        .import grp_str_lo
+        .import grp_str_hi
+        .import cmd_str_futils
         .import parameter_table
         .import print_char
         .import print_newline
@@ -36,26 +38,24 @@
         .segment "CODE"
 
 ; *HELP FUJI
-; this runs into print_help_table, so we can save a byte
-
 cmd_help_fuji:
-        lda     #<cmd_table_fujifs
-        sta     aws_tmp14
-        lda     #>cmd_table_fujifs
+        tya                             ; A = saved command-line offset
+        ldx     #cmdtab_group_fujifs
+        ; fall through to print_group_help
+
+
+; Print every command in one group, one per line, with its parameter hints.
+; Entry: X = group id (cmdtab_group_*)
+;        A = command-line offset to restore into Y on exit
+; The group is walked from cmd_str_<grp> to its $00 terminator; the "F" prefix
+; is added for the FUTILS group (entries at/after cmd_str_futils).
+
+print_group_help:
+        pha                             ; save command-line offset
+        lda     grp_str_lo,x            ; table pointer = cmd_str_<grp> - 1
+        sta     aws_tmp14               ; (the print loop leads with an inc)
+        lda     grp_str_hi,x
         sta     aws_tmp15
-        tya
-        ldy     #cmdtab_fujifs_cmds_size
-
-        ; fall through to print_help_table
-
-
-; A = offset to char on command line (was the Y value from GSINIT)
-; aws_tmp14/15 = pointer to the command table entry before the first command string
-; Y = function size of table being printed
-
-print_help_table:
-        pha                             ; save 'old Y' from GSINIT so we can restore it later
-        sty     aws_tmp07               ; using this as "command counter"
 
         jsr     print_newline
 
@@ -84,7 +84,11 @@ help_print_loop:
         jsr     prtcmd_print_y_spaces_if_not_err
         jsr     prtcmd_at_bc_add_1
         jsr     print_newline
-        dec     aws_tmp07
+
+        ; another command? aws_tmp14/15 now points at this entry's param2 byte;
+        ; the byte after it is the next command's first char, or the $00 terminator.
+        ldy     #$01
+        lda     (aws_tmp14),y
         bne     help_print_loop
 help_print_done:
         pla
@@ -102,20 +106,20 @@ not_cmd_help:
         ; fall through to morehelp
 
 morehelp:
-        ldx     #cmdtab_offset_help             ; equivalent of .cmdtab3
+        ldx     #cmdtab_group_help
         jmp     unrec_command_text_pointer
 
 prtcmd_at_bc_add_1:
         lda     #$07
         sta     aws_tmp08
 
-        ; if the current entry is in the futils table, print "F" first.
+        ; if the current entry is in the FUTILS group, print "F" first.
         lda     aws_tmp15
-        cmp     #>cmd_table_futils
+        cmp     #>cmd_str_futils
         bcc     help_cmdloop
         bne     @print_f
         lda     aws_tmp14
-        cmp     #<cmd_table_futils
+        cmp     #<cmd_str_futils
         bcc     help_cmdloop
 @print_f:
         lda     #'F'
