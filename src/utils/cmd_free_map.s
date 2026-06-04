@@ -3,9 +3,9 @@
 ; *FREE displays free space on disk
 ; *MAP displays disk usage map showing address and length of free blocks
 ;
-; Built only when _FREE_MAP_ is defined (make FREE_MAP=1).
-
-.if .defined(_FREE_MAP_)
+; A transient utility (role-split Lever B): built into the ROM only when
+; UTILITIES=resident, otherwise shipped on FN-UTLS.ssd. Governed purely by its
+; src/utils/ location + the UTILITIES lever in the Makefile (no per-command .if).
 
         .export cmd_fs_free
         .export cmd_fs_map
@@ -41,8 +41,8 @@
         .include "fujinet.inc"
 
         ; Register *FREE / *MAP into the FujiNet (FUJIFS) command group. Because
-        ; this whole file is built only when _FREE_MAP_ is defined, the commands
-        ; are present iff the feature is built — no .if in the command table.
+        ; this whole module is linked only in UTILITIES=resident builds, the
+        ; commands are present iff the feature is built — no .if in the table.
         cmd_entry "FUJIFS_EXT", "FREE", $4, $00, cmd_fs_free   ; (<drive>)
         cmd_entry "FUJIFS_EXT", "MAP",  $4, $00, cmd_fs_map    ; (<drive>)
 
@@ -327,5 +327,3 @@ sub_freeinfo:
         .byte   " Bytes "
         nop
         jmp     print_string_spl
-
-.endif ; _FREE_MAP_

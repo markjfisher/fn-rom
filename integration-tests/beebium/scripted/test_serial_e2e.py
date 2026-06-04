@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import time
 
+import pytest
+
 from beebium.screen import dump_screen
 from fujinet_tools import fileproto as fp
 from fujinet_tools import fujiproto as fuji
@@ -49,6 +51,7 @@ def test_fhost_emits_resolve_path_request(beebium, fuji_device):
     assert arg == ""
 
 
+@pytest.mark.needs_resident_utils
 def test_fdrive_emits_fuji_get_mounts_request(beebium, fuji_device):
     command(beebium, "*FDRIVE")
 
@@ -57,6 +60,7 @@ def test_fdrive_emits_fuji_get_mounts_request(beebium, fuji_device):
     assert pkt.checksum_ok
 
 
+@pytest.mark.needs_resident_utils
 def test_fhost_then_fls_round_trip(beebium, fuji_device):
     fuji_device.set_responder(resolving_responder("tnfs://example.invalid/bbc/", "bbc/"))
 

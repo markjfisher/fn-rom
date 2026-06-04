@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from fujinet_tools import fileproto as fp
 from fujinet_tools import fujibus as fb
 
@@ -19,6 +21,7 @@ def test_fhost_request_payload_is_structured(beebium, fuji_device):
     assert arg == ""
 
 
+@pytest.mark.needs_resident_utils
 def test_fcd_emits_relative_resolve_path_request(beebium, fuji_device):
     fuji_device.set_responder(file_listing_responder(
         resolved_uri="tnfs://example.invalid/bbc/",
@@ -40,6 +43,7 @@ def test_fcd_emits_relative_resolve_path_request(beebium, fuji_device):
     assert arg == "games"
 
 
+@pytest.mark.needs_resident_utils
 def test_fls_round_trip_uses_formatted_list_response(beebium, fuji_device):
     listing = "A.$.BOOT\nA.$.GAMES\n"
     fuji_device.set_responder(file_listing_responder(

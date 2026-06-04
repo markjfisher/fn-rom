@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import pytest
+
 from fujinet_tools import fujiproto as fuji
 
 from fuji_device import full_stack_responder, mounted_disk_responder
 from helpers import command
 
 
+@pytest.mark.needs_resident_utils
 def test_fdrive_requests_formatted_mounts(beebium, fuji_device):
     command(beebium, "*FDRIVE")
 
@@ -41,6 +44,7 @@ def test_fin_emits_set_mount_request(beebium, fuji_device):
     assert mode == "auto"
 
 
+@pytest.mark.needs_resident_utils
 def test_fout_round_trip_gets_then_clears_mount(beebium, fuji_device):
     fuji_device.set_responder(mounted_disk_responder(slot=2, uri="tnfs://example.invalid/bbc/BOOT.SSD"))
 

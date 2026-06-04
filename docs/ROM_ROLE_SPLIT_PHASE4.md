@@ -51,7 +51,7 @@ matching the Phase 0 projection (~4762 B reclaim) almost exactly.
 
 ## Bootstrap (Appendix A.5 Layer C — ready)
 
-`dist/fn-utls/!BOOT` mounts the utils image as drive 3 and sets it as the library, so an unrecognised
+`utils-bin/!BOOT` mounts the utils image as drive 3 and sets it as the library, so an unrecognised
 `*command` resolves from there regardless of the current drive (the §4.2.1 mechanism, verified in
 Phase 3: service &04 stays unclaimed → FS `*RUN` → library-aware lookup). Zero ROM cost.
 

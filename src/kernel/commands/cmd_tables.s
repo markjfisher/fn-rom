@@ -49,7 +49,7 @@
         .import cmd_fs_lib
         .import cmd_help_fuji
         .import cmd_help_futils
-.if .defined(_UTILS_) .or .defined(_ROMS_)
+.if .defined(UTILITIES_RESIDENT)
         .import cmd_help_utils
         .import cmd_utils_roms
 .endif
@@ -104,10 +104,8 @@ cmd_str_futils:
 cmd_adr_utils:
         .segment "CMDSTR_UTILS"
 cmd_str_utils:
-.if .defined(_ROMS_)
+.if .defined(UTILITIES_RESIDENT)
         cmd_entry "UTILS", "ROMS",     $0, $00, cmd_utils_roms
-.endif
-.if .defined(_UTILS_)
         ; TODO: BUILD/DUMP/LIST/TYPE
 .endif
         .segment "CMDSTR_UTILS_T"
@@ -135,7 +133,7 @@ cmd_adr_help:
 cmd_str_help:
         cmd_entry "HELP", "FUJI",      $0, $00, cmd_help_fuji
         cmd_entry "HELP", "FUTILS",    $0, $00, cmd_help_futils
-.if .defined(_UTILS_) .or .defined(_ROMS_)
+.if .defined(UTILITIES_RESIDENT)
         cmd_entry "HELP", "UTILS",     $0, $00, cmd_help_utils
 .endif
         .segment "CMDSTR_HELP_T"

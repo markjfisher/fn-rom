@@ -91,10 +91,13 @@ def pytest_addoption(parser):
     group.addoption(
         "--fn-profile",
         action="store",
-        choices=("net", "disk"),
+        choices=("all", "net", "disk"),
         default=os.environ.get("FN_PROFILE", "net"),
-        help="role-split build profile the loaded ROM represents: 'net' (DISK+NET, "
-             "default) or 'disk' (no network device). Drives feature-tagged test skips.",
+        help="role-split build profile the loaded ROM represents: 'all' (network + "
+             "utilities resident), 'net' (DISK+NET, network device, utils on disk; "
+             "default) or 'disk' (no network device, utils on disk). Drives "
+             "feature-tagged test skips: 'net'/'disk' have no resident management "
+             "utilities, so needs_resident_utils tests skip there.",
     )
     group.addoption(
         "--fn-rom-slot",
@@ -146,17 +149,34 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "disk_only: only meaningful on the DISK profile (skipped on net)"
     )
+    config.addinivalue_line(
+        "markers",
+        "needs_resident_utils: requires a management/informational utility (e.g. "
+        "*FDRIVE/*FLS/*FCD/*FNEW/*FOUT) to be resident in the ROM. Only the 'all' "
+        "profile keeps utils resident; on 'net'/'disk' (UTILITIES=disk) the command "
+        "ships on FN-UTLS.ssd instead and is covered by the command-from-disk "
+        "equivalence test, so these skip.",
+    )
 
 
 def pytest_collection_modifyitems(config, items):
     profile = config.getoption("--fn-profile")
+    # Only the 'all' profile is built with UTILITIES=resident; net/disk ship the
+    # management utilities on FN-UTLS.ssd, so resident-utility tests don't apply.
+    utils_resident = profile == "all"
     skip_net = pytest.mark.skip(reason="needs the network device; --fn-profile is 'disk'")
-    skip_disk = pytest.mark.skip(reason="DISK-profile test; --fn-profile is 'net'")
+    skip_disk = pytest.mark.skip(reason="DISK-profile test; --fn-profile is 'net'/'all'")
+    skip_utils = pytest.mark.skip(
+        reason="needs a resident management utility; --fn-profile is not 'all' "
+               "(UTILITIES=disk -> utility is transient on FN-UTLS.ssd)"
+    )
     for item in items:
         if profile == "disk" and "needs_net" in item.keywords:
             item.add_marker(skip_net)
         if profile != "disk" and "disk_only" in item.keywords:
             item.add_marker(skip_disk)
+        if not utils_resident and "needs_resident_utils" in item.keywords:
+            item.add_marker(skip_utils)
 
 
 @pytest.fixture()

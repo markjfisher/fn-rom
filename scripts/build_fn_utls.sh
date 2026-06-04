@@ -81,7 +81,7 @@ if [ -f "$STAGE/FDRIVE" ]; then
 fi
 
 echo "==> staging + bundling FN-UTLS.ssd"
-cp "$root/dist/fn-utls/!BOOT" "$STAGE/!BOOT"
+cp "$root/utils-bin/!BOOT" "$STAGE/!BOOT"
 printf '$.!BOOT 000000 000000\n' > "$STAGE/!BOOT.inf"
 "$root/scripts/create_ssd.py" -i "$STAGE" -o "$SSD" -t FN-UTLS
 echo "==> $SSD"

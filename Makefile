@@ -26,10 +26,6 @@ SUPPORTED_BUILD_MACHINES := BBC MASTER
 # Options: SERIAL (default), USERPORT, 1MHZ
 BUILD_INTERFACE ?= SERIAL
 
-# Optional *FREE/*MAP disk-usage commands (large; off by default).
-# Enable with: make FREE_MAP=1
-FREE_MAP ?= 0
-
 # Ensure WSL2 Ubuntu and other linuxes use bash by default instead of /bin/sh, which does not always like the shell commands.
 SHELL := /usr/bin/env bash
 DISK_TASKS =
@@ -61,15 +57,11 @@ endif
 ifeq ($(BUILD_MACHINE),BBC)
 
 ASFLAGS += \
-	--asm-define FUJINET_MACHINE_BBC \
-	--asm-define _ROMS_ \
-	--asm-define _UTILS_
+	--asm-define FUJINET_MACHINE_BBC
 
 # we don't have any C at the moment... doubt we ever will again
 CFLAGS += \
-	-DFUJINET_MACHINE_BBC \
-	-D_ROMS_ \
-	-D_UTILS_
+	-DFUJINET_MACHINE_BBC
 
 PROGRAM_MACHINE_SUFFIX :=
 
@@ -112,11 +104,6 @@ SOURCES += $(call rwildcard,$(SRCDIR)/,*.c)
 
 # remove trailing and leading spaces.
 SOURCES := $(strip $(SOURCES))
-
-ifeq ($(FREE_MAP),1)
-ASFLAGS += --asm-define _FREE_MAP_
-CFLAGS += -D_FREE_MAP_
-endif
 
 # Lever A: compile + link src/net/ only when the network feature is on. When off,
 # drop the network modules entirely (cc65 omits unlinked object modules wholesale)
