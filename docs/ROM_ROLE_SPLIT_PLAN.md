@@ -169,7 +169,7 @@ Role is orthogonal to the existing `BUILD_MACHINE` (BBC|MASTER) and `BUILD_INTER
 
 **Transient — on the utilities SSD (`FN-UTLS`), loaded on demand (DISK & DISK+NET builds):**
 - Disk management whose bulk is self-contained: `*FORM`, `*DESTROY`, `*WIPE`, `*VERIFY`, `*ACCESS`,
-  `*TITLE`, `*INFO`, `*RENAME`, `*COPY`, `*FNEW`, `*FBOOT`, `*FREE`/`*MAP`, `*ROMS`, `*FUNMOUNT`, `*FOUT`
+  `*TITLE`, `*INFO`, `*RENAME`, `*COPY`, `*FNEW`, `*FBOOT`, `*FREE`/`*MAP`, `*ROMS`, `*FUMOUNT`, `*FOUT`
 - **Informational / navigation F-commands** (not needed to position a disk): `*FCD` (covered by
   `*FHOST <path>`), `*FLIST`/`*FLS` (~361+250 lines — large directory listing), `*FDRIVE` (shows what
   the fujinet has in its slots).

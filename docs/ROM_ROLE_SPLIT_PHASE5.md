@@ -93,14 +93,35 @@ during bring-up were a stale `/tmp/fujinet-pty-e2e` symlink (left by
 `timeout`-killed runs), not a regression — confirmed by a HEAD-vs-change
 full-suite comparison (both 19 passed) and now guarded against in the runner.
 
+## Transient utility binaries — all commands (generalised)
+
+Phase 4 proved the disk-binary mechanism on `*FDRIVE` only; Phase 5 generalised it
+to every transient command. `scripts/build_fn_utls.sh` now builds them all from a
+single generated wrapper:
+
+- **Leaf names = the full typed command.** The FS `*RUN` reads the leaf from the
+  *start* of the command line (`read_fspba` rewinds to offset 0), so the file it
+  looks up is the full name including any leading F (`*FDRIVE`->`FDRIVE`,
+  `*COPY`->`COPY`). Earlier guesses at an F-stripped leaf were wrong.
+- **7-char DFS limit -> `*FUMOUNT`.** `*FUNMOUNT` (8 chars) cannot be a DFS leaf,
+  and truncating to `FUNMOUN` desyncs argument parsing, so the unmount command was
+  renamed `*FUMOUNT` (registered `"UMOUNT"`). All transient command names are <=7.
+- **Two wrapper modes.** No-arg commands (`*FDRIVE`) point the GSINIT pointer at an
+  in-binary empty line; arg commands point `text_pointer` at the `*RUN` tail
+  (`fuji_text_ptr_*`) so the handler parses arguments exactly as when resident.
+- **Shared helpers** used only between utilities (e.g. `confirm`,
+  `flist_resolve_target`, `cmd_flist`) are linked into the binaries that need them.
+
+Verified by `scripted/test_command_from_disk.py` (run via `scripts/run_fn_utls_test.sh`):
+every command resolves+runs from `FN-UTLS.ssd` (no "Bad command"/"Bad string"),
+`*FCD <path>` shows arguments reach the handler, and `*FDRIVE` emits frames
+identical to the resident command. **19 passed.**
+
+`*FORM`/`*VERIFY` are still ROM-side stubs (`rts`), so their binaries are stubs too
+— implementing them is fujinet-side work, unrelated to the role split.
+
 ## Remaining / optional
 
-- **Generalise the transient utility binaries.** Phase 4 proved the disk-binary
-  mechanism end-to-end on `*FDRIVE` only. The other management commands are
-  mechanical to add: a `utils-bin/<cmd>.s` wrapper + a `build_one` line in
-  `scripts/build_fn_utls.sh`. The one nuance is argument passing — `*FDRIVE`
-  takes none; commands with args (`*COPY`, `*FORM`, …) need the wrapper to point
-  `text_pointer` at the `*RUN` command tail before calling the handler.
 - CI: the matrix is kept CI-ready but there is no GitHub CI yet (out of scope).
 </content>
 </invoke>

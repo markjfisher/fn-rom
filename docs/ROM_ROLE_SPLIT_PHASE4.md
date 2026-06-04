@@ -84,15 +84,16 @@ resident command. **1 passed** — the disk-loaded utility behaves identically.
 - [x] A utility (`*FDRIVE`) runs from the mounted disk with **identical FujiBus frames** to the
       resident command (build mechanism + equivalence test, proven end-to-end).
 
-## Generalising to the other commands
+## Generalising to the other commands (completed in Phase 5)
 
-The mechanism is proven; the remaining commands are mechanical: add a `utils-bin/<cmd>.s` wrapper and a
-`build_one` line in `scripts/build_fn_utls.sh`. The only per-command nuance is **argument passing** —
-`*FDRIVE` takes none, so its wrapper points the GSINIT pointer at an empty line; commands with args
-(`*COPY`, `*FORM`, …) need the wrapper to point `text_pointer` at the `*RUN` command tail
-(`fuji_text_ptr_hi`/`fuji_text_ptr_offset`) before calling the handler. The existing util-command
-beebium tests run on the resident `ALL` build (where the commands are in ROM); a `needs_resident_utils`
-marker would skip them on `UTILITIES=disk` ROMs.
+All transient commands are now built as disk binaries — see
+`docs/ROM_ROLE_SPLIT_PHASE5.md`. The wrapper is generated per handler (no hand-written `utils-bin/<cmd>.s`
+files), with two argument modes: no-arg commands (`*FDRIVE`) point the GSINIT pointer at an in-binary
+empty line; arg commands point `text_pointer` at the `*RUN` tail (`fuji_text_ptr_*`). The FS `*RUN`
+looks the file up under the **full** typed name (the parser rewinds to offset 0), so leaves are
+`FDRIVE`/`COPY`/… — and the unmount command was renamed `*FUMOUNT` to fit the DFS 7-char leaf limit.
+`scripted/test_command_from_disk.py` proves every command resolves+runs from disk, that arguments
+flow (`*FCD <path>`), and that `*FDRIVE` emits frames identical to the resident command.
 
 ## Still gated by `.if` (done in Phase 5)
 

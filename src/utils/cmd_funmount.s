@@ -9,15 +9,17 @@
 
         ; Self-register into the command group (Lever B). Present iff this
         ; module is linked (UTILITIES=resident) -- no .if in the command table.
-        cmd_entry "FUTILS_EXT", "UNMOUNT", $3, $00, cmd_fs_funmount  ; <drive>
+        ; *FUMOUNT (registered as "UMOUNT" + the F prefix). Kept to 7 chars so it
+        ; also works as a transient FN-UTLS.ssd binary (DFS leaf limit is 7).
+        cmd_entry "FUTILS_EXT", "UMOUNT", $3, $00, cmd_fs_funmount  ; <drive>
 
         .segment "CODE"
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; cmd_fs_funmount - Handle *FUNMOUNT command
+; cmd_fs_funmount - Handle *FUMOUNT command
 ;
 ; Syntax:
-;   *FUNMOUNT <drive>
+;   *FUMOUNT <drive>
 ;
 ; This is the bridge-only inverse of FMOUNT. It clears the BBC drive ->
 ; FujiNet mount-slot mapping held in fuji_drive_disk_map without modifying the

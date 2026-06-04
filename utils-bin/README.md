@@ -22,12 +22,15 @@ A future ROM auto-mount (Appendix A) can do this at cold boot instead.
 
 ## Contents (when built)
 
-The transient commands, each a standalone BBC binary with its own load/exec (`.inf` sidecar), built
-from `src/utils/` against the resident ROM ABI:
+`scripts/build_fn_utls.sh` builds every transient command as a standalone BBC binary (load/exec
+`$1900`, `.inf` sidecar), linked from `src/utils/` against the resident ROM at its actual symbol
+addresses. Each is staged under the full command name the FS `*RUN` looks up (`*FDRIVE` -> `FDRIVE`,
+`*COPY` -> `COPY`, ...). DFS leaf names are <= 7 chars, which is why the unmount command is `*FUMOUNT`:
 
-  FORM VERIFY ACCESS TITLE INFO RENAME COPY WIPE DESTROY FREE MAP   (DFS management)
-  FCD  FLS    FDRIVE FOUT  FNEW FUNMOUNT                            ("F" navigation/mount admin)
+  FORM VERIFY ACCESS TITLE RENAME COPY WIPE DESTROY FREE MAP   (DFS management)
+  FDRIVE FCD FLS FLIST FOUT FNEW FUMOUNT                       ("F" navigation/mount admin)
 
-> **Status:** the bootstrap above is ready. The command **binaries** are pending the resident ABI
-> (the published entry points the §5.5 audit identified, ~the kernel/disk helpers the utilities call)
-> — see `docs/ROM_ROLE_SPLIT_PHASE4.md` "Remaining work".
+(`*FORM`/`*VERIFY` are currently stubs in the ROM, so their binaries are stubs too.) The wrapper sets
+the GSINIT pointer to the `*RUN` argument tail (`fuji_text_ptr_*`) before entering the resident
+handler, so the disk-loaded command sees its arguments exactly as the resident command would —
+verified by `integration-tests/beebium/scripted/test_command_from_disk.py`.

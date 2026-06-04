@@ -93,7 +93,7 @@ cmd_str_futils:
         cmd_entry "FUTILS", "IN",      $B, $08, cmd_fs_fin       ; (<slot>) <dos name>
         cmd_entry "FUTILS", "MOUNT",   $A, $04, cmd_fs_fmount    ; <slot> (<drive>)
         ; Transient (Lever B), self-registering into CMDSTR_FUTILS_EXT from
-        ; src/utils/: CD, DRIVE, LS, LIST, UNMOUNT, OUT, NEW. *FJSON from src/net/.
+        ; src/utils/: CD, DRIVE, LS, LIST, UMOUNT, OUT, NEW. *FJSON from src/net/.
         .segment "CMDSTR_FUTILS_T"
         .byte   $00
 
