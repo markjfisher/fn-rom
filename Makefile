@@ -140,7 +140,7 @@ ASFLAGS += --asm-include-dir $(SRCDIR) --asm-include-dir $(SRCDIR)/inc
 CFLAGS += --include-dir $(SRCDIR) --include-dir $(SRCDIR)/inc
 
 .SUFFIXES:
-.PHONY: all clean release $(DISK_TASKS) $(BUILD_TASKS) $(PROGRAM_TGT) all-machines ssd clean-imports sizes disk net all-rom
+.PHONY: all clean release dist $(DISK_TASKS) $(BUILD_TASKS) $(PROGRAM_TGT) all-machines ssd clean-imports sizes disk net all-rom
 
 all: $(PROGRAM_TGT)
 
@@ -157,6 +157,12 @@ net:                        ## DISK+NET profile: network device, utils on disk
 	$(MAKE) FEATURE_NET=1 UTILITIES=disk all
 all-rom:                    ## ALL profile: network + utilities resident
 	$(MAKE) FEATURE_NET=1 UTILITIES=resident all
+
+# Stage the shippable DISK+NET bundle: FN-NET ROM(s) + FN-UTLS.ssd + example
+# app SSDs from bas/ (see scripts/build_release.sh). Override apps with
+# RELEASE_APPS="weather iss".
+release dist:               ## Stage dist/release: FN-NET ROM + FN-UTLS.ssd + bas examples
+	./scripts/build_release.sh
 
 # Report ROM size usage (segment usage, free bytes, per-feature subtotals) from
 # the .map files in build/. Build first (e.g. `make all-machines`).

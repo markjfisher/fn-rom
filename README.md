@@ -28,6 +28,50 @@ This will create an SSD containing the ROM
 make clean ssd
 ```
 
+## Build profiles (role split)
+
+fn-rom is built in one of three role-split *profiles*, selected by two
+orthogonal levers (see [docs/ROM_ROLE_SPLIT_PLAN.md](docs/ROM_ROLE_SPLIT_PLAN.md)):
+
+- `FEATURE_NET` (Lever A) — `1` adds the network device (OPENIN `"scheme://"`,
+  `*FJSON`, the OSWORD &78 API); `0` is disk-only. Disk is always resident.
+- `UTILITIES` (Lever B) — `resident` links the management/informational commands
+  (`*FORM`, `*COPY`, `*FLS`, `*FDRIVE`, …) into the ROM; `disk` drops them, so
+  they ship on `FN-UTLS.ssd` and load on demand via the MOS unrecognised-command
+  → `*RUN` fallthrough.
+
+| Profile | Target | FEATURE_NET | UTILITIES | For |
+|---------|--------|:-----------:|:---------:|-----|
+| **ALL**      | `make all-rom` (== bare `make all`) | 1 | resident | everything resident, kitchen-sink |
+| **DISK+NET** | `make net`     | 1 | disk     | default shipped build (network + disk) |
+| **DISK**     | `make disk`    | 0 | disk     | disk-only |
+
+`make sizes` reports per-ROM segment usage and free bytes (build first).
+Profiles are orthogonal to `BUILD_MACHINE` (BBC|MASTER) and `BUILD_INTERFACE`
+(SERIAL|USERPORT|1MHZ).
+
+## Release bundle
+
+`make release` (alias `make dist`) stages the shippable **DISK+NET** bundle in
+`dist/release/`: the `FN-NET` / `FN-NET-M` ROM images, `FN-UTLS.ssd` (the
+transient utilities), and the `bas/` example apps as ready-to-mount SSDs. Choose
+which examples with `RELEASE_APPS="weather iss"`.
+
+## Testing
+
+A single command builds every profile, reports sizes, and runs the unit +
+beebium scripted suites for each:
+```
+./run_tests.sh                # full matrix (add --no-beebium for builds-only)
+./run_unit_tests.sh [all|net|disk]   # soft65c02 unit tests for one profile
+```
+The beebium matrix (`integration-tests/beebium/run_profile_tests.sh`) runs the
+scripted suite against the `all`, `net` and `disk` ROMs plus the FN-UTLS
+command-from-disk equivalence test. Tests declare the feature they need
+(`needs_net`, `needs_resident_utils`, `disk_only`) and are skipped on profiles
+that don't provide it. See [docs/ROM_ROLE_SPLIT_PLAN.md](docs/ROM_ROLE_SPLIT_PLAN.md)
+Appendix C and `integration-tests/beebium/README.md`.
+
 # Creating SSD images from folder contents
 
 The script [create_ssd.py](scripts/create_ssd.py) can be used to make SSD images from a folder's contents.

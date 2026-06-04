@@ -4,6 +4,26 @@
 
 The FujiNet ROM implements a BBC Micro Disk Filing System (DFS) compatible interface that communicates with FujiNet hardware over a network connection. The architecture is based on MMFS (Master Micro Filing System) but adapted for network operations instead of MMC/SD card access.
 
+## Role split (source layout and build profiles)
+
+Orthogonal to the layering below, the source is grouped by **role** so a feature
+is in the ROM iff its object module is linked (no inline `.if` feature gates in
+the command tables or vector bodies). See
+[ROM_ROLE_SPLIT_PLAN.md](ROM_ROLE_SPLIT_PLAN.md) for the full rationale.
+
+| Dir | Linked when | Contains |
+|-----|-------------|----------|
+| `src/kernel/` | always | filing-system vectors, transport/channel, init, command matcher + tables, bootstrap mounts (`*FHOST`/`*FIN`/`*FMOUNT`), `*CAT`/`*RUN` |
+| `src/disk/`   | always | DFS catalog + sector IO + the disk branch of the shared vectors |
+| `src/net/`    | `FEATURE_NET=1` | network FujiBus builders, the network vector branch, `*FJSON`, OSWORD &78 |
+| `src/utils/`  | `UTILITIES=resident` | transient management/informational commands (else shipped on `FN-UTLS.ssd`) |
+
+The disk and network paths meet only at well-defined dispatch points inside the
+shared MOS filing vectors (`OSFIND`/`OSBGET`/`OSBPUT`/close); only the network
+branch is optional, since disk is always resident. Build profiles: **ALL**
+(`make all-rom`), **DISK+NET** (`make net`, default ship build) and **DISK**
+(`make disk`).
+
 ## Layer Architecture
 
 The system now separates FujiNet operations into policy, shared FujiBus protocol, and channel-specific I/O. This keeps packet definitions shared across serial, user port, and future 1MHz implementations while only the raw byte stream varies by interface.

@@ -73,6 +73,23 @@ uv run pytest --fn-rom ../../build/fujinet.rom --fn-rom-slot 12 \
 BEEBIUM_HOME=~/src/beebium FUJINET_TOOLS=~/src/fujinet-nio/py uv run pytest
 ```
 
+### Build profiles (role split)
+
+The scripted suite runs against any of the three role-split ROM profiles. Tell
+the runner which profile the loaded ROM (`--fn-rom`) represents with
+`--fn-profile {all,net,disk}` (or `FN_PROFILE`); tests tagged with a feature they
+need are then skipped where that feature is absent:
+
+| Marker | Skipped unless | Meaning |
+|--------|----------------|---------|
+| `needs_net` | profile has the network device (`all`/`net`) | network OPEN/OSWORD &78 traffic |
+| `needs_resident_utils` | profile is `all` | command must be **resident** (`*FDRIVE`/`*FLS`/`*FCD`/`*FNEW`/`*FOUT`); on `net`/`disk` it is transient on `FN-UTLS.ssd` and covered by the command-from-disk equivalence test instead |
+| `disk_only` | profile is `disk` | only meaningful with no network device |
+
+`run_profile_tests.sh` builds each profile's ROM and runs the appropriate subset
+(plus the FN-UTLS command-from-disk equivalence test); `../../run_tests.sh` wraps
+the whole build × test matrix. See `docs/ROM_ROLE_SPLIT_PLAN.md` Appendix C.
+
 ## Two test layers
 
 ### 1. Scripted transport/protocol tests (deterministic — the CI gate)

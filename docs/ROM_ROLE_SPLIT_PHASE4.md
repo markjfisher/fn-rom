@@ -94,6 +94,8 @@ The mechanism is proven; the remaining commands are mechanical: add a `utils-bin
 beebium tests run on the resident `ALL` build (where the commands are in ROM); a `needs_resident_utils`
 marker would skip them on `UTILITIES=disk` ROMs.
 
-## Still gated by `.if` (Phase 5 cleanup)
+## Still gated by `.if` (done in Phase 5)
 
-`_ROMS_`/`_UTILS_` (ROMS command, UTILS help topic) and `_FREE_MAP_`.
+`_ROMS_`/`_UTILS_` (ROMS command, UTILS help topic) and `_FREE_MAP_` were retired
+in Phase 5 — folded into the `UTILITIES_RESIDENT` lever / the `src/utils/`
+location. See `docs/ROM_ROLE_SPLIT_PHASE5.md`.

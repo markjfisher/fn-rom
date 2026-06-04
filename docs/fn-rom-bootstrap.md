@@ -59,8 +59,52 @@ fujinet-nio supports:
 
 fn-rom supports commands to interact with the ROM as standard MOS commands.
 As well as all the standard commands like *CAT, *DISC, *ENABLE, etc. we also have "FujiNet" commands that start with "*F", e.g. "*FRESET" to send a command to the fujinet to reset.
-All commands are in the folder `@src/commands/` folder.
-The file `@src/commands/cmd_tables.s` defines the commands and what function should be invoked when the user issues a command.
+The command **matcher and tables** live in `@src/kernel/commands/` (notably
+`cmd_tables.s`, which declares the base command groups); individual command
+handlers live under the role directory that owns them (`src/kernel/`,
+`src/disk/`, `src/net/` or `src/utils/`). Each handler self-registers into a
+command group with the `cmd_entry` macro (`src/inc/macros.inc`), so a command is
+present in a build iff its object module is linked — see the role split below.
+
+## Role split (build profiles)
+
+Source is grouped by role so feature membership is decided by *which object
+modules are linked*, not by inline `.if`. Two orthogonal levers select a profile
+(full detail in `docs/ROM_ROLE_SPLIT_PLAN.md`):
+
+| Dir | Always built? | Gate |
+|-----|---------------|------|
+| `src/kernel/` | yes | — (vectors, transport, channel, init, matcher, `*FHOST`/`*FIN`/`*FMOUNT`, `*CAT`/`*RUN`) |
+| `src/disk/`   | yes | — (DFS catalog + sector IO + disk vector branch) |
+| `src/net/`    | no  | `FEATURE_NET=1` (network branch, `*FJSON`, OSWORD &78) |
+| `src/utils/`  | no  | `UTILITIES=resident` (management/informational commands) |
+
+Profiles: **ALL** (`make all-rom`, net + utils resident), **DISK+NET**
+(`make net`, the default ship build, utils on disk) and **DISK** (`make disk`,
+no network). The retired macros `_FREE_MAP_`/`_UTILS_`/`_ROMS_` were folded into
+these levers.
+
+### Transient utilities and their ROM ABI
+
+When `UTILITIES=disk`, the management/informational commands are not in the ROM;
+they ship on `FN-UTLS.ssd` and load on demand via the standard MOS
+unrecognised-command → filing-system `*RUN` fallthrough (service &04 is left
+unclaimed, so the MOS asks the FS to run the command as a file, using the
+library-aware lookup so it resolves from the utils/library drive regardless of
+the current drive).
+
+Each transient utility is a standalone RAM binary (load/exec `$1900`,
+`cfg/fn-util.cfg`) that **calls the resident ROM by absolute address** — there is
+no hand-written jump table. `scripts/build_fn_utls.sh` builds the `UTILITIES=disk`
+ROM, turns its label file (`build/fujinet.rom.lbl`) into `rom_abi.s` (every
+resident symbol at its fixed address; ZP via `.exportzp`), and links each utility
+against it. So the "ABI" is simply the set of resident symbols the utility
+imports — kernel/disk entry points and ZP workspace. Utils-internal helpers
+shared only between utilities are duplicated into the binary (cost is disk, not
+ROM), never promoted to a resident ROM entry point. A small wrapper
+(`utils-bin/<cmd>.s`) sets up the command line and calls the resident handler,
+exiting via `exit_user_ok`. The FS ROM is paged in while an `*RUN` command from
+the FS executes, so the absolute `jsr`s into the ROM are valid.
 
 ## Compiling and Source
 
