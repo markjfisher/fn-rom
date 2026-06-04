@@ -55,36 +55,44 @@ matching the Phase 0 projection (~4762 B reclaim) almost exactly.
 `*command` resolves from there regardless of the current drive (the §4.2.1 mechanism, verified in
 Phase 3: service &04 stays unclaimed → FS `*RUN` → library-aware lookup). Zero ROM cost.
 
-## Remaining work — the disk binaries (the §5.5 ABI)
+## Disk-binary execution (implemented, proven on *FDRIVE)
 
-The on-disk *execution* of the utilities is the substantial remaining piece. The §5.5 import audit
-shows the utilities pull in ~100 distinct kernel/disk code symbols (catalog ops, channel state,
-FujiBus transport, formatting, parameter parsing, error handlers). To run as RAM-loaded `*RUN`
-binaries they must reach the resident ROM only through **published entry points**:
+The utilities run from disk by linking against the resident ROM at its **actual addresses** — no
+hand-written ABI jump table needed:
 
-1. **Resident ABI.** Add a fixed-address jump table (pinned in `cfg/fujinet-rom.cfg`, so it does not
-   move between builds) exporting the helpers the utilities need — at minimum the FujiBus transport
-   (`fujibus_send_packet`/`receive`/`set_payload_buffer_ptr`), catalog read/write, and a few shared
-   printers/parsers. Per §5.5, helpers used *only* between transient utilities (e.g.
-   `flist_resolve_target`, `confirm`) are duplicated into the binaries rather than promoted to the ABI.
-   ZP workspace (`aws_tmp*`/`cws_tmp*`/`pws_tmp*`, `current_drv`, …) is already at fixed addresses via
-   `os.s`, so the binaries reference it directly. The FS ROM is paged in when an `*RUN` command from
-   the FS executes, so the binaries call the ABI by absolute `jsr`.
-2. **Build target.** Assemble each `src/utils/*` command to a RAM load address against the ABI, emit a
-   `<NAME>.inf` (load/exec) per command, and bundle into `FN-UTLS.ssd` via `scripts/create_ssd.py`
-   (which already supports per-file `.inf`). Target: `make fn-utls`.
-3. **Equivalence test (Appendix C.4 #3).** In beebium, mount `FN-UTLS.ssd`, set the library, run e.g.
-   `*FLS`/`*FORM`, and assert the **same** FujiBus frames as the resident `ALL` build. A
-   `needs_resident_utils` marker skips the existing util-command tests on `UTILITIES=disk` ROMs until
-   this lands.
+1. **rom_abi from the ROM .lbl.** `scripts/build_fn_utls.sh` builds the `UTILITIES=disk` ROM, then
+   turns its label file into `rom_abi.s` (`name = $addr` for every resident symbol; ZP via
+   `.exportzp`). The binaries are built against the exact ROM they will run with.
+2. **RAM binaries.** Each command is assembled for `$1900` (`cfg/fn-util.cfg`) with `FN_UTIL_BINARY`
+   defined (so `cmd_entry` emits no ROM table fragment), and linked with `rom_abi.o` so its kernel/disk
+   imports resolve to ROM addresses. Utils-internal helpers it shares (e.g. `cfl_print_formatted_blob`)
+   are linked in from their `src/utils/` source per §5.5. A tiny entry wrapper (`utils-bin/<cmd>.s`)
+   sets up the command line and calls the resident handler; it exits via `exit_user_ok`. The FS ROM is
+   paged in when an `*RUN` command from the FS executes, so the binary calls the ROM by absolute `jsr`.
+3. **FN-UTLS.ssd.** `create_ssd.py` bundles the binaries (per-file `.inf` load/exec `$1900`) + `!BOOT`.
+
+**Equivalence test (Appendix C.4 #3) — passing.** `scripts/run_fn_utls_test.sh` builds the SSD + ROM
+and runs `scripted/test_command_from_disk.py`: with `*FDRIVE` absent from the ROM, mounting `FN-UTLS.ssd`
+and typing `*FDRIVE` loads+runs the disk binary, which emits the **same Fuji GET_MOUNTS frame** as the
+resident command. **1 passed** — the disk-loaded utility behaves identically.
 
 ## Acceptance
 
 - [x] `UTILITIES` lever: transient commands absent from ROM when `UTILITIES=disk`; `make all-rom`
       keeps them resident. Verified (sizes + table + beebium on ALL).
 - [x] Bootstrap (`!BOOT` mount + `*LIB`) ready; library-aware `*RUN` route verified (Phase 3).
-- [ ] Utilities run from the library-mounted disk with identical FujiBus frames — pending the resident
-      ABI + `FN-UTLS.ssd` binaries + the equivalence test (see "Remaining work").
+- [x] A utility (`*FDRIVE`) runs from the mounted disk with **identical FujiBus frames** to the
+      resident command (build mechanism + equivalence test, proven end-to-end).
+
+## Generalising to the other commands
+
+The mechanism is proven; the remaining commands are mechanical: add a `utils-bin/<cmd>.s` wrapper and a
+`build_one` line in `scripts/build_fn_utls.sh`. The only per-command nuance is **argument passing** —
+`*FDRIVE` takes none, so its wrapper points the GSINIT pointer at an empty line; commands with args
+(`*COPY`, `*FORM`, …) need the wrapper to point `text_pointer` at the `*RUN` command tail
+(`fuji_text_ptr_hi`/`fuji_text_ptr_offset`) before calling the handler. The existing util-command
+beebium tests run on the resident `ALL` build (where the commands are in ROM); a `needs_resident_utils`
+marker would skip them on `UTILITIES=disk` ROMs.
 
 ## Still gated by `.if` (Phase 5 cleanup)
 

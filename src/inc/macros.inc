@@ -14,12 +14,16 @@
 ;             byte terminates the command text for the matcher/help printer.
 ;   handler - command handler routine (entered via rts, hence the -1)
 .macro cmd_entry grp, name, p1, p2, handler
+        ; When a src/utils/ command is assembled as a standalone FN-UTLS.ssd
+        ; binary (FN_UTIL_BINARY), it must not emit a ROM command-table fragment.
+.ifndef FN_UTIL_BINARY
         .pushseg
         .segment .concat("CMDSTR_", grp)
         .byte   name, $80 | (p1), p2
         .segment .concat("CMDADR_", grp)
         .word   handler - 1
         .popseg
+.endif
 .endmacro
 
 .macro dbg_string_axy arg1

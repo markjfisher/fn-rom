@@ -547,3 +547,88 @@ def full_stack_responder(
         return default_success_responder(pkt)
 
     return _resp
+
+
+# --- Disk-image-backed responder (role-split Lever B: *RUN a util from disk) ---
+
+def build_disk_info_response(
+    *, slot: int, sector_count: int, sector_size: int = 256,
+    img_type: int = 2, status: int = 0,
+) -> bytes:
+    if dp is None:
+        raise RuntimeError("fujinet_tools.diskproto is unavailable")
+    flags = 0x01  # inserted
+    body = (
+        bytes([dp.DISKPROTO_VERSION, flags])
+        + struct.pack("<H", 0)
+        + bytes([slot & 0xFF, img_type & 0xFF])
+        + struct.pack("<H", sector_size)
+        + struct.pack("<I", sector_count)
+        + bytes([0])  # last_error
+    )
+    return fb.build_fuji_response_wire(dp.DISK_DEVICE_ID, dp.CMD_INFO, status, body)
+
+
+def build_disk_read_sector_response(
+    *, slot: int, lba: int, data: bytes, truncated: bool = False, status: int = 0,
+) -> bytes:
+    if dp is None:
+        raise RuntimeError("fujinet_tools.diskproto is unavailable")
+    flags = 0x01 if truncated else 0x00
+    body = (
+        bytes([dp.DISKPROTO_VERSION, flags])
+        + struct.pack("<H", 0)
+        + bytes([slot & 0xFF])
+        + struct.pack("<I", lba)
+        + struct.pack("<H", len(data))
+        + data
+    )
+    return fb.build_fuji_response_wire(dp.DISK_DEVICE_ID, dp.CMD_READ_SECTOR, status, body)
+
+
+def disk_image_responder(
+    *, image_path, fuji_slot: int, drive_slot: int, uri: str,
+    formatted_mounts: str = "0: AUTO\n", inner: "Responder | None" = None,
+):
+    """Serve a real DFS .ssd image so fn-rom can *RUN a file from it: Fuji slot
+    lookup + Disk mount/info + Disk READ_SECTOR (sectors served from the image).
+    `inner` (if given) answers anything else first (e.g. the command's own
+    FujiBus traffic once it runs)."""
+    import os as _os
+    with open(image_path, "rb") as fh:
+        image = fh.read()
+    nsec = max(1, len(image) // 256)
+
+    def _resp(pkt: "FujiPacket"):
+        if inner is not None:
+            r = inner(pkt)
+            if r is not None:
+                return r
+        if fp is not None and pkt.device == fp.FILE_DEVICE_ID:
+            if pkt.command == fp.CMD_RESOLVE_PATH:
+                return build_resolve_path_response(uri, uri)
+            if pkt.command == fp.CMD_LIST:
+                return build_list_response(formatted_text="FN-UTLS\n")
+        if fuji is not None and pkt.device == fuji.FUJI_DEVICE_ID:
+            if pkt.command == fuji.CMD_GET_MOUNT:
+                return build_get_mount_response(slot=fuji_slot, enabled=True, uri=uri)
+            if pkt.command == fuji.CMD_SET_MOUNT:
+                return build_set_mount_response()
+            if pkt.command == fuji.CMD_GET_MOUNTS:
+                return build_get_mounts_response(formatted_mounts)
+        if dp is not None and pkt.device == dp.DISK_DEVICE_ID:
+            if pkt.command == dp.CMD_MOUNT:
+                return build_disk_mount_response(slot=drive_slot, sector_count=nsec)
+            if pkt.command == dp.CMD_INFO:
+                return build_disk_info_response(slot=drive_slot, sector_count=nsec)
+            if pkt.command == dp.CMD_READ_SECTOR:
+                lba = int.from_bytes(pkt.payload[2:6], "little")
+                maxb = int.from_bytes(pkt.payload[6:8], "little") or 256
+                start = lba * 256
+                data = image[start:start + min(maxb, 256)]
+                if len(data) < 256:
+                    data = data + bytes(256 - len(data))
+                return build_disk_read_sector_response(slot=drive_slot, lba=lba, data=data)
+        return default_success_responder(pkt)
+
+    return _resp
