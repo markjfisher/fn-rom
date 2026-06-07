@@ -63,16 +63,16 @@
 cmd_adr_fujifs:
         .segment "CMDSTR_FUJIFS"
 cmd_str_fujifs:
-        cmd_entry "FUJIFS", "CLOSE",   $0, $00, cmd_fs_close
-        cmd_entry "FUJIFS", "DELETE",  $1, $00, cmd_fs_delete    ; <fsp>
-        cmd_entry "FUJIFS", "DIR",     $6, $00, cmd_fs_dir       ; (<dir>)
-        cmd_entry "FUJIFS", "DRIVE",   $3, $00, cmd_fs_drive     ; <drive>
-        cmd_entry "FUJIFS", "ENABLE",  $0, $00, cmd_fs_enable
-        cmd_entry "FUJIFS", "EX",      $6, $00, cmd_fs_ex        ; (<dir>)
+        cmd_entry "FUJIFS", "CLOSE",   $00, $00, cmd_fs_close
+        cmd_entry "FUJIFS", "DELETE",  $01, $00, cmd_fs_delete   ; <fsp>
+        cmd_entry "FUJIFS", "DIR",     $06, $00, cmd_fs_dir      ; (<dir>)
+        cmd_entry "FUJIFS", "DRIVE",   $03, $00, cmd_fs_drive    ; <drive>
+        cmd_entry "FUJIFS", "ENABLE",  $00, $00, cmd_fs_enable
+        cmd_entry "FUJIFS", "EX",      $06, $00, cmd_fs_ex       ; (<dir>)
 ; cmd_table_info marks the *INFO entry so cmd_info.s can print its help line.
 cmd_table_info:
-        cmd_entry "FUJIFS", "INFO",    $2, $00, cmd_fs_info      ; <afsp>
-        cmd_entry "FUJIFS", "LIB",     $6, $00, cmd_fs_lib       ; (<dir>)
+        cmd_entry "FUJIFS", "INFO",    $02, $00, cmd_fs_info     ; <afsp>
+        cmd_entry "FUJIFS", "LIB",     $06, $00, cmd_fs_lib      ; (<dir>)
         ; Transient (Lever B), self-registering into CMDSTR_FUJIFS_EXT from
         ; src/utils/: ACCESS, COPY, DESTROY, FORM, RENAME, TITLE, VERIFY, WIPE,
         ; and FREE/MAP (cmd_free_map.s).
@@ -87,11 +87,11 @@ cmd_table_info:
 cmd_adr_futils:
         .segment "CMDSTR_FUTILS"
 cmd_str_futils:
-        cmd_entry "FUTILS", "BOOT",    $C, $08, cmd_fs_fboot     ; <slot>/<dos name>
+        cmd_entry "FUTILS", "BOOT",    $0C, $08, cmd_fs_fboot    ; <slot>/<dos name>
         cmd_entry "FUTILS", "FS",      $15, $00, cmd_fs_fhost    ; <path>
         cmd_entry "FUTILS", "HOST",    $15, $00, cmd_fs_fhost    ; <path>
-        cmd_entry "FUTILS", "IN",      $B, $08, cmd_fs_fin       ; (<slot>) <dos name>
-        cmd_entry "FUTILS", "MOUNT",   $A, $04, cmd_fs_fmount    ; <slot> (<drive>)
+        cmd_entry "FUTILS", "IN",      $0B, $08, cmd_fs_fin      ; (<slot>) <dos name>
+        cmd_entry "FUTILS", "MOUNT",   $0A, $04, cmd_fs_fmount   ; <slot> (<drive>)
         ; Transient (Lever B), self-registering into CMDSTR_FUTILS_EXT from
         ; src/utils/: CD, DRIVE, LS, LIST, UMOUNT, OUT, NEW. *FJSON from src/net/.
         .segment "CMDSTR_FUTILS_T"
@@ -105,7 +105,7 @@ cmd_adr_utils:
         .segment "CMDSTR_UTILS"
 cmd_str_utils:
 .if .defined(UTILITIES_RESIDENT)
-        cmd_entry "UTILS", "ROMS",     $0, $00, cmd_utils_roms
+        cmd_entry "UTILS", "ROMS",     $00, $00, cmd_utils_roms
         ; TODO: BUILD/DUMP/LIST/TYPE
 .endif
         .segment "CMDSTR_UTILS_T"
@@ -118,9 +118,9 @@ cmd_str_utils:
 cmd_adr_fs:
         .segment "CMDSTR_FS"
 cmd_str_fs:
-        cmd_entry "FS", "DISC",        $0, $00, cmd_fs_disc
-        cmd_entry "FS", "DISK",        $0, $00, cmd_fs_disc       ; DISK same as DISC
-        cmd_entry "FS", "FUJI",        $0, $00, cmd_fs_fuji
+        cmd_entry "FS", "DISC",        $00, $00, cmd_fs_disc
+        cmd_entry "FS", "DISK",        $00, $00, cmd_fs_disc      ; DISK same as DISC
+        cmd_entry "FS", "FUJI",        $00, $00, cmd_fs_fuji
         .segment "CMDSTR_FS_T"
         .byte   $00
 
@@ -131,10 +131,10 @@ cmd_str_fs:
 cmd_adr_help:
         .segment "CMDSTR_HELP"
 cmd_str_help:
-        cmd_entry "HELP", "FUJI",      $0, $00, cmd_help_fuji
-        cmd_entry "HELP", "FUTILS",    $0, $00, cmd_help_futils
+        cmd_entry "HELP", "FUJI",      $00, $00, cmd_help_fuji
+        cmd_entry "HELP", "FUTILS",    $00, $00, cmd_help_futils
 .if .defined(UTILITIES_RESIDENT)
-        cmd_entry "HELP", "UTILS",     $0, $00, cmd_help_utils
+        cmd_entry "HELP", "UTILS",     $00, $00, cmd_help_utils
 .endif
         .segment "CMDSTR_HELP_T"
         .byte   $00

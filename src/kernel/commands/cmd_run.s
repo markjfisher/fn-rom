@@ -24,7 +24,6 @@
         .import fuji_text_ptr_hi
         .import fuji_text_ptr_offset
         .import get_cat_firstentry81
-        .import read_fspba
         .import read_fspba_reset
         .import set_text_pointer_yx
 
@@ -53,14 +52,22 @@ not_cmd_futils:
         jsr     get_cat_firstentry81
         bcs     runfile_found          ; If file found
 
-        ; File not found in default location, try library
-        ldy     fuji_text_ptr_hi       ; MA+&10DA
+        ; File not found on the default drive — try the library drive/dir.
+        ;
+        ; Do NOT re-parse the filename here. The first attempt already parsed it
+        ; into fuji_filename_buffer, and get_cat_firstentry81 matches against that
+        ; buffer directly (it does not re-read the command line). Re-parsing would
+        ; run the MOS GSREAD loop again, which corrupts the ROM's zero-page scratch
+        ; — both the command-line source pointer (aws_tmp10/11) and current_drv
+        ; (&CD). That is why the previous read_fspba-based library fallback failed:
+        ; the re-parse read a clobbered pointer and reset the drive, so *LIB was
+        ; silently ignored. Instead, just point at the library and search again;
+        ; the catalog match does not call GSREAD, so these values survive.
         lda     fuji_lib_dir           ; LIB_DIR -> directory_param
         sta     directory_param
         lda     fuji_lib_drive         ; LIB_DRIVE -> current_drv
         sta     current_drv
-        jsr     read_fspba
-        jsr     get_cat_firstentry81   ; Use correct function
+        jsr     get_cat_firstentry81
         bcs     runfile_found          ; If file found
 
         ; File not found anywhere
