@@ -27,7 +27,7 @@ def wait_for_screen_text(bbc, text: str, *, timeout: float = 8.0, case_sensitive
     deadline = time.monotonic() + timeout
     wanted = text if case_sensitive else text.upper()
     while time.monotonic() < deadline:
-        screen = dump_screen(bbc.memory)
+        screen = dump_screen(bbc)
         haystack = screen if case_sensitive else screen.upper()
         if wanted in haystack:
             return

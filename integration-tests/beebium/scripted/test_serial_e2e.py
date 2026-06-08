@@ -18,10 +18,10 @@ def test_fhost_screen_text_and_wire_payload_case(beebium, fuji_device):
     with beebium.keyboard.text_input():
         beebium.keyboard.type(typed)
 
-        deadline = time.monotonic() + 2.0
+        deadline = time.monotonic() + 10.0
         screen = ""
         while time.monotonic() < deadline:
-            screen = dump_screen(beebium.memory)
+            screen = dump_screen(beebium)
             if "tnfs://example.invalid/bbc/" in screen:
                 break
             time.sleep(0.02)

@@ -2,7 +2,7 @@
 
 The fujinet firmware is the PTY *master*: it creates the pseudo-terminal and
 symlinks the slave to ``channel.pty_path`` from its config. Beebium then plugs
-into that slave with ``--serial device:<pty_path>``.
+into that slave with ``--host-serial mode=device:path=<pty_path>``.
 
 To avoid clashing with any fujinet you run by hand, each instance gets its own
 throwaway run directory containing ``fujinet-data/fujinet.yaml`` (the config is

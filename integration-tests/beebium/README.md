@@ -29,7 +29,7 @@ layout):
 |---------|---------|---------|
 | `BEEBIUM_HOME` | `~/dev/bbc/beebium` | beebium repo root (derives the three below) |
 | `BEEBIUM_CLIENT_SRC` | `$BEEBIUM_HOME/clients/python/src` | beebium python client source |
-| `BEEBIUM_SERVER` | `$BEEBIUM_HOME/build/src/server/beebium-model-b` | server binary |
+| `BEEBIUM_SERVER` | `$BEEBIUM_HOME/build-release/src/server/beebium-model-b` | server binary |
 | `BEEBIUM_MOS` | `$BEEBIUM_HOME/roms/acorn-mos_1_20.rom` | MOS ROM |
 | `BEEBIUM_BASIC` | *(unset)* | optional BASIC ROM |
 | `FUJINET_TOOLS` | `<fn-rom>/../fujinet-nio/py` | dir containing `fujinet_tools` |
@@ -67,7 +67,7 @@ uv run pytest --fn-pty /tmp/my-fnpty
 
 # A specific ROM build / slot, and an explicit server binary
 uv run pytest --fn-rom ../../build/fujinet.rom --fn-rom-slot 12 \
-              --beebium-server ~/dev/bbc/beebium/build/src/server/beebium-model-b
+              --beebium-server ~/dev/bbc/beebium/build-release/src/server/beebium-model-b
 
 # Via env vars instead
 BEEBIUM_HOME=~/src/beebium FUJINET_TOOLS=~/src/fujinet-nio/py uv run pytest
@@ -96,7 +96,7 @@ the whole build × test matrix. See `docs/ROM_ROLE_SPLIT_PLAN.md` Appendix C.
 
 `scripted/` substitutes a scripted `FujiDevice` for the real firmware
 and asserts the exact FujiBus/SLIP frames the ROM emits. **Beebium creates the
-PTY** here (`--serial pty:`) and the test plugs into the slave.
+PTY** here (`--host-serial mode=pty:path=<pty>`) and the test plugs into the slave.
 
 | Test | Command | Asserted frame |
 |------|---------|----------------|
@@ -135,10 +135,10 @@ it, only that exactly one does. The fujinet-nio firmware is written to be the
 creator (it `openpty`s and symlinks the slave to `channel.pty_path`), so here:
 
 ```
-fujinet-nio (PTY master) ── pty ── beebium (--serial device:) ── fn-rom ── BBC
+fujinet-nio (PTY master) ── pty ── beebium (--host-serial mode=device:) ── fn-rom ── BBC
 ```
 
-beebium *plugs in* with `--serial device:<pty>` (its open-existing-path mode).
+beebium *plugs in* with `--host-serial mode=device:path=<pty>` (its open-existing-path mode).
 The test drives the BBC and observes results via the screen/memory — it does
 **not** open the PTY itself (it's a two-party cable owned by fujinet+beebium).
 This is why the transport tests in layer 1 use the opposite convention

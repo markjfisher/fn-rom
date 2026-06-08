@@ -14,8 +14,12 @@
 # Pass-through pytest args are forwarded to each scripted run (e.g. -v, -k name).
 set -euo pipefail
 
+LOG_FILE=/tmp/profile_tests.log
+
 here="$(cd "$(dirname "$0")" && pwd)"
 root="$(cd "$here/../.." && pwd)"   # repos/fn-rom
+
+echo "here: $here, root: $root, LOG_FILE=$LOG_FILE"
 
 # A previous run killed mid-flight (e.g. by `timeout` or Ctrl-C) can leave a
 # dangling PTY symlink pointing at a dead pts slave, which makes beebium's PTY
@@ -27,19 +31,19 @@ if [ -L "$pty" ] && [ ! -e "$pty" ]; then
 fi
 
 echo "==> [all] build ALL ROM (FEATURE_NET=1 UTILITIES=resident)"
-make -C "$root" all-rom >/dev/null
+make -C "$root" clean all-rom | tee ${LOG_FILE}
 
 echo "==> [all] beebium scripted (FN_PROFILE=all, utils resident)"
 ( cd "$here" && FN_PROFILE=all uv run pytest scripted/ -q "$@" )
 
 echo "==> [net] build DISK+NET ROM (FEATURE_NET=1 UTILITIES=disk)"
-make -C "$root" net >/dev/null
+make -C "$root" clean net | tee -a ${LOG_FILE}
 
 echo "==> [net] beebium scripted (FN_PROFILE=net)"
 ( cd "$here" && FN_PROFILE=net uv run pytest scripted/ -q "$@" )
 
 echo "==> [disk] build DISK ROM (FEATURE_NET=0 UTILITIES=disk)"
-make -C "$root" disk >/dev/null
+make -C "$root" clean disk | tee -a ${LOG_FILE}
 
 echo "==> [disk] beebium scripted (FN_PROFILE=disk)"
 ( cd "$here" && FN_PROFILE=disk uv run pytest scripted/ -q "$@" )

@@ -73,7 +73,7 @@ def test_fdrive_runs_from_library_disk(beebium, fuji_device):
         fuji.FUJI_DEVICE_ID, fuji.CMD_GET_MOUNTS, timeout=8.0
     )
     if pkt is None:
-        print("SCREEN AFTER *FDRIVE:\n" + dump_screen(beebium.memory))
+        print("SCREEN AFTER *FDRIVE:\n" + dump_screen(beebium))
     assert pkt is not None, "no GET_MOUNTS observed -> *FDRIVE did not run from disk"
     assert pkt.checksum_ok
 
@@ -107,7 +107,7 @@ def test_transient_command_resolves_from_disk(beebium, fuji_device, cmd):
     command(beebium, "N")            # dismiss any "Go (Y/N)?" confirm prompt
     time.sleep(0.4)
 
-    screen = dump_screen(beebium.memory)
+    screen = dump_screen(beebium)
     # "Bad command" = the FS *RUN could not find the file (wrong leaf name).
     # "Bad string"  = the binary loaded but returned badly to BASIC (it ran wrong
     # bytes / corrupted the stack). Either means the disk command did not work.
@@ -202,7 +202,7 @@ def test_transient_command_resolves_via_library_drive(beebium, fuji_device):
 
     pkt = fuji_device.wait_for_command(fp.FILE_DEVICE_ID, fp.CMD_LIST, timeout=8.0)
     if pkt is None:
-        print("SCREEN AFTER *FLS:\n" + dump_screen(beebium.memory))
+        print("SCREEN AFTER *FLS:\n" + dump_screen(beebium))
     assert pkt is not None, (
         "*FLS did not resolve via the library drive -> *LIB fallback broken"
     )

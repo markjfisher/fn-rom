@@ -21,7 +21,7 @@ the conventional sibling-checkout layout:
 
   BEEBIUM_HOME        beebium repo root        (default: ~/dev/bbc/beebium)
   BEEBIUM_CLIENT_SRC  beebium python src dir   (default: $BEEBIUM_HOME/clients/python/src)
-  BEEBIUM_SERVER      beebium-server binary    (default: $BEEBIUM_HOME/build/src/server/beebium-model-b)
+  BEEBIUM_SERVER      beebium-server binary    (default: $BEEBIUM_HOME/build-release/src/server/beebium-model-b)
   BEEBIUM_MOS         MOS ROM image            (default: $BEEBIUM_HOME/roms/acorn-mos_1_20.rom)
   BEEBIUM_BASIC       BASIC ROM image          (optional)
   FUJINET_TOOLS       dir containing fujinet_tools (default: <fn-rom>/../fujinet-nio/py)
@@ -38,7 +38,6 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
-import time
 from pathlib import Path
 import shutil
 import socket
@@ -109,7 +108,7 @@ def pytest_addoption(parser):
     group.addoption(
         "--beebium-server",
         action="store",
-        default=os.environ.get("BEEBIUM_SERVER", str(BEEBIUM_HOME / "build" / "src" / "server" / "beebium-model-b")),
+        default=os.environ.get("BEEBIUM_SERVER", str(BEEBIUM_HOME / "build-release" / "src" / "server" / "beebium-model-b")),
         help="path to the beebium-server executable",
     )
     group.addoption(
@@ -223,13 +222,13 @@ import contextlib
 
 @contextlib.contextmanager
 def _launch_beebium(beebium_paths, serial_arg):
-    """Launch beebium with the fn-rom in its slot and the given --serial arg."""
+    """Launch beebium with the fn-rom in its slot and the given --host-serial arg."""
     from beebium.client import Beebium  # noqa: WPS433 (import after sys.path wiring)
 
     slot = beebium_paths["slot"]
     extra_args = [
         "--sideways", f"{slot}:rom:{beebium_paths['fn_rom']}",
-        "--serial", serial_arg,
+        "--host-serial", serial_arg,
     ]
     with Beebium.launch(
         mos_filepath=str(beebium_paths["mos"]),
@@ -237,8 +236,9 @@ def _launch_beebium(beebium_paths, serial_arg):
         server_filepath=str(beebium_paths["server"]),
         extra_args=extra_args,
     ) as bbc:
-        # Give the MOS a moment to finish booting before we type commands.
-        time.sleep(1.0)
+        if not bbc.system.wait_for_ready(timeout=5.0):
+            raise RuntimeError("Beebium did not report READY within 5 seconds")
+        bbc.system.set_speed_multiplier(0.0)
         yield bbc
 
 
@@ -250,7 +250,7 @@ def beebium(beebium_paths):
     role and plugs into the slave beebium publishes. A fresh server per test
     keeps ROM state deterministic.
     """
-    with _launch_beebium(beebium_paths, f"pty:{beebium_paths['pty']}") as bbc:
+    with _launch_beebium(beebium_paths, f"mode=pty:path={beebium_paths['pty']}") as bbc:
         yield bbc
 
 
@@ -354,7 +354,7 @@ def real_fujinet_host_tree(pytestconfig):
 
 @pytest.fixture()
 def beebium_real_host_tree(beebium_paths, real_fujinet_host_tree):
-    with _launch_beebium(beebium_paths, f"device:{real_fujinet_host_tree.pty_path}") as bbc:
+    with _launch_beebium(beebium_paths, f"mode=device:path={real_fujinet_host_tree.pty_path}") as bbc:
         yield bbc
 
 
@@ -424,13 +424,13 @@ def httpbin_service():
 
 @pytest.fixture()
 def beebium_real(beebium_paths, real_fujinet):
-    """Beebium plugged into the real fujinet's PTY via ``--serial device:``.
+    """Beebium plugged into the real fujinet's PTY via ``--host-serial mode=device:``.
 
-    Topology: fujinet (master) ── pty ── beebium (device:, slave-opener) ── BBC.
+    Topology: fujinet (master) ── pty ── beebium (host-serial device: slave-opener) ── BBC.
     The test observes results via the BBC screen/memory (the PTY is a two-party
     cable owned by fujinet and beebium).
     """
-    with _launch_beebium(beebium_paths, f"device:{real_fujinet.pty_path}") as bbc:
+    with _launch_beebium(beebium_paths, f"mode=device:path={real_fujinet.pty_path}") as bbc:
         yield bbc
 
 
