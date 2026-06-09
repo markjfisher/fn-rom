@@ -1,0 +1,9 @@
+name: parsing and default drive helpers
+
+configs:
+  - ${UNIT_TEST_DIR}/harness/harness.yaml
+
+src_files:
+  - test_parsing_defaults.s
+
+test_script: test_parsing_defaults.txt

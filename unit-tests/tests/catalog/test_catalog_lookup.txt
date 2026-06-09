@@ -1,0 +1,94 @@
+///////////////////////////////
+marker $$ exact first catalog entry matches $$
+///////////////////////////////
+
+memory load rom #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+symbols remove "__.*"
+memory protect ro #0xFF00 0x0100
+
+registers flush
+run $init_harness until (CP = $end_init_harness OR cycle_count > 5000)
+assert CP = $end_init_harness $$completed harness init$$
+
+registers set cycle_count = 0
+run $t_exact_first until $result_done = 0x01
+assert $result_carry = 0x01 $$exact short filename matches$$
+
+///////////////////////////////
+marker $$ long filename matches entry $$
+///////////////////////////////
+
+memory load rom #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+symbols remove "__.*"
+memory protect ro #0xFF00 0x0100
+
+registers flush
+run $init_harness until (CP = $end_init_harness OR cycle_count > 5000)
+assert CP = $end_init_harness $$completed harness init$$
+
+registers set cycle_count = 0
+run $t_second_entry until $result_done = 0x01
+assert $result_carry = 0x01 $$exact long filename matches$$
+
+///////////////////////////////
+marker $$ different filename does not match $$
+///////////////////////////////
+
+memory load rom #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+symbols remove "__.*"
+memory protect ro #0xFF00 0x0100
+
+registers flush
+run $init_harness until (CP = $end_init_harness OR cycle_count > 5000)
+assert CP = $end_init_harness $$completed harness init$$
+
+registers set cycle_count = 0
+run $t_dir_mismatch until $result_done = 0x01
+assert $result_carry = 0x00 $$different filename does not match$$
+
+///////////////////////////////
+marker $$ wildcard matches catalog entry $$
+///////////////////////////////
+
+memory load rom #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+symbols remove "__.*"
+memory protect ro #0xFF00 0x0100
+
+registers flush
+run $init_harness until (CP = $end_init_harness OR cycle_count > 5000)
+assert CP = $end_init_harness $$completed harness init$$
+
+registers set cycle_count = 0
+run $t_wildcard until $result_done = 0x01
+assert $result_carry = 0x01 $$repeat exact match still succeeds$$
+
+///////////////////////////////
+marker $$ case-insensitive filename match works $$
+///////////////////////////////
+
+memory load rom #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+symbols remove "__.*"
+memory protect ro #0xFF00 0x0100
+
+registers flush
+run $init_harness until (CP = $end_init_harness OR cycle_count > 5000)
+assert CP = $end_init_harness $$completed harness init$$
+
+registers set cycle_count = 0
+run $t_casefold until $result_done = 0x01
+assert $result_carry = 0x01 $$lowercase query matches uppercase filename$$

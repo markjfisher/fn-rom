@@ -1,0 +1,9 @@
+name: cmd_run library fallback helpers
+
+configs:
+  - ${UNIT_TEST_DIR}/harness/harness.yaml
+
+src_files:
+  - test_cmd_run_library.s
+
+test_script: test_cmd_run_library.txt

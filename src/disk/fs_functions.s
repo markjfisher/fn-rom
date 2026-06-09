@@ -18,6 +18,7 @@
         .export jmp_syntax
         .export load_cur_drv_cat
         .export load_cur_drv_cat2
+        .export match_filename
         .export num_params
         .export param_count
         .export param_count_a

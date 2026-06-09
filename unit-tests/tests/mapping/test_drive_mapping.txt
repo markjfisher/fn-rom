@@ -1,0 +1,43 @@
+///////////////////////////////
+marker $$ mapped drive resolves slot number $$
+///////////////////////////////
+
+memory load rom #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+symbols remove "__.*"
+memory protect ro #0xFF00 0x0100
+
+registers flush
+run $init_harness until (CP = $end_init_harness OR cycle_count > 5000)
+assert CP = $end_init_harness $$completed harness init$$
+
+run $_main while CP != $t_mapped_drive
+registers set cycle_count = 0
+run while CP != $t_mapped_drive_end
+assert CP = $t_mapped_drive_end $$returned from mapping helper$$
+assert A = 0x06 $$slot number returned in A$$
+assert $fuji_disk_slot = 0x06 $$slot cached for later calls$$
+
+///////////////////////////////
+marker $$ unmapped drive reports no slot $$
+///////////////////////////////
+
+memory load rom #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+symbols remove "__.*"
+memory protect ro #0xFF00 0x0100
+
+registers flush
+run $init_harness until (CP = $end_init_harness OR cycle_count > 5000)
+assert CP = $end_init_harness $$completed harness init$$
+
+run $_main while CP != $t_unmapped_drive
+registers set cycle_count = 0
+run while CP != $t_unmapped_drive_end
+assert CP = $t_unmapped_drive_end $$returned from mapping helper$$
+assert A = 0xFF $$unmapped drive returns FF$$
+assert $fuji_disk_slot = 0xFF $$slot cache cleared to no-disk marker$$

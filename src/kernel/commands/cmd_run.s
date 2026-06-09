@@ -2,7 +2,10 @@
 ; Based on MMFS fscv2_4_11_starRUN (line 2114)
 
         .export fscv2_4_11_starRUN
+        .export cmd_run_apply_library_drive
+        .export cmd_run_current_drive_map
         .export not_cmd_futils
+        .export cmd_run_try_library_drive
 
         .importzp aws_tmp10
         .importzp aws_tmp11
@@ -56,10 +59,9 @@ not_cmd_futils:
         ; below gets a chance to run. For transient commands we want an unmounted
         ; current drive to behave like "not found here" so *LIB can still resolve
         ; the utility from its own mounted drive.
-        ldx     current_drv
-        lda     fuji_drive_disk_map,x
+        jsr     cmd_run_current_drive_map
         cmp     #$FF
-        beq     try_library_drive
+        beq     cmd_run_try_library_drive
 
         jsr     get_cat_firstentry81
         bcs     runfile_found          ; If file found
@@ -75,11 +77,8 @@ not_cmd_futils:
         ; the re-parse read a clobbered pointer and reset the drive, so *LIB was
         ; silently ignored. Instead, just point at the library and search again;
         ; the catalog match does not call GSREAD, so these values survive.
-try_library_drive:
-        lda     fuji_lib_dir           ; LIB_DIR -> directory_param
-        sta     directory_param
-        lda     fuji_lib_drive         ; LIB_DRIVE -> current_drv
-        sta     current_drv
+cmd_run_try_library_drive:
+        jsr     cmd_run_apply_library_drive
         jsr     get_cat_firstentry81
         bcs     runfile_found          ; If file found
 
@@ -88,6 +87,18 @@ err_bad_command:
         jsr     err_bad
         .byte   $FE
         .byte   "command", 0
+
+cmd_run_apply_library_drive:
+        lda     fuji_lib_dir           ; LIB_DIR -> directory_param
+        sta     directory_param
+        lda     fuji_lib_drive         ; LIB_DRIVE -> current_drv
+        sta     current_drv
+        rts
+
+cmd_run_current_drive_map:
+        ldx     current_drv
+        lda     fuji_drive_disk_map,x
+        rts
 
 runfile_found:
         ; Check if this is an *EXEC file (exec address = &FFFFFFFF)

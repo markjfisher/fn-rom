@@ -1,0 +1,52 @@
+///////////////////////////////
+marker $$ unmounted current drive is detected $$
+///////////////////////////////
+
+memory load rom #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+symbols remove "__.*"
+memory protect ro #0xFF00 0x0100
+
+registers flush
+run $init_harness until (CP = $end_init_harness OR cycle_count > 5000)
+assert CP = $end_init_harness $$completed harness init$$
+run $t_unmounted_current_detected until CP = $t_unmounted_current_detected_end
+assert $result_a = 0xFF $$captured unmounted map value$$
+
+///////////////////////////////
+marker $$ mounted current drive remains valid $$
+///////////////////////////////
+
+memory load rom #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+symbols remove "__.*"
+memory protect ro #0xFF00 0x0100
+
+registers flush
+run $init_harness until (CP = $end_init_harness OR cycle_count > 5000)
+assert CP = $end_init_harness $$completed harness init$$
+run $t_mounted_current_preserved until CP = $t_mounted_current_preserved_end
+assert $result_a = 0x07 $$captured mounted map value$$
+assert $result_drive = 0x00 $$current drive preserved$$
+
+///////////////////////////////
+marker $$ applying library state writes drive and dir $$
+///////////////////////////////
+
+memory load rom #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+symbols remove "__.*"
+memory protect ro #0xFF00 0x0100
+
+registers flush
+run $init_harness until (CP = $end_init_harness OR cycle_count > 5000)
+assert CP = $end_init_harness $$completed harness init$$
+run $t_apply_library_drive_state until CP = $t_apply_library_drive_state_end
+assert $result_drive = 0x03 $$library branch wrote current drive$$
+assert $result_dir = 0x51 $$library branch wrote directory$$

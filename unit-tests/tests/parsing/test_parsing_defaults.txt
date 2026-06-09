@@ -1,0 +1,122 @@
+///////////////////////////////
+marker $$ param_optional_drive_no uses default drive on empty tail $$
+///////////////////////////////
+
+memory load rom #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+symbols remove "__.*"
+memory protect ro #0xFF00 0x0100
+
+registers flush
+run $init_harness until (CP = $end_init_harness OR cycle_count > 5000)
+assert CP = $end_init_harness $$completed harness init$$
+
+run $_main while CP != $t_default_drive
+registers set cycle_count = 0
+run while CP != $t_default_drive_end
+assert CP = $t_default_drive_end $$returned from helper$$
+assert A = 0x02 $$returned default drive$$
+assert $current_drv = 0x02 $$current drive set from default$$
+
+///////////////////////////////
+marker $$ param_optional_drive_no parses explicit drive $$
+///////////////////////////////
+
+memory load rom #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+symbols remove "__.*"
+memory protect ro #0xFF00 0x0100
+
+registers flush
+run $init_harness until (CP = $end_init_harness OR cycle_count > 5000)
+assert CP = $end_init_harness $$completed harness init$$
+
+run $_main while CP != $t_default_drive
+run while CP != $t_explicit_drive
+registers set cycle_count = 0
+run while CP != $t_explicit_drive_end
+assert CP = $t_explicit_drive_end $$returned from helper$$
+assert A = 0x03 $$returned explicit drive$$
+assert $current_drv = 0x03 $$current drive set from parameter$$
+
+///////////////////////////////
+marker $$ read_fspba_reset parses bare filename with defaults $$
+///////////////////////////////
+
+memory load rom #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+symbols remove "__.*"
+memory protect ro #0xFF00 0x0100
+
+registers flush
+run $init_harness until (CP = $end_init_harness OR cycle_count > 5000)
+assert CP = $end_init_harness $$completed harness init$$
+
+run $_main while CP != $t_bare_filename
+registers set cycle_count = 0
+run while CP != $t_bare_filename_end
+assert CP = $t_bare_filename_end $$returned from parser$$
+assert $current_drv = 0x02 $$default drive preserved$$
+assert $directory_param = 0x51 $$default directory preserved$$
+assert $fuji_network_url_flag = 0x00 $$not treated as network URL$$
+assert $fuji_filename_buffer + 0 = 0x46 $$F$$
+assert $fuji_filename_buffer + 1 = 0x4C $$L$$
+assert $fuji_filename_buffer + 2 = 0x53 $$S$$
+assert $fuji_filename_buffer + 3 = 0x20 $$padded after short filename$$
+assert $fuji_filename_buffer + 6 = 0x20 $$name cached as 7 chars$$
+
+///////////////////////////////
+marker $$ read_fspba_reset parses explicit drive prefix $$
+///////////////////////////////
+
+memory load rom #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+symbols remove "__.*"
+memory protect ro #0xFF00 0x0100
+
+registers flush
+run $init_harness until (CP = $end_init_harness OR cycle_count > 5000)
+assert CP = $end_init_harness $$completed harness init$$
+
+run $_main while CP != $t_drive_prefix
+registers set cycle_count = 0
+run while CP != $t_drive_prefix_end
+assert CP = $t_drive_prefix_end $$returned from parser$$
+assert $current_drv = 0x03 $$explicit drive parsed$$
+assert $directory_param = 0x51 $$directory still defaults$$
+assert $fuji_filename_buffer + 0 = 0x46 $$F$$
+assert $fuji_filename_buffer + 1 = 0x4C $$L$$
+assert $fuji_filename_buffer + 2 = 0x53 $$S$$
+
+///////////////////////////////
+marker $$ read_fspba_reset parses explicit directory prefix $$
+///////////////////////////////
+
+memory load rom #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+symbols remove "__.*"
+memory protect ro #0xFF00 0x0100
+
+registers flush
+run $init_harness until (CP = $end_init_harness OR cycle_count > 5000)
+assert CP = $end_init_harness $$completed harness init$$
+
+run $_main while CP != $t_dir_prefix
+registers set cycle_count = 0
+run while CP != $t_dir_prefix_end
+assert CP = $t_dir_prefix_end $$returned from parser$$
+assert $current_drv = 0x02 $$drive remains default$$
+assert $directory_param = 0x41 $$directory prefix parsed$$
+assert $fuji_filename_buffer + 0 = 0x46 $$F$$
+assert $fuji_filename_buffer + 1 = 0x4C $$L$$
+assert $fuji_filename_buffer + 2 = 0x53 $$S$$

@@ -1,0 +1,9 @@
+name: catalog lookup helpers
+
+configs:
+  - ${UNIT_TEST_DIR}/harness/harness.yaml
+
+src_files:
+  - test_catalog_lookup.s
+
+test_script: test_catalog_lookup.txt

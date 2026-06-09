@@ -1,0 +1,9 @@
+name: drive to slot mapping helpers
+
+configs:
+  - ${UNIT_TEST_DIR}/harness/harness.yaml
+
+src_files:
+  - test_drive_mapping.s
+
+test_script: test_drive_mapping.txt
