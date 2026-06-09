@@ -1,5 +1,9 @@
 # fn-rom ↔ Beebium serial/PTY end-to-end tests
 
+For the practical "what do I run?" guide, see [RUNNING_TESTS.md](RUNNING_TESTS.md).
+This README explains the architecture and layers; `RUNNING_TESTS.md` is the
+short operational guide for day-to-day use.
+
 These tests run the **real** `fn-rom` image inside the **Beebium** BBC emulator,
 over a **real serial + pseudo-terminal** path, and assert the FujiBus/SLIP
 frames the ROM emits. They are the end-to-end test for the serial transport and
@@ -54,6 +58,9 @@ cd integration-tests/beebium
 uv run pytest -v
 ```
 
+For common commands and the profile/coverage matrix, see
+[RUNNING_TESTS.md](RUNNING_TESTS.md).
+
 `uv` creates an isolated environment from `pyproject.toml` (no system `pip`,
 works on PEP 668 distros like Arch). The suite **launches its own** Beebium
 server per test (fresh ROM state) and stops it automatically — you do **not**
@@ -89,6 +96,9 @@ need are then skipped where that feature is absent:
 `run_profile_tests.sh` builds each profile's ROM and runs the appropriate subset
 (plus the FN-UTLS command-from-disk equivalence test); `../../run_tests.sh` wraps
 the whole build × test matrix. See `docs/ROM_ROLE_SPLIT_PLAN.md` Appendix C.
+
+If you want a concise explanation of what each lane covers and why the skip
+counts are expected, see [RUNNING_TESTS.md](RUNNING_TESTS.md).
 
 ## Two test layers
 

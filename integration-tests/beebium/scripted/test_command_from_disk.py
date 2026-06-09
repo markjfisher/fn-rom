@@ -209,6 +209,43 @@ def test_transient_command_resolves_via_library_drive(beebium, fuji_device):
     assert pkt.checksum_ok
 
 
+@pytest.mark.skipif(
+    not _OTHER_SSD.is_file(),
+    reason="needs build/OTHER.ssd (a DFS image without FLS) for the library test",
+)
+def test_transient_command_resolves_via_library_drive_when_current_drive_unmounted(
+    beebium, fuji_device
+):
+    """If the current drive is unmounted, *LIB must still be able to resolve a
+    transient command from its own mounted drive.
+
+    Regression for the remaining bug where the initial current-drive lookup tried
+    to load drive 0's catalog and threw "No disk" before cmd_run.s ever reached
+    the library fallback."""
+    fnutls = _SSD.read_bytes()
+    fuji_device.set_responder(_two_image_responder({
+        7: ("sd0:/fn-utls.ssd", fnutls),   # host slot 7 -> fn-utls (has FLS)
+    }))
+
+    command(beebium, "*FHOST sd0:/")
+    command(beebium, "*FIN 7 fn-utls.ssd")   # slot 7 -> fn-utls (has FLS)
+    command(beebium, "*FMOUNT 7 3")          # drive 3 = utils/library disk
+    command(beebium, "*LIB :3")
+    command(beebium, "*DRIVE 0")             # current drive remains unmounted
+    fuji_device.clear()
+
+    command(beebium, "*FLS")
+
+    pkt = fuji_device.wait_for_command(fp.FILE_DEVICE_ID, fp.CMD_LIST, timeout=8.0)
+    if pkt is None:
+        print("SCREEN AFTER *FLS ON UNMOUNTED DRIVE 0:\n" + dump_screen(beebium))
+    assert pkt is not None, (
+        "*FLS did not resolve via the library drive when the current drive was "
+        "unmounted"
+    )
+    assert pkt.checksum_ok
+
+
 def test_transient_command_receives_arguments(beebium, fuji_device):
     """An argument-taking utility loaded from disk must actually *see* its args:
     the wrapper points text_pointer at the *RUN tail. *FCD <path> resolves a

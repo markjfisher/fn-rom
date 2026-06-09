@@ -19,6 +19,7 @@
         .import dfs_cat_msbits
         .import err_bad
         .import fuji_filename_buffer
+        .import fuji_drive_disk_map
         .import fuji_lib_dir
         .import fuji_lib_drive
         .import fuji_text_ptr_hi
@@ -49,6 +50,17 @@ not_cmd_futils:
         sty     fuji_text_ptr_hi       ; MA+&10DA (Y=0)
         jsr     read_fspba_reset       ; Look in default drive/dir
         sty     fuji_text_ptr_offset   ; MA+&10D9 (Y=text ptr offset)
+
+        ; If the parsed current drive is unmounted, probing it would hard-error
+        ; with "No disk" inside get_cat_firstentry81 before the library fallback
+        ; below gets a chance to run. For transient commands we want an unmounted
+        ; current drive to behave like "not found here" so *LIB can still resolve
+        ; the utility from its own mounted drive.
+        ldx     current_drv
+        lda     fuji_drive_disk_map,x
+        cmp     #$FF
+        beq     try_library_drive
+
         jsr     get_cat_firstentry81
         bcs     runfile_found          ; If file found
 
@@ -63,6 +75,7 @@ not_cmd_futils:
         ; the re-parse read a clobbered pointer and reset the drive, so *LIB was
         ; silently ignored. Instead, just point at the library and search again;
         ; the catalog match does not call GSREAD, so these values survive.
+try_library_drive:
         lda     fuji_lib_dir           ; LIB_DIR -> directory_param
         sta     directory_param
         lda     fuji_lib_drive         ; LIB_DRIVE -> current_drv
