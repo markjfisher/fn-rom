@@ -1,0 +1,54 @@
+///////////////////////////////
+marker $$ url sentinel accepts exact colon-slash-slash $$
+///////////////////////////////
+
+memory load rom #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+symbols remove "__.*"
+memory protect ro #0xFF00 0x0100
+
+registers flush
+run $init_harness until (CP = $end_init_harness OR cycle_count > 5000)
+assert CP = $end_init_harness $$completed harness init$$
+run $t_url_sentinel_accepts_exact until CP = $t_url_sentinel_accepts_exact_end
+assert S & 0x01 = 0x00 $$carry clear means sentinel accepted$$
+
+///////////////////////////////
+marker $$ url sentinel rejects trailing characters after sentinel $$
+///////////////////////////////
+
+memory load rom #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+symbols remove "__.*"
+memory protect ro #0xFF00 0x0100
+
+registers flush
+run $init_harness until (CP = $end_init_harness OR cycle_count > 5000)
+assert CP = $end_init_harness $$completed harness init$$
+run $t_url_sentinel_rejects_extra until CP = $t_url_sentinel_rejects_extra_end
+assert S & 0x01 = 0x01 $$carry set means sentinel rejected$$
+
+///////////////////////////////
+marker $$ read_fspba_reset marks URL state for host://foo $$
+///////////////////////////////
+
+memory load rom #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+symbols remove "__.*"
+memory protect ro #0xFF00 0x0100
+
+registers flush
+run $init_harness until (CP = $end_init_harness OR cycle_count > 5000)
+assert CP = $end_init_harness $$completed harness init$$
+run $t_read_fspba_sets_url_flags until CP = $t_read_fspba_sets_url_flags_end
+assert $fuji_network_url_flag = 0x01 $$URL flag set$$
+assert $fuji_ext_str_flags = 0x03 $$external string marked active and URL$$
+assert $fuji_ext_str_len = 0x0A $$URL length tracked$$
+assert $fuji_ext_str_len_hi = 0x00 $$URL high length clear$$
+assert $fuji_ext_str_ptr -> $mock_cmdline $$external string points at source text$$

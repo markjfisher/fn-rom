@@ -29,6 +29,7 @@
         .export param_get_string
         .export param_get_string_max_x
         .export param_get_string_no_init
+        .export fs_check_open_url_sentinel
         .export param_optional_drive_no
         .export param_syntax_error_if_null
         .export param_syntax_error_if_null_getcatentry_fsptxtp

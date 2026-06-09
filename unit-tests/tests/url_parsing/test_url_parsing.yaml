@@ -1,0 +1,9 @@
+name: URL sentinel and URL parsing helpers
+
+configs:
+  - ${UNIT_TEST_DIR}/harness/harness.yaml
+
+src_files:
+  - test_url_parsing.s
+
+test_script: test_url_parsing.txt

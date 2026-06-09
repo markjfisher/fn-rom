@@ -1,0 +1,9 @@
+name: parameter counting and drive helpers
+
+configs:
+  - ${UNIT_TEST_DIR}/harness/harness.yaml
+
+src_files:
+  - test_param_helpers.s
+
+test_script: test_param_helpers.txt

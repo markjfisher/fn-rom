@@ -1,0 +1,75 @@
+///////////////////////////////
+marker $$ empty tail uses default dir and drive 0 $$
+///////////////////////////////
+
+memory load rom #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+symbols remove "__.*"
+memory protect ro #0xFF00 0x0100
+
+registers flush
+run $init_harness until (CP = $end_init_harness OR cycle_count > 5000)
+assert CP = $end_init_harness $$completed harness init$$
+run $t_empty_tail_uses_default_dir_and_drive0 until CP = $t_empty_tail_uses_default_dir_and_drive0_end
+assert A = 0x00 $$helper returns drive 0$$
+assert $current_drv = 0x00 $$current drive reset to 0$$
+assert $directory_param = 0x51 $$default directory preserved$$
+
+///////////////////////////////
+marker $$ directory-only parameter updates dir $$
+///////////////////////////////
+
+memory load rom #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+symbols remove "__.*"
+memory protect ro #0xFF00 0x0100
+
+registers flush
+run $init_harness until (CP = $end_init_harness OR cycle_count > 5000)
+assert CP = $end_init_harness $$completed harness init$$
+run $t_directory_only_updates_dir until CP = $t_directory_only_updates_dir_end
+assert A = 0x02 $$helper returns default drive$$
+assert $current_drv = 0x02 $$default drive applied$$
+assert $directory_param = 0x41 $$directory parameter updated to A$$
+
+///////////////////////////////
+marker $$ drive-only parameter updates drive $$
+///////////////////////////////
+
+memory load rom #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+symbols remove "__.*"
+memory protect ro #0xFF00 0x0100
+
+registers flush
+run $init_harness until (CP = $end_init_harness OR cycle_count > 5000)
+assert CP = $end_init_harness $$completed harness init$$
+run $t_drive_only_updates_drive until CP = $t_drive_only_updates_drive_end
+assert A = 0x03 $$helper returns parsed drive$$
+assert $current_drv = 0x03 $$drive parameter updated to 3$$
+assert $directory_param = 0x51 $$default directory preserved when no dir given$$
+
+///////////////////////////////
+marker $$ drive and directory parameters update both $$
+///////////////////////////////
+
+memory load rom #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+symbols remove "__.*"
+memory protect ro #0xFF00 0x0100
+
+registers flush
+run $init_harness until (CP = $end_init_harness OR cycle_count > 5000)
+assert CP = $end_init_harness $$completed harness init$$
+run $t_drive_and_directory_update_both until CP = $t_drive_and_directory_update_both_end
+assert A = 0x03 $$helper returns parsed drive$$
+assert $current_drv = 0x03 $$drive parameter updated to 3$$
+assert $directory_param = 0x41 $$directory parameter updated to A$$

@@ -1,0 +1,9 @@
+name: drive and directory parameter helpers
+
+configs:
+  - ${UNIT_TEST_DIR}/harness/harness.yaml
+
+src_files:
+  - test_dir_params.s
+
+test_script: test_dir_params.txt

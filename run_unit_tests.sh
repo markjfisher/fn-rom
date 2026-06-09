@@ -46,3 +46,6 @@ soft65c02_unit -i unit-tests/tests/parsing/test_parsing_defaults.yaml
 soft65c02_unit -i unit-tests/tests/mapping/test_drive_mapping.yaml
 soft65c02_unit -i unit-tests/tests/catalog/test_catalog_lookup.yaml
 soft65c02_unit -i unit-tests/tests/cmd_run/test_cmd_run_library.yaml
+soft65c02_unit -i unit-tests/tests/dir_params/test_dir_params.yaml
+soft65c02_unit -i unit-tests/tests/param_helpers/test_param_helpers.yaml
+soft65c02_unit -i unit-tests/tests/url_parsing/test_url_parsing.yaml
