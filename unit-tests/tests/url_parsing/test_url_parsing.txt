@@ -13,7 +13,7 @@ registers flush
 run $init_harness until (CP = $end_init_harness OR cycle_count > 5000)
 assert CP = $end_init_harness $$completed harness init$$
 run $t_url_sentinel_accepts_exact until CP = $t_url_sentinel_accepts_exact_end
-assert S & 0x01 = 0x00 $$carry clear means sentinel accepted$$
+assert $result_carry = 0x00 $$carry clear means sentinel accepted$$
 
 ///////////////////////////////
 marker $$ url sentinel rejects trailing characters after sentinel $$
@@ -30,10 +30,10 @@ registers flush
 run $init_harness until (CP = $end_init_harness OR cycle_count > 5000)
 assert CP = $end_init_harness $$completed harness init$$
 run $t_url_sentinel_rejects_extra until CP = $t_url_sentinel_rejects_extra_end
-assert S & 0x01 = 0x01 $$carry set means sentinel rejected$$
+assert $result_carry = 0x01 $$carry set means sentinel rejected$$
 
 ///////////////////////////////
-marker $$ read_fspba_reset marks URL state for host://foo $$
+marker $$ read_fspba_reset marks URL state for host URL text $$
 ///////////////////////////////
 
 memory load rom #0x8000 "${WS_ROOT}/build/fujinet.rom"

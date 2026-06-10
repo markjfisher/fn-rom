@@ -558,7 +558,31 @@ run until #0x00a1 != 0x00
 run until false
 ```
 
-Note that in all cases, the execution will stop if the command pointer register has not changed after an instruction to prevent dummy infinite loops or when the `STP` instruction is met.
+Note that in all cases, the execution will stop if the command pointer register has not changed after an instruction to prevent dummy infinite loops or when the `STP` instruction is met. That guard does **not** catch loops where the PC keeps moving (for example `NOP` followed by `JMP` back).
+
+#### run limits and live trace output
+
+Every `run` has a built-in **instruction limit** (default **1 000 000** instructions). If the limit is reached, execution stops with `TerminatedRun` and the message `Instruction limit exceeded (N instructions)`. You do not need `cycle_count` in your stop/while condition for this safety net.
+
+Per-run overrides (limits use the `count` token — decimal or `0x` hex, full `u64` range, not 16-bit):
+
+```
+run limit 50000 until CP = $done      // raise or lower the cap for this run only
+run limit 0x200000 until CP = $done   // hex counts are fine too
+run trace every 1000 until X = 0      // flush instruction trace every 1000 steps (verbose + trace_logging)
+run #0x1000 limit 100 trace every 10 while true
+```
+
+Session defaults (apply to later `run` lines until changed or `marker`):
+
+```
+enable run_limit 2000000
+enable trace_every 500
+disable run_limit                     // back to default 1 000 000
+disable trace_every                   // trace only at end of run again
+```
+
+Periodic trace uses the same format as a normal run log (`🚀` lines). It is emitted during execution so long runs remain visible before the final stop condition.
 
 #### run while a condition is true
 
@@ -585,8 +609,8 @@ The emulator accurately tracks CPU cycle timing through the `cycle_count` regist
 
 The cycle count can be:
 - Reset using `registers set cycle_count=0`
-- Used as a condition in `run while` statements (e.g., `run while cycle_count < 256`)
-- Compared against decimal or hex values (e.g., `assert cycle_count = 42` or `assert cycle_count = 0x2A`)
+- Used as a condition in `run while` statements (e.g., `run while cycle_count < 256` or `run while cycle_count < 100000`)
+- Compared against decimal or hex **`count`** values (full `u64` range, same token as `run limit` — not 16-bit `value16`)
 
 Example usage:
 ```

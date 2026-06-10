@@ -26,6 +26,7 @@ set_cmd_ptr:
 
 t_empty_tail_uses_default_dir_and_drive0:
         jsr     set_cmd_ptr
+        ldy     #$00
         lda     #'Q'
         sta     fuji_default_dir
         lda     #'X'
@@ -40,6 +41,7 @@ t_empty_tail_uses_default_dir_and_drive0_end:
 
 t_directory_only_updates_dir:
         jsr     set_cmd_ptr
+        ldy     #$00
         lda     #'Q'
         sta     fuji_default_dir
         lda     #$02
@@ -54,6 +56,7 @@ t_directory_only_updates_dir_end:
 
 t_drive_only_updates_drive:
         jsr     set_cmd_ptr
+        ldy     #$00
         lda     #'Q'
         sta     fuji_default_dir
         sta     directory_param
@@ -71,6 +74,7 @@ t_drive_only_updates_drive_end:
 
 t_drive_and_directory_update_both:
         jsr     set_cmd_ptr
+        ldy     #$00
         lda     #'Q'
         sta     fuji_default_dir
         sta     directory_param

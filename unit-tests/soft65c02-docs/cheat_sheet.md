@@ -167,7 +167,8 @@ Unimplemented / invalid opcode (or running into **data** as code): run ends with
 ```
 run until A = 0x42                      // Run until condition is true
 run until X != 0                        // Run until X is non-zero
-run until cycle_count > 0x100           // Run until cycle limit
+run until cycle_count > 0x100           // Run until cycle limit (count is u64, not 16-bit)
+run while cycle_count < 100000          // Large cycle budgets OK
 run until $counter = 0xFF               // Run until memory matches
 run #0x1000 until A = 0x42              // Run from address until condition
 ```
@@ -179,6 +180,18 @@ run while A = 0x42                      // Run while A equals value
 run while cycle_count < 256             // Run while under cycle limit
 run #0x1000 while X != 0                // Run from address while condition
 ```
+
+### Run safety net and live trace
+```
+run limit 50000 until CP = $done        // Per-run instruction cap (default 1_000_000)
+run trace every 1000 until X = 0        // Stream trace every N instructions (-v)
+enable run_limit 2000000                // Session default cap
+enable trace_every 500                  // Session default trace interval
+disable run_limit                       // Reset cap to default
+disable trace_every                     // Trace only at end of run
+```
+
+`run limit` stops with **TerminatedRun** when exceeded (loops where PC still changes, or `until` never met). The PC-unchanged guard alone does not catch those.
 
 ---
 

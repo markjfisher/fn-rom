@@ -2,6 +2,7 @@
 marker $$ num_params returns zero for empty tail $$
 ///////////////////////////////
 
+enable run_limit 100000
 memory load rom #0x8000 "${WS_ROOT}/build/fujinet.rom"
 symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
 memory load atari "${BINARY_PATH}"
@@ -19,6 +20,7 @@ assert A = 0x00 $$no params counted$$
 marker $$ num_params counts two parameters $$
 ///////////////////////////////
 
+enable run_limit 100000
 memory load rom #0x8000 "${WS_ROOT}/build/fujinet.rom"
 symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
 memory load atari "${BINARY_PATH}"
@@ -36,6 +38,7 @@ assert A = 0x02 $$two params counted$$
 marker $$ param_count_a lower bound for range 0-1 returns carry clear $$
 ///////////////////////////////
 
+enable run_limit 100000
 memory load rom #0x8000 "${WS_ROOT}/build/fujinet.rom"
 symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
 memory load atari "${BINARY_PATH}"
@@ -53,6 +56,7 @@ assert $result_carry = 0x00 $$carry clear for lower bound$$
 marker $$ param_count_a upper bound for range 0-1 returns carry set $$
 ///////////////////////////////
 
+enable run_limit 100000
 memory load rom #0x8000 "${WS_ROOT}/build/fujinet.rom"
 symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
 memory load atari "${BINARY_PATH}"
@@ -70,6 +74,7 @@ assert $result_carry = 0x01 $$carry set for upper bound$$
 marker $$ param_count_a lower bound for range 1-2 returns carry clear $$
 ///////////////////////////////
 
+enable run_limit 100000
 memory load rom #0x8000 "${WS_ROOT}/build/fujinet.rom"
 symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
 memory load atari "${BINARY_PATH}"
@@ -87,6 +92,7 @@ assert $result_carry = 0x00 $$carry clear for lower bound$$
 marker $$ param_count_a upper bound for range 1-2 returns carry set $$
 ///////////////////////////////
 
+enable run_limit 100000
 memory load rom #0x8000 "${WS_ROOT}/build/fujinet.rom"
 symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
 memory load atari "${BINARY_PATH}"
@@ -104,6 +110,7 @@ assert $result_carry = 0x01 $$carry set for upper bound$$
 marker $$ param_drive_or_default uses default when carry clear $$
 ///////////////////////////////
 
+enable run_limit 100000
 memory load rom #0x8000 "${WS_ROOT}/build/fujinet.rom"
 symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
 memory load atari "${BINARY_PATH}"
@@ -122,6 +129,7 @@ assert $current_drv = 0x02 $$current drive set to default$$
 marker $$ param_drive_or_default parses explicit drive when carry set $$
 ///////////////////////////////
 
+enable run_limit 100000
 memory load rom #0x8000 "${WS_ROOT}/build/fujinet.rom"
 symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
 memory load atari "${BINARY_PATH}"
@@ -140,6 +148,7 @@ assert $current_drv = 0x03 $$current drive set to parsed drive$$
 marker $$ param_get_string reads a complete string $$
 ///////////////////////////////
 
+enable run_limit 100000
 memory load rom #0x8000 "${WS_ROOT}/build/fujinet.rom"
 symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
 memory load atari "${BINARY_PATH}"
@@ -151,7 +160,7 @@ registers flush
 run $init_harness until (CP = $end_init_harness OR cycle_count > 5000)
 assert CP = $end_init_harness $$completed harness init$$
 run $t_param_get_string_reads_text until CP = $t_param_get_string_reads_text_end
-assert A = 0x03 $$string length returned$$
+assert $result_a = 0x03 $$string length returned$$
 assert $result_carry = 0x01 $$carry set for complete read$$
 assert $fuji_filename_buffer ~ "FOO\0" $$string copied to filename buffer$$
 
@@ -159,6 +168,7 @@ assert $fuji_filename_buffer ~ "FOO\0" $$string copied to filename buffer$$
 marker $$ param_get_string_max_x truncates and clears carry $$
 ///////////////////////////////
 
+enable run_limit 100000
 memory load rom #0x8000 "${WS_ROOT}/build/fujinet.rom"
 symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
 memory load atari "${BINARY_PATH}"
@@ -170,6 +180,6 @@ registers flush
 run $init_harness until (CP = $end_init_harness OR cycle_count > 5000)
 assert CP = $end_init_harness $$completed harness init$$
 run $t_param_get_string_max_x_truncates until CP = $t_param_get_string_max_x_truncates_end
-assert A = 0x03 $$truncated length returned$$
+assert $result_a = 0x03 $$truncated length returned$$
 assert $result_carry = 0x00 $$carry clear for truncation$$
 assert $fuji_filename_buffer ~ "HEL\0" $$string truncated to requested max$$

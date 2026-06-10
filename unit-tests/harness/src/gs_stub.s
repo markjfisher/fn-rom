@@ -8,6 +8,7 @@
         .export  mock_cmdline
         .export  mock_gs_pos
         .export  mock_gs_eol
+        .export  mock_gs_space_term
 
         .segment "CODE"
 
@@ -19,13 +20,31 @@ mock_gs_pos:
         .byte   0
 mock_gs_eol:
         .byte   0
+mock_gs_space_term:
+        .byte   0
 
-; GSINIT — reset to start of line (BBC re-initialises the command tail each call).
+; GSINIT — continue scanning from the current command tail position.
+; C=0 means spaces terminate the current token and should be skipped to find the
+; next token. C=1 means only CR/NUL terminate.
 h_gsinit_entry:
+        php
+        pla
+        and     #$01
+        sta     mock_gs_space_term
         lda     #$00
-        sta     mock_gs_pos
         sta     mock_gs_eol
-        ldy     #$00
+        lda     mock_gs_space_term
+        bne     @check_current
+
+@skip_spaces:
+        lda     MOCK_CMDLINE_BUF,y
+        cmp     #' '
+        bne     @check_current
+        iny
+        bne     @skip_spaces
+
+@check_current:
+        sty     mock_gs_pos
         lda     MOCK_CMDLINE_BUF,y
         beq     @empty
         clc
@@ -41,13 +60,29 @@ h_gsread_entry:
         lda     mock_gs_eol
         bne     @end_line
 
-        ldy     mock_gs_pos
         lda     MOCK_CMDLINE_BUF,y
         beq     @end_line
         cmp     #$0d
         beq     @end_line
-        inc     mock_gs_pos
+        pha
+        lda     mock_gs_space_term
+        bne     @emit_char
+        pla
+        cmp     #' '
+        beq     @end_space
+        pha
+@emit_char:
+        pla
+        iny
+        sty     mock_gs_pos
         clc
+        rts
+
+@end_space:
+        iny
+        sty     mock_gs_pos
+        sta     mock_gs_eol
+        sec
         rts
 
 @end_line:

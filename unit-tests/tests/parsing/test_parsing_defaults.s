@@ -32,6 +32,7 @@ _main:
         lda     #$00
         sta     mock_cmdline
 t_default_drive:
+        ldy     #$00
         jsr     param_optional_drive_no
 t_default_drive_end:
 
@@ -44,6 +45,7 @@ t_default_drive_end:
         lda     #$00
         sta     mock_cmdline+2
 t_explicit_drive:
+        ldy     #$00
         jsr     param_optional_drive_no
 t_explicit_drive_end:
 
@@ -64,6 +66,7 @@ t_explicit_drive_end:
         lda     #$00
         sta     mock_cmdline+3
 t_bare_filename:
+        ldy     #$00
         jsr     call_read_fspba_reset
 t_bare_filename_end:
 
@@ -90,6 +93,7 @@ t_bare_filename_end:
         lda     #$00
         sta     mock_cmdline+6
 t_drive_prefix:
+        ldy     #$00
         jsr     call_read_fspba_reset
 t_drive_prefix_end:
 
@@ -114,6 +118,7 @@ t_drive_prefix_end:
         lda     #$00
         sta     mock_cmdline+5
 t_dir_prefix:
+        ldy     #$00
         jsr     call_read_fspba_reset
 t_dir_prefix_end:
         rts

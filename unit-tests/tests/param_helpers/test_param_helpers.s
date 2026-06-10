@@ -21,8 +21,10 @@
 .export t_param_get_string_max_x_truncates_end
 
 .export result_carry
+.export result_a
 
 result_carry = $2220
+result_a = $2221
 
 .import mock_cmdline
 
@@ -31,6 +33,14 @@ result_carry = $2220
 .code
 
 capture_carry:
+        php
+        pla
+        and     #$01
+        sta     result_carry
+        rts
+
+capture_a_carry:
+        sta     result_a
         php
         pla
         and     #$01
@@ -49,6 +59,7 @@ set_cmd_ptr:
 
 t_num_params_zero:
         jsr     set_cmd_ptr
+        ldy     #$00
         lda     #$00
         sta     mock_cmdline+0
         jsr     num_params
@@ -57,6 +68,7 @@ t_num_params_zero_end:
 
 t_num_params_two:
         jsr     set_cmd_ptr
+        ldy     #$00
         lda     #'7'
         sta     mock_cmdline+0
         lda     #' '
@@ -71,6 +83,7 @@ t_num_params_two_end:
 
 t_param_count_range01_lower:
         jsr     set_cmd_ptr
+        ldy     #$00
         lda     #$00
         sta     mock_cmdline+0
         lda     #$00
@@ -81,6 +94,7 @@ t_param_count_range01_lower_end:
 
 t_param_count_range01_upper:
         jsr     set_cmd_ptr
+        ldy     #$00
         lda     #'7'
         sta     mock_cmdline+0
         lda     #$00
@@ -93,6 +107,7 @@ t_param_count_range01_upper_end:
 
 t_param_count_range12_lower:
         jsr     set_cmd_ptr
+        ldy     #$00
         lda     #'7'
         sta     mock_cmdline+0
         lda     #$00
@@ -105,6 +120,7 @@ t_param_count_range12_lower_end:
 
 t_param_count_range12_upper:
         jsr     set_cmd_ptr
+        ldy     #$00
         lda     #'7'
         sta     mock_cmdline+0
         lda     #' '
@@ -121,6 +137,7 @@ t_param_count_range12_upper_end:
 
 t_param_drive_default:
         jsr     set_cmd_ptr
+        ldy     #$00
         lda     #$02
         sta     fuji_default_drive
         lda     #$00
@@ -132,6 +149,7 @@ t_param_drive_default_end:
 
 t_param_drive_explicit:
         jsr     set_cmd_ptr
+        ldy     #$00
         lda     #$01
         sta     fuji_default_drive
         lda     #'3'
@@ -145,6 +163,7 @@ t_param_drive_explicit_end:
 
 t_param_get_string_reads_text:
         jsr     set_cmd_ptr
+        ldy     #$00
         lda     #'F'
         sta     mock_cmdline+0
         lda     #'O'
@@ -155,12 +174,13 @@ t_param_get_string_reads_text:
         sta     mock_cmdline+3
         clc
         jsr     param_get_string
-        jsr     capture_carry
+        jsr     capture_a_carry
 t_param_get_string_reads_text_end:
         rts
 
 t_param_get_string_max_x_truncates:
         jsr     set_cmd_ptr
+        ldy     #$00
         lda     #'H'
         sta     mock_cmdline+0
         lda     #'E'
@@ -176,6 +196,6 @@ t_param_get_string_max_x_truncates:
         clc
         ldx     #$03
         jsr     param_get_string_max_x
-        jsr     capture_carry
+        jsr     capture_a_carry
 t_param_get_string_max_x_truncates_end:
         rts

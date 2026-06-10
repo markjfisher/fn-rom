@@ -6,11 +6,22 @@
 .export t_read_fspba_sets_url_flags
 .export t_read_fspba_sets_url_flags_end
 
+.export result_carry
+
+result_carry = $2230
+
 .import mock_cmdline
 
 .include "fnrom.inc"
 
 .code
+
+capture_carry:
+        php
+        pla
+        and     #$01
+        sta     result_carry
+        rts
 
 call_read_fspba_reset:
         lda     #>(@ret - 1)
@@ -25,6 +36,7 @@ _main:
         rts
 
 t_url_sentinel_accepts_exact:
+        ldy     #$00
         lda     #<mock_cmdline
         sta     aws_tmp10
         lda     #>mock_cmdline
@@ -37,10 +49,12 @@ t_url_sentinel_accepts_exact:
         lda     #$00
         sta     mock_cmdline+3
         jsr     fs_check_open_url_sentinel
+        jsr     capture_carry
 t_url_sentinel_accepts_exact_end:
         rts
 
 t_url_sentinel_rejects_extra:
+        ldy     #$00
         lda     #<mock_cmdline
         sta     aws_tmp10
         lda     #>mock_cmdline
@@ -55,10 +69,12 @@ t_url_sentinel_rejects_extra:
         lda     #$00
         sta     mock_cmdline+4
         jsr     fs_check_open_url_sentinel
+        jsr     capture_carry
 t_url_sentinel_rejects_extra_end:
         rts
 
 t_read_fspba_sets_url_flags:
+        ldy     #$00
         lda     #$00
         sta     fuji_ext_str_flags
         sta     fuji_ext_str_len
