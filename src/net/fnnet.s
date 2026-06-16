@@ -21,6 +21,7 @@
         .import fuji_ch_ext_hi
         .import fuji_ch_ext_low
         .import fuji_ch_ext_mid
+        .import fuji_intch
         .import fuji_ch_sect_cnt
         .import fuji_ch_write_count
         .import fuji_ch_write_pos_low

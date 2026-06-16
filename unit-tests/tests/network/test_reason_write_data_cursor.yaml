@@ -1,0 +1,9 @@
+name: fnnet write_data preserves channel cursor across scratch clobbering
+
+configs:
+  - ${UNIT_TEST_DIR}/harness/harness.yaml
+
+src_files:
+  - test_reason_write_data_cursor.s
+
+test_script: test_reason_write_data_cursor.txt

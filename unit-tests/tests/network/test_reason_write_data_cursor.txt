@@ -1,0 +1,50 @@
+///////////////////////////////
+marker $$ fnnet write_data keeps cursor on real channel $$
+///////////////////////////////
+
+memory load #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+
+symbols remove "__.*"
+
+registers flush
+
+; Replace the two callees that previously clobbered aws_tmp02 in real code paths.
+; If fnnet_reason_write_data relies on aws_tmp02 to remember the channel, this test fails.
+memory write $network_flush_write 0x(4C)
+memory write $patch_network_flush_write $stub_network_flush_write
+memory write $fujibus_network_write_ext 0x(4C)
+memory write $patch_fujibus_network_write_ext $stub_fujibus_network_write_ext
+
+memory fill #0x2200~#0x23FF $$ clear param + payload buffers $$
+
+; Mark channel 1 ($11) as open. is_hndlin_use_yintch maps it to internal slot $20.
+memory write $fuji_open_channels 0x(80)
+
+; Prime the real channel write cursor with the offset seen in the regression.
+memory write $ch1_write_pos_low 0x(2D)
+memory write $ch1_write_pos_mid 0x(00)
+memory write $ch1_write_pos_hi 0x(00)
+memory write $ch1_write_count 0x(00)
+
+memory write $payload_buf "DATA"
+
+; OSWORD &78 block for reason=&02 WRITE_DATA
+; +0 reason, +1 status/result, +2 ptr, +4 len, +6 file handle
+memory write $param_block 0x(02,00,00,23,04,00,11)
+
+run $t_reason_write_data_cursor_advance until (CP = $t_reason_write_data_cursor_advance_end OR cycle_count > 5000)
+
+assert CP = $t_reason_write_data_cursor_advance_end $$completed fnnet dispatch$$
+assert $param_block = 0x00 $$write_data returned success$$
+assert $param_block + 1 = 0x00 $$status mirror updated$$
+
+; The real channel cursor must advance by payload length even though the callees
+; stomped aws_tmp02. Pre-fix this stayed at $2D.
+assert $ch1_write_pos_low = 0x31 $$channel 1 low cursor advanced by four bytes$$
+assert $ch1_write_pos_mid = 0x00 $$channel 1 mid cursor unchanged$$
+assert $ch1_write_pos_hi = 0x00 $$channel 1 high cursor unchanged$$
+assert $ch1_write_count = 0x00 $$no buffered write residue$$

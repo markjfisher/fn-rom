@@ -8,12 +8,12 @@ fnnet_reason_write_data:
         jsr     check_channel_yhndl_exyintch
         bcs     fnnet_write_failed
 
-        sty     aws_tmp02
+        sty     fuji_intch
 
         jsr     network_flush_write
         bcs     fnnet_write_failed
 
-        ldy     aws_tmp02
+        ldy     fuji_intch
         lda     fuji_ch_write_count,y
         beq     :+
         lda     #$00
@@ -33,7 +33,7 @@ fnnet_reason_write_data:
         bcs     fnnet_write_failed
 
         ; advance write position by bulk payload length
-        ldy     aws_tmp02
+        ldy     fuji_intch
         lda     fuji_ch_write_pos_low,y
         clc
         adc     fuji_ext_str_len

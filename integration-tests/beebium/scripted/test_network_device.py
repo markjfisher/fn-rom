@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import time
+
 import pytest
 
 from fujinet_tools import fujibus as fb
@@ -304,6 +306,77 @@ def test_osword78_reason01_02_03_post_flow_emits_open_write_close(beebium, fuji_
     assert req_handle == handle
     assert req_offset == 0
     assert req_data == body
+
+    close_pkt = fuji_device.wait_for_command(netp.NETWORK_DEVICE_ID, netp.CMD_CLOSE, timeout=8.0)
+    assert close_pkt is not None and close_pkt.checksum_ok
+
+
+def test_osword78_reason02_two_writes_advance_write_offset(beebium, fuji_device):
+    handle = 0x1234
+    body1 = b"abc"
+    body2 = b"defg"
+
+    def responder(pkt):
+        if pkt.device != netp.NETWORK_DEVICE_ID:
+            return None
+        if pkt.command == netp.CMD_OPEN:
+            return build_network_open_response(handle=handle, proto_flags=netp.PROTO_FLAG_SEQUENTIAL_WRITE)
+        if pkt.command == netp.CMD_WRITE:
+            req_version, req_handle, req_offset, req_data = _decode_write_payload(pkt.payload)
+            assert req_version == netp.NETPROTO_VERSION
+            assert req_handle == handle
+            return build_network_write_response(handle=handle, offset=req_offset, written=len(req_data))
+        if pkt.command == netp.CMD_CLOSE:
+            return build_network_close_response()
+        return None
+
+    fuji_device.set_responder(responder)
+
+    run_basic_program(
+        beebium,
+        [
+            '10 DIM B% 16,C% 512,D% 512',
+            '20 A$="abc":B$="defg"',
+            '30 $(C%)=A$+CHR$(0)',
+            '40 $(D%)=B$+CHR$(0)',
+            '50 B%?0=1:B%?2=LEN(A$)+LEN(B$):B%?3=0:A%=&78:X%=B% MOD 256:Y%=B% DIV 256:CALL &FFF1',
+            '60 H%=OPENUP("http://example.com/chunked")',
+            '70 B%?0=2:B%?2=C% MOD 256:B%?3=C% DIV 256:B%?4=LEN(A$):B%?5=0:B%?6=H%:A%=&78:X%=B% MOD 256:Y%=B% DIV 256:CALL &FFF1',
+            '80 B%?0=2:B%?2=D% MOD 256:B%?3=D% DIV 256:B%?4=LEN(B$):B%?5=0:B%?6=H%:A%=&78:X%=B% MOD 256:Y%=B% DIV 256:CALL &FFF1',
+            '90 CLOSE#H%',
+        ],
+    )
+
+    open_pkt = fuji_device.wait_for_command(netp.NETWORK_DEVICE_ID, netp.CMD_OPEN, timeout=8.0)
+    assert open_pkt is not None and open_pkt.checksum_ok
+
+    deadline = time.monotonic() + 8.0
+    while time.monotonic() < deadline:
+        write_pkts = [
+            pkt for pkt in fuji_device.requests
+            if pkt.device == netp.NETWORK_DEVICE_ID and pkt.command == netp.CMD_WRITE
+        ]
+        if len(write_pkts) >= 2:
+            break
+        time.sleep(0.02)
+
+    assert len(write_pkts) >= 2
+
+    write_pkt1 = write_pkts[0]
+    assert write_pkt1.checksum_ok
+    req_version1, req_handle1, req_offset1, req_data1 = _decode_write_payload(write_pkt1.payload)
+    assert req_version1 == netp.NETPROTO_VERSION
+    assert req_handle1 == handle
+    assert req_offset1 == 0
+    assert req_data1 == body1
+
+    write_pkt2 = write_pkts[1]
+    assert write_pkt2.checksum_ok
+    req_version2, req_handle2, req_offset2, req_data2 = _decode_write_payload(write_pkt2.payload)
+    assert req_version2 == netp.NETPROTO_VERSION
+    assert req_handle2 == handle
+    assert req_offset2 == len(body1)
+    assert req_data2 == body2
 
     close_pkt = fuji_device.wait_for_command(netp.NETWORK_DEVICE_ID, netp.CMD_CLOSE, timeout=8.0)
     assert close_pkt is not None and close_pkt.checksum_ok
