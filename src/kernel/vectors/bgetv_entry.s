@@ -10,12 +10,14 @@
 
 .if .defined(FEATURE_NET)
         .export network_bget
-        .export nwbg_no_data_available
         .export nwbg_net_eof_j
         .export nwbg_net_read
         .export nwbg_net_have_data
         .export nwbg_net_eof
         .export nwbg_net_eof_exit
+        .export nwbg_no_data_available
+        .export nwbg_read_done
+        .export nwbg_read_retry
 .endif
 
         .importzp aws_tmp06
@@ -210,14 +212,23 @@ nwbg_net_read:
 
 nwbg_read_retry:
         ldy     fuji_intch              ; restore intch before each read attempt
+
+        lda     aws_tmp06               ; DEBUG, just so we can see it in trace
         lda     fuji_ch_bptr_low,y      ; restore offset = PTR after any clobbering calls
         sta     aws_tmp06
+
+        lda     aws_tmp07               ; DEBUG, just so we can see it in trace
         lda     fuji_ch_bptr_mid,y
         sta     aws_tmp07
+
+        lda     aws_tmp08               ; DEBUG, just so we can see it in trace
         lda     fuji_ch_bptr_hi,y
         sta     aws_tmp08
+
+        lda     aws_tmp09               ; DEBUG, just so we can see it in trace
         lda     #$00
         sta     aws_tmp09
+
         jsr     fujibus_network_read
         ldy     fuji_intch              ; reload intch (aws_tmp02 clobbered)
         cmp     #$02
