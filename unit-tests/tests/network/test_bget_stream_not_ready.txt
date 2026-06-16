@@ -1,0 +1,44 @@
+///////////////////////////////
+marker $$ network bget returns NotReady sentinel for streaming channels $$
+///////////////////////////////
+
+memory load #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+
+symbols remove "__.*"
+
+registers flush
+
+memory write $fujibus_network_read 0x(4C)
+memory write $patch_fujibus_network_read $stub_fujibus_network_read_not_ready
+
+memory write $call_count 0x(00)
+memory write $result_a 0x(00)
+memory write $result_c 0x(00)
+memory write $result_p 0x(00)
+
+; Mark network channel 5 (handle $15 / intch $A0) as open and streaming.
+memory write $fuji_open_channels 0x(08)
+memory write $ch5_handle_low 0x(01)
+memory write $ch5_handle_high 0x(01)
+memory write $ch5_net_proto 0x(04)
+
+; No buffered bytes and unknown-length stream, so BGET must attempt one network read.
+memory write $ch5_bptr_low 0x(00)
+memory write $ch5_bptr_mid 0x(00)
+memory write $ch5_bptr_hi 0x(00)
+memory write $ch5_ext_low 0x(FF)
+memory write $ch5_ext_mid 0x(FF)
+memory write $ch5_ext_hi 0x(FF)
+memory write $ch5_buf_start_low 0x(00)
+memory write $ch5_buf_count 0x(00)
+
+run $t_bget_stream_not_ready until (CP = $t_bget_stream_not_ready_end OR cycle_count > 5000)
+
+assert CP = $t_bget_stream_not_ready_end $$completed bget call$$
+assert $call_count = 0x01 $$streaming not-ready performs one read attempt only$$
+assert $result_a = 0xFE $$streaming not-ready returns BBC temporary-no-data sentinel$$
+assert $result_c = 0x01 $$carry set distinguishes no-byte condition from data$$

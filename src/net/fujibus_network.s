@@ -72,6 +72,7 @@
         .import fuji_network_body_len
         .import fuji_network_body_len_hi
         .import fuji_network_content_profile
+        .import fuji_network_open_proto
         .import fuji_network_buf_cnt
         .import fuji_network_buf_cnt_hi
         .import fuji_network_url_flag
@@ -326,6 +327,11 @@ nw_open_after_receive:
         and     #NET_OPEN_FLAG_ACCEPTED
         beq     @fail
 
+        ; preserve protocol flags for the caller to stash per-channel
+        ldy     #NET_OPEN_RESP_PROTO_FLAGS
+        lda     (buffer_ptr),y
+        sta     fuji_network_open_proto
+
         ; extract handle (u16le at NET_RESP_HANDLE)
         ldy     #NET_RESP_HANDLE
         lda     (buffer_ptr),y
@@ -343,6 +349,7 @@ nw_open_after_receive:
 @fail:
         lda     #$00
         sta     fuji_ext_str_flags
+        sta     fuji_network_open_proto
         tax
         rts
 

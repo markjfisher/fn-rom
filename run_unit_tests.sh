@@ -42,6 +42,7 @@ cd -
 
 soft65c02_unit -i unit-tests/tests/fuji_init/test_fuji_init.yaml
 soft65c02_unit -i unit-tests/tests/serial/test_scatter_checksum.yaml
+soft65c02_unit -i unit-tests/tests/network/test_bget_stream_not_ready.yaml
 soft65c02_unit -i unit-tests/tests/network/test_reason_write_data_cursor.yaml
 soft65c02_unit -i unit-tests/tests/parsing/test_parsing_defaults.yaml
 soft65c02_unit -i unit-tests/tests/mapping/test_drive_mapping.yaml

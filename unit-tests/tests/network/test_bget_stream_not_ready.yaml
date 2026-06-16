@@ -1,0 +1,9 @@
+name: network bget returns NotReady sentinel for streaming channels
+
+configs:
+  - ${UNIT_TEST_DIR}/harness/harness.yaml
+
+src_files:
+  - test_bget_stream_not_ready.s
+
+test_script: test_bget_stream_not_ready.txt

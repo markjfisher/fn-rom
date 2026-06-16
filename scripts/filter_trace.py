@@ -7,7 +7,7 @@ Trace lines look like:
   H $ffc2`o : jmp  $ea1e   ...
 
 The letter after the address (here `e`, `o`) identifies which ROM that PC belongs to.
-Lines whose ROM tag matches --rom are emitted verbatim.
+Lines whose ROM tag matches one of the --rom tags are emitted verbatim.
 
 Runs in other ROMs are collapsed: the first and last instruction line in each contiguous
 non-matching run are kept; lines strictly between them are replaced by a single:
@@ -36,7 +36,7 @@ def rom_tag_from_line(line: str) -> str | None:
     return m.group(1) if m else None
 
 
-def filter_stream(inp: TextIO, out: TextIO, *, keep_rom: str) -> None:
+def filter_stream(inp: TextIO, out: TextIO, *, keep_roms: set[str]) -> None:
     """
     Streaming filter: external runs are collapsed to first + optional ... + last.
     Lines strictly between first and last external (same run) are omitted; ellipsis is
@@ -70,7 +70,7 @@ def filter_stream(inp: TextIO, out: TextIO, *, keep_rom: str) -> None:
             out.write(line)
             continue
 
-        if tag == keep_rom:
+        if tag in keep_roms:
             if in_external:
                 if tail_count == 1:
                     out.write(last_external_line)
@@ -93,7 +93,7 @@ def filter_stream(inp: TextIO, out: TextIO, *, keep_rom: str) -> None:
         tail_count += 1
         last_external_line = line
 
-    # EOF while still in external: emit tail like return to keep_rom
+    # EOF while still in external: emit tail like return to a kept ROM
     if in_external:
         if tail_count == 1:
             out.write(last_external_line)
@@ -113,7 +113,7 @@ def main(argv: list[str]) -> int:
         pass
 
     ap = argparse.ArgumentParser(
-        description="Filter trace lines to one ROM tag; collapse other ROMs to first/.../last.",
+        description="Filter trace lines to selected ROM tag(s); collapse other ROMs to first/.../last.",
     )
     ap.add_argument("input", help="Input trace file path, or '-' for stdin.")
     ap.add_argument(
@@ -125,14 +125,17 @@ def main(argv: list[str]) -> int:
     ap.add_argument(
         "--rom",
         default="e",
-        metavar="TAG",
-        help='ROM letter to keep (default: "%(default)s").',
+        metavar="TAGS",
+        help='ROM letter(s) to keep, comma-separated (default: "%(default)s").',
     )
 
     ns = ap.parse_args(argv)
-    keep_rom = ns.rom
-    if len(keep_rom) != 1:
-        ap.error("--rom must be a single character")
+    keep_roms = {t.strip() for t in ns.rom.split(",") if t.strip()}
+    if not keep_roms:
+        ap.error("--rom must specify at least one ROM tag")
+    for tag in keep_roms:
+        if len(tag) != 1:
+            ap.error(f"--rom tags must be single characters: {tag!r}")
 
     if ns.input == "-":
         inp: TextIO = io.TextIOWrapper(
@@ -150,7 +153,7 @@ def main(argv: list[str]) -> int:
 
     try:
         try:
-            filter_stream(inp, out, keep_rom=keep_rom)
+            filter_stream(inp, out, keep_roms=keep_roms)
         except BrokenPipeError:
             return 0
     finally:

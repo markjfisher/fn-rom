@@ -104,6 +104,11 @@ NET_FLAG_ALLOW_EVICT = $08
 ; Network open response flags
 NET_OPEN_FLAG_ACCEPTED = $01
 
+; Protocol capability flags returned by network OPEN
+NET_PROTO_FLAG_SEQUENTIAL_READ  = $01
+NET_PROTO_FLAG_SEQUENTIAL_WRITE = $02
+NET_PROTO_FLAG_STREAMING        = $04
+
 ; Network read response flags
 NET_READ_FLAG_EOF   = $01
 
@@ -116,9 +121,13 @@ NET_RESP_VERSION          = NET_PAYLOAD_OFFSET + 0   ; 7: 1 byte
 NET_RESP_FLAGS            = NET_PAYLOAD_OFFSET + 1   ; 8: 1 byte
 NET_RESP_RESERVED         = NET_PAYLOAD_OFFSET + 2   ; 9: 2 bytes
 NET_RESP_HANDLE           = NET_PAYLOAD_OFFSET + 4   ; 11: 2 bytes u16le
+NET_OPEN_RESP_PROTO_FLAGS = NET_PAYLOAD_OFFSET + 6   ; 13: 1 byte
 NET_RESP_OFFSET_ECHO      = NET_PAYLOAD_OFFSET + 6   ; 13: 4 bytes u32le
 NET_RESP_DATALEN          = NET_PAYLOAD_OFFSET + 10  ; 17: 2 bytes u16le
 NET_RESP_DATA             = NET_PAYLOAD_OFFSET + 12  ; 19: variable
+
+; BBC OSBGET extension: carry set + A=$FE means temporary NotReady, not EOF.
+NET_BGET_NOT_READY        = $FE
 
 ; Fuji Commands
 FUJI_CMD_GET_MOUNTS = $FD

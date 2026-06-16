@@ -50,6 +50,7 @@
         .import fuji_ch_flg
         .import fuji_ch_handle_high
         .import fuji_ch_handle_low
+        .import fuji_ch_net_proto
         .import fuji_ch_sect_cnt
         .import fuji_ch_sect_hi
         .import fuji_ch_sect_lo
@@ -212,20 +213,12 @@ nwbg_net_read:
 
 nwbg_read_retry:
         ldy     fuji_intch              ; restore intch before each read attempt
-
-        lda     aws_tmp06               ; DEBUG, just so we can see it in trace
         lda     fuji_ch_bptr_low,y      ; restore offset = PTR after any clobbering calls
         sta     aws_tmp06
-
-        lda     aws_tmp07               ; DEBUG, just so we can see it in trace
         lda     fuji_ch_bptr_mid,y
         sta     aws_tmp07
-
-        lda     aws_tmp08               ; DEBUG, just so we can see it in trace
         lda     fuji_ch_bptr_hi,y
         sta     aws_tmp08
-
-        lda     aws_tmp09               ; DEBUG, just so we can see it in trace
         lda     #$00
         sta     aws_tmp09
 
@@ -233,6 +226,19 @@ nwbg_read_retry:
         ldy     fuji_intch              ; reload intch (aws_tmp02 clobbered)
         cmp     #$02
         bne     nwbg_read_done
+
+        lda     fuji_ch_net_proto,y
+        and     #NET_PROTO_FLAG_STREAMING
+        beq     @retry_not_ready
+
+        ; BBC extension for streaming channels: temporary no-data must surface
+        ; back through OSBGET so fujinet-nio-lib can return FN_ERR_NOT_READY
+        ; instead of blocking until socket close.
+        lda     #NET_BGET_NOT_READY
+        sec
+        rts
+
+@retry_not_ready:
 
         jsr     network_retry_backoff
         bcs     nwbg_net_eof            ; timeout behaves as EOF for BASIC

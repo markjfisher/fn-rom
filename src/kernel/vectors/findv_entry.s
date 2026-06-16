@@ -97,6 +97,7 @@
         .import fuji_ch_handle_high
         .import fuji_ch_handle_low
         .import fuji_ch_name7
+        .import fuji_ch_net_proto
         .import fuji_ch_op
         .import fuji_ch_sect_cnt
         .import fuji_channel_flag_bit
@@ -106,6 +107,7 @@
         .import fuji_filev_exec_hi
         .import fuji_filev_hi_addr_buf
         .import fuji_intch
+        .import fuji_network_open_proto
         .import fuji_network_url_flag
         .import fuji_open_channels
 .if .defined(FEATURE_NET)
@@ -627,6 +629,8 @@ nof_open_ok:
         sta     fuji_ch_handle_low,y
         txa
         sta     fuji_ch_handle_high,y
+        lda     fuji_network_open_proto
+        sta     fuji_ch_net_proto,y
 
         ; end transaction
         jsr     fuji_end_transaction
