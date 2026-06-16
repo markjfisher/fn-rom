@@ -210,6 +210,14 @@ nwbg_net_read:
 
 nwbg_read_retry:
         ldy     fuji_intch              ; restore intch before each read attempt
+        lda     fuji_ch_bptr_low,y      ; restore offset = PTR after any clobbering calls
+        sta     aws_tmp06
+        lda     fuji_ch_bptr_mid,y
+        sta     aws_tmp07
+        lda     fuji_ch_bptr_hi,y
+        sta     aws_tmp08
+        lda     #$00
+        sta     aws_tmp09
         jsr     fujibus_network_read
         ldy     fuji_intch              ; reload intch (aws_tmp02 clobbered)
         cmp     #$02
