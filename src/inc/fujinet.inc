@@ -100,6 +100,7 @@ NET_METHOD_HEAD    = $05
 ; Network open flags
 NET_FLAG_BODY_UNKNOWN = $04
 NET_FLAG_ALLOW_EVICT = $08
+NET_FLAG_STREAM_NO_PROBE = $10
 
 ; Network open response flags
 NET_OPEN_FLAG_ACCEPTED = $01
@@ -108,9 +109,6 @@ NET_OPEN_FLAG_ACCEPTED = $01
 NET_PROTO_FLAG_SEQUENTIAL_READ  = $01
 NET_PROTO_FLAG_SEQUENTIAL_WRITE = $02
 NET_PROTO_FLAG_STREAMING        = $04
-
-; Network read response flags
-NET_READ_FLAG_EOF   = $01
 
 ; Network protocol byte offsets within full response buffer
 ; FujiBus wire: [0]=dev [1]=cmd [2,3]=len [4]=chk [5]=desc [6]=status [7+]=protocol payload
@@ -128,6 +126,11 @@ NET_RESP_DATA             = NET_PAYLOAD_OFFSET + 12  ; 19: variable
 
 ; BBC OSBGET extension: carry set + A=$FE means temporary NotReady, not EOF.
 NET_BGET_NOT_READY        = $FE
+
+; Read response flags
+NET_READ_FLAG_EOF            = $01
+NET_READ_FLAG_TRUNCATED      = $02
+NET_READ_FLAG_MORE_AVAILABLE = $04
 
 ; Fuji Commands
 FUJI_CMD_GET_MOUNTS = $FD

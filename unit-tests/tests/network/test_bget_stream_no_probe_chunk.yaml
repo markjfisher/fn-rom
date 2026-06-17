@@ -1,0 +1,9 @@
+name: network bget no-probe returns current chunk without second read
+
+configs:
+  - ${UNIT_TEST_DIR}/harness/harness.yaml
+
+src_files:
+  - test_bget_stream_no_probe_chunk.s
+
+test_script: test_bget_stream_no_probe_chunk.txt

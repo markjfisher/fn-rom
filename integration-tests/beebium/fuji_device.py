@@ -398,6 +398,7 @@ def build_network_read_response(
     data: bytes,
     eof: bool = False,
     truncated: bool = False,
+    more_available: bool = False,
     status: int = 0,
 ) -> bytes:
     if netp is None:
@@ -407,6 +408,8 @@ def build_network_read_response(
         flags |= 0x01
     if truncated:
         flags |= 0x02
+    if more_available:
+        flags |= 0x04
     body = (
         bytes([netp.NETPROTO_VERSION, flags])
         + struct.pack("<H", 0)

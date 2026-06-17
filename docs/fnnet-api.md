@@ -54,6 +54,20 @@ Arms a URI for the **next** `OPENIN` / `OPENUP` / `OPENOUT`. The BASIC filename 
 
 The armed URL is consumed when the network open completes (same as other one-shot open options). HTTP/TCP connection happens at **open** time, not on the first `BGET#`.
 
+### Reason `&05` — set network open flags (one-shot)
+
+| Offset | Field |
+|--------|-------|
+| 2 | Open flags u8 (currently `&10` = `stream_no_probe`) |
+
+Arms additional network `Open` request flags for the **next** `OPENIN` / `OPENUP` / `OPENOUT` network open, then clears them after the open attempt completes.
+
+Currently defined flag:
+
+| Bit | Meaning |
+|-----|---------|
+| `&10` | `stream_no_probe` — for streaming channels, return the current buffered chunk without forcing a follow-up probe read solely to discover whether more bytes are immediately available |
+
 ## Reason codes
 
 | Code | Action |
@@ -63,6 +77,7 @@ The armed URL is consumed when the network open completes (same as other one-sho
 | `&02` | Write request body bytes to an open channel |
 | `&03` | Set one-shot request content profile |
 | `&04` | Arm URL in user RAM for next `OPENIN("://")` |
+| `&05` | Set one-shot network open flags |
 
 ## JSON query (reason `&00`)
 
@@ -128,6 +143,7 @@ OSWORD `&78` handlers compile as one CODE object from [src/fnnet.s](../src/fnnet
 | `reason_write_data.inc` | Reason `&02` |
 | `reason_set_content_profile.inc` | Reason `&03` |
 | `reason_set_open_url.inc` | Reason `&04` |
+| `reason_set_open_flags.inc` | Reason `&05` |
 
 BBC BASIC reserves the `FN` prefix for user functions (case-insensitive) — use the `fin*` prefix for names, not `fn*` or `FNNET_*`.
 

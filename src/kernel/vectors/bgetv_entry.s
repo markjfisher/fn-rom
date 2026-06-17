@@ -50,6 +50,7 @@
         .import fuji_ch_flg
         .import fuji_ch_handle_high
         .import fuji_ch_handle_low
+        .import fuji_ch_net_flags
         .import fuji_ch_net_proto
         .import fuji_ch_sect_cnt
         .import fuji_ch_sect_hi
@@ -58,6 +59,7 @@
         .import fuji_filev_load_hi
         .import fuji_intch
 .if .defined(FEATURE_NET)
+        .importzp aws_tmp04
         .import fuji_network_buf_cnt
         .import fuji_network_buf_cnt_hi
         .import fujibus_network_read
@@ -70,6 +72,9 @@
         .import save_mem_block
 
         .include "fujinet.inc"
+
+NET_CH_FLAG_NO_PROBE             = $10
+NET_CH_FLAG_CHUNK_BOUNDARY_READY = $80
 
         .segment "CODE"
 
@@ -163,6 +168,16 @@ network_bget:
 
 
 nwbg_no_data_available:
+        lda     fuji_ch_net_flags,y
+        and     #NET_CH_FLAG_CHUNK_BOUNDARY_READY
+        beq     :+
+        lda     fuji_ch_net_flags,y
+        and     #$7F
+        sta     fuji_ch_net_flags,y
+        lda     #NET_BGET_NOT_READY
+        sec
+        rts
+:
         ; Check if PTR >= EXT (already at EOF — don't send a Read)
         lda     fuji_ch_bptr_hi,y
         cmp     fuji_ch_ext_hi,y
@@ -262,6 +277,24 @@ nwbg_read_done:
         ; Check if any bytes were returned
         ora     fuji_network_buf_cnt_hi
         beq     nwbg_net_eof                ; 0 bytes = EOF
+
+        lda     fuji_ch_net_flags,y
+        and     #$7F
+        sta     fuji_ch_net_flags,y
+
+        lda     fuji_ch_net_proto,y
+        and     #NET_PROTO_FLAG_STREAMING
+        beq     :+
+        lda     fuji_ch_net_flags,y
+        and     #NET_CH_FLAG_NO_PROBE
+        beq     :+
+        lda     aws_tmp04
+        and     #NET_READ_FLAG_EOF | NET_READ_FLAG_MORE_AVAILABLE
+        bne     :+
+        lda     fuji_ch_net_flags,y
+        ora     #NET_CH_FLAG_CHUNK_BOUNDARY_READY
+        sta     fuji_ch_net_flags,y
+:
 
         ; Fall through to read the byte
 

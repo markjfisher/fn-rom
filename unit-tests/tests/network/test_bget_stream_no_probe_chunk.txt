@@ -1,0 +1,47 @@
+///////////////////////////////
+marker $$ network bget no-probe returns current chunk without second read $$
+///////////////////////////////
+
+memory load #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+
+symbols remove "__.*"
+
+registers flush
+
+memory write $fujibus_network_read 0x(4C)
+memory write $patch_fujibus_network_read $stub_fujibus_network_read_chunk
+
+memory write $call_count 0x(00)
+memory write $result1 0x(00)
+memory write $result2 0x(00)
+memory write $result3 0x(00)
+memory write $result4 0x(00)
+memory write $carry4 0x(00)
+
+memory write $fuji_open_channels 0x(08)
+memory write $ch5_handle_low 0x(01)
+memory write $ch5_handle_high 0x(01)
+memory write $ch5_net_proto 0x(04)
+memory write $ch5_net_flags 0x(10)
+memory write $ch5_buf_page 0x(23)
+
+memory write $ch5_bptr_low 0x(00)
+memory write $ch5_bptr_mid 0x(00)
+memory write $ch5_bptr_hi 0x(00)
+memory write $ch5_ext_low 0x(FF)
+memory write $ch5_ext_mid 0x(FF)
+memory write $ch5_ext_hi 0x(FF)
+
+run $t_bget_stream_no_probe_chunk until (CP = $t_bget_stream_no_probe_chunk_end OR cycle_count > 8000)
+
+assert CP = $t_bget_stream_no_probe_chunk_end $$completed four BGET calls$$
+assert $call_count = 0x01 $$no-probe mode avoids a second network read after buffered chunk$$
+assert $result1 = 0x41 $$first byte returned$$
+assert $result2 = 0x42 $$second byte returned$$
+assert $result3 = 0x43 $$third byte returned$$
+assert $result4 = 0xFE $$fourth read returns temporary-not-ready sentinel$$
+assert $carry4 = 0x01 $$temporary-not-ready preserves carry-set semantics$$

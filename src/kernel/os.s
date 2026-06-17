@@ -95,6 +95,7 @@
         .export  fuji_ch_110B
 
         .export  fuji_ch_name7
+        .export  fuji_ch_net_flags
         .export  fuji_ch_op
         .export  fuji_ch_dir
         .export  fuji_ch_net_proto
@@ -154,6 +155,7 @@
         .export  fuji_network_body_len
         .export  fuji_network_body_len_hi
         .export  fuji_network_content_profile
+        .export  fuji_network_open_flags
         .export  fuji_network_open_proto
         .export  fuji_network_retry_delay
         .export  fuji_network_retry_left
@@ -547,6 +549,7 @@ fuji_network_body_len    := fuji_workspace_root + $10B7   ; one-shot HTTP reques
 fuji_network_body_len_hi := fuji_workspace_root + $10B8   ; one-shot HTTP request body length hint (high)
 fuji_network_content_profile := fuji_workspace_root + $10B9 ; one-shot request content profile for next open
 fuji_network_open_proto  := fuji_workspace_root + $10BA   ; one-shot protocol flags from last network OPEN
+fuji_network_open_flags  := fuji_workspace_root + $10BB   ; one-shot request flags for next network OPEN
 
 ; workspace_utils.s references 10C0-10FF and 1100-11BF as static workspace
 ; this is essentially channels/files information for a filing system
@@ -646,6 +649,7 @@ fuji_ch_write_pos_low   := fuji_channel_start + $0A
 fuji_ch_write_pos_mid   := fuji_channel_start + $0B
 fuji_ch_write_pos_hi    := fuji_channel_start + $0C
 fuji_ch_name7           := fuji_channel_start + $0C ; name byte 7 - high bit set means READ ONLY (findv_entry)
+fuji_ch_net_flags       := fuji_channel_start + $0D ; network-only: per-channel policy/runtime flags
 fuji_ch_op              := fuji_channel_start + $0D ; "op" mixed byte
 fuji_ch_dir             := fuji_channel_start + $0E ; directory -> directory_param when setting drive from current channel info
 fuji_ch_net_proto       := fuji_channel_start + $0E ; network-only: protocol flags from OPEN response

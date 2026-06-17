@@ -35,6 +35,7 @@
         .import fuji_network_body_len
         .import fuji_network_body_len_hi
         .import fuji_network_content_profile
+        .import fuji_network_open_flags
         .import fujibus_network_translate_configure
         .import fujibus_network_write_ext
         .import network_flush_write
@@ -52,7 +53,7 @@ fnnet_dispatch:
 
         ldy     #$00
         lda     (aws_tmp00),y
-        cmp     #$05
+        cmp     #$06
         bcs     fnnet_dispatch_fail
         tax
         lda     fnnet_jmp_hi,x
@@ -62,13 +63,14 @@ fnnet_dispatch:
         rts
 
 .feature line_continuations +
-        ; Reason index -> handler (reasons &00..&04)
+        ; Reason index -> handler (reasons &00..&05)
         .define FNNET_JMP_TABLE \
                 fnnet_reason_json_query          - 1, \
                 fnnet_reason_set_body_len        - 1, \
                 fnnet_reason_write_data          - 1, \
                 fnnet_reason_set_content_profile - 1, \
-                fnnet_reason_set_open_url        - 1
+                fnnet_reason_set_open_url        - 1, \
+                fnnet_reason_set_open_flags      - 1
 
 fnnet_jmp_lo: .lobytes FNNET_JMP_TABLE
 fnnet_jmp_hi: .hibytes FNNET_JMP_TABLE
@@ -84,3 +86,4 @@ fnnet_dispatch_fail:
         .include "fnnet/reason_write_data.inc"
         .include "fnnet/reason_set_content_profile.inc"
         .include "fnnet/reason_set_open_url.inc"
+        .include "fnnet/reason_set_open_flags.inc"

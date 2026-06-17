@@ -97,6 +97,7 @@
         .import fuji_ch_handle_high
         .import fuji_ch_handle_low
         .import fuji_ch_name7
+        .import fuji_ch_net_flags
         .import fuji_ch_net_proto
         .import fuji_ch_op
         .import fuji_ch_sect_cnt
@@ -107,6 +108,7 @@
         .import fuji_filev_exec_hi
         .import fuji_filev_hi_addr_buf
         .import fuji_intch
+        .import fuji_network_open_flags
         .import fuji_network_open_proto
         .import fuji_network_url_flag
         .import fuji_open_channels
@@ -572,6 +574,7 @@ nof_is_read:
 nof_have_method:
         sta     aws_tmp02               ; save method
         lda     #NET_FLAG_ALLOW_EVICT
+        ora     fuji_network_open_flags
         sta     aws_tmp03               ; save flags
 
         ; allocate a channel slot
@@ -629,8 +632,12 @@ nof_open_ok:
         sta     fuji_ch_handle_low,y
         txa
         sta     fuji_ch_handle_high,y
+        lda     fuji_network_open_flags
+        sta     fuji_ch_net_flags,y
         lda     fuji_network_open_proto
         sta     fuji_ch_net_proto,y
+        lda     #$00
+        sta     fuji_network_open_flags
 
         ; end transaction
         jsr     fuji_end_transaction
@@ -662,6 +669,7 @@ nof_open_failed:
         jsr     network_release_channel_y
 
         ; clear network URL flag
+        sta     fuji_network_open_flags
         sta     fuji_network_url_flag
 
         ; Return 0 = file not opened
