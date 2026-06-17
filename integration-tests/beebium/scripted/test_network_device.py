@@ -380,3 +380,66 @@ def test_osword78_reason02_two_writes_advance_write_offset(beebium, fuji_device)
 
     close_pkt = fuji_device.wait_for_command(netp.NETWORK_DEVICE_ID, netp.CMD_CLOSE, timeout=8.0)
     assert close_pkt is not None and close_pkt.checksum_ok
+
+
+def test_osword78_reason05_stream_no_probe_sets_open_flag_and_avoids_followup_read(beebium, fuji_device):
+    handle = 0x1234
+    body = b"OK"
+    read_requests = []
+
+    def responder(pkt):
+        if pkt.device != netp.NETWORK_DEVICE_ID:
+            return None
+        if pkt.command == netp.CMD_OPEN:
+            return build_network_open_response(
+                handle=handle,
+                proto_flags=(
+                    netp.PROTO_FLAG_SEQUENTIAL_READ
+                    | netp.PROTO_FLAG_SEQUENTIAL_WRITE
+                    | netp.PROTO_FLAG_STREAMING
+                ),
+            )
+        if pkt.command == netp.CMD_READ:
+            read_requests.append(pkt)
+            req_offset = int.from_bytes(pkt.payload[3:7], "little")
+            if req_offset == 0:
+                return build_network_read_response(
+                    handle=handle,
+                    offset=0,
+                    data=body,
+                    eof=False,
+                    more_available=False,
+                )
+            return fb.build_fuji_response_wire(netp.NETWORK_DEVICE_ID, netp.CMD_READ, 4, b"")
+        if pkt.command == netp.CMD_CLOSE:
+            return build_network_close_response()
+        return None
+
+    fuji_device.set_responder(responder)
+
+    run_basic_program(
+        beebium,
+        [
+            '10 DIM B% 16',
+            '20 B%?0=5:B%?2=&10',
+            '30 A%=&78:X%=B% MOD 256:Y%=B% DIV 256:CALL &FFF1',
+            '40 H%=OPENIN("tcp://example.com:7777")',
+            '50 A%=BGET#H%',
+            '60 B%=BGET#H%',
+            '70 CLOSE#H%',
+        ],
+    )
+
+    open_pkt = fuji_device.wait_for_command(netp.NETWORK_DEVICE_ID, netp.CMD_OPEN, timeout=8.0)
+    assert open_pkt is not None and open_pkt.checksum_ok
+    version, method, flags, url = _decode_open_payload(open_pkt.payload)
+    assert version == netp.NETPROTO_VERSION
+    assert method == 1
+    assert flags == 0x18
+    assert url == "tcp://example.com:7777"
+
+    close_pkt = fuji_device.wait_for_command(netp.NETWORK_DEVICE_ID, netp.CMD_CLOSE, timeout=8.0)
+    assert close_pkt is not None and close_pkt.checksum_ok
+
+    assert len(read_requests) == 1
+    assert int.from_bytes(read_requests[0].payload[3:7], "little") == 0
