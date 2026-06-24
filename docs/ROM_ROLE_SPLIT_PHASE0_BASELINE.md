@@ -56,7 +56,7 @@ is **0 bytes** — ld65 omitted the whole module.
 
 ## 4. Behavioural golden baseline — beebium scripted suite
 
-`cd integration-tests/beebium && uv run pytest scripted/ -v` against current HEAD ROM:
+`cd integration-tests/beebium && ./run_pytest.sh scripted/ -v` against current HEAD ROM:
 
 ```
 19 passed, 2 skipped in 168.44s

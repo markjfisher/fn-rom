@@ -7,7 +7,7 @@ and the network-only commands must not exist. See docs/ROM_ROLE_SPLIT_PLAN.md
 
 Run against a DISK ROM, e.g.:
     make FEATURE_NET=0 all
-    FN_PROFILE=disk uv run pytest scripted/test_disk_profile.py
+    FN_PROFILE=disk ./run_pytest.sh scripted/test_disk_profile.py
 (or use ./run_profile_tests.sh, which builds both ROMs and runs both subsets).
 """
 from __future__ import annotations

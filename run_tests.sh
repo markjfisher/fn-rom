@@ -3,9 +3,8 @@
 #
 # Builds all three shipped profiles, reports ROM sizes, runs the soft65c02 unit
 # tests, then the beebium scripted matrix (which itself rebuilds each profile and
-# runs the FN-UTLS command-from-disk equivalence test). Beebium suites skip
-# cleanly if the emulator/toolchain env is not configured (see
-# integration-tests/beebium/README.md).
+# runs the FN-UTLS command-from-disk equivalence test). Set BEEBIUM_HOME and
+# FUJINET_NIO_HOME (see docs/DEVELOPMENT.md).
 #
 # Usage:
 #   ./run_tests.sh            # full matrix

@@ -17,6 +17,10 @@ set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 root="$(cd "$here/../.." && pwd)"   # repos/fn-rom
 
+# Fail fast if Beebium test paths are not configured (see RUNNING_TESTS.md).
+# shellcheck source=/dev/null
+source "$here/check_test_env.sh"
+
 echo "==> Beebium scripted coverage lanes:"
 echo "    1. all  = resident utils + network"
 echo "    2. net  = network + transient utils on disk"
@@ -39,21 +43,21 @@ make -C "$root" clean all-rom > /dev/null
 
 echo "==> [all] beebium scripted (FN_PROFILE=all, utils resident)"
 ( cd "$here" && echo "    expected skips: disk_only" )
-( cd "$here" && FN_PROFILE=all uv run pytest scripted/ -q "$@" )
+( cd "$here" && FN_PROFILE=all ./run_pytest.sh scripted/ -q "$@" )
 
 echo "==> [net] build DISK+NET ROM (FEATURE_NET=1 UTILITIES=disk)"
 make -C "$root" clean net > /dev/null
 
 echo "==> [net] beebium scripted (FN_PROFILE=net)"
 ( cd "$here" && echo "    expected skips: needs_resident_utils, disk_only" )
-( cd "$here" && FN_PROFILE=net uv run pytest scripted/ -q "$@" )
+( cd "$here" && FN_PROFILE=net ./run_pytest.sh scripted/ -q "$@" )
 
 echo "==> [disk] build DISK ROM (FEATURE_NET=0 UTILITIES=disk)"
 make -C "$root" clean disk > /dev/null
 
 echo "==> [disk] beebium scripted (FN_PROFILE=disk)"
 ( cd "$here" && echo "    expected skips: needs_net, needs_resident_utils" )
-( cd "$here" && FN_PROFILE=disk uv run pytest scripted/ -q "$@" )
+( cd "$here" && FN_PROFILE=disk ./run_pytest.sh scripted/ -q "$@" )
 
 echo "==> [utls] command-from-disk equivalence (build UTILITIES=disk ROM + FN-UTLS.ssd)"
 "$root/scripts/run_fn_utls_test.sh"

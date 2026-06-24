@@ -1,8 +1,8 @@
 # fn-rom ↔ Beebium serial/PTY end-to-end tests
 
 For the practical "what do I run?" guide, see [RUNNING_TESTS.md](RUNNING_TESTS.md).
-This README explains the architecture and layers; `RUNNING_TESTS.md` is the
-short operational guide for day-to-day use.
+**Setup:** export `BEEBIUM_HOME` and `FUJINET_NIO_HOME`, then run tests —
+[docs/DEVELOPMENT.md](../../docs/DEVELOPMENT.md). No separate venv sync step.
 
 These tests run the **real** `fn-rom` image inside the **Beebium** BBC emulator,
 over a **real serial + pseudo-terminal** path, and assert the FujiBus/SLIP
@@ -22,40 +22,38 @@ keyboard ─▶ MOS/OSCLI ─▶ fn-rom command ─▶ FujiBus/SLIP encode
 | `fujinet_tools` (`fujibus`, `fileproto`, `fujiproto`) | fujinet-nio | SLIP framing + FujiBus encode/decode/parse |
 | these tests | fn-rom | the assertions |
 
-The first two are **not installed** — they're imported from their source
-checkouts via `sys.path` wiring in `conftest.py`. Only their third-party
-dependencies (`grpcio`, `protobuf`, `pyserial`) are installed, by this
-directory's own `pyproject.toml`. Locations are configured by environment
-variables (all with sensible defaults for the conventional sibling-checkout
-layout):
+The Beebium client is attached automatically by `./run_pytest.sh`
+(`uv run --with-editable "$BEEBIUM_HOME/clients/python"`). `fujinet_tools` is
+derived from `FUJINET_NIO_HOME/py` and added to `sys.path`.
 
-| Env var | Default | Meaning |
-|---------|---------|---------|
-| `BEEBIUM_HOME` | `~/dev/bbc/beebium` | beebium repo root (derives the three below) |
-| `BEEBIUM_CLIENT_SRC` | `$BEEBIUM_HOME/clients/python/src` | beebium python client source |
-| `BEEBIUM_SERVER` | `$BEEBIUM_HOME/build-release/src/server/beebium-model-b` | server binary |
-| `BEEBIUM_MOS` | `$BEEBIUM_HOME/roms/acorn-mos_1_20.rom` | MOS ROM |
-| `BEEBIUM_BASIC` | *(unset)* | optional BASIC ROM |
-| `FUJINET_TOOLS` | `<fn-rom>/../fujinet-nio/py` | dir containing `fujinet_tools` |
-| `FN_ROM` | `<fn-rom>/build/fujinet.rom` | sideways ROM image |
-| `FN_ROM_SLOT` | `12` | sideways slot (12 = slot C) |
-| `FN_PTY` | `/tmp/fujinet-pty-e2e` | pty symlink path (transport tests only) |
-| `FUJINET_BIN` | `<fujinet-nio>/build/fujibus-pty-debug/fujinet-nio` | real firmware binary (opt-in interop tests) |
+| Env var | Required | Meaning |
+|---------|:--------:|---------|
+| `BEEBIUM_HOME` | yes | beebium repo root |
+| `FUJINET_NIO_HOME` | yes | fujinet-nio repository root |
+| `BEEBIUM_SERVER` | derived | `beebium-model-b` (override if autodetection fails) |
+| `BEEBIUM_MOS` | derived | MOS ROM under `$BEEBIUM_HOME/roms/` |
+| `BEEBIUM_BASIC` | derived | BASIC ROM (optional) |
+| `FUJINET_TOOLS` | derived | parent of `fujinet_tools` (`$FUJINET_NIO_HOME/py`) |
+| `FUJINET_BIN` | no | real firmware binary (opt-in `real/` interop tests) |
+| `FN_ROM` | no | sideways ROM image (default: `<fn-rom>/build/fujinet.rom`) |
+| `FN_ROM_SLOT` | no | sideways slot (default: 12) |
+| `FN_PTY` | no | PTY symlink path (default: `/tmp/fujinet-pty-e2e`) |
 
-Each also has a pytest command-line option: `--fn-pty`, `--fn-rom`,
-`--fn-rom-slot`, `--beebium-server`, `--beebium-mos`, `--beebium-basic`.
+Pytest options for fn-rom-specific settings: `--fn-pty`, `--fn-rom`,
+`--fn-rom-slot`, `--fn-profile`, `--fujinet-bin`. Beebium paths come from env.
 
 ## Prerequisites
 
 - Build the fn-rom image: `make` (produces `build/fujinet.rom`).
-- Build the beebium servers in the beebium repo (so `beebium-model-b` exists).
+- Build the beebium server in your beebium checkout (so `beebium-model-b` exists).
+- Export `BEEBIUM_HOME` and `FUJINET_NIO_HOME`.
 - [`uv`](https://docs.astral.sh/uv/) installed.
 
 ## Running
 
 ```bash
 cd integration-tests/beebium
-uv run pytest -v
+./run_pytest.sh -v
 ```
 
 For common commands and the profile/coverage matrix, see
@@ -70,14 +68,13 @@ Examples with overrides:
 
 ```bash
 # Different pty path (the "port" the device attaches to)
-uv run pytest --fn-pty /tmp/my-fnpty
+./run_pytest.sh --fn-pty /tmp/my-fnpty
 
-# A specific ROM build / slot, and an explicit server binary
-uv run pytest --fn-rom ../../build/fujinet.rom --fn-rom-slot 12 \
-              --beebium-server ~/dev/bbc/beebium/build-release/src/server/beebium-model-b
+# A specific ROM build / slot
+./run_pytest.sh --fn-rom ../../build/fujinet.rom --fn-rom-slot 12
 
-# Via env vars instead
-BEEBIUM_HOME=~/src/beebium FUJINET_TOOLS=~/src/fujinet-nio/py uv run pytest
+# Override a derived path when autodetection is wrong
+BEEBIUM_SERVER=/path/to/beebium-model-b ./run_pytest.sh
 ```
 
 ### Build profiles (role split)

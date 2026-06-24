@@ -6,6 +6,9 @@ Using cc65.
 
 It is extensively based on mmfs as an example of how to build a rom.
 
+**New developer?** See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for build tools,
+Beebium integration tests, and environment variables.
+
 # What it should do minimally
 
 - interfaces to the FN to support file system
@@ -59,6 +62,8 @@ which examples with `RELEASE_APPS="weather iss"`.
 
 ## Testing
 
+See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for Beebium test setup (two env vars).
+
 A single command builds every profile, reports sizes, and runs the unit +
 beebium scripted suites for each:
 ```
@@ -70,7 +75,8 @@ scripted suite against the `all`, `net` and `disk` ROMs plus the FN-UTLS
 command-from-disk equivalence test. Tests declare the feature they need
 (`needs_net`, `needs_resident_utils`, `disk_only`) and are skipped on profiles
 that don't provide it. See [docs/ROM_ROLE_SPLIT_PLAN.md](docs/ROM_ROLE_SPLIT_PLAN.md)
-Appendix C and `integration-tests/beebium/README.md`.
+Appendix C and `integration-tests/beebium/README.md`. Day-to-day Beebium commands:
+[integration-tests/beebium/RUNNING_TESTS.md](integration-tests/beebium/RUNNING_TESTS.md).
 
 # Creating SSD images from folder contents
 

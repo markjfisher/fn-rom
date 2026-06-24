@@ -18,4 +18,4 @@ rm -rf "$other_src"
 
 cd "$root/integration-tests/beebium"
 FN_UTLS_TEST=1 FN_ROM="$root/build/fujinet.rom" FN_PROFILE=net \
-  uv run pytest scripted/test_command_from_disk.py -q -s
+  ./run_pytest.sh scripted/test_command_from_disk.py -q -s

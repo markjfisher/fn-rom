@@ -9,6 +9,10 @@ Use this file when you want to know:
 - which skips are expected
 - when coverage is complete
 
+**Setup:** export `BEEBIUM_HOME` and `FUJINET_NIO_HOME`, then run tests. See
+[docs/DEVELOPMENT.md](../../docs/DEVELOPMENT.md). Use `./run_pytest.sh` (not bare
+`uv run pytest`).
+
 ## Short Answer
 
 If you want confidence that the Beebium scripted coverage is complete, run:
@@ -76,19 +80,19 @@ Build the ROM first, then run the scripted suite with the matching profile:
 ```bash
 make all-rom
 cd integration-tests/beebium
-FN_PROFILE=all uv run pytest scripted/ -q
+FN_PROFILE=all ./run_pytest.sh scripted/ -q
 ```
 
 ```bash
 make net
 cd integration-tests/beebium
-FN_PROFILE=net uv run pytest scripted/ -q
+FN_PROFILE=net ./run_pytest.sh scripted/ -q
 ```
 
 ```bash
 make disk
 cd integration-tests/beebium
-FN_PROFILE=disk uv run pytest scripted/ -q
+FN_PROFILE=disk ./run_pytest.sh scripted/ -q
 ```
 
 ### 4. Transient command / FN-UTLS lane only
@@ -112,7 +116,7 @@ If you need just one command-from-disk test after the assets exist:
 ```bash
 cd integration-tests/beebium
 FN_UTLS_TEST=1 FN_PROFILE=net FN_ROM=../../build/fujinet.rom \
-  uv run pytest scripted/test_command_from_disk.py -q -k library_drive
+  ./run_pytest.sh scripted/test_command_from_disk.py -q -k library_drive
 ```
 
 ## Why The Skips Are Expected
@@ -169,7 +173,7 @@ Network feature change:
 ```bash
 make net
 cd integration-tests/beebium
-FN_PROFILE=net uv run pytest scripted/test_network_device.py -q
+FN_PROFILE=net ./run_pytest.sh scripted/test_network_device.py -q
 ```
 
 Disk-only change:
@@ -177,7 +181,7 @@ Disk-only change:
 ```bash
 make disk
 cd integration-tests/beebium
-FN_PROFILE=disk uv run pytest scripted/test_disk_profile.py -q
+FN_PROFILE=disk ./run_pytest.sh scripted/test_disk_profile.py -q
 ```
 
 Resident utility change:
@@ -185,7 +189,7 @@ Resident utility change:
 ```bash
 make all-rom
 cd integration-tests/beebium
-FN_PROFILE=all uv run pytest scripted/ -q -k fls
+FN_PROFILE=all ./run_pytest.sh scripted/ -q -k fls
 ```
 
 Transient utility change:
@@ -216,7 +220,7 @@ If you also want the opt-in real-firmware interop layer:
 
 ```bash
 cd integration-tests/beebium
-uv run pytest real/ -q
+./run_pytest.sh real/ -q
 ```
 
 These tests are additional confidence, not part of the scripted profile matrix.
@@ -240,4 +244,4 @@ Use these commands as the mental model:
 - `./run_tests.sh` = repo-level local gate
 - `./integration-tests/beebium/run_profile_tests.sh` = complete Beebium scripted matrix
 - `./scripts/run_fn_utls_test.sh` = transient command / library-drive lane
-- `FN_PROFILE=<profile> uv run pytest scripted/...` = one profile while iterating
+- `FN_PROFILE=<profile> ./run_pytest.sh scripted/...` = one profile while iterating
