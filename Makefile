@@ -101,6 +101,7 @@ SSD_ROM_MASTER := FN-MAST
 
 SOURCES := $(call rwildcard,$(SRCDIR)/,*.s)
 SOURCES += $(call rwildcard,$(SRCDIR)/,*.c)
+ASM_INCLUDES := $(call rwildcard,$(SRCDIR)/,*.inc)
 
 # remove trailing and leading spaces.
 SOURCES := $(strip $(SOURCES))
@@ -200,7 +201,7 @@ $(OBJDIR)/$(BUILD_VARIANT)/%.o: %.c | $(OBJDIR)/$(BUILD_VARIANT)
 
 vpath %.s $(SRC_INC_DIRS)
 
-$(OBJDIR)/$(BUILD_VARIANT)/%.o: %.s | $(OBJDIR)/$(BUILD_VARIANT)
+$(OBJDIR)/$(BUILD_VARIANT)/%.o: %.s $(ASM_INCLUDES) | $(OBJDIR)/$(BUILD_VARIANT)
 	@mkdir -p $(dir $@)
 	$(CC) -t $(CURRENT_TARGET) -c $(ASFLAGS) --create-dep $(@:.o=.d) --listing $(@:.o=.lst) -Ln $@.lbl -o $@ $<
 

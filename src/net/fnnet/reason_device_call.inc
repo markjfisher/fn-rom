@@ -1,27 +1,36 @@
-; Reason &06 — raw FileDevice call for small request/response payloads.
+; Reason &06 — raw FujiBus device call for small request/response payloads.
 ;
 ; Block layout:
-;   +2  FileDevice command in
-;   +3  FileDevice status out
-;   +4  request pointer lo
-;   +5  request pointer hi
-;   +6  request length lo
-;   +7  request length hi
-;   +8  response pointer lo
-;   +9  response pointer hi
-;   +10 response capacity lo
-;   +11 response capacity hi
-;   +12 response payload length lo out
-;   +13 response payload length hi out
+;   +2  device id in
+;   +3  device command in
+;   +4  device status out
+;   +5  request pointer lo
+;   +6  request pointer hi
+;   +7  request length lo
+;   +8  request length hi
+;   +9  response pointer lo
+;   +10 response pointer hi
+;   +11 response capacity lo
+;   +12 response capacity hi
+;   +13 response payload length lo out
+;   +14 response payload length hi out
 
-fnnet_reason_file_call:
-        ; command
+fnnet_reason_device_call:
+        ; device
         ldy     #$02
+        lda     (aws_tmp00),y
+        sta     fuji_bus_tx_device
+
+        ; command
+        iny
         lda     (aws_tmp00),y
         sta     fuji_bus_tx_command
 
+        ; skip device status out
+        iny
+
         ; request pointer -> region 2 pointer
-        ldy     #$04
+        iny
         lda     (aws_tmp00),y
         sta     aws_tmp06
         iny
@@ -49,9 +58,6 @@ fnnet_reason_file_call:
         sta     aws_tmp11
 
         ; Region 1 is the FujiBus header only. Region 2 is caller request.
-        lda     #FN_DEVICE_FILE
-        sta     fuji_bus_tx_device
-
         lda     buffer_ptr
         sta     aws_tmp00
         lda     buffer_ptr+1
@@ -83,10 +89,10 @@ fnnet_reason_file_call:
         cmp     #$01
         bne     @bad_call
 
-        ; file status out
+        ; device status out
         iny
         lda     (buffer_ptr),y
-        ldy     #$03
+        ldy     #$04
         sta     (aws_tmp14),y
 
         ; payload length = total length - 7
@@ -98,8 +104,8 @@ fnnet_reason_file_call:
         sbc     #$00
         sta     aws_tmp09
 
-        ; write actual response payload length to block +12/+13
-        ldy     #$0C
+        ; write actual response payload length to block +13/+14
+        ldy     #$0D
         lda     aws_tmp08
         sta     (aws_tmp14),y
         iny
@@ -120,7 +126,7 @@ fnnet_reason_file_call:
         beq     @ok
 
         ; Reload destination response pointer from the parameter block.
-        ldy     #$08
+        ldy     #$09
         lda     (aws_tmp14),y
         sta     cws_tmp6
         iny

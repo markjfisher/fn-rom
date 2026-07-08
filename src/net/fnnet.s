@@ -83,7 +83,7 @@ fnnet_dispatch:
                 fnnet_reason_set_content_profile - 1, \
                 fnnet_reason_set_open_url        - 1, \
                 fnnet_reason_set_open_flags      - 1, \
-                fnnet_reason_file_call           - 1
+                fnnet_reason_device_call         - 1
 
 fnnet_jmp_lo: .lobytes FNNET_JMP_TABLE
 fnnet_jmp_hi: .hibytes FNNET_JMP_TABLE
@@ -100,4 +100,4 @@ fnnet_dispatch_fail:
         .include "fnnet/reason_set_content_profile.inc"
         .include "fnnet/reason_set_open_url.inc"
         .include "fnnet/reason_set_open_flags.inc"
-        .include "fnnet/reason_file_call.inc"
+        .include "fnnet/reason_device_call.inc"
