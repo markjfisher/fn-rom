@@ -68,6 +68,22 @@ Currently defined flag:
 |-----|---------|
 | `&10` | `stream_no_probe` — for streaming channels, return the current buffered chunk without forcing a follow-up probe read solely to discover whether more bytes are immediately available |
 
+### Reason `&06` — FileDevice call
+
+| Offset | Field |
+|--------|-------|
+| 2 | FileDevice command byte |
+| 3 | FileDevice status out |
+| 4-5 | Request payload pointer in user RAM |
+| 6-7 | Request payload length u16le |
+| 8-9 | Response payload pointer in user RAM |
+| 10-11 | Response payload capacity u16le |
+| 12-13 | Actual response payload length u16le out |
+
+Sends a raw FileDevice request and copies the returned FileDevice protocol payload into the caller's response buffer. The ROM only performs FujiBus framing, status extraction, length checking, and copying; application protocols such as AppStore are owned by the caller/library.
+
+If the FileDevice response payload is larger than the caller's capacity, status `&01` is returned and offsets 12-13 still contain the actual payload length. Offset 3 contains the FileDevice status byte when a valid FileDevice response was received.
+
 ## Reason codes
 
 | Code | Action |
@@ -78,6 +94,7 @@ Currently defined flag:
 | `&03` | Set one-shot request content profile |
 | `&04` | Arm URL in user RAM for next `OPENIN("://")` |
 | `&05` | Set one-shot network open flags |
+| `&06` | Raw FileDevice call |
 
 ## JSON query (reason `&00`)
 
@@ -144,6 +161,7 @@ OSWORD `&78` handlers compile as one CODE object from [src/fnnet.s](../src/fnnet
 | `reason_set_content_profile.inc` | Reason `&03` |
 | `reason_set_open_url.inc` | Reason `&04` |
 | `reason_set_open_flags.inc` | Reason `&05` |
+| `reason_file_call.inc` | Reason `&06` |
 
 BBC BASIC reserves the `FN` prefix for user functions (case-insensitive) — use the `fin*` prefix for names, not `fn*` or `FNNET_*`.
 

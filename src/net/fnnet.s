@@ -7,14 +7,24 @@
         .importzp aws_tmp00
         .importzp aws_tmp01
         .importzp aws_tmp02
+        .importzp aws_tmp03
         .importzp aws_tmp06
         .importzp aws_tmp07
         .importzp aws_tmp08
         .importzp aws_tmp09
+        .importzp aws_tmp10
+        .importzp aws_tmp11
         .importzp aws_tmp14
         .importzp aws_tmp15
+        .importzp cws_tmp2
+        .importzp cws_tmp3
+        .importzp cws_tmp6
+        .importzp cws_tmp7
 
         .import check_channel_yhndl_exyintch
+        .importzp buffer_ptr
+        .importzp fuji_bus_tx_command
+        .importzp fuji_bus_tx_device
         .import fuji_ch_bptr_hi
         .import fuji_ch_bptr_low
         .import fuji_ch_bptr_mid
@@ -38,6 +48,8 @@
         .import fuji_network_open_flags
         .import fujibus_network_translate_configure
         .import fujibus_network_write_ext
+        .import fujibus_receive_packet
+        .import fujibus_send_packet_scatter
         .import network_flush_write
 
         .include "fujinet.inc"
@@ -53,7 +65,7 @@ fnnet_dispatch:
 
         ldy     #$00
         lda     (aws_tmp00),y
-        cmp     #$06
+        cmp     #$07
         bcs     fnnet_dispatch_fail
         tax
         lda     fnnet_jmp_hi,x
@@ -63,14 +75,15 @@ fnnet_dispatch:
         rts
 
 .feature line_continuations +
-        ; Reason index -> handler (reasons &00..&05)
+        ; Reason index -> handler (reasons &00..&06)
         .define FNNET_JMP_TABLE \
                 fnnet_reason_json_query          - 1, \
                 fnnet_reason_set_body_len        - 1, \
                 fnnet_reason_write_data          - 1, \
                 fnnet_reason_set_content_profile - 1, \
                 fnnet_reason_set_open_url        - 1, \
-                fnnet_reason_set_open_flags      - 1
+                fnnet_reason_set_open_flags      - 1, \
+                fnnet_reason_file_call           - 1
 
 fnnet_jmp_lo: .lobytes FNNET_JMP_TABLE
 fnnet_jmp_hi: .hibytes FNNET_JMP_TABLE
@@ -87,3 +100,4 @@ fnnet_dispatch_fail:
         .include "fnnet/reason_set_content_profile.inc"
         .include "fnnet/reason_set_open_url.inc"
         .include "fnnet/reason_set_open_flags.inc"
+        .include "fnnet/reason_file_call.inc"
