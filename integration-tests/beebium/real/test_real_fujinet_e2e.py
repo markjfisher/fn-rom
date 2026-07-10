@@ -174,6 +174,24 @@ def test_real_fujinet_receives_osword78_post_write(beebium_real, real_fujinet):
     assert "payload=3" in close_block
 
 
+def test_real_fujinet_osword78_clock_get(beebium_real, real_fujinet):
+    run_basic_program(
+        beebium_real,
+        [
+            "10 DIM B% 16,R% 32",
+            "20 B%?0=6:B%?2=&45:B%?3=&01",
+            "30 B%?5=0:B%?6=0:B%?7=0:B%?8=0",
+            "40 B%?9=R% MOD 256:B%?10=R% DIV 256:B%?11=32:B%?12=0",
+            "50 A%=&78:X%=B% MOD 256:Y%=B% DIV 256:CALL &FFF1",
+            '60 PRINT "S=";B%?0;" DS=";B%?4;" L=";B%?13+(B%?14*256);" V=";R%?0',
+        ],
+    )
+
+    wait_for_screen_text(beebium_real, "S=0 DS=0 L=12 V=1", timeout=8.0)
+    assert real_fujinet.wait_for_log("dev=0x45 cmd=0x01", timeout=8.0)
+    assert real_fujinet.wait_for_log("send: dev=0x45 status=0 cmd=0x01", timeout=4.0), real_fujinet.log_text()[-4000:]
+
+
 def test_real_fujinet_host_listing_and_mount_catalog_reads(beebium_real_host_tree, real_fujinet_host_tree):
     command(beebium_real_host_tree, "*FHOST host:/")
     command(beebium_real_host_tree, "*FLS")
