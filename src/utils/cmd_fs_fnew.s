@@ -1,4 +1,4 @@
-; *FNEW - create a new SSD image in the current FHOST path
+; *FNEW - create a new SSD image; FujiNet resolves relative paths via current HOST
 
         .export  cmd_fs_fnew
 
@@ -14,11 +14,9 @@
         .import exit_user_ok
         .import fuji_create_disk
         .import fuji_current_fs_len
-        .import fuji_current_host_len
         .import fuji_filename_buffer
         .import fuji_filename_len
         .import fuji_fs_uri_ptr
-        .import get_fuji_host_uri_addr_to_aws_tmp00
         .import param_count
         .import param_get_string
         .import report_error
@@ -32,11 +30,6 @@
         .segment "CODE"
 
 cmd_fs_fnew:
-        lda     fuji_current_host_len
-        bne     @have_host
-        jmp     err_no_host
-
-@have_host:
         jsr     param_count             ; 0-1, C=0 means we had no args
         bcs     one_arg
         jmp     err_syntax
@@ -46,7 +39,7 @@ one_arg:
         jsr     param_get_string
         sta     fuji_filename_len
 
-; Build full URI in PWS FS slot: host || filename, NUL, fuji_current_fs_len
+; Copy path/URI into PWS FS slot: filename, NUL, fuji_current_fs_len.
 fnew_build_full_uri:
         jsr     fuji_fs_uri_ptr
         sta     cws_tmp2
@@ -54,12 +47,8 @@ fnew_build_full_uri:
         stx     cws_tmp3
         stx     aws_tmp03
 
-        jsr     get_fuji_host_uri_addr_to_aws_tmp00
-
-        lda     fuji_current_host_len
-        jsr     copy_aws_tmp00_to_aws_tmp02_a
-
         ldx     #$00
+        ldy     #$00
 
 @copy_name:
         cpx     fuji_filename_len

@@ -34,20 +34,16 @@
         .importzp fuji_bus_tx_payload_lo
 
         .import err_bad
-        .import copy_aws_tmp00_to_aws_tmp02_a
-        .import err_no_host
         .import err_syntax
         .import exit_user_ok
-        .import flist_resolve_target
         .import fuji_current_dir_len
         .import fuji_current_fs_len
-        .import fuji_current_host_len
+        .import fuji_filename_buffer
         .import fuji_filename_len
         .import fujibus_receive_packet
         .import fujibus_set_payload_buffer_ptr
         .import fujibus_send_packet
         .import get_fuji_fs_uri_addr_to_aws_tmp00
-        .import get_fuji_host_uri_addr_to_aws_tmp00
         .import param_count
         .import param_get_string
         .import print_char
@@ -83,11 +79,6 @@ CFL_RESP_ENTRIES        = $11
 ;   *FLS <path>             formatted lines for <path>
 
 cmd_fs_flist:
-        lda     fuji_current_host_len
-        bne     parse_flist_params
-        jmp     err_no_host
-
-parse_flist_params:
         lda     fuji_current_fs_len
         sta     aws_tmp04
         lda     fuji_current_dir_len
@@ -99,7 +90,7 @@ parse_flist_params:
 one_param:
         jsr     param_get_string
         sta     fuji_filename_len
-        jsr     flist_resolve_target
+        jsr     cfl_copy_arg_uri
         bcc     cfl_start_list_restore
 
 err_bad_flist_path:
@@ -108,29 +99,43 @@ err_bad_flist_path:
         .byte   "path", 0
 
 ;------------------------------------------------------------------------------
-; Use canonical current URI (no path argument).
+; Use current HOST stored in FujiNet (no path argument): send empty spec.
 ;------------------------------------------------------------------------------
 cfl_use_current_uri:
-        lda     fuji_current_host_len
-        cmp     #FLIST_URI_BUFFER_SIZE
-        bcs     err_bad_flist_path
-
-        sta     fuji_current_fs_len
-
-        jsr     get_fuji_fs_uri_addr_to_aws_tmp00
-        lda     aws_tmp00
-        sta     aws_tmp02
-        lda     aws_tmp01
-        sta     aws_tmp03
-
-        jsr     get_fuji_host_uri_addr_to_aws_tmp00
-
-        lda     fuji_current_fs_len
-        jsr     copy_aws_tmp00_to_aws_tmp02_a
-
-cfl_zterm:
         lda     #$00
-        sta     (aws_tmp02),y
+        sta     fuji_current_fs_len
+        jsr     get_fuji_fs_uri_addr_to_aws_tmp00
+        ldy     #$00
+        lda     #$00
+        sta     (aws_tmp00),y
+        beq     cfl_start_list_restore
+
+;------------------------------------------------------------------------------
+; Copy raw path/URI argument into the FS URI buffer.
+;------------------------------------------------------------------------------
+cfl_copy_arg_uri:
+        lda     fuji_filename_len
+        cmp     #FLIST_URI_BUFFER_SIZE
+        bcs     cfl_arg_bad
+        sta     fuji_current_fs_len
+        jsr     get_fuji_fs_uri_addr_to_aws_tmp00
+        ldy     #$00
+@copy:
+        cpy     fuji_filename_len
+        beq     cfl_arg_zterm
+        lda     fuji_filename_buffer,y
+        sta     (aws_tmp00),y
+        iny
+        bne     @copy
+cfl_zterm:
+cfl_arg_zterm:
+        lda     #$00
+        sta     (aws_tmp00),y
+        clc
+        rts
+cfl_arg_bad:
+        sec
+        rts
 
 cfl_start_list_restore:
         lda     #$00
@@ -177,10 +182,6 @@ cfl_done_ok:
 ;------------------------------------------------------------------------------
 cfl_flist_one_page:
         lda     fuji_current_fs_len
-        bne     :+
-        sec
-        rts
-:
         sta     aws_tmp12
 
         jsr     get_fuji_fs_uri_addr_to_aws_tmp00

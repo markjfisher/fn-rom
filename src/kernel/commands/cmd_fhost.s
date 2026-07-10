@@ -1,23 +1,25 @@
-; *FHOST / *FFS — set or show canonical host URI (FileDevice ResolvePath)
+; *FHOST / *FFS — set or show current HOST stored in FujiNet AppStore.
         .export  cmd_fs_fhost
-
-        ; exports for debug
-        .export  fhost_ensure_host_trailing_slash
+        .export  fhost_show_current
         .export  fhost_copy_and_resolve
+        .export  fhost_ensure_host_trailing_slash
 
+        .importzp aws_tmp00
+        .importzp aws_tmp01
         .importzp aws_tmp02
         .importzp aws_tmp03
-        .importzp cws_tmp2
-        .importzp cws_tmp3
+        .importzp aws_tmp12
+        .importzp aws_tmp13
+        .importzp buffer_ptr
+        .importzp fuji_bus_tx_command
+        .importzp fuji_bus_tx_device
 
         .import exit_user_ok
-        .import fuji_channel_scratch
-        .import fuji_current_dir_len
-        .import fuji_current_host_len
         .import fuji_filename_buffer
         .import fuji_filename_len
-        .import fuji_host_uri_ptr
-        .import fuji_resolve_path
+        .import fujibus_receive_packet
+        .import fujibus_set_payload_buffer_ptr
+        .import fujibus_send_packet
         .import param_count
         .import param_get_string
         .import print_char
@@ -29,9 +31,15 @@
 
         .segment "CODE"
 
-;------------------------------------------------------------------------------
-; uint8_t cmd_fs_fhost(void)
-;------------------------------------------------------------------------------
+FHOST_NS_LEN       = 11
+FHOST_KEY_LEN      = 12
+FHOST_PATH_KEY_LEN = 20
+FHOST_PREFIX_LEN   = 28
+FHOST_RW_REQ_LEN   = 34
+FHOST_PREFIX_OFF   = $22
+FHOST_DATA_OFF     = $28
+FHOST_READ_MAX     = 255
+
 cmd_fs_fhost:
         jsr     param_count
         bcs     @set_fhost
@@ -44,159 +52,277 @@ cmd_fs_fhost:
         jsr     param_get_string
         sta     fuji_filename_len
         jsr     fhost_copy_and_resolve
+        jsr     fhost_show_current
         jmp     exit_user_ok
 
-;------------------------------------------------------------------------------
-; Show HOST (canonical URI in PWS) and PATH (suffix per host_len/dir_len)
-;------------------------------------------------------------------------------
 fhost_show_current:
         jsr     print_string
         .byte   "HOST: "
-
-        lda     fuji_current_host_len
-        beq     @host_none
-
-        jsr     fuji_host_uri_ptr
-        sta     cws_tmp2
-        stx     cws_tmp3
-        lda     fuji_current_host_len
-        tax
-        jsr     print_cws_tmp2_x
-        beq     @after_host             ; always
-
-@host_none:
+        jsr     fhost_read_current_host
+        bcc     @print_host
         jsr     print_none_str
-
-@after_host:
         jsr     print_newline
-
         jsr     print_string
         .byte   "PATH: "
-
-        lda     fuji_current_dir_len
-        beq     @path_none
-
-        jsr     fuji_host_uri_ptr
-        lda     fuji_current_host_len
-        sec
-        sbc     fuji_current_dir_len
-        bcs     @path_suffix_ok
-        lda     #$00
-@path_suffix_ok:
-        clc
-        adc     cws_tmp2
-        sta     cws_tmp2
-        lda     cws_tmp3
-        adc     #$00
-        sta     cws_tmp3
-        lda     fuji_current_dir_len
-        tax
-        jsr     print_cws_tmp2_x
-        beq     @after_path             ; always
-
-@path_none:
         jsr     print_none_str
-
-@after_path:
         jmp     print_newline
 
-;------------------------------------------------------------------------------
+@print_host:
+        jsr     fhost_print_read_value
+        jsr     print_newline
+        jsr     print_string
+        .byte   "PATH: "
+        jsr     fhost_read_current_path
+        bcc     @print_path
+        lda     #'/'
+        jsr     print_char
+        jmp     print_newline
+@print_path:
+        jsr     fhost_print_read_value
+        jmp     print_newline
+
 print_none_str:
         jsr     print_string
         .byte   "(none)"
         nop
         rts
 
-; Print X bytes from (cws_tmp2); X should be <= 80
-; exits with Z=1
-print_cws_tmp2_x:
+; Compatibility export: write fuji_filename_buffer/len as current HOST.
+fhost_copy_and_resolve:
+        jsr     fhost_write_current_host
+        bcs     @write_err
+        rts
+@write_err:
+        jsr     report_error
+        .byte   $CB
+        .byte   "HOST", 0
+
+; Compatibility export: no target-side canonical HOST buffer remains.
+fhost_ensure_host_trailing_slash:
+        rts
+
+fhost_read_current_host:
+        lda     #<fhost_key_current_host
+        ldx     #>fhost_key_current_host
+        ldy     #FHOST_KEY_LEN
+        jmp     fhost_appstore_read
+
+fhost_read_current_path:
+        lda     #<fhost_key_current_path
+        ldx     #>fhost_key_current_path
+        ldy     #FHOST_PATH_KEY_LEN
+        jmp     fhost_appstore_read
+
+fhost_write_current_host:
+        lda     #<fhost_key_current_host
+        ldx     #>fhost_key_current_host
+        ldy     #FHOST_KEY_LEN
+        ; fall through
+
+; A/X=key pointer, Y=key length. Value is fuji_filename_buffer/len.
+fhost_appstore_write:
+        jsr     fhost_build_prefix
+
+        ; offset u32 = 0
+        ldy     #FHOST_PREFIX_OFF
+        lda     #$00
+        sta     (buffer_ptr),y
+        iny
+        sta     (buffer_ptr),y
+        iny
+        sta     (buffer_ptr),y
+        iny
+        sta     (buffer_ptr),y
+        iny
+
+        lda     fuji_filename_len
+        sta     (buffer_ptr),y
+        iny
+        lda     #$00
+        sta     (buffer_ptr),y
+        iny
+
+        lda     buffer_ptr
+        clc
+        adc     #FHOST_DATA_OFF
+        sta     aws_tmp02
+        lda     buffer_ptr+1
+        adc     #$00
+        sta     aws_tmp03
+
         ldy     #$00
-        txa
-        beq     @done
-        sta     fuji_channel_scratch
+@copy_value:
+        cpy     fuji_filename_len
+        beq     @send
+        lda     fuji_filename_buffer,y
+        sta     (aws_tmp02),y
+        iny
+        bne     @copy_value
+
+@send:
+        lda     #FN_DEVICE_FILE
+        sta     fuji_bus_tx_device
+        lda     #FILE_CMD_APPSTORE_WRITE
+        sta     fuji_bus_tx_command
+        jsr     fujibus_set_payload_buffer_ptr
+        lda     fuji_filename_len
+        clc
+        adc     #FHOST_RW_REQ_LEN
+        ldx     #$00
+        jsr     fujibus_send_packet
+        jsr     fujibus_receive_packet
+        jmp     fhost_check_basic_ok
+
+; A/X=key pointer, Y=key length.
+fhost_appstore_read:
+        jsr     fhost_build_prefix
+
+        ldy     #FHOST_PREFIX_OFF
+        lda     #$00
+        sta     (buffer_ptr),y
+        iny
+        sta     (buffer_ptr),y
+        iny
+        sta     (buffer_ptr),y
+        iny
+        sta     (buffer_ptr),y
+        iny
+        lda     #FHOST_READ_MAX
+        sta     (buffer_ptr),y
+        iny
+        lda     #$00
+        sta     (buffer_ptr),y
+
+        lda     #FN_DEVICE_FILE
+        sta     fuji_bus_tx_device
+        lda     #FILE_CMD_APPSTORE_READ
+        sta     fuji_bus_tx_command
+        jsr     fujibus_set_payload_buffer_ptr
+        lda     #FHOST_RW_REQ_LEN
+        ldx     #$00
+        jsr     fujibus_send_packet
+        jsr     fujibus_receive_packet
+        jsr     fhost_check_basic_ok
+        bcs     @fail
+
+        ldy     #$08                    ; AppStore read flags
+        lda     (buffer_ptr),y
+        and     #$02                    ; exists
+        beq     @fail
+
+        ldy     #$0F                    ; dataLen low
+        lda     (buffer_ptr),y
+        sta     aws_tmp12
+        iny
+        lda     (buffer_ptr),y
+        bne     @fail
+        lda     aws_tmp12
+        beq     @fail
+
+        clc
+        rts
+@fail:
+        sec
+        rts
+
+fhost_check_basic_ok:
+        cpx     #$00
+        bne     @check
+        cmp     #$11
+        bcc     @fail
+@check:
+        ldy     #$05
+        lda     (buffer_ptr),y
+        cmp     #$01
+        bne     @fail
+        iny
+        lda     (buffer_ptr),y
+        bne     @fail
+        ldy     #$07
+        lda     (buffer_ptr),y
+        cmp     #FN_PROTOCOL_VERSION
+        bne     @fail
+        clc
+        rts
+@fail:
+        sec
+        rts
+
+fhost_print_read_value:
+        lda     buffer_ptr
+        clc
+        adc     #$11
+        sta     aws_tmp00
+        lda     buffer_ptr+1
+        adc     #$00
+        sta     aws_tmp01
+        ldy     #$00
 @loop:
-        lda     (cws_tmp2),y
+        cpy     aws_tmp12
+        beq     @done
+        lda     (aws_tmp00),y
         jsr     print_char
         iny
-        dec     fuji_channel_scratch
         bne     @loop
 @done:
         rts
 
-;------------------------------------------------------------------------------
-; Copy parsed URI into PWS host slot and ResolvePath; BRK path on failure
-;------------------------------------------------------------------------------
-fhost_copy_and_resolve:
-        jsr     fuji_host_uri_ptr               ; returns host_uri_ptr in a/x
-        ; use aws_tmp02/03 locally as it is untouched by fuji_resolve_path, the only external function we use
+; Build common AppStore prefix at buffer+6.
+; A/X=key ptr, Y=key len.
+fhost_build_prefix:
+        sta     aws_tmp00
+        stx     aws_tmp01
+        sty     aws_tmp13
+
+        ldy     #$06
+        lda     #FN_PROTOCOL_VERSION
+        sta     (buffer_ptr),y
+        iny
+        lda     #FHOST_NS_LEN
+        sta     (buffer_ptr),y
+        iny
+        lda     #$00
+        sta     (buffer_ptr),y
+        iny
+
+        ldx     #$00
+@copy_ns:
+        lda     fhost_ns,x
+        sta     (buffer_ptr),y
+        iny
+        inx
+        cpx     #FHOST_NS_LEN
+        bne     @copy_ns
+
+        lda     aws_tmp13
+        sta     (buffer_ptr),y
+        iny
+        lda     #$00
+        sta     (buffer_ptr),y
+        iny
+
+        ; Copy key with a separate loop using aws_tmp02/03 as destination.
+        lda     buffer_ptr
+        clc
+        adc     #($06 + 1 + 2 + FHOST_NS_LEN + 2)
         sta     aws_tmp02
-        stx     aws_tmp03
-
-        lda     fuji_filename_len
-        sta     fuji_current_host_len
-
-        lda     fuji_filename_len
-        beq     @copy_done
-        tax
+        lda     buffer_ptr+1
+        adc     #$00
+        sta     aws_tmp03
         ldy     #$00
-@copy:
-        lda     fuji_filename_buffer,y
+@copy_key2:
+        cpy     aws_tmp13
+        beq     @key_done
+        lda     (aws_tmp00),y
         sta     (aws_tmp02),y
         iny
-        dex
-        bne     @copy
-@copy_done:
-        jsr     fhost_ensure_host_trailing_slash
-        ; call fujinet to resolve the given path
-        jsr     fuji_resolve_path
-        bcs     @resolve_err
+        bne     @copy_key2
+@key_done:
         rts
 
-@resolve_err:
-        lda     #$00
-        tay
-        sta     (aws_tmp02),y
-        sta     fuji_current_host_len
-        sta     fuji_current_dir_len
-
-        jsr     report_error
-        .byte   $CB
-        .byte   "URI", 0
-
-;------------------------------------------------------------------------------
-; Ensure canonical host URI ends with '/' when representing a directory.
-; Uses host URI buffer and fuji_current_host_len; if fuji_current_dir_len is non-zero,
-; extend it as well when appending the slash.
-;------------------------------------------------------------------------------
-fhost_ensure_host_trailing_slash:
-        lda     fuji_current_host_len
-        beq     @done
-
-        jsr     fuji_host_uri_ptr
-        sta     aws_tmp02
-        stx     aws_tmp03
-
-        ldy     fuji_current_host_len
-        dey
-        lda     (aws_tmp02),y
-        cmp     #'/'
-        beq     @done
-
-        iny
-        cpy     #FUJI_HOST_URI_BUFFER_SIZE
-        bcs     @done
-        lda     #'/'
-        sta     (aws_tmp02),y
-        iny
-        cpy     #FUJI_HOST_URI_BUFFER_SIZE
-        bcs     :+
-        lda     #$00
-        sta     (aws_tmp02),y
-:
-        inc     fuji_current_host_len
-        lda     fuji_current_dir_len
-        beq     @done
-        inc     fuji_current_dir_len
-
-@done:
-        rts
+fhost_ns:
+        .byte   "fujinet-nio"
+fhost_key_current_host:
+        .byte   "current-host"
+fhost_key_current_path:
+        .byte   "current-display-path"

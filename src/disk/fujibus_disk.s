@@ -42,10 +42,8 @@
         .import calc_checksum
         .import calc_checksum_continue
         .import copy_aws_tmp00_to_aws_tmp02_a
-        .import fhost_ensure_host_trailing_slash
         .import fuji_current_dir_len
         .import fuji_current_fs_len
-        .import fuji_current_host_len
         .import fuji_current_sector
         .import fuji_disk_slot
         .import fujibus_receive_packet
@@ -53,7 +51,6 @@
         .import fujibus_send_packet
         .import fuji_link_write_slip_frame_dual
         .import get_fuji_fs_uri_addr_to_aws_tmp00
-        .import get_fuji_host_uri_addr_to_aws_tmp00
 
         .include "fujinet.inc"
 
@@ -645,160 +642,9 @@ fujibus_disk_write_sector:
         rts
 
 ; fujibus_resolve_path
-; this is wrapped in a transaction, which sets buffer_ptr to PWS
+; obsolete: current HOST/path resolution now lives in FujiNet-NIO AppStore helpers.
 fujibus_resolve_path:
-
-        lda     #FN_PROTOCOL_VERSION
-        ldy     #$06
-        sta     (buffer_ptr),y
-
-        lda     fuji_current_host_len
-        iny                                     ; y = 7
-        sta     (buffer_ptr),y
-
-        lda     #$00
-        iny                                     ; y = 8
-        sta     (buffer_ptr),y
-
-        lda     buffer_ptr
-        clc
-        adc     #$09
-        sta     aws_tmp02
-        lda     buffer_ptr+1
-        adc     #$00
-        sta     aws_tmp03
-
-        jsr     get_fuji_host_uri_addr_to_aws_tmp00
-        lda     fuji_current_host_len
-        jsr     copy_aws_tmp00_to_aws_tmp02_a
-
-@finish_request:
-        lda     #$00
-        sta     (aws_tmp02),y
-        iny
-        sta     (aws_tmp02),y
-
-        lda     #FN_DEVICE_FILE
-        sta     fuji_bus_tx_device
-
-        lda     #FILE_CMD_RESOLVE_PATH
-        sta     fuji_bus_tx_command
-
-        jsr     fujibus_set_payload_buffer_ptr
-
-        ldx     #$00
-        lda     fuji_current_host_len
-        clc
-        adc     #$05
-        bcc     :+
-        inx
-:
-        jsr     fujibus_send_packet
-
-        jsr     fujibus_receive_packet
-
-        cpx     #$00
-        bne     @rp_check_status
-        cmp     #$00
-        beq     @rp_fail
-
-        cmp     #$0D
-        bcs     @rp_check_status
-
-; put rp_fail into branch range
-@rp_fail:
         sec
-        rts
-
-
-@rp_check_status:
-        ldy     #$05
-        lda     (buffer_ptr),y
-        cmp     #$01
-        bne     @rp_fail
-
-        ldy     #$06
-        lda     (buffer_ptr),y
-        bne     @rp_fail
-
-        ldy     #$07
-        lda     (buffer_ptr),y
-        cmp     #FN_PROTOCOL_VERSION
-        bne     @rp_fail
-
-        ; ResolvePath response:
-        ;   +7  version
-        ;   +8  flags
-        ;   +9  reserved (u16)
-        ;   +11 resolvedUriLen (u16)
-        ;   +13 resolvedUri bytes
-        ;   +13+resolvedUriLen displayPathLen (u16)
-        ;   +15+resolvedUriLen displayPath bytes
-
-        ldy     #$0B
-        lda     (buffer_ptr),y          ; resolvedUriLen low
-        sta     fuji_current_host_len
-        iny
-        lda     (buffer_ptr),y          ; resolvedUriLen high
-        bne     @rp_fail
-
-        lda     fuji_current_host_len
-        cmp     #FUJI_HOST_URI_BUFFER_SIZE
-        bcs     @rp_fail
-
-        lda     buffer_ptr
-        clc
-        adc     #$0D                    ; start of resolvedUri bytes
-        sta     cws_tmp2
-        lda     buffer_ptr+1
-        adc     #$00
-        sta     cws_tmp3
-
-        jsr     get_fuji_host_uri_addr_to_aws_tmp00
-
-        ldy     #$00
-@copy_resolved_uri:
-        cpy     fuji_current_host_len
-        beq     @nul_terminate_host_uri
-        lda     (cws_tmp2),y
-        sta     (aws_tmp00),y
-        iny
-        bne     @copy_resolved_uri
-
-@nul_terminate_host_uri:
-        cpy     #FUJI_HOST_URI_BUFFER_SIZE
-        bcs     @get_dir_len_ptr
-        lda     #$00
-        sta     (aws_tmp00),y
-
-@get_dir_len_ptr:
-        lda     cws_tmp2
-        clc
-        adc     fuji_current_host_len
-        sta     cws_tmp2
-        lda     cws_tmp3
-        adc     #$00
-        sta     cws_tmp3
-
-        ldy     #$00
-        lda     (cws_tmp2),y            ; displayPathLen low
-        sta     fuji_current_dir_len
-        iny
-        lda     (cws_tmp2),y            ; displayPathLen high
-        beq     @dir_len_validate
-        jmp     @rp_fail
-
-@dir_len_validate:
-        lda     fuji_current_dir_len
-        cmp     fuji_current_host_len
-        beq     @rp_success
-        bcc     @rp_success
-        lda     #$00
-        sta     fuji_current_dir_len
-
-@rp_success:
-        jsr     fhost_ensure_host_trailing_slash
-        clc
         rts
 
 ; Validate a simple disk OK response after FujiBus transport receive.

@@ -1,4 +1,4 @@
-; *FIN — persist URI into FujiNet mount slot (host + filename → SetMount)
+; *FIN — persist URI/path into FujiNet mount slot (FujiNet resolves relative paths)
 ; Default persisted policy is AUTO; live mount behavior is chosen by *FMOUNT.
 
         .export  cmd_fs_fin
@@ -14,13 +14,11 @@
         .import exit_user_ok
         .import fuji_channel_scratch
         .import fuji_current_fs_len
-        .import fuji_current_host_len
         .import fuji_disk_slot
         .import fuji_filename_buffer
         .import fuji_filename_len
         .import fuji_fs_uri_ptr
         .import fuji_set_slot
-        .import get_fuji_host_uri_addr_to_aws_tmp00
         .import param_count_a
         .import param_get_num
         .import param_get_string
@@ -36,16 +34,6 @@ MAX_MOUNT_SLOT := 7
 ; uint8_t cmd_fs_fin(void)
 ;------------------------------------------------------------------------------
 cmd_fs_fin:
-        ; check host is set before doing anything
-        lda     fuji_current_host_len
-        bne     have_host
-
-err_no_host:
-        jsr     report_error
-        .byte   $CB
-        .byte   "No host", 0
-
-have_host:
         ; parse parameters
         lda     #$80
         jsr     param_count_a
@@ -87,58 +75,34 @@ err_bad_mount_slot:
         .byte   $CB                     ; TODO sort out what error codes we want to return
         .byte   "mount slot", 0         ; terminate after message
 ;------------------------------------------------------------------------------
-; Build full URI in PWS FS slot: host || filename, NUL, fuji_current_fs_len
+err_no_host:
+        jsr     report_error
+        .byte   $CB
+        .byte   "No host", 0
+
+; Copy user path/URI into PWS FS slot, NUL, fuji_current_fs_len.
 ;------------------------------------------------------------------------------
 fin_build_full_uri:
         jsr     fuji_fs_uri_ptr
         sta     cws_tmp2
         stx     cws_tmp3
 
-        jsr     get_fuji_host_uri_addr_to_aws_tmp00
-
-        lda     fuji_current_host_len
-        tax
-        beq     @host_done
         ldy     #$00
-@copy_host:
-        lda     (aws_tmp00),y
-        sta     (cws_tmp2),y
-        iny
-        dex
-        bne     @copy_host
-        ; Y = host_len
-@host_done:
-
         lda     fuji_filename_len
         tax
         beq     @terminate
 
-        lda     #$00
-        sta     fuji_channel_scratch
 @copy_fn:
-        ldy     fuji_channel_scratch
         lda     fuji_filename_buffer,y
-        pha
-        lda     fuji_current_host_len
-        clc
-        adc     fuji_channel_scratch
-        tay
-        pla
         sta     (cws_tmp2),y
-        inc     fuji_channel_scratch
+        iny
         dex
         bne     @copy_fn
 
 @terminate:
-        lda     fuji_current_host_len
-        clc
-        adc     fuji_filename_len
-        tay
         lda     #$00
         sta     (cws_tmp2),y
-        lda     fuji_current_host_len
-        clc
-        adc     fuji_filename_len
+        lda     fuji_filename_len
         sta     fuji_current_fs_len
         rts
 
