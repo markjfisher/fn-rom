@@ -1,4 +1,5 @@
-; *FHOST / *FFS — set or show current HOST stored in FujiNet AppStore.
+; *FHOST / *FFS -- show, set, list, select, or delete FujiNet current HOST.
+; HOST state is owned by FujiNet-NIO HostDevice, not target-side RAM.
         .export  cmd_fs_fhost
         .export  fhost_show_current
         .export  fhost_copy_and_resolve
@@ -7,9 +8,7 @@
         .importzp aws_tmp00
         .importzp aws_tmp01
         .importzp aws_tmp02
-        .importzp aws_tmp03
         .importzp aws_tmp12
-        .importzp aws_tmp13
         .importzp buffer_ptr
         .importzp fuji_bus_tx_command
         .importzp fuji_bus_tx_device
@@ -32,13 +31,7 @@
 
         .segment "CODE"
 
-FHOST_NS_LEN       = 11
-FHOST_KEY_LEN      = 12
-FHOST_PATH_KEY_LEN = 20
-FHOST_LIST_KEY_LEN = 17
-FHOST_INDEX_KEY_LEN = 18
-FHOST_DELETE_KEY_LEN = 19
-FHOST_READ_MAX     = 255
+FHOST_READ_MAX = 255
 
 cmd_fs_fhost:
         jsr     num_params
@@ -66,7 +59,8 @@ cmd_fs_fhost:
 @not_list:
         jsr     fhost_arg_is_index
         bcs     @set_fhost
-        jsr     fhost_write_current_index
+        lda     aws_tmp00
+        jsr     fhost_select_history
         bcs     @host_err
         jsr     fhost_show_current
         jmp     exit_user_ok
@@ -82,15 +76,8 @@ cmd_fs_fhost:
         sta     fuji_filename_len
         jsr     fhost_arg_is_index
         bcs     @syntax
-
-        lda     fuji_filename_len
+        lda     aws_tmp00
         sta     aws_tmp12
-        ldy     #$00
-        lda     fuji_filename_buffer,y
-        sta     aws_tmp02
-        iny
-        lda     fuji_filename_buffer,y
-        sta     aws_tmp03
 
         clc
         jsr     param_get_string
@@ -102,15 +89,7 @@ cmd_fs_fhost:
         bne     @syntax
 
         lda     aws_tmp12
-        sta     fuji_filename_len
-        ldy     #$00
-        lda     aws_tmp02
-        sta     fuji_filename_buffer,y
-        iny
-        lda     aws_tmp03
-        sta     fuji_filename_buffer,y
-
-        jsr     fhost_write_delete_index
+        jsr     fhost_delete_history
         bcs     @host_err
         jmp     exit_user_ok
 
@@ -122,10 +101,11 @@ cmd_fs_fhost:
         .byte   "HOST", 0
 
 fhost_show_current:
+        jsr     fhost_get_current
+        bcc     @got_current
+
         jsr     print_string
         .byte   "HOST: "
-        jsr     fhost_read_current_host
-        bcc     @print_host
         jsr     print_none_str
         jsr     print_newline
         jsr     print_string
@@ -133,18 +113,50 @@ fhost_show_current:
         jsr     print_none_str
         jmp     print_newline
 
-@print_host:
-        jsr     fhost_print_read_value
+@got_current:
+        jsr     print_string
+        .byte   "HOST: "
+        ldy     #$08                    ; hostLen lo
+        lda     (buffer_ptr),y
+        sta     aws_tmp12
+        sta     aws_tmp02
+        iny
+        lda     (buffer_ptr),y          ; hostLen hi
+        bne     @done_host
+        lda     buffer_ptr
+        clc
+        adc     #$0C
+        sta     aws_tmp00
+        lda     buffer_ptr+1
+        adc     #$00
+        sta     aws_tmp01
+        jsr     fhost_print_bytes
+@done_host:
         jsr     print_newline
+
         jsr     print_string
         .byte   "PATH: "
-        jsr     fhost_read_current_path
-        bcc     @print_path
+        ldy     #$0A                    ; pathLen lo
+        lda     (buffer_ptr),y
+        sta     aws_tmp12
+        iny
+        lda     (buffer_ptr),y          ; pathLen hi
+        bne     @path_slash
+        lda     aws_tmp12
+        beq     @path_slash
+        lda     buffer_ptr
+        clc
+        adc     #$0C
+        adc     aws_tmp02
+        sta     aws_tmp00
+        lda     buffer_ptr+1
+        adc     #$00
+        sta     aws_tmp01
+        jsr     fhost_print_bytes
+        jmp     print_newline
+@path_slash:
         lda     #'/'
         jsr     print_char
-        jmp     print_newline
-@print_path:
-        jsr     fhost_print_read_value
         jmp     print_newline
 
 print_none_str:
@@ -155,7 +167,7 @@ print_none_str:
 
 ; Compatibility export: write fuji_filename_buffer/len as current HOST.
 fhost_copy_and_resolve:
-        jsr     fhost_write_current_host
+        jsr     fhost_set_current
         bcs     @write_err
         rts
 @write_err:
@@ -167,122 +179,71 @@ fhost_copy_and_resolve:
 fhost_ensure_host_trailing_slash:
         rts
 
-fhost_read_current_host:
-        lda     #<fhost_key_current_host
-        ldx     #>fhost_key_current_host
-        ldy     #FHOST_KEY_LEN
-        jmp     fhost_appstore_read
-
-fhost_read_current_path:
-        lda     #<fhost_key_current_path
-        ldx     #>fhost_key_current_path
-        ldy     #FHOST_PATH_KEY_LEN
-        jmp     fhost_appstore_read
-
-fhost_read_history_list:
-        lda     #<fhost_key_history_list
-        ldx     #>fhost_key_history_list
-        ldy     #FHOST_LIST_KEY_LEN
-        jmp     fhost_appstore_read
-
-fhost_list_history:
-        jsr     fhost_read_history_list
-        bcc     @print
-        jsr     print_none_str
-        jmp     print_newline
-@print:
-        jsr     fhost_print_read_value
+fhost_get_current:
+        ldy     #$06
+        lda     #FN_PROTOCOL_VERSION
+        sta     (buffer_ptr),y
+        lda     #HOST_CMD_GET_CURRENT
+        sta     fuji_bus_tx_command
+        lda     #$01
+        jsr     fhost_send_host
+        bcs     @fail
+        jsr     fhost_check_host_ok
+        bcs     @fail
+        ldy     #$09                    ; reject hostLen hi
+        lda     (buffer_ptr),y
+        bne     @fail
+        ldy     #$0B                    ; reject pathLen hi
+        lda     (buffer_ptr),y
+        bne     @fail
+        clc
+        rts
+@fail:
+        sec
         rts
 
-fhost_write_current_host:
-        lda     #<fhost_key_current_host
-        ldx     #>fhost_key_current_host
-        ldy     #FHOST_KEY_LEN
-        jmp     fhost_appstore_write
-
-fhost_write_current_index:
-        lda     #<fhost_key_current_index
-        ldx     #>fhost_key_current_index
-        ldy     #FHOST_INDEX_KEY_LEN
-        jmp     fhost_appstore_write
-
-fhost_write_delete_index:
-        lda     #<fhost_key_delete_index
-        ldx     #>fhost_key_delete_index
-        ldy     #FHOST_DELETE_KEY_LEN
-        jmp     fhost_appstore_write
-
-; A/X=key pointer, Y=key length. Value is fuji_filename_buffer/len.
-fhost_appstore_write:
-        jsr     fhost_build_prefix
-
-        ; offset u32 = 0
-        ldy     aws_tmp13
-        lda     #$00
+fhost_set_current:
+        ldy     #$06
+        lda     #FN_PROTOCOL_VERSION
         sta     (buffer_ptr),y
         iny
-        sta     (buffer_ptr),y
-        iny
-        sta     (buffer_ptr),y
-        iny
-        sta     (buffer_ptr),y
-        iny
-
         lda     fuji_filename_len
         sta     (buffer_ptr),y
         iny
         lda     #$00
         sta     (buffer_ptr),y
         iny
-
-        lda     buffer_ptr
-        clc
-        adc     aws_tmp13
-        adc     #$06
-        sta     aws_tmp02
-        lda     buffer_ptr+1
-        adc     #$00
-        sta     aws_tmp03
-
-        ldy     #$00
-@copy_value:
-        cpy     fuji_filename_len
-        beq     @send
-        lda     fuji_filename_buffer,y
-        sta     (aws_tmp02),y
-        iny
-        bne     @copy_value
-
-@send:
-        lda     #FN_DEVICE_FILE
-        sta     fuji_bus_tx_device
-        lda     #FILE_CMD_APPSTORE_WRITE
-        sta     fuji_bus_tx_command
-        jsr     fujibus_set_payload_buffer_ptr
-        lda     fuji_filename_len
-        clc
-        adc     aws_tmp13
         ldx     #$00
-        bcc     :+
+@copy:
+        cpx     fuji_filename_len
+        beq     @send
+        lda     fuji_filename_buffer,x
+        sta     (buffer_ptr),y
+        iny
         inx
-:
-        jsr     fujibus_send_packet
-        jsr     fujibus_receive_packet
-        jmp     fhost_check_basic_ok
+        bne     @copy
+@send:
+        lda     #HOST_CMD_SET_CURRENT
+        sta     fuji_bus_tx_command
+        lda     fuji_filename_len
+        clc
+        adc     #$03
+        jsr     fhost_send_host
+        bcs     @fail
+        jmp     fhost_check_host_ok
+@fail:
+        sec
+        rts
 
-; A/X=key pointer, Y=key length.
-fhost_appstore_read:
-        jsr     fhost_build_prefix
-
-        ldy     aws_tmp13
-        lda     #$00
+fhost_list_history:
+        ldy     #$06
+        lda     #FN_PROTOCOL_VERSION
         sta     (buffer_ptr),y
         iny
+        lda     #$00                    ; offset lo
         sta     (buffer_ptr),y
         iny
-        sta     (buffer_ptr),y
-        iny
-        sta     (buffer_ptr),y
+        sta     (buffer_ptr),y          ; offset hi
         iny
         lda     #FHOST_READ_MAX
         sta     (buffer_ptr),y
@@ -290,44 +251,72 @@ fhost_appstore_read:
         lda     #$00
         sta     (buffer_ptr),y
 
-        lda     #FN_DEVICE_FILE
-        sta     fuji_bus_tx_device
-        lda     #FILE_CMD_APPSTORE_READ
+        lda     #HOST_CMD_LIST_HISTORY
         sta     fuji_bus_tx_command
-        jsr     fujibus_set_payload_buffer_ptr
-        lda     aws_tmp13
-        ldx     #$00
-        jsr     fujibus_send_packet
-        jsr     fujibus_receive_packet
-        jsr     fhost_check_basic_ok
-        bcs     @fail
-
-        ldy     #$08                    ; AppStore read flags
-        lda     (buffer_ptr),y
-        and     #$02                    ; exists
-        beq     @fail
-
-        ldy     #$0F                    ; dataLen low
+        lda     #$05
+        jsr     fhost_send_host
+        bcs     @none
+        jsr     fhost_check_host_ok
+        bcs     @none
+        ldy     #$0B                    ; dataLen lo
         lda     (buffer_ptr),y
         sta     aws_tmp12
         iny
-        lda     (buffer_ptr),y
-        bne     @fail
+        lda     (buffer_ptr),y          ; dataLen hi
+        bne     @none
         lda     aws_tmp12
-        beq     @fail
-
+        beq     @none
+        lda     buffer_ptr
         clc
+        adc     #$0D
+        sta     aws_tmp00
+        lda     buffer_ptr+1
+        adc     #$00
+        sta     aws_tmp01
+        jsr     fhost_print_bytes
         rts
+@none:
+        jsr     print_none_str
+        jmp     print_newline
+
+fhost_select_history:
+        ldx     #HOST_CMD_SELECT_HISTORY
+        bne     fhost_index_command
+
+fhost_delete_history:
+        ldx     #HOST_CMD_DELETE_HISTORY
+
+; A=index, X=command.
+fhost_index_command:
+        sta     aws_tmp12
+        stx     fuji_bus_tx_command
+        ldy     #$06
+        lda     #FN_PROTOCOL_VERSION
+        sta     (buffer_ptr),y
+        iny
+        lda     aws_tmp12
+        sta     (buffer_ptr),y
+        lda     #$02
+        jsr     fhost_send_host
+        bcs     @fail
+        jmp     fhost_check_host_ok
 @fail:
         sec
         rts
 
-fhost_check_basic_ok:
-        cpx     #$00
-        bne     @check
-        cmp     #$11
-        bcc     @fail
-@check:
+; A=payload length low. fuji_bus_tx_command already set.
+fhost_send_host:
+        pha
+        lda     #FN_DEVICE_HOST
+        sta     fuji_bus_tx_device
+        jsr     fujibus_set_payload_buffer_ptr
+        pla
+        ldx     #$00
+        jsr     fujibus_send_packet
+        jsr     fujibus_receive_packet
+        rts
+
+fhost_check_host_ok:
         ldy     #$05
         lda     (buffer_ptr),y
         cmp     #$01
@@ -335,7 +324,7 @@ fhost_check_basic_ok:
         iny
         lda     (buffer_ptr),y
         bne     @fail
-        ldy     #$07
+        iny
         lda     (buffer_ptr),y
         cmp     #FN_PROTOCOL_VERSION
         bne     @fail
@@ -345,14 +334,8 @@ fhost_check_basic_ok:
         sec
         rts
 
-fhost_print_read_value:
-        lda     buffer_ptr
-        clc
-        adc     #$11
-        sta     aws_tmp00
-        lda     buffer_ptr+1
-        adc     #$00
-        sta     aws_tmp01
+; aws_tmp00/01=source, aws_tmp12=len.
+fhost_print_bytes:
         ldy     #$00
 @loop:
         cpy     aws_tmp12
@@ -362,63 +345,6 @@ fhost_print_read_value:
         iny
         bne     @loop
 @done:
-        rts
-
-; Build common AppStore prefix at buffer+6.
-; A/X=key ptr, Y=key len.
-fhost_build_prefix:
-        sta     aws_tmp00
-        stx     aws_tmp01
-        sty     aws_tmp12
-
-        ldy     #$06
-        lda     #FN_PROTOCOL_VERSION
-        sta     (buffer_ptr),y
-        iny
-        lda     #FHOST_NS_LEN
-        sta     (buffer_ptr),y
-        iny
-        lda     #$00
-        sta     (buffer_ptr),y
-        iny
-
-        ldx     #$00
-@copy_ns:
-        lda     fhost_ns,x
-        sta     (buffer_ptr),y
-        iny
-        inx
-        cpx     #FHOST_NS_LEN
-        bne     @copy_ns
-
-        lda     aws_tmp12
-        sta     (buffer_ptr),y
-        iny
-        lda     #$00
-        sta     (buffer_ptr),y
-        iny
-
-        ; Copy key with a separate loop using aws_tmp02/03 as destination.
-        lda     buffer_ptr
-        clc
-        adc     #($06 + 1 + 2 + FHOST_NS_LEN + 2)
-        sta     aws_tmp02
-        lda     buffer_ptr+1
-        adc     #$00
-        sta     aws_tmp03
-        ldy     #$00
-@copy_key2:
-        cpy     aws_tmp12
-        beq     @key_done
-        lda     (aws_tmp00),y
-        sta     (aws_tmp02),y
-        iny
-        bne     @copy_key2
-@key_done:
-        tya
-        clc
-        adc     #($06 + 1 + 2 + FHOST_NS_LEN + 2)
-        sta     aws_tmp13
         rts
 
 fhost_arg_is_list:
@@ -490,17 +416,5 @@ fhost_arg_is_index:
         sec
         rts
 
-fhost_ns:
-        .byte   "fujinet-nio"
-fhost_key_current_host:
-        .byte   "current-host"
-fhost_key_current_path:
-        .byte   "current-display-path"
-fhost_key_history_list:
-        .byte   "host-history-list"
-fhost_key_current_index:
-        .byte   "current-host-index"
-fhost_key_delete_index:
-        .byte   "host-history-delete"
 fhost_list_word:
         .byte   "LIST"
