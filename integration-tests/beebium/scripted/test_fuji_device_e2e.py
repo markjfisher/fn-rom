@@ -4,7 +4,7 @@ import pytest
 
 from fujinet_tools import fujiproto as fuji
 
-from fuji_device import full_stack_responder, mounted_disk_responder
+from fuji_device import HOST_CMD_SET_CURRENT, HOST_SERVICE_ID, full_stack_responder, mounted_disk_responder
 from helpers import command
 
 
@@ -26,7 +26,7 @@ def test_fin_emits_set_mount_request(beebium, fuji_device):
     ))
 
     command(beebium, "*FHOST tnfs://example.invalid/bbc/")
-    assert fuji_device.wait_for_command(0xFE, 0x05, timeout=6.0)
+    assert fuji_device.wait_for_command(HOST_SERVICE_ID, HOST_CMD_SET_CURRENT, timeout=6.0)
 
     fuji_device.clear()
     command(beebium, "*FIN 3 boot.ssd")
@@ -40,7 +40,7 @@ def test_fin_emits_set_mount_request(beebium, fuji_device):
     uri = pkt.payload[3:3 + uri_len].decode("utf-8")
     mode_len = pkt.payload[3 + uri_len]
     mode = pkt.payload[4 + uri_len:4 + uri_len + mode_len].decode("utf-8")
-    assert uri == "tnfs://example.invalid/bbc/boot.ssd"
+    assert uri == "boot.ssd"
     assert mode == "auto"
 
 

@@ -1,5 +1,5 @@
 ; *FHOST / *FFS -- show, set, list, select, or delete FujiNet current HOST.
-; HOST state is owned by FujiNet-NIO HostDevice, not target-side RAM.
+; HOST state is owned by FujiNet-NIO HostService, not target-side RAM.
         .export  cmd_fs_fhost
         .export  fhost_show_current
         .export  fhost_copy_and_resolve
@@ -74,8 +74,16 @@ cmd_fs_fhost:
         clc
         jsr     param_get_string
         sta     fuji_filename_len
+        tya
+        pha
         jsr     fhost_arg_is_index
-        bcs     @syntax
+        bcc     @index_ok
+        pla
+        tay
+        jmp     @syntax
+@index_ok:
+        pla
+        tay
         lda     aws_tmp00
         sta     aws_tmp12
 
@@ -106,16 +114,19 @@ fhost_show_current:
 
         jsr     print_string
         .byte   "HOST: "
+        nop
         jsr     print_none_str
         jsr     print_newline
         jsr     print_string
         .byte   "PATH: "
+        nop
         jsr     print_none_str
         jmp     print_newline
 
 @got_current:
         jsr     print_string
         .byte   "HOST: "
+        nop
         ldy     #$08                    ; hostLen lo
         lda     (buffer_ptr),y
         sta     aws_tmp12
@@ -136,6 +147,7 @@ fhost_show_current:
 
         jsr     print_string
         .byte   "PATH: "
+        nop
         ldy     #$0A                    ; pathLen lo
         lda     (buffer_ptr),y
         sta     aws_tmp12
@@ -187,7 +199,6 @@ fhost_get_current:
         sta     fuji_bus_tx_command
         lda     #$01
         jsr     fhost_send_host
-        bcs     @fail
         jsr     fhost_check_host_ok
         bcs     @fail
         ldy     #$09                    ; reject hostLen hi
@@ -229,11 +240,7 @@ fhost_set_current:
         clc
         adc     #$03
         jsr     fhost_send_host
-        bcs     @fail
         jmp     fhost_check_host_ok
-@fail:
-        sec
-        rts
 
 fhost_list_history:
         ldy     #$06
@@ -255,7 +262,6 @@ fhost_list_history:
         sta     fuji_bus_tx_command
         lda     #$05
         jsr     fhost_send_host
-        bcs     @none
         jsr     fhost_check_host_ok
         bcs     @none
         ldy     #$0B                    ; dataLen lo
@@ -298,11 +304,7 @@ fhost_index_command:
         sta     (buffer_ptr),y
         lda     #$02
         jsr     fhost_send_host
-        bcs     @fail
         jmp     fhost_check_host_ok
-@fail:
-        sec
-        rts
 
 ; A=payload length low. fuji_bus_tx_command already set.
 fhost_send_host:
@@ -336,13 +338,23 @@ fhost_check_host_ok:
 
 ; aws_tmp00/01=source, aws_tmp12=len.
 fhost_print_bytes:
-        ldy     #$00
-@loop:
-        cpy     aws_tmp12
+        lda     aws_tmp12
         beq     @done
+@loop:
+        ldy     #$00
         lda     (aws_tmp00),y
+        cmp     #$0A
+        beq     @newline
         jsr     print_char
-        iny
+        jmp     @advance
+@newline:
+        jsr     print_newline
+@advance:
+        inc     aws_tmp00
+        bne     :+
+        inc     aws_tmp01
+:
+        dec     aws_tmp12
         bne     @loop
 @done:
         rts

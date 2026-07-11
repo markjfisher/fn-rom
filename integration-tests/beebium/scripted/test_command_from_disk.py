@@ -23,6 +23,9 @@ from fujinet_tools import fujiproto as fuji
 from fujinet_tools import diskproto as dp
 
 from fuji_device import (
+    HOST_CMD_SET_CURRENT,
+    HOST_SERVICE_ID,
+    HOST_VERSION,
     disk_image_responder,
     default_success_responder,
     build_resolve_path_response,
@@ -33,6 +36,7 @@ from fuji_device import (
     build_disk_mount_response,
     build_disk_info_response,
     build_disk_read_sector_response,
+    host_service_responder,
 )
 from helpers import command
 
@@ -127,8 +131,12 @@ def _two_image_responder(by_host_slot: dict[int, tuple[str, bytes]]):
     uris = {hs: u for hs, (u, _) in by_host_slot.items()}
     images = {hs + 1: img for hs, (_, img) in by_host_slot.items()}
     nsec = {s: max(1, len(b) // 256) for s, b in images.items()}
+    host_resp = host_service_responder(["sd0:/"])
 
     def _resp(pkt):
+        host_reply = host_resp(pkt)
+        if host_reply is not None:
+            return host_reply
         if pkt.device == fp.FILE_DEVICE_ID:
             if pkt.command == fp.CMD_RESOLVE_PATH:
                 return build_resolve_path_response("sd0:/", "sd0:/")
@@ -248,8 +256,8 @@ def test_transient_command_resolves_via_library_drive_when_current_drive_unmount
 
 def test_transient_command_receives_arguments(beebium, fuji_device):
     """An argument-taking utility loaded from disk must actually *see* its args:
-    the wrapper points text_pointer at the *RUN tail. *FCD <path> resolves a
-    relative path, so the FILE RESOLVE_PATH frame must carry the typed path."""
+    the wrapper points text_pointer at the *RUN tail. *FCD <path> asks
+    HostService to set the current host/path, carrying the typed path."""
     fuji_device.set_responder(
         disk_image_responder(
             image_path=str(_SSD), fuji_slot=7, drive_slot=4, uri="sd0:/fn-utls.ssd"
@@ -263,10 +271,8 @@ def test_transient_command_receives_arguments(beebium, fuji_device):
     command(beebium, "*FCD bbc")
 
     pkt = fuji_device.wait_for_command(
-        fp.FILE_DEVICE_ID, fp.CMD_RESOLVE_PATH, timeout=8.0
+        HOST_SERVICE_ID, HOST_CMD_SET_CURRENT, timeout=8.0
     )
-    assert pkt is not None, "*FCD bbc did not emit RESOLVE_PATH from disk"
+    assert pkt is not None, "*FCD bbc did not emit HostService SetCurrent from disk"
     assert pkt.checksum_ok
-    assert b"bbc" in bytes(pkt.payload), (
-        f"RESOLVE_PATH payload missing the typed arg 'bbc': {bytes(pkt.payload)!r}"
-    )
+    assert pkt.payload == bytes([HOST_VERSION, 3, 0]) + b"bbc"

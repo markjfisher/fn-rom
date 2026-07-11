@@ -4,7 +4,7 @@ import pytest
 
 from fujinet_tools import diskproto as dp
 
-from fuji_device import full_stack_responder, mounted_disk_responder
+from fuji_device import HOST_CMD_SET_CURRENT, HOST_SERVICE_ID, full_stack_responder, mounted_disk_responder
 from helpers import command
 
 
@@ -35,7 +35,7 @@ def test_fnew_emits_disk_create_request(beebium, fuji_device):
     ))
 
     command(beebium, "*FHOST tnfs://example.invalid/bbc/")
-    assert fuji_device.wait_for_command(0xFE, 0x05, timeout=6.0)
+    assert fuji_device.wait_for_command(HOST_SERVICE_ID, HOST_CMD_SET_CURRENT, timeout=6.0)
 
     fuji_device.clear()
     command(beebium, "*FNEW blank.ssd")
@@ -43,7 +43,7 @@ def test_fnew_emits_disk_create_request(beebium, fuji_device):
     assert pkt is not None
     assert pkt.checksum_ok
     assert pkt.payload == dp.build_create_req(
-        uri="tnfs://example.invalid/bbc/blank.ssd",
+        uri="blank.ssd",
         img_type=dp.TYPE_SSD,
         sector_size=256,
         sector_count=800,

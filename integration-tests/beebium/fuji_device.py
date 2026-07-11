@@ -37,6 +37,14 @@ except Exception:  # pragma: no cover - defensive
 FujiPacket = fb.FujiPacket
 Responder = Callable[[FujiPacket], Optional[bytes]]
 
+HOST_SERVICE_ID = 0xF0
+HOST_VERSION = 0x01
+HOST_CMD_GET_CURRENT = 0x01
+HOST_CMD_SET_CURRENT = 0x02
+HOST_CMD_LIST_HISTORY = 0x03
+HOST_CMD_SELECT_HISTORY = 0x04
+HOST_CMD_DELETE_HISTORY = 0x05
+
 
 def default_success_responder(pkt: FujiPacket) -> bytes:
     """Reply to any request with a generic FujiBus success (status = 0)."""
@@ -294,6 +302,108 @@ def build_set_mount_response(status: int = 0) -> bytes:
     return fb.build_fuji_response_wire(fuji.FUJI_DEVICE_ID, fuji.CMD_SET_MOUNT, status, b"")
 
 
+def _display_path_for_host(uri: str) -> str:
+    scheme = uri.find("://")
+    if scheme >= 0:
+        slash = uri.find("/", scheme + 3)
+        return "/" if slash < 0 else uri[slash:]
+    colon = uri.find(":")
+    path = uri[colon + 1:] if colon >= 0 else uri
+    if not path:
+        path = "/"
+    if not path.startswith("/"):
+        path = "/" + path
+    return path
+
+
+def build_host_get_current_response(
+    host: str,
+    display_path: str | None = None,
+    *,
+    status: int = 0,
+) -> bytes:
+    if status != 0:
+        return fb.build_fuji_response_wire(HOST_SERVICE_ID, HOST_CMD_GET_CURRENT, status, b"")
+    host_b = host.encode("utf-8")
+    path_b = (display_path if display_path is not None else _display_path_for_host(host)).encode("utf-8")
+    body = bytes([HOST_VERSION]) + struct.pack("<HH", len(host_b), len(path_b)) + host_b + path_b
+    return fb.build_fuji_response_wire(HOST_SERVICE_ID, HOST_CMD_GET_CURRENT, status, body)
+
+
+def build_host_simple_response(command: int, *, status: int = 0) -> bytes:
+    body = bytes([HOST_VERSION]) if status == 0 else b""
+    return fb.build_fuji_response_wire(HOST_SERVICE_ID, command, status, body)
+
+
+def build_host_list_history_response(
+    text: str,
+    *,
+    offset: int = 0,
+    more: bool = False,
+    status: int = 0,
+) -> bytes:
+    text_b = text.encode("utf-8")
+    flags = 0x01 if more else 0x00
+    body = bytes([HOST_VERSION, flags]) + struct.pack("<HH", offset, len(text_b)) + text_b
+    return fb.build_fuji_response_wire(HOST_SERVICE_ID, HOST_CMD_LIST_HISTORY, status, body)
+
+
+def host_service_responder(initial_hosts: Iterable[str] = ()) -> Responder:
+    """Stateful HostService responder for BBC command/screen tests."""
+    history: list[str] = []
+    current = ""
+
+    def promote(uri: str) -> None:
+        nonlocal current
+        current = uri
+        if uri in history:
+            history.remove(uri)
+        history.insert(0, uri)
+        del history[32:]
+
+    for host in initial_hosts:
+        promote(host)
+
+    def resolve(spec: str) -> str:
+        if "://" in spec or ":" in spec:
+            return spec
+        base = current.rstrip("/")
+        return f"{base}/{spec}" if base else spec
+
+    def _resp(pkt: FujiPacket) -> Optional[bytes]:
+        if pkt.device != HOST_SERVICE_ID:
+            return None
+        if not pkt.payload or pkt.payload[0] != HOST_VERSION:
+            return fb.build_fuji_response_wire(pkt.device, pkt.command, 2, b"")
+        if pkt.command == HOST_CMD_GET_CURRENT:
+            if not current:
+                return build_host_get_current_response("", status=1)
+            return build_host_get_current_response(current)
+        if pkt.command == HOST_CMD_SET_CURRENT:
+            if len(pkt.payload) < 3:
+                return build_host_simple_response(pkt.command, status=2)
+            spec_len = pkt.payload[1] | (pkt.payload[2] << 8)
+            spec = pkt.payload[3:3 + spec_len].decode("utf-8")
+            promote(resolve(spec))
+            return build_host_simple_response(pkt.command)
+        if pkt.command == HOST_CMD_LIST_HISTORY:
+            text = "".join(f"{i} {uri}\n" for i, uri in enumerate(history))
+            return build_host_list_history_response(text)
+        if pkt.command == HOST_CMD_SELECT_HISTORY:
+            if len(pkt.payload) != 2 or pkt.payload[1] >= len(history):
+                return build_host_simple_response(pkt.command, status=5)
+            promote(history[pkt.payload[1]])
+            return build_host_simple_response(pkt.command)
+        if pkt.command == HOST_CMD_DELETE_HISTORY:
+            if len(pkt.payload) != 2 or pkt.payload[1] >= len(history):
+                return build_host_simple_response(pkt.command, status=5)
+            del history[pkt.payload[1]]
+            return build_host_simple_response(pkt.command)
+        return fb.build_fuji_response_wire(pkt.device, pkt.command, 8, b"")
+
+    return _resp
+
+
 def build_disk_mount_response(
     *,
     slot: int,
@@ -449,7 +559,12 @@ def build_network_close_response(status: int = 0) -> bytes:
 
 def resolving_responder(resolved_uri: str, display_path: str) -> Responder:
     """A responder that answers RESOLVE_PATH properly and others generically."""
+    host_resp = host_service_responder([resolved_uri])
+
     def _resp(pkt: FujiPacket) -> Optional[bytes]:
+        host_reply = host_resp(pkt)
+        if host_reply is not None:
+            return host_reply
         if fp is not None and pkt.device == fp.FILE_DEVICE_ID and pkt.command == fp.CMD_RESOLVE_PATH:
             return build_resolve_path_response(resolved_uri, display_path)
         return default_success_responder(pkt)
@@ -463,8 +578,12 @@ def file_listing_responder(
     formatted_text: str,
 ) -> Responder:
     """Resolve a host/path then answer LIST with formatted directory text."""
+    host_resp = host_service_responder([resolved_uri])
 
     def _resp(pkt: FujiPacket) -> Optional[bytes]:
+        host_reply = host_resp(pkt)
+        if host_reply is not None:
+            return host_reply
         if fp is None:
             return default_success_responder(pkt)
         if pkt.device == fp.FILE_DEVICE_ID and pkt.command == fp.CMD_RESOLVE_PATH:
@@ -514,8 +633,12 @@ def full_stack_responder(
     """Handle the common File/Fuji/Disk/Network flows used by fn-rom tests."""
 
     effective_mount_uri = mount_uri or resolved_uri
+    host_resp = host_service_responder([resolved_uri])
 
     def _resp(pkt: FujiPacket) -> Optional[bytes]:
+        host_reply = host_resp(pkt)
+        if host_reply is not None:
+            return host_reply
         if fp is not None and pkt.device == fp.FILE_DEVICE_ID:
             if pkt.command == fp.CMD_RESOLVE_PATH:
                 return build_resolve_path_response(resolved_uri, display_path)
@@ -601,12 +724,16 @@ def disk_image_responder(
     with open(image_path, "rb") as fh:
         image = fh.read()
     nsec = max(1, len(image) // 256)
+    host_resp = host_service_responder([uri])
 
     def _resp(pkt: "FujiPacket"):
         if inner is not None:
             r = inner(pkt)
             if r is not None:
                 return r
+        host_reply = host_resp(pkt)
+        if host_reply is not None:
+            return host_reply
         if fp is not None and pkt.device == fp.FILE_DEVICE_ID:
             if pkt.command == fp.CMD_RESOLVE_PATH:
                 return build_resolve_path_response(uri, uri)
