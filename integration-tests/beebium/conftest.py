@@ -12,6 +12,7 @@ automatically. See docs/DEVELOPMENT.md.
 from __future__ import annotations
 
 import contextlib
+import datetime as _dt
 import os
 import shutil
 import socket
@@ -22,6 +23,7 @@ from pathlib import Path
 
 import pytest
 
+from evidence import ScreenEvidenceRecorder
 from beebium_test_env import add_fujinet_tools_to_path, ensure_environment
 
 _HERE = Path(__file__).resolve()
@@ -68,10 +70,33 @@ def pytest_addoption(parser):
         default=os.environ.get("FUJINET_BIN", ""),
         help="path to the real posix fujinet-nio binary for real/ interop tests",
     )
+    group.addoption(
+        "--screen-evidence-dir",
+        action="store",
+        default=os.environ.get("FN_BEEBIUM_EVIDENCE_ROOT", ""),
+        help=(
+            "directory for Beebium screen evidence "
+            "(default: test-evidence/beebium-YYYYMMDD-HHMMSS)"
+        ),
+    )
+    group.addoption(
+        "--no-screen-evidence",
+        action="store_true",
+        default=os.environ.get("FN_BEEBIUM_NO_EVIDENCE", "") in ("1", "true", "yes"),
+        help="disable Beebium screen evidence capture",
+    )
 
 
 def pytest_configure(config):
     ensure_environment()
+    if not config.getoption("--no-screen-evidence"):
+        requested = config.getoption("--screen-evidence-dir")
+        if requested:
+            evidence_root = Path(requested).expanduser()
+        else:
+            stamp = _dt.datetime.now().strftime("%Y%m%d-%H%M%S")
+            evidence_root = _FN_ROM_ROOT / "test-evidence" / f"beebium-{stamp}"
+        config._fn_beebium_evidence_root = evidence_root
     config.addinivalue_line(
         "markers", "needs_net: requires the network device (skipped on the DISK profile)"
     )
@@ -101,6 +126,39 @@ def pytest_collection_modifyitems(config, items):
             item.add_marker(skip_disk)
         if not utils_resident and "needs_resident_utils" in item.keywords:
             item.add_marker(skip_utils)
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+    outcome = yield
+    setattr(item, "rep_" + call.when, outcome.get_result())
+
+
+def pytest_report_header(config):
+    root = getattr(config, "_fn_beebium_evidence_root", None)
+    if root is None:
+        return "Beebium screen evidence: disabled"
+    return f"Beebium screen evidence: {root}"
+
+
+@pytest.fixture()
+def screen_evidence(pytestconfig, request):
+    root = getattr(pytestconfig, "_fn_beebium_evidence_root", None)
+    if root is None:
+        yield None
+        return
+
+    recorder = ScreenEvidenceRecorder(
+        root=Path(root),
+        profile=pytestconfig.getoption("--fn-profile"),
+        nodeid=request.node.nodeid,
+    )
+    try:
+        yield recorder
+    finally:
+        report = getattr(request.node, "rep_call", None)
+        status = report.outcome if report is not None else "unknown"
+        recorder.finish(status=status)
 
 
 @pytest.fixture()
@@ -151,9 +209,13 @@ def _launch_beebium(beebium_paths, serial_arg):
 
 
 @pytest.fixture()
-def beebium(beebium_paths):
+def beebium(beebium_paths, screen_evidence):
     with _launch_beebium(beebium_paths, f"mode=pty:path={beebium_paths['pty']}") as bbc:
-        yield bbc
+        _attach_screen_evidence(bbc, screen_evidence)
+        try:
+            yield bbc
+        finally:
+            _capture_final_screen_evidence(screen_evidence, bbc)
 
 
 @pytest.fixture()
@@ -264,9 +326,13 @@ def real_fujinet_host_tree(pytestconfig):
 
 
 @pytest.fixture()
-def beebium_real_host_tree(beebium_paths, real_fujinet_host_tree):
+def beebium_real_host_tree(beebium_paths, real_fujinet_host_tree, screen_evidence):
     with _launch_beebium(beebium_paths, f"mode=device:path={real_fujinet_host_tree.pty_path}") as bbc:
-        yield bbc
+        _attach_screen_evidence(bbc, screen_evidence)
+        try:
+            yield bbc
+        finally:
+            _capture_final_screen_evidence(screen_evidence, bbc)
 
 
 def _fujinet_nio_home() -> Path:
@@ -332,9 +398,13 @@ def httpbin_service():
 
 
 @pytest.fixture()
-def beebium_real(beebium_paths, real_fujinet):
+def beebium_real(beebium_paths, real_fujinet, screen_evidence):
     with _launch_beebium(beebium_paths, f"mode=device:path={real_fujinet.pty_path}") as bbc:
-        yield bbc
+        _attach_screen_evidence(bbc, screen_evidence)
+        try:
+            yield bbc
+        finally:
+            _capture_final_screen_evidence(screen_evidence, bbc)
 
 
 @pytest.fixture()
@@ -347,3 +417,13 @@ def fuji_device(beebium, beebium_paths):
         yield dev
     finally:
         dev.close()
+
+
+def _capture_final_screen_evidence(screen_evidence, bbc) -> None:
+    if screen_evidence is not None:
+        screen_evidence.capture(bbc, "final")
+
+
+def _attach_screen_evidence(bbc, screen_evidence) -> None:
+    if screen_evidence is not None:
+        setattr(bbc, "_fn_screen_evidence", screen_evidence)

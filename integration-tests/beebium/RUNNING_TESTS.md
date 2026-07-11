@@ -37,6 +37,11 @@ Coverage is complete when all four Beebium lanes pass:
 The skip counts in the first three lanes are expected. They are how one shared
 suite expresses profile-specific coverage.
 
+Each Beebium test that launches an emulator writes screen evidence under
+`test-evidence/beebium-YYYYMMDD-HHMMSS/` by default. A profile-matrix run
+shares one evidence folder across all lanes. This directory is outside `build/`
+so profile rebuilds and `make clean` do not delete evidence from earlier lanes.
+
 ## What To Run
 
 ### 1. Full repo gate
@@ -70,6 +75,8 @@ This runs four lanes in sequence:
 
 The fourth lane is important. It is the lane that creates `build/FN-UTLS.ssd`
 and `build/OTHER.ssd` and proves the transient-command-on-disk behavior.
+
+The script prints the evidence directory near the start of the run.
 
 ### 3. One profile only
 
@@ -152,6 +159,44 @@ checks with `contains` or `regex`.
 The old `scripts/integration_test.py` b2 runner has been retired and now exits
 with a pointer to this Beebium path. `scripts/b2-http.py` remains available for
 interactive b2 work.
+
+## Screen Evidence
+
+For every Beebium test that starts an emulator, the fixture captures numbered
+screen/frame checkpoints when a screen assertion succeeds or times out, plus a
+final teardown frame. This makes the progress of longer tests visible after the
+run.
+
+- `screen_000.txt`, `screen_001.txt`, ...: scroll-corrected MODE 7 text via `beebium.screen.dump_screen`
+- `frame_000.png`, `frame_001.png`, ...: raw video frames saved as PNG
+- `frame_000.ppm`, `frame_001.ppm`, ...: fallback raw video frames if PNG saving fails
+- `captures.tsv`: ordered capture labels and frame details
+- `metadata.txt`: test node id, profile, status, and capture time
+
+The default path is:
+
+```bash
+test-evidence/beebium-YYYYMMDD-HHMMSS/<profile>/<status>/<test>/
+```
+
+While a test is running, its directory lives under
+`test-evidence/beebium-YYYYMMDD-HHMMSS/<profile>/running/<test>/`. At teardown it
+is moved to `passed`, `failed`, or the pytest outcome reported for that test.
+
+Override the root when you want a known location:
+
+```bash
+FN_BEEBIUM_EVIDENCE_ROOT=test-evidence/my-run \
+  ./integration-tests/beebium/run_profile_tests.sh
+```
+
+Disable evidence capture for a run:
+
+```bash
+FN_BEEBIUM_NO_EVIDENCE=1 ./integration-tests/beebium/run_profile_tests.sh
+```
+
+or pass `--no-screen-evidence` through `run_pytest.sh` for direct pytest runs.
 
 ## Why The Skips Are Expected
 

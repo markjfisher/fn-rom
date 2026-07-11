@@ -21,6 +21,17 @@ root="$(cd "$here/../.." && pwd)"   # repos/fn-rom
 # shellcheck source=/dev/null
 source "$here/check_test_env.sh"
 
+if [ "${FN_BEEBIUM_NO_EVIDENCE:-}" = "1" ] ||
+   [ "${FN_BEEBIUM_NO_EVIDENCE:-}" = "true" ] ||
+   [ "${FN_BEEBIUM_NO_EVIDENCE:-}" = "yes" ]; then
+  evidence_msg="disabled"
+elif [ -z "${FN_BEEBIUM_EVIDENCE_ROOT:-}" ]; then
+  export FN_BEEBIUM_EVIDENCE_ROOT="$root/test-evidence/beebium-$(date +%Y%m%d-%H%M%S)"
+  evidence_msg="$FN_BEEBIUM_EVIDENCE_ROOT"
+else
+  evidence_msg="$FN_BEEBIUM_EVIDENCE_ROOT"
+fi
+
 echo "==> Beebium scripted coverage lanes:"
 echo "    1. all  = resident utils + network"
 echo "    2. net  = network + transient utils on disk"
@@ -28,6 +39,7 @@ echo "    3. disk = no-network profile checks"
 echo "    4. utls = FN-UTLS transient-command lane (rebuilds FN-UTLS.ssd + OTHER.ssd)"
 echo "==> Skips in lanes 1-3 are expected profile gating, not missing coverage."
 echo "==> See integration-tests/beebium/RUNNING_TESTS.md for the coverage map."
+echo "==> Screen evidence: $evidence_msg"
 
 # A previous run killed mid-flight (e.g. by `timeout` or Ctrl-C) can leave a
 # dangling PTY symlink pointing at a dead pts slave, which makes beebium's PTY

@@ -73,7 +73,11 @@ def run_suite(
     drive: int = 0,
     paste_delay: float = 0.1,
     poll_interval: float = 0.05,
+    evidence=None,
 ) -> None:
+    if evidence is None:
+        evidence = getattr(bbc, "_fn_screen_evidence", None)
+
     command(bbc, f"*FHOST {fhost}")
     time.sleep(paste_delay)
     command(bbc, f"*FIN {disk_slot} {suite.disk}")
@@ -102,6 +106,7 @@ def run_suite(
                 label=f"{suite.path.name}:{step.name}",
                 timeout=timeout,
                 poll_interval=poll_interval,
+                evidence=evidence,
             )
 
 
@@ -156,6 +161,7 @@ def _wait_for_screen(
     label: str,
     timeout: float,
     poll_interval: float,
+    evidence=None,
 ) -> None:
     deadline = time.monotonic() + max(timeout, 0.0)
     last_screen = ""
@@ -164,8 +170,12 @@ def _wait_for_screen(
         last_screen = dump_screen(bbc)
         last_failures = _screen_failures(last_screen, expect)
         if not last_failures:
+            if evidence is not None:
+                evidence.capture(bbc, label, screen=last_screen)
             return
         if time.monotonic() >= deadline:
+            if evidence is not None:
+                evidence.capture(bbc, f"timeout {label}", screen=last_screen)
             failures = "\n".join(f"  - {f}" for f in last_failures)
             raise AssertionError(
                 f"{label}: screen expectations not met within {timeout}s\n"

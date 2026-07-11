@@ -1,6 +1,7 @@
 build/
 obj/
 test/
+/test-evidence/
 /b2-scripts/
 /scratch/
 
