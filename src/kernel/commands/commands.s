@@ -1,4 +1,3 @@
-        .export cmd_fs_fboot
         .export cmd_utils_roms
         .export not_cmd_utils
 
@@ -6,7 +5,6 @@
 
         .segment "CODE"
 
-cmd_fs_fboot:
 cmd_utils_roms:
 not_cmd_utils:
         rts

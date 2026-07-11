@@ -16,6 +16,7 @@
 
         .importzp aws_tmp08
         .importzp aws_tmp09
+        .importzp aws_tmp10
         .importzp aws_tmp14
         .importzp aws_tmp15
 
@@ -23,7 +24,6 @@
         .import GSREAD_A
         .import grp_str_lo
         .import grp_str_hi
-        .import cmd_str_futils
         .import parameter_table
         .import print_char
         .import print_newline
@@ -48,10 +48,13 @@ cmd_help_fuji:
 ; Entry: X = group id (cmdtab_group_*)
 ;        A = command-line offset to restore into Y on exit
 ; The group is walked from cmd_str_<grp> to its $00 terminator; the "F" prefix
-; is added for the FUTILS group (entries at/after cmd_str_futils).
+; is added for the FUTILS group.
 
 print_group_help:
         pha                             ; save command-line offset
+        txa
+        eor     #cmdtab_group_futils    ; 0 means add F prefix to each entry.
+        sta     aws_tmp10
         lda     grp_str_lo,x            ; table pointer = cmd_str_<grp> - 1
         sta     aws_tmp14               ; (the print loop leads with an inc)
         lda     grp_str_hi,x
@@ -113,15 +116,8 @@ prtcmd_at_bc_add_1:
         lda     #$07
         sta     aws_tmp08
 
-        ; if the current entry is in the FUTILS group, print "F" first.
-        lda     aws_tmp15
-        cmp     #>cmd_str_futils
-        bcc     help_cmdloop
-        bne     @print_f
-        lda     aws_tmp14
-        cmp     #<cmd_str_futils
-        bcc     help_cmdloop
-@print_f:
+        lda     aws_tmp10
+        bne     help_cmdloop
         lda     #'F'
         jsr     prtcmd_prtchr
 help_cmdloop:

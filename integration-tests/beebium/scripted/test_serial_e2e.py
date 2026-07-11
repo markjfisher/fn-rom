@@ -66,6 +66,17 @@ def test_fhost_screen_text_and_wire_payload_case(beebium, fuji_device):
     assert _parse_host_set_req(pkt.payload) == "tnfs://example.invalid/bbc/"
 
 
+def test_help_futils_describes_current_commands(beebium):
+    command(beebium, "*HELP FUTILS")
+    screen = wait_for_screen_text(beebium, "FHOST", timeout=8.0)
+
+    assert "BOOT" not in screen
+    assert "FBOOT" not in screen
+    assert "FFS" in screen
+    assert "FHOST" in screen
+    assert "(<host>|LIST|n|n D)" in screen
+
+
 def test_fhost_emits_host_service_set_request(beebium, fuji_device, screen_evidence):
     fuji_device.set_responder(host_service_responder())
 

@@ -40,7 +40,6 @@
         .import cmd_fs_drive
         .import cmd_fs_enable
         .import cmd_fs_ex
-        .import cmd_fs_fboot
         .import cmd_fs_fhost
         .import cmd_fs_fin
         .import cmd_fs_fmount
@@ -87,9 +86,8 @@ cmd_table_info:
 cmd_adr_futils:
         .segment "CMDSTR_FUTILS"
 cmd_str_futils:
-        cmd_entry "FUTILS", "BOOT",    $0C, $08, cmd_fs_fboot    ; <slot>/<dos name>
-        cmd_entry "FUTILS", "FS",      $15, $00, cmd_fs_fhost    ; <path>
-        cmd_entry "FUTILS", "HOST",    $15, $00, cmd_fs_fhost    ; <path>
+        cmd_entry "FUTILS", "FS",      $15, $00, cmd_fs_fhost
+        cmd_entry "FUTILS", "HOST",    $15, $00, cmd_fs_fhost
         cmd_entry "FUTILS", "IN",      $0B, $08, cmd_fs_fin      ; (<slot>) <dos name>
         cmd_entry "FUTILS", "MOUNT",   $0A, $04, cmd_fs_fmount   ; <slot> (<drive>)
         ; Transient (Lever B), self-registering into CMDSTR_FUTILS_EXT from
@@ -164,7 +162,7 @@ parameter_table:
         .byte '4'|$80, "0/80"                   ; 12
         .byte '<'|$80, "string>"                ; 13
         .byte '('|$80, "L)"                     ; 14
-        .byte '<'|$80, "path>"                  ; 15
+        .byte '('|$80, "<host>|LIST|n|n D)"     ; 15
         .byte '('|$80, "<handle> <string>)"     ; 16
 
         .byte $FF
