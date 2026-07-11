@@ -130,17 +130,28 @@ through the scripted Fuji disk responder, and then replay the YAML `paste` and
 tests such as OSFILE do not leave locked or modified files behind for the next
 run.
 
+The open/network suites build `openbas.ssd` from a temporary copy of the BASIC
+sources with service URLs templated to deterministic loopback-style values.
+Those URLs are then served by the scripted NetworkDevice responder; no b2
+emulator, real fujinet-nio process, TNFS share, httpbin container, HTTP file
+server, or TCP echo service is required for the scripted matrix.
+
 Supported today:
 
 - `01_osfile.yaml`
 - `02_osargs.yaml`
+- `03_open.yaml`
 - `04_ctests.yaml` in the `all` profile, because it needs resident utilities
+- `05_long_str.yaml`
+- `06_json.yaml`
 
 The runner deliberately supports only the YAML features used by those migrated
 suites: top-level `disk`/`paste`, step `paste`, step `delay_seconds`, and screen
-checks with `contains` or `regex`. Service-backed suites such as the old open,
-long-string, and JSON tests still need a small service-host templating layer
-before they can be made deterministic under Beebium.
+checks with `contains` or `regex`.
+
+The old `scripts/integration_test.py` b2 runner has been retired and now exits
+with a pointer to this Beebium path. `scripts/b2-http.py` remains available for
+interactive b2 work.
 
 ## Why The Skips Are Expected
 

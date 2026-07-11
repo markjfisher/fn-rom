@@ -19,6 +19,7 @@ import struct
 import threading
 import time
 import tty
+from dataclasses import dataclass, field
 from typing import Callable, Iterable, List, Optional
 
 from fujinet_tools import fujibus as fb
@@ -555,6 +556,218 @@ def build_network_close_response(status: int = 0) -> bytes:
         raise RuntimeError("fujinet_tools.netproto is unavailable")
     body = bytes([netp.NETPROTO_VERSION, 0]) + struct.pack("<H", 0)
     return fb.build_fuji_response_wire(netp.NETWORK_DEVICE_ID, netp.CMD_CLOSE, status, body)
+
+
+def build_network_info_response(
+    *,
+    handle: int,
+    content_length: int,
+    http_status: int = 200,
+    status: int = 0,
+) -> bytes:
+    if netp is None:
+        raise RuntimeError("fujinet_tools.netproto is unavailable")
+    flags = 0x02 | 0x04
+    body = (
+        bytes([netp.NETPROTO_VERSION, flags])
+        + struct.pack("<H", 0)
+        + struct.pack("<H", handle)
+        + struct.pack("<H", http_status)
+        + struct.pack("<Q", content_length)
+        + struct.pack("<I", 0)
+    )
+    return fb.build_fuji_response_wire(netp.NETWORK_DEVICE_ID, netp.CMD_INFO, status, body)
+
+
+def build_network_info_read_response(
+    *,
+    handle: int,
+    offset: int,
+    data: bytes,
+    eof: bool = False,
+    truncated: bool = False,
+    more_available: bool = False,
+    status: int = 0,
+) -> bytes:
+    if netp is None:
+        raise RuntimeError("fujinet_tools.netproto is unavailable")
+    flags = 0
+    if eof:
+        flags |= 0x01
+    if truncated:
+        flags |= 0x02
+    if more_available:
+        flags |= 0x04
+    body = (
+        bytes([netp.NETPROTO_VERSION, flags])
+        + struct.pack("<H", 0)
+        + struct.pack("<H", handle)
+        + struct.pack("<I", offset)
+        + struct.pack("<H", len(data))
+        + data
+    )
+    return fb.build_fuji_response_wire(
+        netp.NETWORK_DEVICE_ID, netp.CMD_INFO_READ, status, body
+    )
+
+
+@dataclass
+class _NetworkHandle:
+    url: str
+    method: int
+    data: bytes = b""
+    translated_data: bytes | None = None
+    written: bytearray = field(default_factory=bytearray)
+
+
+def legacy_openbas_network_responder(
+    *,
+    http_fs_base_url: str,
+    httpbin_base_url: str,
+    tcp_echo_url: str,
+) -> Responder:
+    """Serve the old openbas BASIC integration tests through NetworkDevice.
+
+    This models the tiny parts of http-fs, httpbin, and the TCP echo service
+    that those BASIC programs consume, without requiring external services.
+    """
+    if netp is None:
+        raise RuntimeError("fujinet_tools.netproto is unavailable")
+
+    next_handle = 0x1200
+    handles: dict[int, _NetworkHandle] = {}
+    httpbin_get_url = f"{httpbin_base_url}/get"
+    httpbin_netloc = httpbin_base_url.split("://", 1)[-1]
+
+    def _read_lp_u16(payload: bytes, off: int) -> tuple[str, int]:
+        n = int.from_bytes(payload[off:off + 2], "little")
+        off += 2
+        text = payload[off:off + n].decode("utf-8", errors="replace")
+        return text, off + n
+
+    def _parse_open(payload: bytes) -> tuple[int, str]:
+        method = payload[1]
+        url, _ = _read_lp_u16(payload, 3)
+        return method, url
+
+    def _parse_handle_offset_len(payload: bytes) -> tuple[int, int, int]:
+        handle = int.from_bytes(payload[1:3], "little")
+        offset = int.from_bytes(payload[3:7], "little")
+        max_len = int.from_bytes(payload[7:9], "little")
+        return handle, offset, max_len
+
+    def _parse_write(payload: bytes) -> tuple[int, int, bytes]:
+        handle, offset, data_len = _parse_handle_offset_len(payload)
+        return handle, offset, payload[9:9 + data_len]
+
+    def _parse_translate(payload: bytes) -> tuple[int, str]:
+        handle = int.from_bytes(payload[1:3], "little")
+        selector_len = int.from_bytes(payload[5:7], "little")
+        selector = payload[7:7 + selector_len].decode("utf-8", errors="replace")
+        return handle, selector
+
+    def _initial_data_for_url(url: str) -> bytes:
+        base_url = url.split("?", 1)[0]
+        if base_url == f"{http_fs_base_url}/bbc/tests/hello_print_hash.txt":
+            return b"\x00\x05OLLEH"
+        if base_url == f"{http_fs_base_url}/bbc/tests/simple.txt":
+            return b"FujiNet OPENIN BGET Test"
+        if base_url == httpbin_get_url:
+            body = (
+                '{"url":"%s","headers":{"Host":"%s"},"method":"GET"}'
+                % (httpbin_get_url, httpbin_netloc)
+            )
+            return body.encode("utf-8")
+        return b""
+
+    def _translated_data(state: _NetworkHandle, selector: str) -> bytes:
+        if selector == "/url":
+            return httpbin_get_url.encode("utf-8")
+        if selector == "/headers/Host":
+            return httpbin_netloc.encode("utf-8")
+        if selector == "/method":
+            return (b"POST" if state.method != 1 else b"GET")
+        return b""
+
+    def _read_data(state: _NetworkHandle, offset: int, max_len: int) -> tuple[bytes, bool]:
+        if state.translated_data is not None:
+            source = state.translated_data
+        elif state.url == tcp_echo_url:
+            source = bytes(state.written)
+        else:
+            source = state.data
+        chunk = source[offset:offset + max_len]
+        return chunk, offset + len(chunk) >= len(source)
+
+    def _resp(pkt: FujiPacket) -> Optional[bytes]:
+        nonlocal next_handle
+        if pkt.device != netp.NETWORK_DEVICE_ID:
+            return None
+        if pkt.command == netp.CMD_OPEN:
+            method, url = _parse_open(pkt.payload)
+            handle = next_handle
+            next_handle += 1
+            handles[handle] = _NetworkHandle(
+                url=url,
+                method=method,
+                data=_initial_data_for_url(url),
+            )
+            proto_flags = netp.PROTO_FLAG_SEQUENTIAL_READ
+            if method != 1 or url == tcp_echo_url:
+                proto_flags |= netp.PROTO_FLAG_SEQUENTIAL_WRITE
+            return build_network_open_response(handle=handle, proto_flags=proto_flags)
+        if pkt.command == netp.CMD_READ:
+            handle, offset, max_len = _parse_handle_offset_len(pkt.payload)
+            state = handles.get(handle)
+            if state is None:
+                return build_network_read_response(handle=handle, offset=offset, data=b"", eof=True)
+            data, eof = _read_data(state, offset, max_len)
+            return build_network_read_response(handle=handle, offset=offset, data=data, eof=eof)
+        if pkt.command == netp.CMD_INFO_READ:
+            handle, offset, max_len = _parse_handle_offset_len(pkt.payload)
+            state = handles.get(handle)
+            if state is None:
+                return build_network_info_read_response(handle=handle, offset=offset, data=b"", eof=True)
+            data, eof = _read_data(state, offset, max_len)
+            return build_network_info_read_response(
+                handle=handle, offset=offset, data=data, eof=eof
+            )
+        if pkt.command == netp.CMD_WRITE:
+            handle, offset, data = _parse_write(pkt.payload)
+            state = handles.get(handle)
+            if state is None:
+                return build_network_write_response(handle=handle, offset=offset, written=0, status=1)
+            end = offset + len(data)
+            if end > len(state.written):
+                state.written.extend(bytes(end - len(state.written)))
+            state.written[offset:end] = data
+            return build_network_write_response(handle=handle, offset=offset, written=len(data))
+        if pkt.command == netp.CMD_INFO:
+            handle = int.from_bytes(pkt.payload[1:3], "little")
+            state = handles.get(handle)
+            if state is None:
+                return build_network_info_response(handle=handle, content_length=0, status=1)
+            source = state.translated_data if state.translated_data is not None else state.data
+            if state.url == tcp_echo_url:
+                source = bytes(state.written)
+            return build_network_info_response(handle=handle, content_length=len(source))
+        if pkt.command == netp.CMD_TRANSLATE_CONFIGURE:
+            handle, selector = _parse_translate(pkt.payload)
+            state = handles.get(handle)
+            if state is None:
+                return build_translate_configure_response(handle=handle, translated_size=0, status=1)
+            state.translated_data = _translated_data(state, selector)
+            return build_translate_configure_response(
+                handle=handle,
+                translated_size=len(state.translated_data),
+            )
+        if pkt.command == netp.CMD_CLOSE:
+            handle = int.from_bytes(pkt.payload[1:3], "little")
+            handles.pop(handle, None)
+            return build_network_close_response()
+        return None
+
+    return _resp
 
 
 def resolving_responder(resolved_uri: str, display_path: str) -> Responder:

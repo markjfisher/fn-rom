@@ -4,7 +4,7 @@ import re
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Iterable, Mapping
 
 import yaml
 from beebium.screen import dump_screen
@@ -40,7 +40,8 @@ class YamlSuite:
     steps: tuple[YamlStep, ...]
 
 
-def load_suite(path: Path) -> YamlSuite:
+def load_suite(path: Path, vars: Mapping[str, str] | None = None) -> YamlSuite:
+    vars = vars or {}
     data = yaml.safe_load(path.read_text(encoding="utf-8"))
     if not isinstance(data, dict):
         raise ValueError(f"{path}: top-level YAML value must be a mapping")
@@ -57,9 +58,9 @@ def load_suite(path: Path) -> YamlSuite:
     return YamlSuite(
         path=path,
         group=str(data.get("group") or ""),
-        disk=disk.strip(),
-        setup=setup,
-        steps=tuple(_parse_step(path, i, raw) for i, raw in enumerate(raw_steps)),
+        disk=_expand(disk.strip(), vars),
+        setup=tuple(_expand(s, vars) for s in setup),
+        steps=tuple(_parse_step(path, i, raw, vars) for i, raw in enumerate(raw_steps)),
     )
 
 
@@ -104,24 +105,34 @@ def run_suite(
             )
 
 
-def _parse_step(path: Path, index: int, raw: Any) -> YamlStep:
+def _parse_step(
+    path: Path,
+    index: int,
+    raw: Any,
+    vars: Mapping[str, str],
+) -> YamlStep:
     if not isinstance(raw, dict):
         raise ValueError(f"{path}: step {index} must be a mapping")
     name = raw.get("name")
     if not isinstance(name, str) or not name.strip():
         raise ValueError(f"{path}: step {index} missing non-empty name")
 
-    checks = tuple(_parse_check(path, index, c) for c in raw.get("checks") or ())
+    checks = tuple(_parse_check(path, index, c, vars) for c in raw.get("checks") or ())
     delay = float(raw["delay_seconds"]) if "delay_seconds" in raw else None
     return YamlStep(
         name=name.strip(),
-        paste=_string_list(raw.get("paste")),
+        paste=tuple(_expand(s, vars) for s in _string_list(raw.get("paste"))),
         delay_seconds=delay,
         checks=checks,
     )
 
 
-def _parse_check(path: Path, step_index: int, raw: Any) -> ScreenCheck:
+def _parse_check(
+    path: Path,
+    step_index: int,
+    raw: Any,
+    vars: Mapping[str, str],
+) -> ScreenCheck:
     if not isinstance(raw, dict) or set(raw.keys()) != {"screen"}:
         raise ValueError(f"{path}: step {step_index} only migrated screen checks are supported")
     body = raw["screen"]
@@ -132,8 +143,8 @@ def _parse_check(path: Path, step_index: int, raw: Any) -> ScreenCheck:
         raise ValueError(f"{path}: step {step_index} screen check requires expect")
     return ScreenCheck(
         expect=ScreenExpect(
-            contains=tuple(str(x) for x in (expect.get("contains") or ())),
-            regex=tuple(str(x) for x in (expect.get("regex") or ())),
+            contains=tuple(_expand(str(x), vars) for x in (expect.get("contains") or ())),
+            regex=tuple(_expand(str(x), vars) for x in (expect.get("regex") or ())),
         )
     )
 
@@ -182,3 +193,10 @@ def _string_list(raw: Any) -> tuple[str, ...]:
     if isinstance(raw, Iterable):
         return tuple(str(x) for x in raw)
     raise ValueError(f"expected string or list of strings, got {type(raw).__name__}")
+
+
+def _expand(template: str, vars: Mapping[str, str]) -> str:
+    out = template
+    for key, value in vars.items():
+        out = out.replace("{" + key + "}", value)
+    return out

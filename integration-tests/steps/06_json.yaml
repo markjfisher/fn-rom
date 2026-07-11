@@ -30,8 +30,8 @@ steps:
             regex:
               - 'FujiNet FJSON test'
               - 'Handle    : [1-2][0-9]+'
-              - 'ReadLen   : 29'
-              - 'String : http://192.168.1.101:8080/get'
+              - 'ReadLen   : {HTTPBIN_GET_LEN}'
+              - 'String : {HTTPBIN_GET_URL}'
   - name: fnjson2
     paste:
       - 'CH."FNJSON2"'
@@ -43,11 +43,11 @@ steps:
               - 'FujiNet multi JSON query test'
               - 'Handle    : [1-2][0-9]+'
               - 'url query stat: 0'
-              - 'url Len: 29'
-              - 'String : http://192.168.1.101:8080/get'
+              - 'url Len: {HTTPBIN_GET_LEN}'
+              - 'String : {HTTPBIN_GET_URL}'
               - 'headers/Host query stat: 0'
-              - 'headers/Host Len: 18'
-              - 'String : 192.168.1.101:8080'
+              - 'headers/Host Len: {HTTPBIN_NETLOC_LEN}'
+              - 'String : {HTTPBIN_NETLOC}'
   - name: fnosw78
     paste:
       - 'CH."FNOSW78"'
@@ -58,5 +58,5 @@ steps:
             regex:
               - 'FujiNet OSWORD 78 Test'
               - 'Handle    : [1-2][0-9]+'
-              - 'ReadLen   : 29'
-              - 'String : http://192.168.1.101:8080/get'
+              - 'ReadLen   : {HTTPBIN_GET_LEN}'
+              - 'String : {HTTPBIN_GET_URL}'
