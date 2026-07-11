@@ -119,6 +119,29 @@ FN_UTLS_TEST=1 FN_PROFILE=net FN_ROM=../../build/fujinet.rom \
   ./run_pytest.sh scripted/test_command_from_disk.py -q -k library_drive
 ```
 
+### 5. Migrated legacy YAML suites
+
+Some of the older `integration-tests/steps/*.yaml` b2 suites are run through
+Beebium by `scripted/test_legacy_yaml_steps.py`.
+
+These tests create fresh SSD images in pytest temporary directories, mount them
+through the scripted Fuji disk responder, and then replay the YAML `paste` and
+`screen.expect` steps. Disk writes are handled in memory by the responder, so
+tests such as OSFILE do not leave locked or modified files behind for the next
+run.
+
+Supported today:
+
+- `01_osfile.yaml`
+- `02_osargs.yaml`
+- `04_ctests.yaml` in the `all` profile, because it needs resident utilities
+
+The runner deliberately supports only the YAML features used by those migrated
+suites: top-level `disk`/`paste`, step `paste`, step `delay_seconds`, and screen
+checks with `contains` or `regex`. Service-backed suites such as the old open,
+long-string, and JSON tests still need a small service-host templating layer
+before they can be made deterministic under Beebium.
+
 ## Why The Skips Are Expected
 
 The same scripted suite is reused across multiple shipped ROM profiles.

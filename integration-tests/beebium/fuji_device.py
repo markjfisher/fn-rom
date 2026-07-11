@@ -712,19 +712,52 @@ def build_disk_read_sector_response(
     return fb.build_fuji_response_wire(dp.DISK_DEVICE_ID, dp.CMD_READ_SECTOR, status, body)
 
 
+def build_disk_write_sector_response(
+    *,
+    slot: int,
+    lba: int,
+    written_len: int,
+    status: int = 0,
+) -> bytes:
+    if dp is None:
+        raise RuntimeError("fujinet_tools.diskproto is unavailable")
+    body = (
+        bytes([dp.DISKPROTO_VERSION, 0])
+        + struct.pack("<H", 0)
+        + bytes([slot & 0xFF])
+        + struct.pack("<I", lba)
+        + struct.pack("<H", written_len)
+    )
+    return fb.build_fuji_response_wire(dp.DISK_DEVICE_ID, dp.CMD_WRITE_SECTOR, status, body)
+
+
 def disk_image_responder(
     *, image_path, fuji_slot: int, drive_slot: int, uri: str,
     formatted_mounts: str = "0: AUTO\n", inner: "Responder | None" = None,
 ):
     """Serve a real DFS .ssd image so fn-rom can *RUN a file from it: Fuji slot
-    lookup + Disk mount/info + Disk READ_SECTOR (sectors served from the image).
+    lookup + Disk mount/info + Disk READ_SECTOR/WRITE_SECTOR.
     `inner` (if given) answers anything else first (e.g. the command's own
     FujiBus traffic once it runs)."""
-    import os as _os
     with open(image_path, "rb") as fh:
-        image = fh.read()
+        image = bytearray(fh.read())
     nsec = max(1, len(image) // 256)
     host_resp = host_service_responder([uri])
+
+    def _read_sector(lba: int, maxb: int) -> bytes:
+        start = lba * 256
+        data = bytes(image[start:start + min(maxb, 256)])
+        if len(data) < 256:
+            data = data + bytes(256 - len(data))
+        return data
+
+    def _write_sector(lba: int, data: bytes) -> int:
+        start = lba * 256
+        end = start + len(data)
+        if end > len(image):
+            image.extend(bytes(end - len(image)))
+        image[start:end] = data
+        return len(data)
 
     def _resp(pkt: "FujiPacket"):
         if inner is not None:
@@ -754,11 +787,17 @@ def disk_image_responder(
             if pkt.command == dp.CMD_READ_SECTOR:
                 lba = int.from_bytes(pkt.payload[2:6], "little")
                 maxb = int.from_bytes(pkt.payload[6:8], "little") or 256
-                start = lba * 256
-                data = image[start:start + min(maxb, 256)]
-                if len(data) < 256:
-                    data = data + bytes(256 - len(data))
-                return build_disk_read_sector_response(slot=drive_slot, lba=lba, data=data)
+                return build_disk_read_sector_response(
+                    slot=drive_slot, lba=lba, data=_read_sector(lba, maxb)
+                )
+            if pkt.command == dp.CMD_WRITE_SECTOR:
+                lba = int.from_bytes(pkt.payload[2:6], "little")
+                data_len = int.from_bytes(pkt.payload[6:8], "little")
+                data = pkt.payload[8:8 + data_len]
+                written = _write_sector(lba, data)
+                return build_disk_write_sector_response(
+                    slot=drive_slot, lba=lba, written_len=written
+                )
         return default_success_responder(pkt)
 
     return _resp

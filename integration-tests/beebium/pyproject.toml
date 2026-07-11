@@ -12,6 +12,7 @@ dependencies = [
     "pyserial>=3.5",
     "pytest>=7.0.0",
     "pytest-timeout>=2.0.0",
+    "PyYAML>=6.0",
 ]
 
 [tool.pytest.ini_options]
