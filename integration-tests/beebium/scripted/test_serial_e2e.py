@@ -66,11 +66,15 @@ def test_fhost_screen_text_and_wire_payload_case(beebium, fuji_device):
     assert _parse_host_set_req(pkt.payload) == "tnfs://x/bbc/"
 
 
-def test_help_futils_describes_current_commands(beebium):
+def test_help_futils_describes_current_commands(beebium, fn_profile):
     command(beebium, "*HELP FUTILS")
-    screen = wait_for_screen_text(beebium, "FBOOT", timeout=8.0)
+    screen = wait_for_screen_text(beebium, "FHOST", timeout=8.0)
 
-    assert "FBOOT" in screen
+    if fn_profile == "all":
+        screen = wait_for_screen_text(beebium, "FBOOT", timeout=8.0)
+        assert "FBOOT" in screen
+    else:
+        assert "FBOOT" not in screen
     assert "FFS" in screen
     assert "FHOST" in screen
     assert "(<host>|LIST|n|n D)" in screen

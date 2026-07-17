@@ -26,6 +26,7 @@ from fuji_device import (
     HOST_CMD_SET_CURRENT,
     HOST_SERVICE_ID,
     HOST_VERSION,
+    FILE_CMD_RESOLVE_PATH,
     disk_image_responder,
     default_success_responder,
     build_resolve_path_response,
@@ -177,7 +178,7 @@ def _two_image_responder(by_host_slot: dict[int, tuple[str, bytes]]):
         if host_reply is not None:
             return host_reply
         if pkt.device == fp.FILE_DEVICE_ID:
-            if pkt.command == fp.CMD_RESOLVE_PATH:
+            if pkt.command == FILE_CMD_RESOLVE_PATH:
                 return build_resolve_path_response("sd0:/", "sd0:/")
             if pkt.command == fp.CMD_LIST:
                 return build_list_response(formatted_text="LISTED\n")

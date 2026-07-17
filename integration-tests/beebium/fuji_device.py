@@ -47,6 +47,7 @@ HOST_CMD_LIST_HISTORY = 0x03
 HOST_CMD_SELECT_HISTORY = 0x04
 HOST_CMD_DELETE_HISTORY = 0x05
 DISK_CMD_BEGIN_HOST_SESSION = 0x0B
+FILE_CMD_RESOLVE_PATH = 0x05
 
 
 def default_success_responder(pkt: FujiPacket) -> bytes:
@@ -198,7 +199,13 @@ class FujiDevice:
 
 # --- Device-side response builders (mirror the host-side parsers) ------------
 
-def build_resolve_path_response(resolved_uri: str, display_path: str, status: int = 0) -> bytes:
+def build_resolve_path_response(
+    resolved_uri: str,
+    display_path: str,
+    status: int = 0,
+    *,
+    device: int | None = None,
+) -> bytes:
     """A FileService RESOLVE_PATH (0x05) reply.
 
     Wire format mirrors ``fujinet_tools.fileproto.parse_resolve_path_resp``:
@@ -214,7 +221,7 @@ def build_resolve_path_response(resolved_uri: str, display_path: str, status: in
         + struct.pack("<H", len(rb)) + rb
         + struct.pack("<H", len(db)) + db
     )
-    return fb.build_fuji_response_wire(fp.FILE_DEVICE_ID, fp.CMD_RESOLVE_PATH, status, body)
+    return fb.build_fuji_response_wire(device or fp.FILE_DEVICE_ID, FILE_CMD_RESOLVE_PATH, status, body)
 
 
 def build_list_response(
@@ -225,6 +232,7 @@ def build_list_response(
     compact: bool = False,
     formatted_text: str = "",
     status: int = 0,
+    device: int | None = None,
 ) -> bytes:
     """A FileService LIST (0x02) reply.
 
@@ -252,7 +260,7 @@ def build_list_response(
             + struct.pack("<H", len(text_bytes))
             + text_bytes
         )
-        return fb.build_fuji_response_wire(fp.FILE_DEVICE_ID, fp.CMD_LIST, status, body)
+        return fb.build_fuji_response_wire(device or fp.FILE_DEVICE_ID, fp.CMD_LIST, status, body)
 
     if compact:
         flags |= 0x02
@@ -277,7 +285,7 @@ def build_list_response(
         + struct.pack("<H", len(blob))
         + bytes(blob)
     )
-    return fb.build_fuji_response_wire(fp.FILE_DEVICE_ID, fp.CMD_LIST, status, body)
+    return fb.build_fuji_response_wire(device or fp.FILE_DEVICE_ID, fp.CMD_LIST, status, body)
 
 
 def build_get_mounts_response(
@@ -809,7 +817,7 @@ def resolving_responder(resolved_uri: str, display_path: str) -> Responder:
         host_reply = host_resp(pkt)
         if host_reply is not None:
             return host_reply
-        if fp is not None and pkt.device == fp.FILE_DEVICE_ID and pkt.command == fp.CMD_RESOLVE_PATH:
+        if fp is not None and pkt.device == fp.FILE_DEVICE_ID and pkt.command == FILE_CMD_RESOLVE_PATH:
             return build_resolve_path_response(resolved_uri, display_path)
         return default_success_responder(pkt)
     return _resp
@@ -830,7 +838,7 @@ def file_listing_responder(
             return host_reply
         if fp is None:
             return default_success_responder(pkt)
-        if pkt.device == fp.FILE_DEVICE_ID and pkt.command == fp.CMD_RESOLVE_PATH:
+        if pkt.device == fp.FILE_DEVICE_ID and pkt.command == FILE_CMD_RESOLVE_PATH:
             return build_resolve_path_response(resolved_uri, display_path)
         if pkt.device == fp.FILE_DEVICE_ID and pkt.command == fp.CMD_LIST:
             return build_list_response(formatted_text=formatted_text)
@@ -884,7 +892,7 @@ def full_stack_responder(
         if host_reply is not None:
             return host_reply
         if fp is not None and pkt.device == fp.FILE_DEVICE_ID:
-            if pkt.command == fp.CMD_RESOLVE_PATH:
+            if pkt.command == FILE_CMD_RESOLVE_PATH:
                 return build_resolve_path_response(resolved_uri, display_path)
             if pkt.command == fp.CMD_LIST:
                 return build_list_response(formatted_text="FILE\n")
@@ -1039,11 +1047,11 @@ def disk_image_responder(
         host_reply = host_resp(pkt)
         if host_reply is not None:
             return host_reply
-        if fp is not None and pkt.device == fp.FILE_DEVICE_ID:
-            if pkt.command == fp.CMD_RESOLVE_PATH:
-                return build_resolve_path_response(uri, uri)
+        if fp is not None and pkt.device in (fp.FILE_DEVICE_ID, 0xFE):
+            if pkt.command == FILE_CMD_RESOLVE_PATH:
+                return build_resolve_path_response(uri, uri, device=pkt.device)
             if pkt.command == fp.CMD_LIST:
-                return build_list_response(formatted_text="FN-UTLS\n")
+                return build_list_response(formatted_text="FN-UTLS\n", device=pkt.device)
         if fuji is not None and pkt.device == fuji.FUJI_DEVICE_ID:
             if pkt.command == fuji.CMD_GET_MOUNT:
                 return build_get_mount_response(slot=fuji_slot, enabled=True, uri=uri)
