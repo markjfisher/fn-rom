@@ -855,12 +855,23 @@ def mounted_disk_responder(
     readonly: bool = False,
 ) -> Responder:
     """Answer Fuji slot lookup plus subsequent Disk mount/unmount requests."""
+    mount_enabled = True
+
+    def _mounts_text() -> str:
+        if not mount_enabled:
+            return ""
+        return f"{slot}: {mode.upper()} {uri}\n"
 
     def _resp(pkt: FujiPacket) -> Optional[bytes]:
+        nonlocal mount_enabled
         if fuji is not None and pkt.device == fuji.FUJI_DEVICE_ID:
+            if pkt.command == fuji.CMD_GET_MOUNTS:
+                return build_get_mounts_response(_mounts_text())
             if pkt.command == fuji.CMD_GET_MOUNT:
-                return build_get_mount_response(slot=slot, enabled=True, uri=uri, mode=mode)
+                return build_get_mount_response(slot=slot, enabled=mount_enabled, uri=uri, mode=mode)
             if pkt.command == fuji.CMD_SET_MOUNT:
+                if len(pkt.payload) >= 2 and pkt.payload[0] == slot:
+                    mount_enabled = bool(pkt.payload[1])
                 return build_set_mount_response()
         if dp is not None and pkt.device == dp.DISK_DEVICE_ID:
             if pkt.command == dp.CMD_MOUNT:

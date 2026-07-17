@@ -4,8 +4,9 @@ import pytest
 
 from fujinet_tools import fujiproto as fuji
 
+from beebium.client.screen import dump_screen
 from fuji_device import HOST_CMD_SET_CURRENT, HOST_SERVICE_ID, full_stack_responder, mounted_disk_responder
-from helpers import command
+from helpers import command, wait_for_screen_text
 
 
 @pytest.mark.needs_resident_utils
@@ -46,8 +47,14 @@ def test_fin_emits_set_mount_request(beebium, fuji_device):
 
 @pytest.mark.needs_resident_utils
 def test_fout_round_trip_gets_then_clears_mount(beebium, fuji_device):
-    fuji_device.set_responder(mounted_disk_responder(slot=2, uri="tnfs://example.invalid/bbc/BOOT.SSD"))
+    fuji_device.set_responder(mounted_disk_responder(slot=2, uri="sd0:/BOOT.SSD"))
 
+    command(beebium, "*FDRIVE")
+    screen = wait_for_screen_text(beebium, "BOOT.SSD", timeout=6.0)
+    assert "2: AUTO sd0:/BOOT.SSD" in screen
+
+    command(beebium, "CLS")
+    fuji_device.clear()
     command(beebium, "*FOUT 2")
 
     get_pkt = fuji_device.wait_for_command(fuji.FUJI_DEVICE_ID, fuji.CMD_GET_MOUNT, timeout=6.0)
@@ -59,3 +66,9 @@ def test_fout_round_trip_gets_then_clears_mount(beebium, fuji_device):
     assert set_pkt is not None
     assert set_pkt.checksum_ok
     assert set_pkt.payload == b"\x02\x00\x00\x00"
+
+    command(beebium, "CLS")
+    command(beebium, "*FDRIVE")
+    screen = dump_screen(beebium)
+    assert "BOOT.SSD" not in screen
+    assert "2: AUTO" not in screen

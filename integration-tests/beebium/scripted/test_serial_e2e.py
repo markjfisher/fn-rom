@@ -15,8 +15,8 @@ from fuji_device import (
     HOST_CMD_SET_CURRENT,
     HOST_SERVICE_ID,
     HOST_VERSION,
+    file_listing_responder,
     host_service_responder,
-    resolving_responder,
 )
 from helpers import command, wait_for_screen_text
 
@@ -150,14 +150,22 @@ def test_fdrive_emits_fuji_get_mounts_request(beebium, fuji_device):
 
 @pytest.mark.needs_resident_utils
 def test_fhost_then_fls_round_trip(beebium, fuji_device):
-    fuji_device.set_responder(resolving_responder("tnfs://x/bbc/", "bbc/"))
+    listing = "A.$.BOOT\nA.$.GAMES\n"
+    fuji_device.set_responder(file_listing_responder(
+        resolved_uri="tnfs://x/bbc/",
+        display_path="bbc/",
+        formatted_text=listing,
+    ))
 
     command(beebium, "*FHOST tnfs://x/bbc/")
     assert fuji_device.wait_for_command(HOST_SERVICE_ID, HOST_CMD_SET_CURRENT, timeout=6.0)
 
     fuji_device.clear()
     command(beebium, "*FLS")
+    screen = wait_for_screen_text(beebium, "A.$.GAMES", timeout=6.0)
 
     pkt = fuji_device.wait_for_command(fp.FILE_DEVICE_ID, fp.CMD_LIST, timeout=6.0)
     assert pkt is not None
     assert pkt.checksum_ok
+    assert "A.$.BOOT" in screen
+    assert "List err" not in screen
