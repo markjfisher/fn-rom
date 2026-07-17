@@ -9,7 +9,10 @@ if [[ -z "${BEEBIUM_HOME:-}" || -z "${FUJINET_NIO_HOME:-}" ]]; then
   exit 1
 fi
 
-client="${BEEBIUM_HOME}/clients/python"
+client="${BEEBIUM_HOME}/clients/beebium-python-client"
+if [[ ! -f "${client}/pyproject.toml" ]]; then
+  client="${BEEBIUM_HOME}/clients/python"
+fi
 if [[ ! -f "${client}/pyproject.toml" ]]; then
   echo "ERROR: Beebium Python client not found at ${client}" >&2
   exit 1

@@ -188,14 +188,19 @@ def beebium_paths(pytestconfig):
 
 
 @contextlib.contextmanager
-def _launch_beebium(beebium_paths, serial_arg):
+def _launch_beebium(beebium_paths, serial_arg=None, *, serial_extension="host"):
     from beebium.client import Beebium
 
     slot = beebium_paths["slot"]
     extra_args = [
         "--sideways", f"{slot}:rom:{beebium_paths['fn_rom']}",
-        "--host-serial", serial_arg,
     ]
+    if serial_extension == "host":
+        extra_args.extend(["--host-serial", serial_arg])
+    elif serial_extension == "rpc":
+        extra_args.append("--rpc-serial")
+    else:
+        raise ValueError(f"unknown serial extension: {serial_extension}")
     with Beebium.launch(
         mos_filepath=str(beebium_paths["mos"]),
         basic_filepath=str(beebium_paths["basic"]) if beebium_paths["basic"] else None,
@@ -210,7 +215,7 @@ def _launch_beebium(beebium_paths, serial_arg):
 
 @pytest.fixture()
 def beebium(beebium_paths, screen_evidence):
-    with _launch_beebium(beebium_paths, f"mode=pty:path={beebium_paths['pty']}") as bbc:
+    with _launch_beebium(beebium_paths, serial_extension="rpc") as bbc:
         _attach_screen_evidence(bbc, screen_evidence)
         try:
             yield bbc
@@ -409,9 +414,10 @@ def beebium_real(beebium_paths, real_fujinet, screen_evidence):
 
 @pytest.fixture()
 def fuji_device(beebium, beebium_paths):
+    from beebium.ext.peripheral.rpc_serial import RpcSerial
     from fuji_device import FujiDevice
 
-    dev = FujiDevice(beebium_paths["pty"])
+    dev = FujiDevice(rpc_serial=beebium.extensions[RpcSerial])
     dev.start()
     try:
         yield dev

@@ -1,14 +1,15 @@
-"""A minimal FujiBus 'device' endpoint for the Beebium serial/PTY tests.
+"""A minimal FujiBus 'device' endpoint for the Beebium serial tests.
 
 The fn-rom is the FujiBus *host*: it sends SLIP-framed FujiBus requests out the
 BBC serial port. In a real deployment a FujiNet device sits on the other end of
-the wire. For these tests we attach to the emulator's pseudo-terminal slave and
-play that device role: we read the request frames the ROM emits (so tests can
-assert them) and send back responses (so multi-step ROM flows can proceed).
+the wire. For these tests we use Beebium's rpc-serial extension when available,
+or attach to the emulator's pseudo-terminal slave, and play that device role:
+we read the request frames the ROM emits (so tests can assert them) and send
+back responses (so multi-step ROM flows can proceed).
 
 All SLIP framing and FujiBus parsing/building is reused from
 ``fujinet_tools.fujibus`` -- this module only adds the device-side plumbing
-(open the pty, run a reader thread, record requests, reply).
+(open the transport, run a reader thread, record requests, reply).
 """
 
 from __future__ import annotations
@@ -54,10 +55,17 @@ def default_success_responder(pkt: FujiPacket) -> bytes:
 
 
 class FujiDevice:
-    """Device end of the serial link, attached to a pty slave path."""
+    """Device end of the serial link, attached through rpc-serial or a pty."""
 
-    def __init__(self, pty_path: str, *, responder: Optional[Responder] = None):
+    def __init__(
+        self,
+        pty_path: str = "",
+        *,
+        rpc_serial=None,
+        responder: Optional[Responder] = None,
+    ):
         self.pty_path = pty_path
+        self._rpc_serial = rpc_serial
         self._fd = -1
         self._rx = bytearray()
         self._requests: List[FujiPacket] = []
@@ -69,18 +77,19 @@ class FujiDevice:
     # --- lifecycle -----------------------------------------------------------
 
     def start(self, open_timeout: float = 5.0) -> "FujiDevice":
-        deadline = time.monotonic() + open_timeout
-        last_err: Optional[OSError] = None
-        while time.monotonic() < deadline:
-            try:
-                self._fd = os.open(self.pty_path, os.O_RDWR | os.O_NOCTTY)
-                break
-            except OSError as exc:
-                last_err = exc
-                time.sleep(0.1)
-        if self._fd < 0:
-            raise RuntimeError(f"could not open pty {self.pty_path!r}: {last_err}")
-        tty.setraw(self._fd)  # raw: no echo / CR-LF cooking on the slave
+        if self._rpc_serial is None:
+            deadline = time.monotonic() + open_timeout
+            last_err: Optional[OSError] = None
+            while time.monotonic() < deadline:
+                try:
+                    self._fd = os.open(self.pty_path, os.O_RDWR | os.O_NOCTTY)
+                    break
+                except OSError as exc:
+                    last_err = exc
+                    time.sleep(0.1)
+            if self._fd < 0:
+                raise RuntimeError(f"could not open pty {self.pty_path!r}: {last_err}")
+            tty.setraw(self._fd)  # raw: no echo / CR-LF cooking on the slave
         self._stop = False
         self._thread = threading.Thread(target=self._loop, daemon=True)
         self._thread.start()
@@ -102,13 +111,7 @@ class FujiDevice:
 
     def _loop(self) -> None:
         while not self._stop:
-            readable, _, _ = select.select([self._fd], [], [], 0.1)
-            if not readable:
-                continue
-            try:
-                chunk = os.read(self._fd, 512)
-            except OSError:
-                break
+            chunk = self._read_transport()
             if not chunk:
                 continue
             self._rx.extend(chunk)
@@ -126,10 +129,37 @@ class FujiDevice:
                 except Exception:
                     reply = None
                 if reply:
-                    try:
-                        os.write(self._fd, reply)
-                    except OSError:
-                        pass
+                    self._write_transport(reply)
+
+    def _read_transport(self) -> bytes:
+        if self._rpc_serial is not None:
+            chunk = self._rpc_serial.receive(512)
+            if not chunk:
+                time.sleep(0.005)
+            return chunk
+        readable, _, _ = select.select([self._fd], [], [], 0.1)
+        if not readable:
+            return b""
+        try:
+            return os.read(self._fd, 512)
+        except OSError:
+            self._stop = True
+            return b""
+
+    def _write_transport(self, data: bytes) -> None:
+        if self._rpc_serial is not None:
+            remaining = memoryview(data)
+            while remaining and not self._stop:
+                accepted = self._rpc_serial.send(bytes(remaining))
+                if accepted <= 0:
+                    time.sleep(0.005)
+                    continue
+                remaining = remaining[accepted:]
+            return
+        try:
+            os.write(self._fd, data)
+        except OSError:
+            pass
 
     # --- API for tests -------------------------------------------------------
 
@@ -163,7 +193,7 @@ class FujiDevice:
 
     def send_response(self, device: int, command: int, status: int = 0, payload: bytes = b"") -> None:
         """Manually push a FujiBus response frame to the ROM."""
-        os.write(self._fd, fb.build_fuji_response_wire(device, command, status, payload))
+        self._write_transport(fb.build_fuji_response_wire(device, command, status, payload))
 
 
 # --- Device-side response builders (mirror the host-side parsers) ------------

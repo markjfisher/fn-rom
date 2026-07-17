@@ -13,7 +13,7 @@ from fuji_device import (
     file_listing_responder,
     host_service_responder,
 )
-from helpers import command
+from helpers import command, wait_for_screen_text
 
 
 def _parse_host_set_req(payload: bytes) -> str:
@@ -25,19 +25,23 @@ def _parse_host_set_req(payload: bytes) -> str:
 def test_fhost_request_payload_is_structured(beebium, fuji_device):
     fuji_device.set_responder(host_service_responder())
 
-    command(beebium, "*FHOST tnfs://example.invalid/bbc/")
+    command(beebium, "*FHOST tnfs://x/bbc/")
+    screen = wait_for_screen_text(beebium, "PATH: /bbc/", timeout=6.0)
 
     pkt = fuji_device.wait_for_command(HOST_SERVICE_ID, HOST_CMD_SET_CURRENT, timeout=6.0)
     assert pkt is not None
     assert pkt.checksum_ok
-    assert _parse_host_set_req(pkt.payload) == "tnfs://example.invalid/bbc/"
+    assert _parse_host_set_req(pkt.payload) == "tnfs://x/bbc/"
+    assert "HOST: tnfs://x/bbc/" in screen
+    assert "PATH: /bbc/" in screen
 
 
 @pytest.mark.needs_resident_utils
 def test_fcd_emits_relative_host_service_set_request(beebium, fuji_device):
     fuji_device.set_responder(host_service_responder())
 
-    command(beebium, "*FHOST tnfs://example.invalid/bbc/")
+    command(beebium, "*FHOST tnfs://x/bbc/")
+    wait_for_screen_text(beebium, "PATH: /bbc/", timeout=6.0)
     assert fuji_device.wait_for_command(HOST_SERVICE_ID, HOST_CMD_SET_CURRENT, timeout=6.0)
 
     fuji_device.clear()
@@ -52,12 +56,13 @@ def test_fcd_emits_relative_host_service_set_request(beebium, fuji_device):
 def test_fls_round_trip_uses_formatted_list_response(beebium, fuji_device):
     listing = "A.$.BOOT\nA.$.GAMES\n"
     fuji_device.set_responder(file_listing_responder(
-        resolved_uri="tnfs://example.invalid/bbc/",
+        resolved_uri="tnfs://x/bbc/",
         display_path="bbc/",
         formatted_text=listing,
     ))
 
-    command(beebium, "*FHOST tnfs://example.invalid/bbc/")
+    command(beebium, "*FHOST tnfs://x/bbc/")
+    wait_for_screen_text(beebium, "PATH: /bbc/", timeout=6.0)
     assert fuji_device.wait_for_command(HOST_SERVICE_ID, HOST_CMD_SET_CURRENT, timeout=6.0)
 
     fuji_device.clear()

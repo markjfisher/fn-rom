@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import time
 
-from beebium.screen import dump_screen
+from beebium.client.screen import dump_screen
 
 
 def command(bbc, text: str) -> None:

@@ -40,7 +40,7 @@ class ScreenEvidenceRecorder:
 
         try:
             if screen is None:
-                from beebium.screen import dump_screen
+                from beebium.client.screen import dump_screen
 
                 screen = dump_screen(bbc)
             screen_name = f"screen_{seq}.txt"

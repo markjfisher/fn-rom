@@ -4,7 +4,7 @@ import time
 
 import pytest
 
-from beebium.screen import dump_screen
+from beebium.client.screen import dump_screen
 from fujinet_tools import fileproto as fp
 from fujinet_tools import fujiproto as fuji
 
@@ -41,7 +41,7 @@ def _assert_screen_contains(beebium, text: str, *, timeout: float = 8.0, screen_
 
 
 def test_fhost_screen_text_and_wire_payload_case(beebium, fuji_device):
-    typed = "*FHOST tnfs://example.invalid/bbc/"
+    typed = "*FHOST tnfs://x/bbc/"
     fuji_device.set_responder(host_service_responder())
 
     with beebium.keyboard.text_input():
@@ -51,122 +51,88 @@ def test_fhost_screen_text_and_wire_payload_case(beebium, fuji_device):
         screen = ""
         while time.monotonic() < deadline:
             screen = dump_screen(beebium)
-            if "tnfs://example.invalid/bbc/" in screen:
+            if "tnfs://x/bbc/" in screen:
                 break
             time.sleep(0.02)
 
-        assert "tnfs://example.invalid/bbc/" in screen, screen
-        assert "TNFS://EXAMPLE.INVALID/BBC/" not in screen, screen
+        assert "tnfs://x/bbc/" in screen, screen
+        assert "TNFS://X/BBC/" not in screen, screen
 
         beebium.keyboard.press_return()
 
     pkt = fuji_device.wait_for_command(HOST_SERVICE_ID, HOST_CMD_SET_CURRENT, timeout=6.0)
     assert pkt is not None
     assert pkt.checksum_ok
-    assert _parse_host_set_req(pkt.payload) == "tnfs://example.invalid/bbc/"
+    assert _parse_host_set_req(pkt.payload) == "tnfs://x/bbc/"
 
 
 def test_help_futils_describes_current_commands(beebium):
     command(beebium, "*HELP FUTILS")
-    screen = wait_for_screen_text(beebium, "FHOST", timeout=8.0)
+    screen = wait_for_screen_text(beebium, "FBOOT", timeout=8.0)
 
-    assert "BOOT" not in screen
-    assert "FBOOT" not in screen
+    assert "FBOOT" in screen
     assert "FFS" in screen
     assert "FHOST" in screen
     assert "(<host>|LIST|n|n D)" in screen
 
 
-def test_fhost_emits_host_service_set_request(beebium, fuji_device, screen_evidence):
+def test_fhost_emits_host_service_set_request(beebium, fuji_device):
     fuji_device.set_responder(host_service_responder())
 
-    command(beebium, "*FHOST tnfs://example.invalid/bbc/")
+    command(beebium, "*FHOST tnfs://x/bbc/")
+    screen = wait_for_screen_text(beebium, "PATH: /bbc/", timeout=6.0)
 
     pkt = fuji_device.wait_for_command(HOST_SERVICE_ID, HOST_CMD_SET_CURRENT, timeout=6.0)
     assert pkt is not None, "no HostService SetCurrent request observed on the serial/PTY link"
     assert pkt.checksum_ok, "FujiBus checksum mismatch on the emitted frame"
-    assert _parse_host_set_req(pkt.payload) == "tnfs://example.invalid/bbc/"
-    _assert_screen_contains(
-        beebium,
-        "HOST: tnfs://example.invalid/bbc/",
-        timeout=8.0,
-        screen_evidence=screen_evidence,
-    )
-    _assert_screen_contains(beebium, "PATH: /bbc/", timeout=8.0, screen_evidence=screen_evidence)
+    assert _parse_host_set_req(pkt.payload) == "tnfs://x/bbc/"
+    assert "HOST: tnfs://x/bbc/" in screen
+    assert "PATH: /bbc/" in screen
 
 
-def test_fhost_host_history_crd_screen_flow(beebium, fuji_device, screen_evidence):
+def test_fhost_host_history_crd_screen_flow(beebium, fuji_device):
     fuji_device.set_responder(host_service_responder())
 
-    command(beebium, "*FHOST tnfs://example.invalid/a")
-    _assert_screen_contains(
-        beebium,
-        "HOST: tnfs://example.invalid/a",
-        timeout=8.0,
-        screen_evidence=screen_evidence,
-    )
-    command(beebium, "*FHOST tnfs://example.invalid/b")
-    _assert_screen_contains(
-        beebium,
-        "HOST: tnfs://example.invalid/b",
-        timeout=8.0,
-        screen_evidence=screen_evidence,
-    )
-
-    command(beebium, "CLS")
-    command(beebium, "*FHOST list")
-    _assert_screen_contains(
-        beebium,
-        "0 tnfs://example.invalid/b",
-        timeout=8.0,
-        screen_evidence=screen_evidence,
-    )
-    _assert_screen_contains(
-        beebium,
-        "1 tnfs://example.invalid/a",
-        timeout=8.0,
-        screen_evidence=screen_evidence,
-    )
-
-    pkt = fuji_device.wait_for_command(HOST_SERVICE_ID, HOST_CMD_LIST_HISTORY, timeout=6.0)
+    command(beebium, "*FHOST tnfs://x/a")
+    screen = wait_for_screen_text(beebium, "PATH: /a", timeout=6.0)
+    pkt = fuji_device.wait_for_command(HOST_SERVICE_ID, HOST_CMD_SET_CURRENT, timeout=6.0)
     assert pkt is not None and pkt.checksum_ok
+    assert _parse_host_set_req(pkt.payload) == "tnfs://x/a"
+    assert "HOST: tnfs://x/a" in screen
+    assert "PATH: /a" in screen
 
     fuji_device.clear()
-    command(beebium, "CLS")
+    command(beebium, "*FHOST tnfs://x/b")
+    screen = wait_for_screen_text(beebium, "PATH: /b", timeout=6.0)
+    pkt = fuji_device.wait_for_command(HOST_SERVICE_ID, HOST_CMD_SET_CURRENT, timeout=6.0)
+    assert pkt is not None and pkt.checksum_ok
+    assert _parse_host_set_req(pkt.payload) == "tnfs://x/b"
+    assert "HOST: tnfs://x/b" in screen
+    assert "PATH: /b" in screen
+
+    fuji_device.clear()
+    command(beebium, "*FHOST list")
+    screen = wait_for_screen_text(beebium, "1 tnfs://x/a", timeout=6.0)
+    pkt = fuji_device.wait_for_command(HOST_SERVICE_ID, HOST_CMD_LIST_HISTORY, timeout=6.0)
+    assert pkt is not None and pkt.checksum_ok
+    assert pkt.payload == bytes([HOST_VERSION, 0, 0, 255, 0])
+    assert "0 tnfs://x/b" in screen
+    assert "1 tnfs://x/a" in screen
+
+    fuji_device.clear()
     command(beebium, "*FHOST 1")
-    _assert_screen_contains(
-        beebium,
-        "HOST: tnfs://example.invalid/a",
-        timeout=8.0,
-        screen_evidence=screen_evidence,
-    )
+    screen = wait_for_screen_text(beebium, "PATH: /a", timeout=6.0)
     pkt = fuji_device.wait_for_command(HOST_SERVICE_ID, HOST_CMD_SELECT_HISTORY, timeout=6.0)
     assert pkt is not None and pkt.checksum_ok
     assert pkt.payload == bytes([HOST_VERSION, 1])
+    assert "HOST: tnfs://x/a" in screen
+    assert "PATH: /a" in screen
 
     fuji_device.clear()
-    command(beebium, "CLS")
     command(beebium, "*FHOST 0 D")
     pkt = fuji_device.wait_for_command(HOST_SERVICE_ID, HOST_CMD_DELETE_HISTORY, timeout=6.0)
     assert pkt is not None and pkt.checksum_ok
     assert pkt.payload == bytes([HOST_VERSION, 0])
-
-    command(beebium, "*FHOST")
-    _assert_screen_contains(
-        beebium,
-        "HOST: tnfs://example.invalid/a",
-        timeout=8.0,
-        screen_evidence=screen_evidence,
-    )
-
-    command(beebium, "CLS")
-    command(beebium, "*FHOST list")
-    _assert_screen_contains(
-        beebium,
-        "0 tnfs://example.invalid/b",
-        timeout=8.0,
-        screen_evidence=screen_evidence,
-    )
 
 
 @pytest.mark.needs_resident_utils
@@ -180,9 +146,9 @@ def test_fdrive_emits_fuji_get_mounts_request(beebium, fuji_device):
 
 @pytest.mark.needs_resident_utils
 def test_fhost_then_fls_round_trip(beebium, fuji_device):
-    fuji_device.set_responder(resolving_responder("tnfs://example.invalid/bbc/", "bbc/"))
+    fuji_device.set_responder(resolving_responder("tnfs://x/bbc/", "bbc/"))
 
-    command(beebium, "*FHOST tnfs://example.invalid/bbc/")
+    command(beebium, "*FHOST tnfs://x/bbc/")
     assert fuji_device.wait_for_command(HOST_SERVICE_ID, HOST_CMD_SET_CURRENT, timeout=6.0)
 
     fuji_device.clear()

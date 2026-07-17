@@ -83,8 +83,14 @@ def test_real_fujinet_receives_fdrive(beebium_real, real_fujinet):
 
 
 def test_real_fujinet_receives_fhost(beebium_real, real_fujinet):
-    command(beebium_real, "*FHOST tnfs://example.invalid/bbc/")
-    assert real_fujinet.wait_for_log("dev=0xFE cmd=0x05", timeout=8.0)
+    command(beebium_real, "*FHOST host:/")
+
+    assert real_fujinet.wait_for_log("dev=0xF0 cmd=0x02", timeout=8.0)
+    assert real_fujinet.wait_for_log("send: dev=0xF0 status=0 cmd=0x02", timeout=4.0), real_fujinet.log_text()[-4000:]
+    assert real_fujinet.wait_for_log("dev=0xF0 cmd=0x01", timeout=4.0)
+    assert real_fujinet.wait_for_log("send: dev=0xF0 status=0 cmd=0x01", timeout=4.0)
+    wait_for_screen_text(beebium_real, "HOST: host:/", timeout=8.0)
+    wait_for_screen_text(beebium_real, "PATH: /", timeout=8.0)
 
 
 def test_real_fujinet_receives_fmount(beebium_real, real_fujinet):

@@ -17,13 +17,12 @@ import time
 
 import pytest
 
-from beebium.screen import dump_screen
+from beebium.client.screen import dump_screen
 from fujinet_tools import fileproto as fp
 from fujinet_tools import fujiproto as fuji
 from fujinet_tools import diskproto as dp
 
 from fuji_device import (
-    HOST_CMD_GET_CURRENT,
     HOST_CMD_SET_CURRENT,
     HOST_SERVICE_ID,
     HOST_VERSION,
@@ -118,16 +117,13 @@ def _answer_confirm_prompt_if_visible(beebium) -> None:
 
 def _mount_utils_drive(beebium, fuji_device) -> None:
     command(beebium, "*FHOST sd0:/")
+    screen = wait_for_screen_text(beebium, "HOST: sd0:/", timeout=8.0)
+    assert "PATH: /" in screen
+
     pkt = fuji_device.wait_for_command(HOST_SERVICE_ID, HOST_CMD_SET_CURRENT, timeout=8.0)
     assert pkt is not None, "*FHOST sd0:/ did not send HostService SetCurrent"
     assert pkt.checksum_ok
     assert pkt.payload == bytes([HOST_VERSION, 5, 0]) + b"sd0:/"
-    pkt = fuji_device.wait_for_command(HOST_SERVICE_ID, HOST_CMD_GET_CURRENT, timeout=8.0)
-    assert pkt is not None, "*FHOST sd0:/ did not ask HostService for current host after SetCurrent"
-    assert pkt.checksum_ok
-    assert pkt.payload == bytes([HOST_VERSION])
-    wait_for_screen_text(beebium, "HOST:", timeout=8.0)
-    wait_for_screen_text(beebium, "PATH:", timeout=8.0)
 
     command(beebium, "*FIN 7 fn-utls.ssd")
     command(beebium, "*FMOUNT 7 0")

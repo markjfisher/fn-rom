@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping
 
 import yaml
-from beebium.screen import dump_screen
+from beebium.client.screen import dump_screen
 
 from helpers import command
 
