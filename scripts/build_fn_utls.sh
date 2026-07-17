@@ -34,7 +34,7 @@ INC=(-I "$root/src" -I "$root/src/inc")
 rm -rf "$OUT" "$STAGE"; mkdir -p "$OUT" "$STAGE"
 
 echo "==> building UTILITIES=disk ROM (for resident symbol addresses)"
-make -C "$root" FEATURE_NET=1 UTILITIES=disk BUILD_MACHINE="$MACHINE" all >/dev/null
+make -B -C "$root" FEATURE_NET=1 UTILITIES=disk BUILD_MACHINE="$MACHINE" all >/dev/null
 
 echo "==> generating rom_abi.s from $LBL"
 python3 - "$LBL" "$ABISRC" <<'PY'
@@ -130,6 +130,7 @@ U="$root/src/utils"
 
 # Each binary is staged under the full command name the FS *RUN looks up.
 build_util FDRIVE  noarg:cmd_fs_fdrive "$U/cmd_fdrive.s" "$U/cmd_flist.s" "$U/flist_resolve_target.s"
+build_util FBOOT   noarg:cmd_fs_fboot  "$U/cmd_fboot.s"
 build_util FCD     cmd_fs_fcd      "$U/cmd_fcd.s" "$U/flist_resolve_target.s"
 build_util FLS     cmd_fs_flist    "$U/cmd_flist.s" "$U/flist_resolve_target.s"
 build_util FLIST   cmd_fs_flist    "$U/cmd_flist.s" "$U/flist_resolve_target.s"

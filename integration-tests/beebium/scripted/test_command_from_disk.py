@@ -23,6 +23,7 @@ from fujinet_tools import fujiproto as fuji
 from fujinet_tools import diskproto as dp
 
 from fuji_device import (
+    HOST_CMD_GET_CURRENT,
     HOST_CMD_SET_CURRENT,
     HOST_SERVICE_ID,
     HOST_VERSION,
@@ -38,7 +39,7 @@ from fuji_device import (
     build_disk_read_sector_response,
     host_service_responder,
 )
-from helpers import command
+from helpers import command, wait_for_screen_text
 
 _BUILD = pathlib.Path(__file__).resolve().parents[3] / "build"
 _SSD = _BUILD / "FN-UTLS.ssd"
@@ -62,9 +63,7 @@ def test_fdrive_runs_from_library_disk(beebium, fuji_device):
     # transient command there. (The library-drive *fallback* path itself is
     # verified separately in Phase 3 / service08; here we prove the disk-loaded
     # binary runs and behaves identically.)
-    command(beebium, "*FHOST sd0:/")
-    command(beebium, "*FIN 7 fn-utls.ssd")
-    command(beebium, "*FMOUNT 7 0")
+    _mount_utils_drive(beebium, fuji_device)
     fuji_device.clear()
 
     # *FDRIVE is absent from this (UTILITIES=disk) ROM -> service &04 unclaimed
@@ -88,34 +87,78 @@ def test_fdrive_runs_from_library_disk(beebium, fuji_device):
 # requests (full name, or F-stripped for "F"-prefixed commands), and the binary
 # starts. This is the per-command generalisation of the FDRIVE equivalence test.
 _ALL_TRANSIENT_COMMANDS = [
-    "*FDRIVE", "*FCD", "*FLS", "*FLIST", "*FNEW", "*FOUT", "*FUMOUNT",
-    "*COPY", "*DESTROY", "*WIPE", "*TITLE", "*ACCESS", "*RENAME",
-    "*VERIFY", "*MAP", "*FORM", "*FREE",
+    ("*FDRIVE", "*FDRIVE"),
+    ("*FBOOT", "*FBOOT"),
+    ("*FCD", "*FCD"),
+    ("*FLS", "*FLS"),
+    ("*FLIST", "*FLIST"),
+    ("*FNEW", "*FNEW test.ssd"),
+    ("*FOUT", "*FOUT 7"),
+    ("*FUMOUNT", "*FUMOUNT 0"),
+    ("*DESTROY", "*DESTROY FDRIVE"),
+    ("*WIPE", "*WIPE FDRIVE"),
+    ("*TITLE", "*TITLE TEST"),
+    ("*ACCESS", "*ACCESS FDRIVE"),
+    ("*RENAME", "*RENAME FBOOT FBOOT"),
+    ("*VERIFY", "*VERIFY"),
+    ("*MAP", "*MAP"),
+    ("*FORM", "*FORM"),
+    ("*FREE", "*FREE"),
 ]
 
 
-@pytest.mark.parametrize("cmd", _ALL_TRANSIENT_COMMANDS)
-def test_transient_command_resolves_from_disk(beebium, fuji_device, cmd):
+def _answer_confirm_prompt_if_visible(beebium) -> None:
+    screen = dump_screen(beebium)
+    if "(Y/N)" not in screen:
+        return
+    with beebium.keyboard.text_input():
+        beebium.keyboard.type("N")
+    time.sleep(0.2)
+
+
+def _mount_utils_drive(beebium, fuji_device) -> None:
+    command(beebium, "*FHOST sd0:/")
+    pkt = fuji_device.wait_for_command(HOST_SERVICE_ID, HOST_CMD_SET_CURRENT, timeout=8.0)
+    assert pkt is not None, "*FHOST sd0:/ did not send HostService SetCurrent"
+    assert pkt.checksum_ok
+    assert pkt.payload == bytes([HOST_VERSION, 5, 0]) + b"sd0:/"
+    pkt = fuji_device.wait_for_command(HOST_SERVICE_ID, HOST_CMD_GET_CURRENT, timeout=8.0)
+    assert pkt is not None, "*FHOST sd0:/ did not ask HostService for current host after SetCurrent"
+    assert pkt.checksum_ok
+    assert pkt.payload == bytes([HOST_VERSION])
+    wait_for_screen_text(beebium, "HOST:", timeout=8.0)
+    wait_for_screen_text(beebium, "PATH:", timeout=8.0)
+
+    command(beebium, "*FIN 7 fn-utls.ssd")
+    command(beebium, "*FMOUNT 7 0")
+
+
+@pytest.mark.parametrize(
+    "cmd, command_line",
+    _ALL_TRANSIENT_COMMANDS,
+    ids=[cmd for cmd, _ in _ALL_TRANSIENT_COMMANDS],
+)
+def test_transient_command_resolves_from_disk(beebium, fuji_device, cmd, command_line):
     fuji_device.set_responder(
         disk_image_responder(
             image_path=str(_SSD), fuji_slot=7, drive_slot=4, uri="sd0:/fn-utls.ssd"
         )
     )
 
-    command(beebium, "*FHOST sd0:/")
-    command(beebium, "*FIN 7 fn-utls.ssd")
-    command(beebium, "*FMOUNT 7 0")
+    _mount_utils_drive(beebium, fuji_device)
 
     command(beebium, "CLS")          # fresh screen so we only see this command's output
-    command(beebium, cmd)
-    command(beebium, "N")            # dismiss any "Go (Y/N)?" confirm prompt
+    command(beebium, command_line)
+    _answer_confirm_prompt_if_visible(beebium)
     time.sleep(0.4)
 
     screen = dump_screen(beebium)
     # "Bad command" = the FS *RUN could not find the file (wrong leaf name).
     # "Bad string"  = the binary loaded but returned badly to BASIC (it ran wrong
     # bytes / corrupted the stack). Either means the disk command did not work.
-    for bad in ("Bad command", "Bad string"):
+    # "Mistake" / "Bad program" catches the test accidentally feeding text back
+    # to BASIC after the transient utility has already returned.
+    for bad in ("Bad command", "Bad string", "Mistake", "Bad program"):
         assert bad not in screen, (
             f"{cmd} did not run cleanly from FN-UTLS.ssd (got {bad!r}):\n{screen}"
         )
@@ -263,9 +306,7 @@ def test_transient_command_receives_arguments(beebium, fuji_device):
             image_path=str(_SSD), fuji_slot=7, drive_slot=4, uri="sd0:/fn-utls.ssd"
         )
     )
-    command(beebium, "*FHOST sd0:/")
-    command(beebium, "*FIN 7 fn-utls.ssd")
-    command(beebium, "*FMOUNT 7 0")
+    _mount_utils_drive(beebium, fuji_device)
     fuji_device.clear()
 
     command(beebium, "*FCD bbc")

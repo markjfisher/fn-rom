@@ -42,7 +42,7 @@ osbyte_8f_claim_type:
 
 
 osbyte_break_type:
-        .byte   1               ; set to 0 for soft, 1 for power up, 2 for hard
+        .byte   0               ; default soft; tests may set 1 power up or 2 hard
 
 osbyte_saveX:
         .byte   0               ; somewhere to stash X that isn't the stack

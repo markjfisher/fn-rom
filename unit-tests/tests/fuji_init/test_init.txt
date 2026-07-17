@@ -20,6 +20,11 @@ memory protect ro #0xFF00 0x0100
 ; clean start
 registers flush
 
+; This bootstrap/vector test does not provide a FujiBus responder. Use the soft
+; break path so init does not attempt BeginHostSession here; the hard/power
+; session behavior is covered by the Beebium boot-session tests.
+memory write $osbyte_break_type 0x(00)
+
 ; initialise the ROM
 run $init_harness until (CP = $end_init_harness OR cycle_count > 5000)
 assert CP = $end_init_harness $$completed code correctly$$

@@ -11,11 +11,15 @@
 ;   0x05 - Info
 ;   0x06 - ClearChanged
 ;   0x07 - Create
+;   0x0A - RestoreBoot
+;   0x0B - BeginHostSession
 
+        .export  fujibus_disk_begin_host_session
         .export  fujibus_disk_create
         .export  fujibus_disk_mount
         .export  fujibus_disk_read_sector
         .export  fujibus_disk_read_sector_partial
+        .export  fujibus_disk_restore_boot
         .export  fujibus_disk_unmount
         .export  fujibus_disk_write_sector
         .export  fujibus_resolve_path
@@ -308,6 +312,68 @@ fujibus_disk_unmount:
         rts
 
 @du_fail:
+        sec
+        rts
+
+; fujibus_disk_restore_boot
+;   Mount configured boot/config image into (*fuji_disk_slot)+1.
+;   Output: C clear on success, set on failure
+
+fujibus_disk_restore_boot:
+        lda     #DISK_CMD_RESTORE_BOOT
+        jmp     fujibus_disk_slot_command
+
+; fujibus_disk_begin_host_session
+;   Start a new host-side disk session, clearing runtime recovery and restoring
+;   configured boot/config image into (*fuji_disk_slot)+1.
+;   Output: C clear on success, set on failure
+
+fujibus_disk_begin_host_session:
+        lda     #DISK_CMD_BEGIN_HOST_SESSION
+        ; fall through
+
+; Send a DiskDevice command whose request is just:
+;   +0 FN_PROTOCOL_VERSION
+;   +1 (*fuji_disk_slot) + 1
+;
+; Entry: A = DiskDevice command id
+
+fujibus_disk_slot_command:
+        sta     cws_tmp7
+
+        lda     #FN_PROTOCOL_VERSION
+        ldy     #$06
+        sta     (buffer_ptr),y
+
+        lda     fuji_disk_slot
+        clc
+        adc     #$01
+        iny                             ; y=7
+        sta     (buffer_ptr),y
+
+        lda     #FN_DEVICE_DISK
+        sta     fuji_bus_tx_device
+
+        lda     cws_tmp7
+        sta     fuji_bus_tx_command
+
+        jsr     fujibus_set_payload_buffer_ptr
+
+        ldx     #$00
+        lda     #$02
+        jsr     fujibus_send_packet
+
+        jsr     fujibus_receive_packet
+        cmp     #$07
+        jsr     fd_check_ok_response
+        bcs     @dsc_fail
+
+        ldy     #$08                    ; protocol payload flags
+        lda     (buffer_ptr),y
+        clc
+        rts
+
+@dsc_fail:
         sec
         rts
 

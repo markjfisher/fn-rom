@@ -36,6 +36,7 @@
         .import fuji_channel_start
         .import fuji_ch_sect_hi
         .import extendedvectors_table
+        .import fuji_begin_host_session
         .import fuji_cmd_enabled
         .import fuji_current_dir_len
         .import fuji_current_fs_len
@@ -279,6 +280,10 @@ initdfs_noreset:
         jsr     osbyte_X0YFF            ; X=0 soft break, X=1 power up reset, X=2 hard break
         cpx     #$00
         beq     skip_autoload
+
+        ; Power-on/hard break starts a fresh host disk session. Soft break keeps
+        ; any currently mounted disks exactly as they are.
+        jsr     fuji_begin_host_session
 
         ; TODO: if we want to autoboot a "BOOT.SSD" file, then we would implement it here.
         ; jsr     fuji_load_boot_disk

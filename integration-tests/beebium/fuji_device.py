@@ -45,6 +45,7 @@ HOST_CMD_SET_CURRENT = 0x02
 HOST_CMD_LIST_HISTORY = 0x03
 HOST_CMD_SELECT_HISTORY = 0x04
 HOST_CMD_DELETE_HISTORY = 0x05
+DISK_CMD_BEGIN_HOST_SESSION = 0x0B
 
 
 def default_success_responder(pkt: FujiPacket) -> bytes:
@@ -942,6 +943,34 @@ def build_disk_write_sector_response(
         + struct.pack("<H", written_len)
     )
     return fb.build_fuji_response_wire(dp.DISK_DEVICE_ID, dp.CMD_WRITE_SECTOR, status, body)
+
+
+def build_disk_mount_like_response(
+    *,
+    command: int,
+    slot: int,
+    mounted: bool = True,
+    readonly: bool = False,
+    sector_count: int = 800,
+    sector_size: int = 256,
+    img_type: int = 2,
+    status: int = 0,
+) -> bytes:
+    if dp is None:
+        raise RuntimeError("fujinet_tools.diskproto is unavailable")
+    flags = 0
+    if mounted:
+        flags |= 0x01
+    if readonly:
+        flags |= 0x02
+    body = (
+        bytes([dp.DISKPROTO_VERSION, flags])
+        + struct.pack("<H", 0)
+        + bytes([slot & 0xFF, img_type & 0xFF])
+        + struct.pack("<H", sector_size)
+        + struct.pack("<I", sector_count)
+    )
+    return fb.build_fuji_response_wire(dp.DISK_DEVICE_ID, command, status, body)
 
 
 def disk_image_responder(

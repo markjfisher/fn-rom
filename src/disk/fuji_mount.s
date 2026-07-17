@@ -3,9 +3,11 @@
 ; This is part of the Hardware Interface Layer (fuji_fs.s equivalent)
 
         .export fuji_clear_slot
+        .export fuji_begin_host_session
         .export fuji_create_disk
         .export fuji_get_slot
         .export fuji_mount_disk
+        .export fuji_restore_boot_disk
         .export fuji_set_disk_slot_from_mapping_or_error
         .export fuji_set_slot
         .export fuji_unmount_disk
@@ -14,6 +16,7 @@
 
         .importzp current_drv
 
+        .import fuji_begin_host_session_data
         .import fuji_begin_transaction
         .import fuji_clear_mount_slot_data
         .import fuji_create_disk_data
@@ -22,6 +25,7 @@
         .import fuji_end_transaction
         .import fuji_get_mount_slot_data
         .import fuji_mount_disk_data
+        .import fuji_restore_boot_disk_data
         .import fuji_set_mount_slot_data
         .import fuji_unmount_disk_data
         .import remember_xy_only
@@ -102,6 +106,76 @@ fuji_unmount_disk:
         lda     #$FF                    ; $FF = no disk mounted
         sta     fuji_drive_disk_map,x
         plp
+        rts
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; fuji_restore_boot_disk - Restore configured boot/config disk to drive 0
+;
+; Exit:  C clear on success, set on failure
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+fuji_restore_boot_disk:
+        jsr     remember_xy_only
+
+        lda     #$00
+        sta     fuji_disk_slot
+
+        jsr     fuji_begin_transaction
+        jsr     fuji_restore_boot_disk_data
+        sta     aws_tmp08
+        php
+        jsr     fuji_end_transaction
+        plp
+        bcs     @restore_boot_exit
+
+        lda     aws_tmp08
+        and     #DISK_MOUNT_RESP_FLAG_MOUNTED
+        beq     @restore_boot_exit
+
+        jsr     mark_drive0_boot_mounted
+
+@restore_boot_exit:
+        rts
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; fuji_begin_host_session - Begin a new host disk session
+;
+; Power-on/hard break uses this to clear NIO runtime recovery state and restore
+; the configured boot/config disk to BBC drive 0. Soft break must not call this.
+;
+; Exit:  C clear on success, set on failure
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+fuji_begin_host_session:
+        jsr     remember_xy_only
+
+        lda     #$00
+        sta     fuji_disk_slot
+
+        jsr     fuji_begin_transaction
+        jsr     fuji_begin_host_session_data
+        sta     aws_tmp08
+        php
+        jsr     fuji_end_transaction
+        plp
+        bcs     @begin_session_exit
+
+        lda     aws_tmp08
+        and     #DISK_MOUNT_RESP_FLAG_MOUNTED
+        beq     @begin_session_exit
+
+        jsr     mark_drive0_boot_mounted
+
+@begin_session_exit:
+        rts
+
+mark_drive0_boot_mounted:
+        lda     #$00
+        sta     fuji_drive_disk_map+0
+        lda     #$FF
+        sta     fuji_drive_disk_map+1
+        sta     fuji_drive_disk_map+2
+        sta     fuji_drive_disk_map+3
         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
