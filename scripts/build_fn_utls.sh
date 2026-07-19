@@ -149,7 +149,10 @@ build_util FORM    cmd_fs_form     "$U/cmd_verify_format.s"
 build_util FREE    cmd_fs_free     "$U/cmd_free_map.s"
 
 echo "==> staging + bundling FN-UTLS.ssd ($(ls "$STAGE" | grep -vc '\.inf$') files)"
-cp "$root/utils-bin/!BOOT" "$STAGE/!BOOT"
+# Keep the source !BOOT editable as normal text, but store BBC command input
+# lines with CR-only terminators. LF moves the BBC cursor down without returning
+# to column 0, which corrupts *EXEC/!BOOT command entry.
+tr '\n' '\r' < "$root/utils-bin/!BOOT" > "$STAGE/!BOOT"
 printf '$.!BOOT 000000 000000\n' > "$STAGE/!BOOT.inf"
 "$root/scripts/create_ssd.py" -i "$STAGE" -o "$SSD" -t FN-UTLS
 echo "==> $SSD"
