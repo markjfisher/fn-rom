@@ -93,18 +93,32 @@ unclaimed, so the MOS asks the FS to run the command as a file, using the
 library-aware lookup so it resolves from the utils/library drive regardless of
 the current drive).
 
-Each transient utility is a standalone RAM binary (load/exec `$1900`,
-`cfg/fn-util.cfg`) that **calls the resident ROM by absolute address** — there is
-no hand-written jump table. `scripts/build_fn_utls.sh` builds the `UTILITIES=disk`
-ROM, turns its label file (`build/fujinet.rom.lbl`) into `rom_abi.s` (every
-resident symbol at its fixed address; ZP via `.exportzp`), and links each utility
-against it. So the "ABI" is simply the set of resident symbols the utility
-imports — kernel/disk entry points and ZP workspace. Utils-internal helpers
-shared only between utilities are duplicated into the binary (cost is disk, not
-ROM), never promoted to a resident ROM entry point. A small wrapper
-(`utils-bin/<cmd>.s`) sets up the command line and calls the resident handler,
-exiting via `exit_user_ok`. The FS ROM is paged in while an `*RUN` command from
-the FS executes, so the absolute `jsr`s into the ROM are valid.
+Each transient utility is a standalone RAM binary loaded and entered by the FS
+`*RUN` path. BBC utility binaries load/exec at `$1900`; Master utility binaries
+load/exec at `$0E00`, which is another reason the release ships separate
+`FN-UTLS.ssd` and `FN-UTLS-M.ssd` images. The generated wrapper calls resident
+ROM routines through the stable utility ABI table at `$8030`
+(`src/kernel/util_abi.s`). The table is a sequence of fixed-address `JMP`
+veneers; the real resident implementations can move inside the ROM as long as
+the table start and slot order are preserved.
+
+`scripts/build_fn_utls.sh` builds the `UTILITIES=disk` ROM, turns its label file
+into `rom_abi.s`, and links each utility against it. Routine imports are mapped
+to the fixed `$8030` table slots; direct workspace/data imports are mapped to
+the target machine's real label addresses. That means a utility disk is no
+longer tied to one exact ROM layout for code movement, but BBC and Master still
+need separate utility disks today because their workspace/data addresses differ.
+Each generated utility wrapper runs from RAM, scans sideways ROM slots for the
+`FujiNet` service ROM plus the `FNABI1` ABI signature, and leaves that ROM paged
+before entering the table. If the ROM/signature is missing it prints
+`FujiNet ROM ABI not found` and returns to the MOS instead of jumping through
+whatever ROM happens to be active.
+
+Utils-internal helpers shared only between utilities are duplicated into the
+binary (cost is disk, not ROM), never promoted to a resident ROM entry point. A
+small wrapper (`utils-bin/<cmd>.s`) sets up the command line and calls the
+resident handler, exiting via `exit_user_ok`. The FS ROM is paged in while an
+`*RUN` command from the FS executes, so the table `jsr`s into the ROM are valid.
 
 ## Compiling and Source
 

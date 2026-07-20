@@ -3,6 +3,15 @@
 # against) and run the command-from-disk equivalence test against that exact ROM.
 set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
+machine="${BUILD_MACHINE:-BBC}"
+case "$machine" in
+  BBC) rom="$root/build/fujinet.rom" ;;
+  MASTER) rom="$root/build/fujinet-master.rom" ;;
+  *)
+    echo "Invalid BUILD_MACHINE: $machine (expected BBC or MASTER)" >&2
+    exit 1
+    ;;
+esac
 
 "$root/scripts/build_fn_utls.sh"
 
@@ -17,5 +26,5 @@ printf '$.HELLO 001900 001900\n' > "$other_src/HELLO.inf"
 rm -rf "$other_src"
 
 cd "$root/integration-tests/beebium"
-FN_UTLS_TEST=1 FN_ROM="$root/build/fujinet.rom" FN_PROFILE=net \
+FN_UTLS_TEST=1 FN_ROM="$rom" FN_PROFILE=net \
   ./run_pytest.sh scripted/test_command_from_disk.py -q -s

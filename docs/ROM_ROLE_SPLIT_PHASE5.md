@@ -60,9 +60,10 @@ value, `all`. The transient management/informational command tests
 - `AGENTS.md` — role-split source layout + profile table + "don't reintroduce the
   retired macros".
 - `docs/fn-rom-bootstrap.md` — role-split table, fixed the stale `src/commands/`
-  path, and documented the **transient-utility ROM ABI** (utilities are RAM
-  binaries linked against the resident ROM's actual symbol addresses via
-  `rom_abi.s`; the ABI is the set of resident symbols a utility imports).
+  path, and documented the **transient-utility ROM ABI**. Resident routine calls
+  now go through the fixed utility jump table at `$8030`; `rom_abi.s` maps those
+  imports to table slots and maps direct workspace/data imports to the target
+  machine's addresses.
 - `docs/ARCHITECTURE.md` — role-split layering section.
 - `integration-tests/beebium/README.md` — the per-profile marker/skip matrix.
 
@@ -119,6 +120,29 @@ identical to the resident command. **19 passed.**
 
 `*FORM`/`*VERIFY` are still ROM-side stubs (`rts`), so their binaries are stubs too
 — implementing them is fujinet-side work, unrelated to the role split.
+
+## Stable utility ABI table
+
+Transient utilities no longer call moving resident ROM routine addresses
+directly. `src/kernel/util_abi.s` reserves `$8030..$80FF` for fixed-address JMP
+veneers, and `scripts/build_fn_utls.sh` derives the slot order from that source
+when it generates `build/fn-utls/rom_abi.s`. The ROM can move the real
+implementations behind the veneers without forcing a utility disk rebuild, as
+long as the table start and slot order are preserved.
+
+The generated RAM wrapper also self-selects the resident ROM before entering the
+ABI. It scans sideways slots for the `FujiNet` service ROM and the `FNABI1`
+signature in the reserved ABI area, then leaves that ROM paged. This protects
+against running a utility while another ROM is active, or against pairing a new
+utility disk with an old ROM that has the `FujiNet` title but no ABI table.
+
+This does not yet make one universal BBC+Master `FN-UTLS.ssd`. Some utilities
+still import resident workspace/data symbols directly, so the generated
+`rom_abi.s` must use the matching target machine's labels for those addresses.
+The disks also intentionally use different load/exec addresses: BBC stays at
+`$1900`, while Master utilities load at `$0E00`. Coalescing to one utility disk
+would need both a data-access ABI and a shared load address, so it is not the
+right tradeoff while Master can use the lower address.
 
 ## Remaining / optional
 

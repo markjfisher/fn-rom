@@ -9,7 +9,8 @@
 # Output: dist/release/
 #   FN-NET          BBC DISK+NET ROM image  (sideways ROM, load $8000)
 #   FN-NET-M        Master DISK+NET ROM image
-#   FN-UTLS.ssd     transient management/informational utilities
+#   FN-UTLS.ssd     BBC transient management/informational utilities
+#   FN-UTLS-M.ssd   Master transient management/informational utilities
 #   examples/<app>.ssd   one SSD per bundled bas/ example
 #   README.txt      what each file is + how to use it
 #
@@ -32,9 +33,15 @@ cp "$root/build/fujinet.rom" "$REL/FN-NET"
 make -C "$root" net BUILD_MACHINE=MASTER >/dev/null
 cp "$root/build/fujinet-master.rom" "$REL/FN-NET-M"
 
-echo "==> building FN-UTLS.ssd (transient utilities)"
-"$root/scripts/build_fn_utls.sh" >/dev/null
+echo "==> building FN-UTLS.ssd (BBC transient utilities)"
+BUILD_MACHINE=BBC FN_UTLS_SSD="$root/build/FN-UTLS.ssd" \
+  "$root/scripts/build_fn_utls.sh" >/dev/null
 cp "$root/build/FN-UTLS.ssd" "$REL/FN-UTLS.ssd"
+
+echo "==> building FN-UTLS-M.ssd (Master transient utilities)"
+BUILD_MACHINE=MASTER FN_UTLS_SSD="$root/build/FN-UTLS-M.ssd" \
+  "$root/scripts/build_fn_utls.sh" >/dev/null
+cp "$root/build/FN-UTLS-M.ssd" "$REL/FN-UTLS-M.ssd"
 
 # Example app SSDs. Needs basictool + dfstool (see README); skip gracefully if
 # absent so a ROM-only release still builds.
@@ -61,8 +68,11 @@ Contents
                  utilities are transient, on FN-UTLS.ssd). Burn to a sideways
                  ROM or load into an emulator at $8000.
   FN-NET-M       As above, for the BBC Master.
-  FN-UTLS.ssd    Transient management/informational utilities (*FORM, *COPY,
-                 *FLS, *FDRIVE, ...). Copy to the fujinet device's SD card.
+  FN-UTLS.ssd    BBC transient management/informational utilities (*FORM,
+                 *COPY, *FLS, *FDRIVE, ...). Copy to the fujinet device's SD
+                 card when using FN-NET.
+  FN-UTLS-M.ssd  Master transient management/informational utilities. Copy as
+                 the utility disk when using FN-NET-M.
   examples/      Ready-to-mount demo apps (one SSD each).
 
 Using the utilities disk
@@ -78,6 +88,12 @@ Using the utilities disk
   (FN-UTLS.ssd ships a !BOOT that does exactly this; *OPT 4,3 to auto-run it.)
 
 Pair with a BBC-flavoured fujinet build on the device side.
+
+Compatibility note
+  Utilities call resident ROM routines through the stable jump table at $8030,
+  so routine movement inside the ROM is tolerated as long as that table remains
+  compatible. BBC and Master utility disks are still separate because the
+  transient binaries also refer to target-specific workspace/data addresses.
 EOF
 
 echo "==> release staged at $REL"
