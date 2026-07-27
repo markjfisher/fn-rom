@@ -2,9 +2,9 @@
 name = "fnrom-beebium-tests"
 version = "0.0.0"
 description = "End-to-end serial/PTY tests for fn-rom running under the Beebium BBC emulator"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 
-# beebium is not on PyPI — test runners pass BEEBIUM_HOME/clients/python via
+# beebium is not on PyPI — test runners pass BEEBIUM_HOME/clients/beebium-python-client via
 # `uv run --with-editable` (see run_pytest.sh). grpcio/protobuf match beebium.
 dependencies = [
     "grpcio>=1.60.0",

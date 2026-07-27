@@ -167,7 +167,7 @@ screen/frame checkpoints when a screen assertion succeeds or times out, plus a
 final teardown frame. This makes the progress of longer tests visible after the
 run.
 
-- `screen_000.txt`, `screen_001.txt`, ...: scroll-corrected MODE 7 text via `beebium.screen.dump_screen`
+- `screen_000.txt`, `screen_001.txt`, ...: scroll-corrected MODE 7 text via `beebium.client.screen.dump_screen`
 - `frame_000.png`, `frame_001.png`, ...: raw video frames saved as PNG
 - `frame_000.ppm`, `frame_001.ppm`, ...: fallback raw video frames if PNG saving fails
 - `captures.tsv`: ordered capture labels and frame details

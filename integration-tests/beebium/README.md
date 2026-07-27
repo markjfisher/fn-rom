@@ -23,7 +23,7 @@ keyboard ─▶ MOS/OSCLI ─▶ fn-rom command ─▶ FujiBus/SLIP encode
 | these tests | fn-rom | the assertions |
 
 The Beebium client is attached automatically by `./run_pytest.sh`
-(`uv run --with-editable "$BEEBIUM_HOME/clients/python"`). `fujinet_tools` is
+(`uv run --with-editable "$BEEBIUM_HOME/clients/beebium-python-client"`). `fujinet_tools` is
 derived from `FUJINET_NIO_HOME/py` and added to `sys.path`.
 
 | Env var | Required | Meaning |
@@ -47,6 +47,7 @@ Pytest options for fn-rom-specific settings: `--fn-pty`, `--fn-rom`,
 - Build the fn-rom image: `make` (produces `build/fujinet.rom`).
 - Build the beebium server in your beebium checkout (so `beebium-model-b` exists).
 - Export `BEEBIUM_HOME` and `FUJINET_NIO_HOME`.
+- Python 3.12 or newer for the Beebium Python client.
 - [`uv`](https://docs.astral.sh/uv/) installed.
 
 ## Running
