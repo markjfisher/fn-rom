@@ -32,14 +32,18 @@
         .import calc_checksum_continue
         .import fuji_ax_save
         .import fuji_link_read_slip_frame
+.ifndef UTILITIES_RESIDENT
+        .import fuji_link_read_slip_frame_to_payload
+.endif
         .import fuji_link_write_slip_frame
         .import fuji_link_write_slip_frame_triple
-
-        .segment "CODE"
 
 .export fujibus_send_packet
 .export fujibus_send_packet_scatter
 .export fujibus_receive_packet
+.ifndef UTILITIES_RESIDENT
+.export fujibus_receive_packet_to_payload
+.endif
 .export fujibus_set_payload_buffer_ptr
 
 .export scatter_after_checksum
@@ -49,6 +53,9 @@
         .export scatter_before_write
 
 fujibus_header_size = 6
+fujibus_response_header_size = 7
+
+        .segment "CODE"
 
 ; Transport send ABI
 ;   input  A/X = payload byte count
@@ -315,29 +322,41 @@ fujibus_receive_packet:
         jsr     fujibus_receive_packet_validate_decoded_length
         bcc     fujibus_receive_packet_fail
 
-        ; chk_received = rx[4] — must not use aws_tmp04; calc_checksum clobbers it.
-        ldy     #$04
-        lda     (buffer_ptr),y
-        sta     aws_tmp05
-
-        lda     #$00
-        sta     (buffer_ptr),y
-
-        lda     buffer_ptr
-        sta     aws_tmp00
-        lda     buffer_ptr+1
-        sta     aws_tmp01
-        lda     aws_tmp10
-        sta     aws_tmp02
-        lda     aws_tmp11
-        sta     aws_tmp03
-
-        jsr     fujibus_receive_packet_validate_checksum
-        bcc     fujibus_receive_packet_fail
+        lda     aws_tmp00              ; streamed checksum, byte 4 as zero
+        cmp     aws_tmp01              ; received checksum byte
+        bne     fujibus_receive_packet_fail
 
         lda     aws_tmp10
         ldx     aws_tmp11
         rts
+
+; Transport receive-to-payload ABI
+;   input  aws_tmp06/07 = caller payload destination
+;          aws_tmp08/09 = caller payload capacity
+;   output A/X = decoded packet length, or 0/0 on failure
+;          buffer_ptr[0..6] = FujiBus response header/status
+;          caller payload destination receives bytes from decoded offset 7 onward
+;   Notes: payload overflow is drained and checksummed; the caller compares
+;          returned total length - 7 against its capacity to decide BAD_CALL.
+;   clobbers aws_tmp00/01/02/03/04/05/08/09/10/11, cws_tmp2/3/6/7, A, X, Y
+
+.ifndef UTILITIES_RESIDENT
+fujibus_receive_packet_to_payload:
+        jsr     fuji_link_read_slip_frame_to_payload
+        sta     aws_tmp10
+        stx     aws_tmp11
+
+        jsr     fujibus_receive_packet_validate_decoded_length
+        bcc     fujibus_receive_packet_fail
+
+        lda     aws_tmp00              ; streamed checksum, byte 4 as zero
+        cmp     aws_tmp01              ; received checksum byte
+        bne     fujibus_receive_packet_fail
+
+        lda     aws_tmp10
+        ldx     aws_tmp11
+        rts
+.endif
 
 fujibus_receive_packet_validate_decoded_length:
         ; if dec_len == 0 return 0
@@ -368,29 +387,4 @@ fujibus_receive_packet_validate_decoded_length:
 fujibus_receive_packet_fail:
         lda     #$00
         tax
-        rts
-
-fujibus_receive_packet_validate_checksum:
-        ; calc_checksum(buffer_ptr, dec_len) → A = computed checksum.
-        ; Checksum input was prepared separately so aws_tmp10/11 remain the
-        ; canonical decoded-length result for the caller.
-        jsr     calc_checksum
-
-        cmp     aws_tmp05
-        beq     :+
-
-        ; checksum mismatch — restore wire byte for debugging, then fail
-        ldy     #$04
-        lda     aws_tmp05
-        sta     (buffer_ptr),y
-        clc
-        rts
-
-:
-        ; restore original checksum byte
-        ldy     #$04
-        lda     aws_tmp05
-        sta     (buffer_ptr),y
-
-        sec
         rts

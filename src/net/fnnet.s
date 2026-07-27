@@ -14,6 +14,8 @@
         .importzp aws_tmp09
         .importzp aws_tmp10
         .importzp aws_tmp11
+        .importzp aws_tmp12
+        .importzp aws_tmp13
         .importzp aws_tmp14
         .importzp aws_tmp15
         .importzp cws_tmp2
@@ -49,6 +51,9 @@
         .import fujibus_network_translate_configure
         .import fujibus_network_write_ext
         .import fujibus_receive_packet
+.ifndef UTILITIES_RESIDENT
+        .import fujibus_receive_packet_to_payload
+.endif
         .import fujibus_send_packet_scatter
         .import network_flush_write
 

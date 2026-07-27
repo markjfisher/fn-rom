@@ -22,6 +22,12 @@ def _appstore_prefix(namespace: str, key: str) -> bytes:
     return bytes([1]) + struct.pack("<H", len(ns)) + ns + struct.pack("<H", len(key_b)) + key_b
 
 
+@pytest.fixture(autouse=True)
+def _requires_disk_net_profile(fn_profile):
+    if fn_profile == "all":
+        pytest.skip("OSWORD &78 reason 6 caller-buffer responses are tested in the disk+net profile")
+
+
 def test_osword78_reason06_device_call_appstore_read_round_trip(beebium, fuji_device):
     response_body = bytes([1, 0x03, 0, 0]) + struct.pack("<I", 0) + struct.pack("<H", 3) + b"bob"
 
@@ -52,3 +58,74 @@ def test_osword78_reason06_device_call_appstore_read_round_trip(beebium, fuji_de
     assert pkt.payload == _appstore_prefix("bw", "name") + struct.pack("<IH", 0, 8)
 
     wait_for_screen_text(beebium, "S=0 DS=0 L=13 V=1 F=3 D=98", timeout=8.0)
+
+
+def test_osword78_reason06_device_call_large_response_uses_caller_buffer(beebium, fuji_device):
+    response_body = bytes((i & 0xFF) for i in range(300))
+
+    def responder(pkt):
+        if pkt.device == FILE_DEVICE_ID and pkt.command == CMD_APPSTORE_READ:
+            return fb.build_fuji_response_wire(FILE_DEVICE_ID, CMD_APPSTORE_READ, 0, response_body)
+        return None
+
+    fuji_device.set_responder(responder)
+
+    run_basic_program(
+        beebium,
+        [
+            "10 DIM B% 16,Q% 64,R% 400",
+            "20 Q%?0=1:Q%?1=2:Q%?2=0:Q%?3=ASC(\"b\"):Q%?4=ASC(\"w\")",
+            "30 Q%?5=4:Q%?6=0:Q%?7=ASC(\"n\"):Q%?8=ASC(\"a\"):Q%?9=ASC(\"m\"):Q%?10=ASC(\"e\")",
+            "40 Q%?11=0:Q%?12=0:Q%?13=0:Q%?14=0:Q%?15=8:Q%?16=0",
+            "50 B%?0=6:B%?2=&FE:B%?3=&21:B%?5=Q% MOD 256:B%?6=Q% DIV 256:B%?7=17:B%?8=0",
+            "60 B%?9=R% MOD 256:B%?10=R% DIV 256:B%?11=144:B%?12=1",
+            "70 A%=&78:X%=B% MOD 256:Y%=B% DIV 256:CALL &FFF1",
+            '80 PRINT "S=";B%?0;" DS=";B%?4;" L=";B%?13+(B%?14*256);" A=";R%?0;" Z=";R%?299',
+        ],
+    )
+
+    pkt = fuji_device.wait_for_command(FILE_DEVICE_ID, CMD_APPSTORE_READ, timeout=8.0)
+    assert pkt is not None
+    assert pkt.checksum_ok
+    assert pkt.payload == _appstore_prefix("bw", "name") + struct.pack("<IH", 0, 8)
+
+    wait_for_screen_text(beebium, "S=0 DS=0 L=300 A=0 Z=43", timeout=8.0)
+
+
+def test_osword78_reason06_device_call_oversize_response_drains_frame(beebium, fuji_device):
+    large_response = bytes((i & 0xFF) for i in range(300))
+    small_response = bytes([1, 0x03, 0, 0]) + struct.pack("<I", 0) + struct.pack("<H", 3) + b"bob"
+    calls = 0
+
+    def responder(pkt):
+        nonlocal calls
+        if pkt.device == FILE_DEVICE_ID and pkt.command == CMD_APPSTORE_READ:
+            calls += 1
+            body = large_response if calls == 1 else small_response
+            return fb.build_fuji_response_wire(FILE_DEVICE_ID, CMD_APPSTORE_READ, 0, body)
+        return None
+
+    fuji_device.set_responder(responder)
+
+    run_basic_program(
+        beebium,
+        [
+            "10 DIM B% 16,Q% 64,R% 64",
+            "20 Q%?0=1:Q%?1=2:Q%?2=0:Q%?3=ASC(\"b\"):Q%?4=ASC(\"w\")",
+            "30 Q%?5=4:Q%?6=0:Q%?7=ASC(\"n\"):Q%?8=ASC(\"a\"):Q%?9=ASC(\"m\"):Q%?10=ASC(\"e\")",
+            "40 Q%?11=0:Q%?12=0:Q%?13=0:Q%?14=0:Q%?15=8:Q%?16=0",
+            "50 B%?0=6:B%?2=&FE:B%?3=&21:B%?5=Q% MOD 256:B%?6=Q% DIV 256:B%?7=17:B%?8=0",
+            "60 B%?9=R% MOD 256:B%?10=R% DIV 256:B%?11=20:B%?12=0",
+            "70 A%=&78:X%=B% MOD 256:Y%=B% DIV 256:CALL &FFF1:S1%=B%?0:L1%=B%?13+(B%?14*256)",
+            "80 B%?0=6:B%?11=64:B%?12=0:A%=&78:X%=B% MOD 256:Y%=B% DIV 256:CALL &FFF1",
+            '90 PRINT "S1=";S1%;" L1=";L1%;" S2=";B%?0;" L2=";B%?13+(B%?14*256);" V=";R%?0;" D=";R%?10',
+        ],
+    )
+
+    for _ in range(2):
+        pkt = fuji_device.wait_for_command(FILE_DEVICE_ID, CMD_APPSTORE_READ, timeout=8.0)
+        assert pkt is not None
+        assert pkt.checksum_ok
+        assert pkt.payload == _appstore_prefix("bw", "name") + struct.pack("<IH", 0, 8)
+
+    wait_for_screen_text(beebium, "S1=1 L1=300 S2=0 L2=13 V=1 D=98", timeout=8.0)

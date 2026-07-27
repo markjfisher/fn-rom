@@ -1,4 +1,4 @@
-; Reason &06 — raw FujiBus device call for small request/response payloads.
+; Reason &06 — raw FujiBus device call into caller request/response buffers.
 ;
 ; Block layout:
 ;   +2  device id in
@@ -72,7 +72,27 @@ fnnet_reason_device_call:
         sta     cws_tmp7
 
         jsr     fujibus_send_packet_scatter
+
+.ifdef UTILITIES_RESIDENT
+        ; The all-resident ROM keeps the legacy packet-buffer receive path.
         jsr     fujibus_receive_packet
+.else
+        ; Receive the 7-byte FujiBus response header into ROM workspace and
+        ; stream response payload bytes directly into the caller's buffer.
+        ldy     #$09
+        lda     (aws_tmp14),y
+        sta     aws_tmp06
+        iny
+        lda     (aws_tmp14),y
+        sta     aws_tmp07
+        iny
+        lda     (aws_tmp14),y
+        sta     aws_tmp08
+        iny
+        lda     (aws_tmp14),y
+        sta     aws_tmp09
+        jsr     fujibus_receive_packet_to_payload
+.endif
 
         ; total response length in A/X
         sta     aws_tmp02
@@ -84,14 +104,22 @@ fnnet_reason_device_call:
         bcc     @bad_call
 
 @len_ok:
+.ifdef UTILITIES_RESIDENT
         ldy     #$05
         lda     (buffer_ptr),y
+.else
+        lda     aws_tmp12
+.endif
         cmp     #$01
         bne     @bad_call
 
         ; device status out
+.ifdef UTILITIES_RESIDENT
         iny
         lda     (buffer_ptr),y
+.else
+        lda     aws_tmp13
+.endif
         ldy     #$04
         sta     (aws_tmp14),y
 
@@ -112,60 +140,16 @@ fnnet_reason_device_call:
         lda     aws_tmp09
         sta     (aws_tmp14),y
 
-        ; Fail if caller response buffer is too small.
-        lda     aws_tmp10
+        ; Fail if caller response buffer was too small. The streamed receive
+        ; already drained the frame, so the link remains synchronized.
+        ldy     #$0B
+        lda     (aws_tmp14),y
         sec
         sbc     aws_tmp08
-        lda     aws_tmp11
-        sbc     aws_tmp09
-        bcc     @bad_call
-
-@copy_setup:
-        lda     aws_tmp08
-        ora     aws_tmp09
-        beq     @ok
-
-        ; Reload destination response pointer from the parameter block.
-        ldy     #$09
-        lda     (aws_tmp14),y
-        sta     cws_tmp6
         iny
         lda     (aws_tmp14),y
-        sta     cws_tmp7
-
-        ; source = buffer + 7
-        lda     buffer_ptr
-        clc
-        adc     #$07
-        sta     cws_tmp2
-        lda     buffer_ptr+1
-        adc     #$00
-        sta     cws_tmp3
-
-        ; destination pointer is in cws_tmp6/7. Count in aws_tmp08/09.
-        ldy     #$00
-@copy_loop:
-        lda     aws_tmp08
-        ora     aws_tmp09
-        beq     @ok
-
-        lda     (cws_tmp2),y
-        sta     (cws_tmp6),y
-
-        inc     cws_tmp2
-        bne     :+
-        inc     cws_tmp3
-:
-        inc     cws_tmp6
-        bne     :+
-        inc     cws_tmp7
-:
-        lda     aws_tmp08
-        bne     :+
-        dec     aws_tmp09
-:
-        dec     aws_tmp08
-        jmp     @copy_loop
+        sbc     aws_tmp09
+        bcc     @bad_call
 
 @ok:
         lda     #FNNET_STATUS_OK

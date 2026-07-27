@@ -2,6 +2,9 @@
 ; The selected physical link implementation provides the fuji_link_* symbols.
 
         .export fuji_link_read_slip_frame
+.ifndef UTILITIES_RESIDENT
+        .export fuji_link_read_slip_frame_to_payload
+.endif
         .export fuji_link_write_slip_frame
         .export fuji_link_write_slip_frame_dual
         .export fuji_link_write_slip_frame_triple
@@ -24,13 +27,15 @@
         .importzp aws_tmp09
         .importzp aws_tmp10
         .importzp aws_tmp11
+        .importzp aws_tmp12
+        .importzp aws_tmp13
         .importzp aws_tmp14
-        .importzp aws_tmp15
         .importzp cws_tmp1
         .importzp cws_tmp2
         .importzp cws_tmp3
         .importzp cws_tmp6
         .importzp cws_tmp7
+        .importzp cws_tmp8
 
         .importzp buffer_ptr
 
@@ -46,7 +51,7 @@
         .segment "CODE"
 
 WAIT_FIRST_MAX := 65000
-WAIT_NEXT_MAX  := 2000
+WAIT_NEXT_MAX  := 65000
 
 ; SLIP-encode and write one contiguous region (aws_tmp00/01 = ptr, aws_tmp02/03 = len).
 ; Clobbers A, Y, aws_tmp04.
@@ -108,7 +113,14 @@ fuji_link_read_slip_frame:
         sta     aws_tmp09
 
         lda     #$00
+        sta     aws_tmp00
+        sta     aws_tmp01
         sta     aws_tmp05
+.ifndef UTILITIES_RESIDENT
+        sta     cws_tmp8
+.endif
+
+slip_prepare_wait_start:
 
         lda     #<WAIT_FIRST_MAX
         sta     aws_tmp10
@@ -128,7 +140,7 @@ slip_wait_start_loop:
 slip_start_byte_ok:
         cmp     #SLIP_END
         bne     slip_wait_start_loop
-        jmp     slip_begin_frame
+        beq     slip_begin_frame
 
 slip_dec_wait_start:
         lda     aws_tmp10
@@ -139,9 +151,45 @@ slip_dec_wait_start:
         lda     aws_tmp10
         ora     aws_tmp11
         bne     slip_wait_start_loop
-        jmp     slip_read_error
+        beq     slip_read_error
+
+.ifndef UTILITIES_RESIDENT
+; Read and decode one SLIP frame from the selected link, storing the first
+; seven decoded bytes at buffer_ptr and the remaining payload at aws_tmp06/07.
+; Input: aws_tmp06/07 = payload destination, aws_tmp08/09 = payload capacity.
+; Output: A/X = decoded length, or 0/0 on SLIP error. aws_tmp00 is the running
+; checksum with byte 4 treated as zero; aws_tmp01 is the received checksum byte.
+fuji_link_read_slip_frame_to_payload:
+        jsr     fuji_link_setup
+
+        lda     aws_tmp06
+        sta     cws_tmp2
+        lda     aws_tmp07
+        sta     cws_tmp3
+        lda     aws_tmp08
+        sta     cws_tmp6
+        lda     aws_tmp09
+        sta     cws_tmp7
+
+        lda     #$00
+        sta     aws_tmp00
+        sta     aws_tmp01
+        sta     aws_tmp05
+        lda     #$01
+        sta     cws_tmp8
+        bne     slip_prepare_wait_start
+.endif
 
 slip_begin_frame:
+.ifndef UTILITIES_RESIDENT
+        lda     cws_tmp8
+        beq     :+
+        lda     #$00
+        sta     aws_tmp08
+        sta     aws_tmp09
+        beq     slip_frame_loop
+:
+.endif
         lda     buffer_ptr
         sta     aws_tmp08
         lda     buffer_ptr+1
@@ -194,16 +242,41 @@ slip_read_error:
 slip_process_char:
         lda     aws_tmp04
         cmp     #SLIP_END
+.ifdef UTILITIES_RESIDENT
         beq     slip_handle_end
+.else
+        bne     :+
+        jmp     slip_handle_end
+:
+.endif
 
         lda     aws_tmp05
+.ifdef UTILITIES_RESIDENT
         bne     slip_escaped_byte
+.else
+        beq     :+
+        jmp     slip_escaped_byte
+:
+.endif
 
         lda     aws_tmp04
         cmp     #SLIP_ESCAPE
+.ifdef UTILITIES_RESIDENT
         beq     slip_set_escape
+.else
+        bne     :+
+        jmp     slip_set_escape
+:
+.endif
 
 slip_store_byte:
+        jsr     slip_split_checksum
+
+.ifndef UTILITIES_RESIDENT
+        lda     cws_tmp8
+        bne     slip_store_split
+.endif
+
         pha
         lda     cws_tmp6
         ora     cws_tmp7
@@ -224,6 +297,118 @@ slip_dec_cap_lo:
 slip_after_inc_hi:
         jmp     slip_frame_loop
 
+.ifndef UTILITIES_RESIDENT
+slip_store_split:
+        lda     aws_tmp09
+        bne     slip_store_split_payload
+        lda     aws_tmp08
+        cmp     #$07
+        bcs     slip_store_split_payload
+
+        tay
+        lda     aws_tmp04
+        sta     (buffer_ptr),y
+        cpy     #$05
+        bne     :+
+        sta     aws_tmp12
+:
+        cpy     #$06
+        bne     :+
+        sta     aws_tmp13
+:
+        jmp     slip_store_split_inc_total
+
+slip_store_split_payload:
+        lda     cws_tmp6
+        ora     cws_tmp7
+        beq     slip_store_split_inc_total
+
+        lda     aws_tmp04
+        ldy     #$00
+        sta     (cws_tmp2),y
+
+        inc     cws_tmp2
+        bne     :+
+        inc     cws_tmp3
+:
+        lda     cws_tmp6
+        bne     :+
+        dec     cws_tmp7
+:
+        dec     cws_tmp6
+
+slip_store_split_inc_total:
+        inc     aws_tmp08
+        bne     :+
+        inc     aws_tmp09
+:
+        jmp     slip_frame_loop
+
+slip_split_checksum:
+.ifndef UTILITIES_RESIDENT
+        lda     cws_tmp8
+        bne     @split_offset
+.endif
+        lda     buffer_ptr
+        clc
+        adc     #$04
+        cmp     aws_tmp08
+        bne     @normal
+        lda     buffer_ptr+1
+        adc     #$00
+        cmp     aws_tmp09
+        bne     @normal
+        beq     @checksum_byte
+.ifndef UTILITIES_RESIDENT
+@split_offset:
+        lda     aws_tmp09
+        bne     @normal
+        lda     aws_tmp08
+        cmp     #$04
+        bne     @normal
+.endif
+@checksum_byte:
+        lda     aws_tmp04
+        sta     aws_tmp01
+        lda     #$00
+        beq     @accumulate
+
+@normal:
+        lda     aws_tmp04
+@accumulate:
+        clc
+        adc     aws_tmp00
+        adc     #$00
+        sta     aws_tmp00
+        lda     aws_tmp04
+        rts
+.else
+slip_split_checksum:
+        lda     buffer_ptr
+        clc
+        adc     #$04
+        cmp     aws_tmp08
+        bne     @normal
+        lda     buffer_ptr+1
+        adc     #$00
+        cmp     aws_tmp09
+        bne     @normal
+        lda     aws_tmp04
+        sta     aws_tmp01
+        lda     #$00
+        beq     @accumulate
+
+@normal:
+        lda     aws_tmp04
+@accumulate:
+        clc
+        adc     aws_tmp00
+        adc     #$00
+        sta     aws_tmp00
+        lda     aws_tmp04
+        rts
+.endif
+
 slip_escaped_byte:
         lda     #$00
         sta     aws_tmp05
@@ -233,20 +418,31 @@ slip_escaped_byte:
         beq     :+
         cmp     #SLIP_ESC_ESC
         beq     :++
-        bne     slip_read_error
+        jmp     slip_read_error
 :
         lda     #SLIP_END
-        bne     slip_store_byte
+        sta     aws_tmp04
+        jmp     slip_store_byte
 :
         lda     #SLIP_ESCAPE
-        bne     slip_store_byte
+        sta     aws_tmp04
+        jmp     slip_store_byte
 
 slip_set_escape:
         lda     #$01
         sta     aws_tmp05
-        bne     slip_frame_loop
+        jmp     slip_frame_loop
 
 slip_handle_end:
+.ifndef UTILITIES_RESIDENT
+        lda     cws_tmp8
+        beq     :+
+        lda     aws_tmp08
+        ora     aws_tmp09
+        bne     slip_done
+        jmp     slip_frame_loop
+:
+.endif
         lda     aws_tmp08
         cmp     buffer_ptr
         bne     slip_done
@@ -259,7 +455,18 @@ slip_done:
         jsr     fuji_link_restore_default_io
 
         lda     aws_tmp05
-        bne     slip_read_error
+        beq     :+
+        jmp     slip_read_error
+:
+
+.ifndef UTILITIES_RESIDENT
+        lda     cws_tmp8
+        beq     :+
+        lda     aws_tmp08
+        ldx     aws_tmp09
+        rts
+:
+.endif
 
         lda     aws_tmp08
         sec
@@ -275,40 +482,19 @@ slip_done:
 
 ; Write one SLIP frame from a contiguous region.
 fuji_link_write_slip_frame:
-        jsr     fuji_link_setup_write
-
-        lda     #SLIP_END
-        jsr     fuji_link_write_byte
-
-        jsr     slip_emit_region
-
-        lda     #SLIP_END
-        jsr     fuji_link_write_byte
-        rts
+        lda     #$00
+        sta     aws_tmp08
+        sta     aws_tmp09
+        sta     cws_tmp6
+        sta     cws_tmp7
+        jmp     fuji_link_write_slip_frame_triple
 
 ; Write one SLIP frame from two contiguous regions.
 fuji_link_write_slip_frame_dual:
-        jsr     fuji_link_setup_write
-
-        lda     #SLIP_END
-        jsr     fuji_link_write_byte
-
-        jsr     slip_emit_region
-
-        lda     aws_tmp06
-        sta     aws_tmp00
-        lda     aws_tmp07
-        sta     aws_tmp01
-        lda     aws_tmp08
-        sta     aws_tmp02
-        lda     aws_tmp09
-        sta     aws_tmp03
-
-        jsr     slip_emit_region
-
-        lda     #SLIP_END
-        jsr     fuji_link_write_byte
-        rts
+        lda     #$00
+        sta     cws_tmp6
+        sta     cws_tmp7
+        jmp     fuji_link_write_slip_frame_triple
 
 ; Write one SLIP frame from three contiguous regions.
 ; Region 1: aws_tmp00/01, aws_tmp02/03

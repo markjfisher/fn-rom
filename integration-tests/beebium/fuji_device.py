@@ -38,6 +38,8 @@ except Exception:  # pragma: no cover - defensive
 
 FujiPacket = fb.FujiPacket
 Responder = Callable[[FujiPacket], Optional[bytes]]
+SERIAL_REPLY_CHUNK_SIZE = 32
+SERIAL_REPLY_CHUNK_DELAY = 0.002
 
 HOST_SERVICE_ID = 0xF0
 HOST_VERSION = 0x01
@@ -151,14 +153,20 @@ class FujiDevice:
         if self._rpc_serial is not None:
             remaining = memoryview(data)
             while remaining and not self._stop:
-                accepted = self._rpc_serial.send(bytes(remaining))
+                chunk = remaining[:SERIAL_REPLY_CHUNK_SIZE]
+                accepted = self._rpc_serial.send(bytes(chunk))
                 if accepted <= 0:
                     time.sleep(0.005)
                     continue
                 remaining = remaining[accepted:]
+                if remaining:
+                    time.sleep(SERIAL_REPLY_CHUNK_DELAY)
             return
         try:
-            os.write(self._fd, data)
+            for offset in range(0, len(data), SERIAL_REPLY_CHUNK_SIZE):
+                os.write(self._fd, data[offset : offset + SERIAL_REPLY_CHUNK_SIZE])
+                if offset + SERIAL_REPLY_CHUNK_SIZE < len(data):
+                    time.sleep(SERIAL_REPLY_CHUNK_DELAY)
         except OSError:
             pass
 
