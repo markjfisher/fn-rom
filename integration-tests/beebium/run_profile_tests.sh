@@ -3,8 +3,8 @@
 # scripted subset against it (see docs/ROM_ROLE_SPLIT_PLAN.md C.3). All builds
 # write build/fujinet.rom, so this runs them sequentially.
 #
-#   all  profile (ALL):      network device + utilities resident; full suite.
-#   net  profile (DISK+NET): network device, utils on disk; full suite.
+#   all  profile (ALL):      compatibility resident-utils lane; full suite.
+#   net  profile (DISK+NET): network device, boot/config utilities on disk; full suite.
 #   disk profile (DISK):     no network device; needs_net tests skip, disk_only run.
 #
 # Then the command-from-disk equivalence test (Appendix C.4 #3): build the

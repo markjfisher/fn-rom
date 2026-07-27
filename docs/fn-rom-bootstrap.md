@@ -77,21 +77,35 @@ modules are linked*, not by inline `.if`. Two orthogonal levers select a profile
 | `src/kernel/` | yes | — (vectors, transport, channel, init, matcher, `*FHOST`/`*FIN`/`*FMOUNT`, `*CAT`/`*RUN`) |
 | `src/disk/`   | yes | — (DFS catalog + sector IO + disk vector branch) |
 | `src/net/`    | no  | `FEATURE_NET=1` (network branch, `*FJSON`, OSWORD &78) |
-| `src/utils/`  | no  | `UTILITIES=resident` (management/informational commands) |
+| `src/utils/`  | no  | `UTILITIES=resident` (compatibility resident management/informational commands) |
 
-Profiles: **ALL** (`make all-rom`, net + utils resident), **DISK+NET**
-(`make net`, the default ship build, utils on disk) and **DISK** (`make disk`,
-no network). The retired macros `_FREE_MAP_`/`_UTILS_`/`_ROMS_` were folded into
+Profiles: **DISK+NET** (`make net`, the default ship build, utilities on the
+boot/config disk), **DISK** (`make disk`, no network) and **ALL**
+(`make all-rom`, net + resident utilities for compatibility/diagnostics while
+it fits). The retired macros `_FREE_MAP_`/`_UTILS_`/`_ROMS_` were folded into
 these levers.
+
+The chosen direction is to spend resident ROM bytes on device/protocol
+functionality that cannot be delivered from disk: the filing-system vectors,
+FujiBus/SLIP/channel code, OSWORD &78 contracts, bootstrap/recovery commands,
+and thin wrappers such as `*FJSON`. Utility applications and bulky
+management/informational commands belong on the boot/config disk so constrained
+BBC-class builds keep headroom for richer device features.
 
 ### Transient utilities and their ROM ABI
 
 When `UTILITIES=disk`, the management/informational commands are not in the ROM;
-they ship on `FN-UTLS.ssd` and load on demand via the standard MOS
+they ship on the boot/config utilities disk (`FN-UTLS.ssd`) and load on demand via the standard MOS
 unrecognised-command → filing-system `*RUN` fallthrough (service &04 is left
 unclaimed, so the MOS asks the FS to run the command as a file, using the
 library-aware lookup so it resolves from the utils/library drive regardless of
 the current drive).
+
+The forward recovery workflow is `*FBOOT [drive]`: no argument preserves the
+existing default boot behaviour, while `*FBOOT 3` should restore the boot/config
+disk to drive 3 and make it available as the library. Until that argument is
+implemented, use the explicit bootstrap sequence documented in
+`docs/ROM_ROLE_SPLIT_PLAN.md`.
 
 Each transient utility is a standalone RAM binary loaded and entered by the FS
 `*RUN` path. BBC utility binaries load/exec at `$1900`; Master utility binaries
@@ -105,9 +119,10 @@ the table start and slot order are preserved.
 `scripts/build_fn_utls.sh` builds the `UTILITIES=disk` ROM, turns its label file
 into `rom_abi.s`, and links each utility against it. Routine imports are mapped
 to the fixed `$8030` table slots; direct workspace/data imports are mapped to
-the target machine's real label addresses. That means a utility disk is no
-longer tied to one exact ROM layout for code movement, but BBC and Master still
-need separate utility disks today because their workspace/data addresses differ.
+the target machine's real label addresses. That means a boot/config utility disk
+is no longer tied to one exact ROM layout for code movement, but BBC and Master
+still need separate boot/config utility disks today because their workspace/data
+addresses differ.
 Each generated utility wrapper runs from RAM, scans sideways ROM slots for the
 `FujiNet` service ROM plus the `FNABI1` ABI signature, and leaves that ROM paged
 before entering the table. If the ROM/signature is missing it prints

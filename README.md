@@ -38,14 +38,15 @@ orthogonal levers (see [docs/ROM_ROLE_SPLIT_PLAN.md](docs/ROM_ROLE_SPLIT_PLAN.md
 
 - `FEATURE_NET` (Lever A) — `1` adds the network device (OPENIN `"scheme://"`,
   `*FJSON`, the OSWORD &78 API); `0` is disk-only. Disk is always resident.
-- `UTILITIES` (Lever B) — `resident` links the management/informational commands
-  (`*FORM`, `*COPY`, `*FLS`, `*FDRIVE`, …) into the ROM; `disk` drops them, so
-  they ship on `FN-UTLS.ssd` and load on demand via the MOS unrecognised-command
-  → `*RUN` fallthrough.
+- `UTILITIES` (Lever B) — `disk` is the forward path: bulky
+  management/informational commands (`*FORM`, `*COPY`, `*FLS`, `*FDRIVE`, ...)
+  ship on the boot/config utilities disk (`FN-UTLS.ssd`) and load on demand via
+  the MOS unrecognised-command → `*RUN` fallthrough. `resident` is retained for
+  compatibility and regression testing while it fits.
 
 | Profile | Target | FEATURE_NET | UTILITIES | For |
 |---------|--------|:-----------:|:---------:|-----|
-| **ALL**      | `make all-rom` (== bare `make all`) | 1 | resident | everything resident, kitchen-sink |
+| **ALL**      | `make all-rom` (== bare `make all`) | 1 | resident | compatibility/diagnostic, not the headroom target |
 | **DISK+NET** | `make net`     | 1 | disk     | default shipped build (network + disk) |
 | **DISK**     | `make disk`    | 0 | disk     | disk-only |
 
@@ -53,12 +54,18 @@ orthogonal levers (see [docs/ROM_ROLE_SPLIT_PLAN.md](docs/ROM_ROLE_SPLIT_PLAN.md
 Profiles are orthogonal to `BUILD_MACHINE` (BBC|MASTER) and `BUILD_INTERFACE`
 (SERIAL|USERPORT|1MHZ).
 
+The resident ROM budget is reserved for functionality that cannot be delivered
+from disk: filing-system vectors, FujiBus/SLIP/channel code, device protocols,
+OSWORD contracts, bootstrap/recovery commands, and thin wrappers over resident
+APIs such as `*FJSON`. Utility apps belong on the boot/config disk so future
+device work has headroom on constrained BBC-class machines.
+
 ## Release bundle
 
 `make release` (alias `make dist`) stages the shippable **DISK+NET** bundle in
 `dist/release/`: the `FN-NET` / `FN-NET-M` ROM images, `FN-UTLS.ssd` (the
-transient utilities), and the `bas/` example apps as ready-to-mount SSDs. Choose
-which examples with `RELEASE_APPS="weather iss"`.
+boot/config utilities disk), and the `bas/` example apps as ready-to-mount SSDs.
+Choose which examples with `RELEASE_APPS="weather iss"`.
 
 ## Testing
 

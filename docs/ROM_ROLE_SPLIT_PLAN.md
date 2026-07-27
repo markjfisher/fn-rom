@@ -1,6 +1,6 @@
 # fn-rom Role Split Plan — Kernel + Network feature + Transient utilities
 
-**Status:** Proposal for review & hand-off (rev 2 — actor-driven model)
+**Status:** Chosen direction (rev 3 — boot/config disk and resident-kernel model)
 **Author:** (drafted with Claude Code)
 **Audience:** implementer picking this up cold
 
@@ -9,6 +9,14 @@
 > collapses to a **base + option**: disk is always resident, network is a strict additive feature.
 > A second, orthogonal lever — moving rarely-used commands out of ROM onto disk — is what relieves
 > the long-term size pressure. This revision is built around those two levers.
+>
+> **Rev 3 decision.** The boot/config disk is now a first-class part of the BBC experience, not an
+> afterthought. Going forward, resident ROM bytes are reserved for device/protocol functionality that
+> cannot be delivered from disk: filing-system vectors, FujiBus/SLIP/channel code, OSWORD/device
+> contracts, bootstrap/recovery commands, and thin wrappers over already-resident APIs. Utility apps
+> and bulky management/informational commands should live on the boot/config disk. The all-resident
+> build is a compatibility/diagnostic lane only; it must not block protocol or device improvements
+> such as streaming responses, SLIP changes, modem support, or richer OSWORD semantics.
 
 ---
 
@@ -136,17 +144,17 @@ what gives **both** builds long-term headroom.
 |-------|:------------:|:-----------:|--------|----------------|
 | **DISK**     | off | disk     | 1, 4 | `FN-DISK` |
 | **DISK+NET** (default) | on  | disk     | 2, 3 | `FN-NET`  |
-| **ALL** (kitchen-sink, ≈ today) | on | resident | anyone who doesn't want to manage a utilities disk | `FN-ALL` |
+| **ALL** (compat/diagnostic) | on | resident | regression tests and legacy convenience while it fits | `FN-ALL` |
 
 > Naming note: a DFS **title** may be up to 12 chars, but a **filename** is ≤7. ROM images and
 > transient utilities are *files*, so all names above are ≤7; the utilities SSD's on-disk name is
 > **`FN-UTLS`** (the host-side image may be `fn-utls.ssd`).
 >
-> Decisions taken (owner, rev 2): **default build = DISK+NET**; **minimal kernel** (move *self-contained*
-> management commands to disk for the DISK / DISK+NET builds — but see §4.2 on thin wrappers);
-> **keep the kitchen-sink `ALL` build** (everything resident, back-compat with today; allowed to stay
-> tight and trim optional sub-features). A disk-only-resident variant is *possible* (NET off +
-> resident) but is not a headline distributable.
+> Decisions taken (owner, rev 3): **default build = DISK+NET**; **minimal resident kernel** (move
+> self-contained management/informational commands to the boot/config disk — but see §4.2 on thin
+> wrappers); **`ALL` is compatibility/diagnostic only**. It may stay while it fits, but if the choice
+> is between an all-resident utility and device/protocol functionality, the utility moves to disk. A
+> disk-only-resident variant is *possible* (NET off + resident) but is not a headline distributable.
 
 Role is orthogonal to the existing `BUILD_MACHINE` (BBC|MASTER) and `BUILD_INTERFACE`
 (SERIAL|USERPORT|1MHZ) axes; output names encode all of it, e.g. `FN-NET-BBC-SERIAL.rom`.
@@ -156,9 +164,10 @@ Role is orthogonal to the existing `BUILD_MACHINE` (BBC|MASTER) and `BUILD_INTER
 **Resident in every build (the kernel):**
 - Filing-system vectors: OSFIND/BGET/BPUT/FILE/ARGS/GBPB — this *is* the DFS
 - FujiBus + SLIP + serial channel; `*FUJI`/`*RESET`/`*ENABLE` init; ROM matcher/help
-- **Bootstrap mount set** — the *minimum* to get the utility disk into a mounted slot, so these
-  cannot themselves live on disk: **`*FHOST`, `*FIN`, `*FMOUNT`** only. (`*FHOST` takes a path, so
-  `*FCD` isn't needed to position a disk; the other F-commands are informational — see transient list.)
+- **Bootstrap mount set** — the *minimum* to get the boot/config disk into a mounted slot, so these
+  cannot themselves live on disk: **`*FHOST`, `*FIN`, `*FMOUNT`** and **`*FBOOT`**. (`*FHOST` takes a
+  path, so `*FCD` isn't needed to position a disk; the other F-commands are informational — see
+  transient list.)
 - `*CAT`, `*RUN`, `*DRIVE` (DFS drive-select), `*DIR`/`*LIB`
 - **(DISK+NET / ALL only)** the OSWORD &78 network ABI + network vector branch
 - **(DISK+NET / ALL only)** `*FJSON` — verified to be a *thin wrapper* (171 lines of arg-parsing that
@@ -167,9 +176,9 @@ Role is orthogonal to the existing `BUILD_MACHINE` (BBC|MASTER) and `BUILD_INTER
   discoverability problem. **General rule:** *thin command-wrappers over already-resident ABI stay
   resident; only commands whose bulk is self-contained become transient.*
 
-**Transient — on the utilities SSD (`FN-UTLS`), loaded on demand (DISK & DISK+NET builds):**
+**Transient — on the boot/config utilities SSD (`FN-UTLS`), loaded on demand:**
 - Disk management whose bulk is self-contained: `*FORM`, `*DESTROY`, `*WIPE`, `*VERIFY`, `*ACCESS`,
-  `*TITLE`, `*INFO`, `*RENAME`, `*COPY`, `*FNEW`, `*FBOOT`, `*FREE`/`*MAP`, `*ROMS`, `*FUMOUNT`, `*FOUT`
+  `*TITLE`, `*INFO`, `*RENAME`, `*COPY`, `*FNEW`, `*FREE`/`*MAP`, `*ROMS`, `*FUMOUNT`, `*FOUT`
 - **Informational / navigation F-commands** (not needed to position a disk): `*FCD` (covered by
   `*FHOST <path>`), `*FLIST`/`*FLS` (~361+250 lines — large directory listing), `*FDRIVE` (shows what
   the fujinet has in its slots).
@@ -179,34 +188,42 @@ Role is orthogonal to the existing `BUILD_MACHINE` (BBC|MASTER) and `BUILD_INTER
 > shared loadable module) rather than keeping it as a resident ROM entry point (§5.5). Duplication
 > costs disk, not ROM, which is the goal.
 
-The line: anything needed to *use* a disk or *get the utils disk mounted* (`*FHOST`/`*FIN`/`*FMOUNT`)
-stays resident; everything else — management *and* informational F-commands — is transient.
-Frequently-used, latency-sensitive things (the vectors, `*CAT`) never move.
+The line: anything needed to *use* a disk or *get the boot/config disk mounted*
+(`*FHOST`/`*FIN`/`*FMOUNT`/`*FBOOT`) stays resident; everything else — management *and*
+informational F-commands — is transient. Frequently-used, latency-sensitive things (the vectors,
+`*CAT`) never move. This boundary applies to future work as well as DISK/DISK+NET today: ROM
+headroom is for device behaviour, not utility-app convenience.
 
-### 4.2.1 Discoverability: the library drive (resolves the "wrong current drive" problem)
+### 4.2.1 Discoverability: the boot/config library drive
 
-A transient utility lives on the utils disk (e.g. drive 3), but the user's *current* drive is usually
+A transient utility lives on the boot/config disk (e.g. drive 3), but the user's *current* drive is usually
 their app/game disk (drive 0). BBC DFS already solves this: an unrecognised `*command` is looked up
 in the current directory **and then the library**, and the library may be on a different drive.
 fn-rom already implements this fallback — `cmd_run.s:56–60` ("File not found in default location, try
 library") consults `fuji_lib_drive`/`fuji_lib_dir`, and `*LIB` (`cmd_fs_lib`) sets the library slot.
 
-So the bootstrap is: mount the utils disk to a drive **and set it as the library**, e.g.
+So the bootstrap is: mount the boot/config disk to a drive **and set it as the library**, e.g.
 
 ```
 *FHOST sd0:/
-*FIN 7 fn-utls.ssd      ; bind utils image to slot 7
+*FIN 7 fn-utls.ssd      ; bind boot/config image to slot 7
 *FMOUNT 7 3             ; mount slot 7 as BBC drive 3
 *LIB :3                 ; library = drive 3  -> *FORM etc. resolve here regardless of current drive
 ```
+
+The forward resident helper is `*FBOOT [drive]`: with no argument it preserves the current default
+boot behaviour, and with a drive argument such as `*FBOOT 3` it restores the boot/config disk to that
+drive so `CONFIG`/`CONFNIO` and utility commands remain available after the user mounts real disks.
+Until that argument exists in code, the explicit `*FHOST`/`*FIN`/`*FMOUNT`/`*LIB` sequence above is
+the current mechanism.
 
 This (or a `!BOOT` that runs it, or ROM auto-mount at init) keeps the current drive on the app disk
 while management commands resolve from the library. ⚠️ Phase 3 must confirm the *unrecognised-command*
 route (service &04 → MOS → FSC) reuses this library-aware lookup, not only the explicit `*RUN`.
 
 **Costs of transient utilities (accepted):** they consume user RAM when loaded and incur a disk hit
-per invocation; they need stable ROM entry points (MOS calls; OSWORD &78 for network). The `ALL`
-build avoids all of this for users who prefer convenience.
+per invocation; they need stable ROM entry points (MOS calls; OSWORD &78 for network). That is the
+intended trade: a small launch cost buys resident ROM space for features that cannot be apps.
 
 ### 4.3 Future device features (modem, terminal) — the model generalises
 
@@ -354,12 +371,12 @@ consistent.
 ### Phase 4 — Transient utilities (Lever B) + utilities SSD
 - Extract self-contained management commands per §5.5; produce `FN-UTLS.ssd` (per-file `.inf`); finish
   migrating all table entries to the composable mechanism. Provide the documented bootstrap (§4.2.1)
-  and/or ROM auto-mount of the utils disk + `*LIB`.
+  and/or ROM auto-mount of the boot/config disk + `*LIB`.
 - **Test gate:** new **command-from-disk** scenario (Appendix C.4) — in beebium, mount `FN-UTLS.ssd`,
   set the library, then run e.g. `*FLS`/`*FORM` and assert the *same* FujiBus frames / results as when
   resident in `ALL`.
 - **Acceptance:** in `DISK`/`DISK+NET`, e.g. `*FORM`/`*COPY` are absent from ROM but run from the
-  library-mounted utilities disk with identical behaviour; `make all-rom` keeps them in ROM.
+  library-mounted boot/config disk with identical behaviour; `make all-rom` keeps them in ROM.
 
 ### Phase 5 — Consolidate test matrix, docs, examples
 - Make the **build × test matrix** runnable **locally with one command** (Appendix C.3): build all
@@ -389,38 +406,47 @@ consistent.
 | Behaviour regression hidden by a "pure refactor" | Per-phase test gates assert emitted FujiBus frames identical to the Phase 0 baseline (Appendix C) |
 | Test tooling is the author's own (beebium serial PR un-merged upstream) — not generally packaged | Local-first testing during this transition (Appendix C.5); build beebium; promote beebium once its serial support lands |
 | New disk-loaded command path (Phase 4) untested by existing suites | New "command-from-disk" beebium scenario added in Phase 4 (Appendix C.4) |
-| `ALL` still won't fit after future growth | It's the convenience build; DISK/DISK+NET are the lean primaries; bank-switch is the escape hatch (§8.6) |
+| `ALL` won't fit after future growth | Trim or move resident utility commands; do not block protocol/device work. DISK/DISK+NET are the lean primaries; bank-switch is the escape hatch (§8.6) |
 
 ---
 
 ## 8. Decisions (resolved) and remaining open points
 
-**Resolved (owner, rev 2):**
-- **8.1 Names** — ROM files `FN-DISK` / `FN-NET` / `FN-ALL` (≤7); utils disk **`FN-UTLS`** (title may
-  be 12 chars but the filename limit of 7 governs). ✅
+**Resolved (owner, rev 3):**
+- **8.1 Names** — ROM files `FN-DISK` / `FN-NET` / `FN-ALL` (≤7); boot/config utilities disk
+  **`FN-UTLS`** (title may be 12 chars but the filename limit of 7 governs). ✅
 - **8.2 Default build** — **DISK+NET**. ✅
 - **8.3 `*FJSON`** — stays **resident in NET builds** (thin wrapper over the resident OSWORD &78
   engine; cheap, and avoids a discoverability problem). Absent in `DISK`. ✅
+- **8.4 ROM headroom policy** — device/protocol functionality wins over resident utility
+  convenience. Utility commands that can run from disk belong on the boot/config disk. `ALL` is a
+  compatibility/diagnostic lane, not the design target. ✅
 - **8.5 `create_ssd.py`** — already supports per-file load/exec via `.inf` sidecars; no tooling change
   needed. ✅
 - **8.6 Bank-switching** — **deferred** (power-user; precedent: owner's cc65 `bbc-clib` target running
   core functions from ROM to free application RAM). Not for the general user. ✅
 
-- **Auto-setup approach** — **decided: a dedicated drive/mount for the utils disk** (the consumed-drive
+- **Auto-setup approach** — **decided: a dedicated drive/mount for the boot/config disk** (the consumed-drive
   trade-off in Appendix A.4 is accepted for now), hooked into the cold-boot autoboot facility
   (Appendix A.1). Ship with instructions to copy `FN-UTLS.ssd` to the ESP32's SD card. ✅
 - **Library drive number** — **decided: drive 3** (the last supported drive). Users rarely need all
   four drives at once, so reserving drive 3 for the utils/library mount is low-impact. ✅
+- **`*FBOOT [drive]` direction** — resident `*FBOOT` should become the recovery shortcut for mounting
+  the boot/config disk to the chosen drive. `*FBOOT 3` is the preferred workflow for keeping config
+  and utilities reachable as `:3` after real disks are mounted. ✅
 
 **Remaining open:**
-1. **Utilities disk distribution detail** — final bootstrap policy (ROM auto-mount via the
-   `skip_autoload` hook vs a `!BOOT`); Appendix A.5 recommends shipping `!BOOT` (Layer C) first, then
-   evolving to config-driven auto-mount (Layer A — see Appendix B).
-2. **Modem feature placement** (8.7) — `FEATURE_MODEM` as its own feature vs a NET sub-feature; where
+1. **Boot/config disk distribution detail** — whether the `FN-UTLS` image name remains long-term or
+   is replaced by a clearer boot/config disk name. Short-term, `FN-UTLS.ssd` remains the filename for
+   compatibility and DFS-safe naming.
+2. **Final bootstrap policy** — ROM auto-mount via the `skip_autoload` hook vs a `!BOOT`; Appendix
+   A.5 recommends shipping `!BOOT` (Layer C) first, then evolving to config-driven auto-mount
+   (Layer A — see Appendix B).
+3. **Modem feature placement** (8.7) — `FEATURE_MODEM` as its own feature vs a NET sub-feature; where
    the modem-device plumbing lives.
-3. **Terminal** (8.7) — in scope eventually; resident `*TERM` command vs transient app. Decide
+4. **Terminal** (8.7) — in scope eventually; resident `*TERM` command vs transient app. Decide
    alongside modem plumbing.
-4. **Pure terminal/modem-only product** — out of scope as a *disk-less* build for now, but the modem
+5. **Pure terminal/modem-only product** — out of scope as a *disk-less* build for now, but the modem
    plumbing above should not preclude it later.
 
 ---
@@ -438,10 +464,11 @@ consistent.
 
 ---
 
-## Appendix A — Utils-disk auto-setup sketch (exploratory; open question §8.1)
+## Appendix A — Boot/config disk auto-setup sketch
 
-> Status: **food for thought, not a decision.** Captures where the policy could live, rough resident
-> byte cost, and the failure modes when no utils disk is present. Does not block Phases 0–3.
+> Status: **chosen direction, implementation still staged.** Captures where the policy could live,
+> rough resident byte cost, and the failure modes when no boot/config disk is present. The short-term
+> disk image may still be named `FN-UTLS.ssd`, but its role is broader: config app plus utilities.
 
 ### A.1 The hook already exists
 `fuji_init.s` reads the break type and branches at **`skip_autoload`**, which already carries the
@@ -463,9 +490,9 @@ issues the FujiBus mount), then `sta fuji_lib_drive`.
 
 | Layer | Where | ROM cost | Flexibility | Notes |
 |-------|-------|---------:|-------------|-------|
-| **A. Device config** | fujinet auto-mounts the utils SSD to a *slot* at device boot (it already persists a `mounts:` list — see `posix.fujinet.yaml`); ROM reads "which slot is the library disk" from a config field and does FMOUNT+`*LIB` | ~80–120 B | High — retune the slot/drive without reflashing the ROM | Needs a small device-side config field + one status/config FujiBus read at boot |
-| **B. ROM resident, hardcoded** | ROM mounts a fixed `UTILS_SLOT`→`UTILS_DRIVE` and sets library at cold boot | **~30–50 B** | Low — slot/drive baked into ROM | Cheapest; brittle if the user’s slot/drive differs |
-| **C. User `!BOOT`** | The utils (or app) disk has a `!BOOT` running `*FMOUNT … ; *LIB :n` | **0 B** | High — fully user-editable | Requires a boot disk and `*OPT 4,n`; nothing automatic on a bare machine |
+| **A. Device config** | fujinet auto-mounts the boot/config SSD to a *slot* at device boot (it already persists a `mounts:` list — see `posix.fujinet.yaml`); ROM reads "which slot is the library disk" from a config field and does FMOUNT+`*LIB` | ~80–120 B | High — retune the slot/drive without reflashing the ROM | Needs a small device-side config field + one status/config FujiBus read at boot |
+| **B. ROM resident, hardcoded** | ROM mounts a fixed `BOOT_SLOT`→`BOOT_DRIVE` and sets library at cold boot | **~30–50 B** | Low — slot/drive baked into ROM | Cheapest; brittle if the user’s slot/drive differs |
+| **C. User `!BOOT`** | The boot/config disk has a `!BOOT` running `*FMOUNT … ; *LIB :n` | **0 B** | High — fully user-editable | Requires a boot disk and `*OPT 4,n`; nothing automatic on a bare machine |
 
 Rough estimate basis (Layer B happy path): set drive (~4 B) + set slot (~4 B) + `jsr fuji_mount_disk`
 (3 B) + `bcs` skip-on-fail (2 B) + set `fuji_lib_drive` (~4 B) + restore `current_drv=0` (~4 B) ≈ **~25 B**,
@@ -473,21 +500,21 @@ plus a few bytes of guard/labels. Either way the resident cost is **dwarfed by w
 management commands out reclaims** (hundreds of bytes to ~1–2 KB), so affordability is not the issue —
 **policy source and drive consumption are.**
 
-### A.3 Failure-mode rules (no utils disk present)
+### A.3 Failure-mode rules (no boot/config disk present)
 
-The boot path must never hang or error out when the utils disk is absent (pure gamer, actor 1; or
+The boot path must never hang or error out when the boot/config disk is absent (pure gamer, actor 1; or
 fujinet powered separately; or slot unbound; or image missing). Rules:
 1. **Bounded, silent failure.** The boot-time mount must use a short timeout (the FujiBus/SLIP layer
    already has retry/backoff) and, on any error (`C` set), simply continue booting.
 2. **Only set the library on success.** If the mount fails, **leave `fuji_lib_drive = 0`**. Otherwise
    unrecognised `*commands` would try to load from an empty drive and report errors. On failure the
-   machine behaves exactly as a no-utils install: management commands are just unavailable.
+   machine behaves exactly as a no-boot-disk install: management commands are just unavailable.
 3. **Don’t block the network/disk core.** Auto-mount is best-effort decoration on top of an already
    functional kernel.
 
 ### A.4 The real trade-off: a consumed drive
 
-Pointing the library at the utils disk consumes one BBC drive (the sketch assumed drive 3). DFS
+Pointing the library at the boot/config disk consumes one BBC drive (the sketch assumed drive 3). DFS
 libraries are drive+dir based, so a drive *must* back the library — you can’t point it at a bare
 host/slot. Decisions this forces:
 - **Which drive?** **Decided: drive 3** (last supported). Reserving 3 leaves 0–2 for the user; users
@@ -497,7 +524,7 @@ host/slot. Decisions this forces:
   the user hasn’t, or always, or never on soft break — the last is already implied by A.1).
 
 ### A.5 Suggested trajectory
-- **Phase 4 (now):** ship Layer **C** (`!BOOT` on the utils/app disk) — zero ROM cost, unblocks the
+- **Phase 4 (now):** ship Layer **C** (`!BOOT` on the boot/config disk) — zero ROM cost, unblocks the
   transient-utilities work, lets the mechanism be exercised end-to-end.
 - **Polish:** move to Layer **A** (config-driven) as the longer-term answer; keep Layer **B**
   (hardcoded) as the fallback if config plumbing proves too heavy. All three share the same
@@ -570,7 +597,7 @@ Each test declares the feature it needs; the runner selects tests per build:
 |------------|-------|:---:|:---:|:---:|
 | kernel/disk (`*FHOST`, `*FIN`, `*FMOUNT`, `*CAT`, OPENIN/BGET on disk files) | kernel | ✅ | ✅ | ✅ |
 | network (`OPENIN "://"`, `*FJSON`, OSWORD `&78`) | `FEATURE_NET` | ❌ (assert **absent** — C.4) | ✅ | ✅ |
-| transient management (`*FORM`, `*COPY`, `*FLS`, `*FDRIVE`) | utils disk **or** resident | from disk | from disk | resident |
+| transient management (`*FORM`, `*COPY`, `*FLS`, `*FDRIVE`) | boot/config disk **or** resident | from disk | from disk | resident |
 
 The beebium runner already accepts `--fn-rom`/`FN_ROM` (and slot), so pointing it at each profile's
 ROM is a one-liner; add a `--profile {disk,net,all}` (or marker) that selects the tagged subset.
@@ -587,7 +614,7 @@ ROM is a one-liner; add a `--profile {disk,net,all}` (or marker) that selects th
    resident version in `ALL`. This proves the transient path is behaviourally identical, not just that
    the file loads.
 4. **Cold-boot auto-mount** (when Appendix A lands): on cold boot with the utils slot bound, the ROM
-   mounts drive 3 + sets the library; on a *missing* utils disk it continues booting and leaves
+   mounts drive 3 + sets the library; on a *missing* boot/config disk it continues booting and leaves
    `fuji_lib_drive = 0` (Appendix A.3) — assert both.
 
 ### C.5 Running the gates: local now, CI later

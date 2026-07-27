@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Build FN-UTLS.ssd: every transient utility as a standalone RAM binary that calls
-# the resident ROM through the stable utility ABI table (role-split Lever B disk
-# execution).
+# Build FN-UTLS.ssd: the boot/config utilities disk. Each transient utility is a
+# standalone RAM binary that calls the resident ROM through the stable utility
+# ABI table (role-split Lever B disk execution).
 #
 # Mechanism: build the UTILITIES=disk ROM, generate a ca65 source (rom_abi.s)
 # that maps resident routine imports to fixed jump-table slots and direct data

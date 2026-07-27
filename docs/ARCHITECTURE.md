@@ -16,13 +16,20 @@ the command tables or vector bodies). See
 | `src/kernel/` | always | filing-system vectors, transport/channel, init, command matcher + tables, bootstrap mounts (`*FHOST`/`*FIN`/`*FMOUNT`), `*CAT`/`*RUN` |
 | `src/disk/`   | always | DFS catalog + sector IO + the disk branch of the shared vectors |
 | `src/net/`    | `FEATURE_NET=1` | network FujiBus builders, the network vector branch, `*FJSON`, OSWORD &78 |
-| `src/utils/`  | `UTILITIES=resident` | transient management/informational commands (else shipped on `FN-UTLS.ssd`) |
+| `src/utils/`  | `UTILITIES=resident` | compatibility resident management/informational commands (else shipped on the boot/config utilities disk, `FN-UTLS.ssd`) |
 
 The disk and network paths meet only at well-defined dispatch points inside the
 shared MOS filing vectors (`OSFIND`/`OSBGET`/`OSBPUT`/close); only the network
-branch is optional, since disk is always resident. Build profiles: **ALL**
-(`make all-rom`), **DISK+NET** (`make net`, default ship build) and **DISK**
-(`make disk`).
+branch is optional, since disk is always resident. Build profiles: **DISK+NET**
+(`make net`, default ship build), **DISK** (`make disk`) and **ALL**
+(`make all-rom`, compatibility/diagnostic while it fits).
+
+The forward boundary is intentionally strict: ROM space is for the resident
+filing system, transport/channel code, device protocols, OSWORD contracts,
+bootstrap/recovery commands, and thin wrappers over resident APIs. Utility apps
+and bulky management/informational commands live on the boot/config disk so BBC
+and Master builds keep headroom for functionality that cannot be supplied from
+disk.
 
 ## Layer Architecture
 

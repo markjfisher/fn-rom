@@ -2,7 +2,7 @@
 # Run the soft65c02 unit tests against a chosen role-split build profile.
 #
 # Usage: ./run_unit_tests.sh [all|net|disk]   (default: all)
-#   all   ALL build      (FEATURE_NET=1 UTILITIES=resident) -- everything resident
+#   all   ALL build      (FEATURE_NET=1 UTILITIES=resident) -- compatibility resident-utils lane
 #   net   DISK+NET build (FEATURE_NET=1 UTILITIES=disk)
 #   disk  DISK build     (FEATURE_NET=0 UTILITIES=disk)
 #
