@@ -49,10 +49,6 @@
         .import cmd_fs_lib
         .import cmd_help_fuji
         .import cmd_help_futils
-.if .defined(UTILITIES_RESIDENT)
-        .import cmd_help_utils
-        .import cmd_utils_roms
-.endif
 
         .include "fujinet.inc"
 
@@ -104,10 +100,6 @@ cmd_str_futils:
 cmd_adr_utils:
         .segment "CMDSTR_UTILS"
 cmd_str_utils:
-.if .defined(UTILITIES_RESIDENT)
-        cmd_entry "UTILS", "ROMS",     $00, $00, cmd_utils_roms
-        ; TODO: BUILD/DUMP/LIST/TYPE
-.endif
         .segment "CMDSTR_UTILS_T"
         .byte   $00
 
@@ -133,9 +125,6 @@ cmd_adr_help:
 cmd_str_help:
         cmd_entry "HELP", "FUJI",      $00, $00, cmd_help_fuji
         cmd_entry "HELP", "FUTILS",    $00, $00, cmd_help_futils
-.if .defined(UTILITIES_RESIDENT)
-        cmd_entry "HELP", "UTILS",     $00, $00, cmd_help_utils
-.endif
         .segment "CMDSTR_HELP_T"
         .byte   $00
 

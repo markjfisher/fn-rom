@@ -73,10 +73,6 @@ fnnet_reason_device_call:
 
         jsr     fujibus_send_packet_scatter
 
-.ifdef UTILITIES_RESIDENT
-        ; The all-resident ROM keeps the legacy packet-buffer receive path.
-        jsr     fujibus_receive_packet
-.else
         ; Receive the 7-byte FujiBus response header into ROM workspace and
         ; stream response payload bytes directly into the caller's buffer.
         ldy     #$09
@@ -92,7 +88,6 @@ fnnet_reason_device_call:
         lda     (aws_tmp14),y
         sta     aws_tmp09
         jsr     fujibus_receive_packet_to_payload
-.endif
 
         ; total response length in A/X
         sta     aws_tmp02
@@ -104,22 +99,12 @@ fnnet_reason_device_call:
         bcc     @bad_call
 
 @len_ok:
-.ifdef UTILITIES_RESIDENT
-        ldy     #$05
-        lda     (buffer_ptr),y
-.else
         lda     aws_tmp12
-.endif
         cmp     #$01
         bne     @bad_call
 
         ; device status out
-.ifdef UTILITIES_RESIDENT
-        iny
-        lda     (buffer_ptr),y
-.else
         lda     aws_tmp13
-.endif
         ldy     #$04
         sta     (aws_tmp14),y
 

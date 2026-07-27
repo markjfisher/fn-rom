@@ -51,9 +51,7 @@
         .import fujibus_network_translate_configure
         .import fujibus_network_write_ext
         .import fujibus_receive_packet
-.ifndef UTILITIES_RESIDENT
         .import fujibus_receive_packet_to_payload
-.endif
         .import fujibus_send_packet_scatter
         .import network_flush_write
 

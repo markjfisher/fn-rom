@@ -6,8 +6,8 @@ CURRENT_TARGET = none
 BUILD_MACHINE ?= BBC
 
 # There is one product ROM: disk + network device, with bulky utilities on the
-# boot/config utilities disk. Keep FEATURE_NET defined while the older assembly
-# guards are being retired; UTILITIES_RESIDENT is intentionally never defined.
+# boot/config utilities disk. FEATURE_NET remains defined until the older
+# network guards are retired, but there is no no-network product target.
 BUILD_VARIANT = $(CURRENT_TARGET)-$(BUILD_MACHINE)
 SUPPORTED_BUILD_MACHINES := BBC MASTER
 

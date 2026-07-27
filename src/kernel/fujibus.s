@@ -32,18 +32,14 @@
         .import calc_checksum_continue
         .import fuji_ax_save
         .import fuji_link_read_slip_frame
-.ifndef UTILITIES_RESIDENT
         .import fuji_link_read_slip_frame_to_payload
-.endif
         .import fuji_link_write_slip_frame
         .import fuji_link_write_slip_frame_triple
 
 .export fujibus_send_packet
 .export fujibus_send_packet_scatter
 .export fujibus_receive_packet
-.ifndef UTILITIES_RESIDENT
 .export fujibus_receive_packet_to_payload
-.endif
 .export fujibus_set_payload_buffer_ptr
 
 .export scatter_after_checksum
@@ -340,7 +336,6 @@ fujibus_receive_packet:
 ;          returned total length - 7 against its capacity to decide BAD_CALL.
 ;   clobbers aws_tmp00/01/02/03/04/05/08/09/10/11, cws_tmp2/3/6/7, A, X, Y
 
-.ifndef UTILITIES_RESIDENT
 fujibus_receive_packet_to_payload:
         jsr     fuji_link_read_slip_frame_to_payload
         sta     aws_tmp10
@@ -356,7 +351,6 @@ fujibus_receive_packet_to_payload:
         lda     aws_tmp10
         ldx     aws_tmp11
         rts
-.endif
 
 fujibus_receive_packet_validate_decoded_length:
         ; if dec_len == 0 return 0
