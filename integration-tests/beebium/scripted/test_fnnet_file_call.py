@@ -22,12 +22,6 @@ def _appstore_prefix(namespace: str, key: str) -> bytes:
     return bytes([1]) + struct.pack("<H", len(ns)) + ns + struct.pack("<H", len(key_b)) + key_b
 
 
-@pytest.fixture(autouse=True)
-def _requires_disk_net_profile(fn_profile):
-    if fn_profile == "all":
-        pytest.skip("OSWORD &78 reason 6 caller-buffer responses are tested in the disk+net profile")
-
-
 def test_osword78_reason06_device_call_appstore_read_round_trip(beebium, fuji_device):
     response_body = bytes([1, 0x03, 0, 0]) + struct.pack("<I", 0) + struct.pack("<H", 3) + b"bob"
 

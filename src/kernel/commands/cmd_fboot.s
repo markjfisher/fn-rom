@@ -7,11 +7,6 @@
 
         .include "fujinet.inc"
 
-        ; Self-register into the command group (Lever B). Present iff this
-        ; module is linked (UTILITIES=resident). Also builds as a transient
-        ; FN-UTLS.ssd binary named FBOOT.
-        cmd_entry "FUTILS_EXT", "BOOT", $00, $00, cmd_fs_fboot
-
         .segment "CODE"
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

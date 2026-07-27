@@ -26,7 +26,7 @@ def test_fmount_gets_slot_then_mounts_disk(beebium, fuji_device):
     assert pkt.payload == req
 
 
-@pytest.mark.needs_resident_utils
+@pytest.mark.needs_boot_utils_setup
 def test_fnew_emits_disk_create_request(beebium, fuji_device):
     fuji_device.set_responder(full_stack_responder(
         resolved_uri="tnfs://example.invalid/bbc/",
@@ -51,7 +51,7 @@ def test_fnew_emits_disk_create_request(beebium, fuji_device):
     )
 
 
-@pytest.mark.needs_resident_utils
+@pytest.mark.needs_boot_utils_setup
 def test_fmount_then_fout_unmounts_disk_when_slot_is_mapped(beebium, fuji_device):
     fuji_device.set_responder(mounted_disk_responder(slot=2, uri="tnfs://example.invalid/bbc/BOOT.SSD"))
 

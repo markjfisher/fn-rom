@@ -68,7 +68,7 @@ def test_legacy_yaml_openbas(beebium, fuji_device, legacy_openbas_ssd):
     )
 
 
-@pytest.mark.needs_resident_utils
+@pytest.mark.needs_boot_utils_setup
 def test_legacy_yaml_ctests(beebium, fuji_device, tmp_path):
     cc65_src = os.environ.get("CC65_SRC") or os.environ.get("CC65_HOME")
     if not cc65_src:

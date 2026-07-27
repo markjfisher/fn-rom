@@ -4,15 +4,12 @@
 For each map file:
   * Segment summary  -> bytes used in the MAIN sideways-ROM region and bytes free.
   * Module breakdown -> per-object-module contribution (from the "Modules list").
-  * Feature subtotals-> modules grouped by the planned role-split feature
-                        (kernel / disk / net / utils / vectors-mixed), so we can
-                        size the DISK / DISK+NET / ALL builds before the source
-                        is reorganised. See docs/ROM_ROLE_SPLIT_PLAN.md.
+  * Residency subtotals -> modules grouped by resident area or boot/config
+                           utility source (kernel / disk / net / utils).
 
-The feature grouping is a Phase-0 *estimate*: cleanly-separable modules
-(fujibus_network, fnnet, the cmd_*.o command files) are attributed exactly, but
-the shared MOS filing vectors carry both disk and network branches in one object
-module and cannot be split until Phase 2 — those are reported as "vectors-mixed".
+The grouping is a residency view. The product ROM always includes disk and net;
+`src/utils` modules are expected to be absent from normal ROM maps because they
+are built into FN-UTLS.ssd instead.
 
 Usage:
     scripts/rom_sizes.py build/fujinet.rom.map [build/fujinet-master.rom.map ...]
@@ -37,7 +34,7 @@ NET = {
     "fnnet",             # OSWORD &78 network API (long URIs / JSON)
     "cmd_fjson",         # *FJSON (thin wrapper; resident in NET builds)
 }
-# Transient management/informational commands -> utilities SSD (Lever B).
+# Transient management/informational commands -> boot/config utilities disk.
 UTILS = {
     "cmd_copy", "cmd_wipe", "cmd_destroy", "cmd_rename", "cmd_access",
     "cmd_title", "cmd_info", "cmd_fs_fnew", "cmd_fout", "cmd_funmount",
@@ -143,19 +140,17 @@ def report(map_path: Path) -> None:
         group_tot[g] += total
         group_mods[g].append((module, total))
 
-    print("  feature subtotals (Phase-0 estimate):")
+    print("  residency subtotals:")
     for g in GROUP_ORDER:
         print(f"    {g:<14} {group_tot[g]:5d} B")
     print(f"    {'TOTAL':<14} {sum(group_tot.values()):5d} B")
 
-    # The actionable deltas for the role split.
+    # Historical what-if deltas. The product build keeps NET and drops UTILS.
     net = group_tot["net"]
     utils = group_tot["utils"]
-    print("  role-split deltas (cleanly-separable modules only):")
-    print(f"    drop NET feature (DISK build)        : -{net} B")
-    print(f"    move UTILS to disk (DISK & DISK+NET)  : -{utils} B")
-    print(f"    DISK build reclaim (NET+UTILS)        : -{net + utils} B  -> ~{free + net + utils} B free")
-    print(f"    DISK+NET reclaim (UTILS only)         : -{utils} B  -> ~{free + utils} B free")
+    print("  historical what-if deltas (cleanly-separable modules only):")
+    print(f"    no-network reclaim (not a product)   : -{net} B")
+    print(f"    utils-on-disk reclaim (product path) : -{utils} B  -> ~{free + utils} B free")
 
 
 def main(argv: list[str]) -> int:

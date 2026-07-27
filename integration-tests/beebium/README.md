@@ -40,7 +40,7 @@ derived from `FUJINET_NIO_HOME/py` and added to `sys.path`.
 | `FN_PTY` | no | PTY symlink path (default: `/tmp/fujinet-pty-e2e`) |
 
 Pytest options for fn-rom-specific settings: `--fn-pty`, `--fn-rom`,
-`--fn-rom-slot`, `--fn-profile`, `--fujinet-bin`. Beebium paths come from env.
+`--fn-rom-slot`, `--fujinet-bin`. Beebium paths come from env.
 
 ## Prerequisites
 
@@ -57,8 +57,7 @@ cd integration-tests/beebium
 ./run_pytest.sh -v
 ```
 
-For common commands and the profile/coverage matrix, see
-[RUNNING_TESTS.md](RUNNING_TESTS.md).
+For common commands and the coverage map, see [RUNNING_TESTS.md](RUNNING_TESTS.md).
 
 `uv` creates an isolated environment from `pyproject.toml` (no system `pip`,
 works on PEP 668 distros like Arch). The suite **launches its own** Beebium
@@ -78,22 +77,16 @@ Examples with overrides:
 BEEBIUM_SERVER=/path/to/beebium-model-b ./run_pytest.sh
 ```
 
-### Build profiles (role split)
-
-The scripted suite runs against any of the three role-split ROM profiles. Tell
-the runner which profile the loaded ROM (`--fn-rom`) represents with
-`--fn-profile {all,net,disk}` (or `FN_PROFILE`); tests tagged with a feature they
-need are then skipped where that feature is absent:
+### Product ROM coverage
 
 | Marker | Skipped unless | Meaning |
 |--------|----------------|---------|
-| `needs_net` | profile has the network device (`all`/`net`) | network OPEN/OSWORD &78 traffic |
-| `needs_resident_utils` | profile is `all` | command must be **resident** (`*FDRIVE`/`*FLS`/`*FCD`/`*FNEW`/`*FOUT`); on `net`/`disk` it is transient on `FN-UTLS.ssd` and covered by the command-from-disk equivalence test instead |
-| `disk_only` | profile is `disk` | only meaningful with no network device |
+| `needs_net` | never skipped by product build | network OPEN/OSWORD &78 traffic |
+| `needs_boot_utils_setup` | FN-UTLS is mounted as library | utility command tests (`*FDRIVE`/`*FLS`/`*FCD`/`*FNEW`/`*FOUT`) covered by the command-from-disk lane |
 
-`run_profile_tests.sh` builds each profile's ROM and runs the appropriate subset
-(plus the FN-UTLS command-from-disk equivalence test); `../../run_tests.sh` wraps
-the whole build × test matrix. See `docs/ROM_ROLE_SPLIT_PLAN.md` Appendix C.
+`run_product_tests.sh` builds the product ROM, runs the normal scripted suite,
+then runs the FN-UTLS command-from-disk tests; `../../run_tests.sh` wraps the
+whole local gate.
 
 If you want a concise explanation of what each lane covers and why the skip
 counts are expected, see [RUNNING_TESTS.md](RUNNING_TESTS.md).

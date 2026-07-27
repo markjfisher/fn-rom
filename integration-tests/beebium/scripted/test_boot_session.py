@@ -206,7 +206,7 @@ def test_hard_break_replaces_manually_mounted_disk_with_boot_disk(
     _cat_and_expect(beebium, "BOOTMRK")
 
 
-@pytest.mark.needs_resident_utils
+@pytest.mark.needs_boot_utils_setup
 def test_fboot_restores_boot_disk_without_beginning_new_session(
     beebium, fuji_device, boot_session_responder
 ):

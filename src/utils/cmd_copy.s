@@ -57,7 +57,7 @@
         .include "fujinet.inc"
 
         ; Self-register into the command group (Lever B). Present iff this
-        ; module is linked (UTILITIES=resident) -- no .if in the command table.
+        ; module is built as a boot/config disk utility -- no resident command-table entry.
         cmd_entry "FUJIFS_EXT", "COPY",    $F, $02, cmd_fs_copy      ; <src> <dest> <afsp>
 
         .segment "CODE"

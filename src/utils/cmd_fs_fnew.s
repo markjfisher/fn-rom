@@ -24,7 +24,7 @@
         .include "fujinet.inc"
 
         ; Self-register into the command group (Lever B). Present iff this
-        ; module is linked (UTILITIES=resident) -- no .if in the command table.
+        ; module is built as a boot/config disk utility -- no resident command-table entry.
         cmd_entry "FUTILS_EXT", "NEW",     $8, $00, cmd_fs_fnew      ; <dos name>
 
         .segment "CODE"

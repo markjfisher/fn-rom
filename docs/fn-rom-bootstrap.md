@@ -66,24 +66,23 @@ handlers live under the role directory that owns them (`src/kernel/`,
 command group with the `cmd_entry` macro (`src/inc/macros.inc`), so a command is
 present in a build iff its object module is linked — see the role split below.
 
-## Role split (build profiles)
+## Product ROM and boot/config utilities
 
-Source is grouped by role so feature membership is decided by *which object
-modules are linked*, not by inline `.if`. Two orthogonal levers select a profile
+Source is grouped by residency. The product ROM always includes disk and network
+support; bulky management/informational utilities live on the boot/config disk
 (full detail in `docs/ROM_ROLE_SPLIT_PLAN.md`):
 
 | Dir | Always built? | Gate |
 |-----|---------------|------|
-| `src/kernel/` | yes | — (vectors, transport, channel, init, matcher, `*FHOST`/`*FIN`/`*FMOUNT`, `*CAT`/`*RUN`) |
+| `src/kernel/` | yes | — (vectors, transport, channel, init, matcher, `*FHOST`/`*FIN`/`*FMOUNT`/`*FBOOT`, `*CAT`/`*RUN`) |
 | `src/disk/`   | yes | — (DFS catalog + sector IO + disk vector branch) |
-| `src/net/`    | no  | `FEATURE_NET=1` (network branch, `*FJSON`, OSWORD &78) |
-| `src/utils/`  | no  | `UTILITIES=resident` (compatibility resident management/informational commands) |
+| `src/net/`    | yes | — (network branch, `*FJSON`, OSWORD &78) |
+| `src/utils/`  | no  | built only as boot/config utility disk binaries |
 
-Profiles: **DISK+NET** (`make net`, the default ship build, utilities on the
-boot/config disk), **DISK** (`make disk`, no network) and **ALL**
-(`make all-rom`, net + resident utilities for compatibility/diagnostics while
-it fits). The retired macros `_FREE_MAP_`/`_UTILS_`/`_ROMS_` were folded into
-these levers.
+There is no ALL/DISK/DISK+NET product matrix. `make all` builds the BBC product
+ROM and `make all BUILD_MACHINE=MASTER` builds the Master product ROM. The
+retired macros `_FREE_MAP_`/`_UTILS_`/`_ROMS_`, the no-network release, and the
+resident-utilities release should not be reintroduced.
 
 The chosen direction is to spend resident ROM bytes on device/protocol
 functionality that cannot be delivered from disk: the filing-system vectors,
@@ -94,8 +93,8 @@ BBC-class builds keep headroom for richer device features.
 
 ### Transient utilities and their ROM ABI
 
-When `UTILITIES=disk`, the management/informational commands are not in the ROM;
-they ship on the boot/config utilities disk (`FN-UTLS.ssd`) and load on demand via the standard MOS
+The management/informational commands are not in the ROM; they ship on the
+boot/config utilities disk (`FN-UTLS.ssd`) and load on demand via the standard MOS
 unrecognised-command → filing-system `*RUN` fallthrough (service &04 is left
 unclaimed, so the MOS asks the FS to run the command as a file, using the
 library-aware lookup so it resolves from the utils/library drive regardless of
@@ -116,8 +115,8 @@ ROM routines through the stable utility ABI table at `$8030`
 veneers; the real resident implementations can move inside the ROM as long as
 the table start and slot order are preserved.
 
-`scripts/build_fn_utls.sh` builds the `UTILITIES=disk` ROM, turns its label file
-into `rom_abi.s`, and links each utility against it. Routine imports are mapped
+`scripts/build_fn_utls.sh` builds the product ROM, turns its label file into
+`rom_abi.s`, and links each utility against it. Routine imports are mapped
 to the fixed `$8030` table slots; direct workspace/data imports are mapped to
 the target machine's real label addresses. That means a boot/config utility disk
 is no longer tied to one exact ROM layout for code movement, but BBC and Master

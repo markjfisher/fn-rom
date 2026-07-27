@@ -5,7 +5,7 @@
 Build the ROM, set two paths, run the test gate:
 
 ```bash
-make clean all-rom
+make clean all
 
 export BEEBIUM_HOME=/path/to/beebium
 export FUJINET_NIO_HOME=/path/to/fujinet-nio
@@ -41,13 +41,13 @@ Optional for `real/` interop tests: build fujinet-nio and set `FUJINET_BIN`.
 
 ```bash
 ./run_tests.sh --no-beebium          # builds + unit tests only
-./run_unit_tests.sh all              # soft65c02 unit tests
-./integration-tests/beebium/run_profile_tests.sh   # Beebium matrix only
+./run_unit_tests.sh                  # soft65c02 unit tests
+./integration-tests/beebium/run_product_tests.sh   # Beebium scripted + FN-UTLS tests
 cd integration-tests/beebium && ./run_pytest.sh scripted/ -q   # one-off pytest
 ./integration-tests/beebium/check_test_env.sh   # preflight (optional)
 ```
 
 ## Further reading
 
-- [integration-tests/beebium/RUNNING_TESTS.md](../integration-tests/beebium/RUNNING_TESTS.md) — coverage map and profile lanes
-- [docs/ROM_ROLE_SPLIT_PLAN.md](ROM_ROLE_SPLIT_PLAN.md) — build profiles
+- [integration-tests/beebium/RUNNING_TESTS.md](../integration-tests/beebium/RUNNING_TESTS.md) — coverage map
+- [docs/ROM_ROLE_SPLIT_PLAN.md](ROM_ROLE_SPLIT_PLAN.md) — product ROM and boot/config disk policy

@@ -1,9 +1,8 @@
-# FN-UTLS — transient utilities disk (role-split Lever B)
+# FN-UTLS — boot/config utilities disk
 
-When fn-rom is built with `UTILITIES=disk` (the `make disk` / `make net` shipped builds), the
-management and informational commands are **not** in the ROM. They live here, on `FN-UTLS.ssd`, and
-load on demand via the MOS unrecognised-command → FS `*RUN` fallthrough (see
-`docs/ROM_ROLE_SPLIT_PLAN.md` §2.4, §4.2.1, §5.5).
+Management and informational commands are **not** in the ROM. They live here, on
+`FN-UTLS.ssd`, and load on demand via the MOS unrecognised-command → FS `*RUN`
+fallthrough.
 
 ## Bootstrap (Appendix A.5 Layer C — `!BOOT`, zero ROM cost)
 
@@ -12,13 +11,13 @@ load on demand via the MOS unrecognised-command → FS `*RUN` fallthrough (see
 
 ```
 *FHOST sd0:/
-*FIN 7 fn-utls.ssd      ; bind the utils image to slot 7
+*FIN 7 fn-utls.ssd      ; bind the boot/config image to slot 7
 *FMOUNT 7 3             ; mount slot 7 as BBC drive 3
 *LIB :3                 ; library = drive 3
 ```
 
 Run it with `*OPT 4,3` set on the boot disk, or copy these lines into your own boot disk's `!BOOT`.
-A future ROM auto-mount (Appendix A) can do this at cold boot instead.
+A future ROM auto-mount can do this at cold boot instead.
 
 ## Contents (when built)
 

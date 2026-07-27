@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Build FN-UTLS.ssd (which builds the UTILITIES=disk ROM the binaries link
-# against) and run the command-from-disk equivalence test against that exact ROM.
+# Build FN-UTLS.ssd (which builds the product ROM the binaries link against) and
+# run the command-from-disk tests against that exact ROM.
 set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 machine="${BUILD_MACHINE:-BBC}"
@@ -26,5 +26,5 @@ printf '$.HELLO 001900 001900\n' > "$other_src/HELLO.inf"
 rm -rf "$other_src"
 
 cd "$root/integration-tests/beebium"
-FN_UTLS_TEST=1 FN_ROM="$rom" FN_PROFILE=net \
+FN_UTLS_TEST=1 FN_BEEBIUM_LANE=utls FN_ROM="$rom" \
   ./run_pytest.sh scripted/test_command_from_disk.py -q -s

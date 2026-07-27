@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Stage the DISK+NET ("net") release bundle (docs/ROM_ROLE_SPLIT_PLAN.md §1, §6
+# Stage the product release bundle (docs/ROM_ROLE_SPLIT_PLAN.md §1, §6
 # Phase 5): the FN-NET ROM(s) + FN-UTLS.ssd (boot/config utilities disk) + the
 # bundled BASIC example apps as ready-to-mount SSDs.
 #
@@ -7,8 +7,8 @@
 # BBC-flavoured fujinet build on the device side.
 #
 # Output: dist/release/
-#   FN-NET          BBC DISK+NET ROM image  (sideways ROM, load $8000)
-#   FN-NET-M        Master DISK+NET ROM image
+#   FN-NET          BBC product ROM image  (sideways ROM, load $8000)
+#   FN-NET-M        Master product ROM image
 #   FN-UTLS.ssd     BBC boot/config utilities disk
 #   FN-UTLS-M.ssd   Master boot/config utilities disk
 #   examples/<app>.ssd   one SSD per bundled bas/ example
@@ -27,10 +27,10 @@ APPS=(${RELEASE_APPS:-weather iss net fcs})
 rm -rf "$REL"
 mkdir -p "$REL" "$EX"
 
-echo "==> building DISK+NET ROMs (BBC + Master)"
-make -C "$root" net >/dev/null
+echo "==> building product ROMs (BBC + Master)"
+make -C "$root" all >/dev/null
 cp "$root/build/fujinet.rom" "$REL/FN-NET"
-make -C "$root" net BUILD_MACHINE=MASTER >/dev/null
+make -C "$root" all BUILD_MACHINE=MASTER >/dev/null
 cp "$root/build/fujinet-master.rom" "$REL/FN-NET-M"
 
 echo "==> building FN-UTLS.ssd (BBC boot/config utilities disk)"
@@ -60,11 +60,11 @@ else
 fi
 
 cat > "$REL/README.txt" <<'EOF'
-fn-rom DISK+NET release bundle
-==============================
+fn-rom product release bundle
+=============================
 
 Contents
-  FN-NET         BBC DISK+NET sideways ROM (network device + disk; management
+  FN-NET         BBC sideways ROM (network device + disk; management
                  utilities are on the boot/config disk, FN-UTLS.ssd). Burn to a
                  sideways ROM or load into an emulator at $8000.
   FN-NET-M       As above, for the BBC Master.

@@ -1,24 +1,12 @@
 #!/bin/bash
-# Run the soft65c02 unit tests against a chosen role-split build profile.
+# Run the soft65c02 unit tests against the product ROM.
 #
-# Usage: ./run_unit_tests.sh [all|net|disk]   (default: all)
-#   all   ALL build      (FEATURE_NET=1 UTILITIES=resident) -- compatibility resident-utils lane
-#   net   DISK+NET build (FEATURE_NET=1 UTILITIES=disk)
-#   disk  DISK build     (FEATURE_NET=0 UTILITIES=disk)
+# Usage: ./run_unit_tests.sh
 #
-# The harness consumes build/fujinet.rom.lbl, so the profile selects which ROM
-# the tests are assembled against (see docs/ROM_ROLE_SPLIT_PLAN.md C.3/Phase 5).
+# The harness consumes build/fujinet.rom.lbl.
 set -euo pipefail
 
-PROFILE="${1:-all}"
-case "$PROFILE" in
-  all)  MK_FLAGS=(FEATURE_NET=1 UTILITIES=resident) ;;
-  net)  MK_FLAGS=(FEATURE_NET=1 UTILITIES=disk) ;;
-  disk) MK_FLAGS=(FEATURE_NET=0 UTILITIES=disk) ;;
-  *) echo "unknown profile '$PROFILE' (want: all|net|disk)" >&2; exit 2 ;;
-esac
-
-echo "==> unit tests against profile: $PROFILE (${MK_FLAGS[*]})"
+echo "==> unit tests against product ROM"
 
 if ! command -v soft65c02_unit >/dev/null 2>&1; then
   echo "    soft65c02_unit not found on PATH -- skipping unit tests."
@@ -29,9 +17,9 @@ fi
 # set the env variables
 . ./test_env.sh
 
-# build the ROM for the selected profile (clean so no stale objects leak across profiles)
+# build the ROM cleanly so stale objects cannot leak across machine/interface changes
 make clean
-make "${MK_FLAGS[@]}" ssd
+make ssd
 
 # create the include file for the harness to use ROM locations
 cd unit-tests/harness

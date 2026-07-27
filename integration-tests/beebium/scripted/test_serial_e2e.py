@@ -66,15 +66,12 @@ def test_fhost_screen_text_and_wire_payload_case(beebium, fuji_device):
     assert _parse_host_set_req(pkt.payload) == "tnfs://x/bbc/"
 
 
-def test_help_futils_describes_current_commands(beebium, fn_profile):
+def test_help_futils_describes_current_commands(beebium):
     command(beebium, "*HELP FUTILS")
     screen = wait_for_screen_text(beebium, "FHOST", timeout=8.0)
 
-    if fn_profile == "all":
-        screen = wait_for_screen_text(beebium, "FBOOT", timeout=8.0)
-        assert "FBOOT" in screen
-    else:
-        assert "FBOOT" not in screen
+    screen = wait_for_screen_text(beebium, "FBOOT", timeout=8.0)
+    assert "FBOOT" in screen
     assert "FFS" in screen
     assert "FHOST" in screen
     assert "(<host>|LIST|n|n D)" in screen
@@ -139,7 +136,7 @@ def test_fhost_host_history_crd_screen_flow(beebium, fuji_device):
     assert pkt.payload == bytes([HOST_VERSION, 0])
 
 
-@pytest.mark.needs_resident_utils
+@pytest.mark.needs_boot_utils_setup
 def test_fdrive_emits_fuji_get_mounts_request(beebium, fuji_device):
     command(beebium, "*FDRIVE")
 
@@ -148,7 +145,7 @@ def test_fdrive_emits_fuji_get_mounts_request(beebium, fuji_device):
     assert pkt.checksum_ok
 
 
-@pytest.mark.needs_resident_utils
+@pytest.mark.needs_boot_utils_setup
 def test_fhost_then_fls_round_trip(beebium, fuji_device):
     listing = "A.$.BOOT\nA.$.GAMES\n"
     fuji_device.set_responder(file_listing_responder(

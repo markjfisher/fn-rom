@@ -8,12 +8,12 @@ from typing import Any
 
 
 class ScreenEvidenceRecorder:
-    def __init__(self, *, root: Path, profile: str, nodeid: str) -> None:
+    def __init__(self, *, root: Path, lane: str, nodeid: str) -> None:
         self.root = root
-        self.profile = profile
+        self.lane = lane
         self.nodeid = nodeid
         self.safe_nodeid = _safe_path_component(nodeid)
-        self.path = root / profile / "running" / self.safe_nodeid
+        self.path = root / lane / "running" / self.safe_nodeid
         self.path.mkdir(parents=True, exist_ok=True)
         self._capture_index = 0
         self._captures: list[dict[str, str]] = []
@@ -74,7 +74,7 @@ class ScreenEvidenceRecorder:
         self._write_metadata(status=status)
         self._finished = True
 
-        destination = _unique_path(self.root / self.profile / status / self.safe_nodeid)
+        destination = _unique_path(self.root / self.lane / status / self.safe_nodeid)
         destination.parent.mkdir(parents=True, exist_ok=True)
         if self.path.exists():
             shutil.move(str(self.path), str(destination))
@@ -97,7 +97,7 @@ class ScreenEvidenceRecorder:
     def _write_metadata(self, *, status: str) -> None:
         lines = [
             f"nodeid: {self.nodeid}",
-            f"profile: {self.profile}",
+            f"lane: {self.lane}",
             f"status: {status}",
             f"finished_at: {_dt.datetime.now().isoformat(timespec='seconds')}",
             f"captures: {len(self._captures)}",

@@ -4,25 +4,23 @@
 
 The FujiNet ROM implements a BBC Micro Disk Filing System (DFS) compatible interface that communicates with FujiNet hardware over a network connection. The architecture is based on MMFS (Master Micro Filing System) but adapted for network operations instead of MMC/SD card access.
 
-## Role split (source layout and build profiles)
+## Product source layout
 
-Orthogonal to the layering below, the source is grouped by **role** so a feature
-is in the ROM iff its object module is linked (no inline `.if` feature gates in
-the command tables or vector bodies). See
-[ROM_ROLE_SPLIT_PLAN.md](ROM_ROLE_SPLIT_PLAN.md) for the full rationale.
+Orthogonal to the layering below, the source is grouped by residency. The product
+ROM always includes disk and network support; bulky utilities are built as
+boot/config disk binaries.
 
 | Dir | Linked when | Contains |
 |-----|-------------|----------|
-| `src/kernel/` | always | filing-system vectors, transport/channel, init, command matcher + tables, bootstrap mounts (`*FHOST`/`*FIN`/`*FMOUNT`), `*CAT`/`*RUN` |
+| `src/kernel/` | always | filing-system vectors, transport/channel, init, command matcher + tables, bootstrap/recovery commands (`*FHOST`/`*FIN`/`*FMOUNT`/`*FBOOT`), `*CAT`/`*RUN` |
 | `src/disk/`   | always | DFS catalog + sector IO + the disk branch of the shared vectors |
-| `src/net/`    | `FEATURE_NET=1` | network FujiBus builders, the network vector branch, `*FJSON`, OSWORD &78 |
-| `src/utils/`  | `UTILITIES=resident` | compatibility resident management/informational commands (else shipped on the boot/config utilities disk, `FN-UTLS.ssd`) |
+| `src/net/`    | always | network FujiBus builders, the network vector branch, `*FJSON`, OSWORD &78 |
+| `src/utils/`  | never in ROM | management/informational commands built onto the boot/config utilities disk, `FN-UTLS.ssd` |
 
 The disk and network paths meet only at well-defined dispatch points inside the
-shared MOS filing vectors (`OSFIND`/`OSBGET`/`OSBPUT`/close); only the network
-branch is optional, since disk is always resident. Build profiles: **DISK+NET**
-(`make net`, default ship build), **DISK** (`make disk`) and **ALL**
-(`make all-rom`, compatibility/diagnostic while it fits).
+shared MOS filing vectors (`OSFIND`/`OSBGET`/`OSBPUT`/close). There is no
+ALL/DISK/DISK+NET release matrix now: `make all` builds the product ROM, and
+`make all BUILD_MACHINE=MASTER` builds the Master product ROM.
 
 The forward boundary is intentionally strict: ROM space is for the resident
 filing system, transport/channel code, device protocols, OSWORD contracts,

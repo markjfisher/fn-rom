@@ -20,8 +20,8 @@ def main() -> int:
         "  ./integration-tests/beebium/run_pytest.sh "
         "scripted/test_legacy_yaml_steps.py -q\n"
         "\n"
-        "For the full Beebium profile matrix:\n"
-        "  ./integration-tests/beebium/run_profile_tests.sh\n"
+        "For the full Beebium scripted gate:\n"
+        "  ./integration-tests/beebium/run_product_tests.sh\n"
         "\n"
         "scripts/b2-http.py remains available for interactive b2 work.",
         file=sys.stderr,

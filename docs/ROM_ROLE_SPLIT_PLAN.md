@@ -1,6 +1,6 @@
-# fn-rom Role Split Plan — Kernel + Network feature + Transient utilities
+# fn-rom Product ROM Plan — Resident kernel + boot/config utilities
 
-**Status:** Chosen direction (rev 3 — boot/config disk and resident-kernel model)
+**Status:** Chosen direction (rev 4 — single product ROM)
 **Author:** (drafted with Claude Code)
 **Audience:** implementer picking this up cold
 
@@ -17,6 +17,11 @@
 > and bulky management/informational commands should live on the boot/config disk. The all-resident
 > build is a compatibility/diagnostic lane only; it must not block protocol or device improvements
 > such as streaming responses, SLIP changes, modem support, or richer OSWORD semantics.
+>
+> **Rev 4 decision.** The ALL/DISK/DISK+NET product matrix is retired. There is one product ROM:
+> disk + network device + resident bootstrap/recovery commands. Bulky utilities always live on the
+> boot/config disk. `FN-DISK` and `FN-ALL` are not release targets, and the no-network/resident-utils
+> build switches should not be reintroduced as product concepts.
 
 ---
 
@@ -111,12 +116,9 @@ onto disk** (§5.4). ⚠️ Verify fn-rom leaves service &04 *unclaimed* for gen
 | 3 | **Dev** — writes networked apps, also manages disks | ✅ | ✅ |
 | 4 | **Filesystem user** — OPENIN/random-access/DFS, app or FS use | ✅ | ❌ |
 
-**Decisive fact: nobody needs network without disk.** Actors 2 and 3 must first *get the program
-onto the BBC* — including the network demo SSDs — and that path is the filing system. So network is
-never standalone; it is **strictly additive on top of disk**. The natural grouping is exactly:
-
-- **1 + 4 → pure disk**
-- **2 + 3 → disk + network**
+**Decisive fact:** disk is always needed, and the cost of carrying the network device is now the
+right trade-off once utilities live on the boot/config disk. Users who only want drive replacement
+simply do not call the network API; they do not need a separate ROM.
 
 **Edge actors (don't change the conclusion):**
 - *Power/disk-admin* — heavy `*FORM`/`*COPY`/`*DESTROY` use; a variant of 1/4. Relevant to where the
@@ -127,39 +129,23 @@ never standalone; it is **strictly additive on top of disk**. The natural groupi
 
 ---
 
-## 4. Recommended model: two orthogonal levers
+## 4. Product model
 
-### Lever A — network feature on/off  (`FEATURE_NET`)
-Selects the disk/net axis. Disk capability is the always-resident base; `FEATURE_NET` adds the
-network branch in the vectors + the OSWORD &78 ABI + network FujiBus builders.
+There is one release shape:
 
-### Lever B — utilities resident vs on-disk  (`UTILITIES = resident | disk`)
-Selects whether rarely-used commands are linked into ROM or shipped as transient files on a
-utilities SSD and loaded on demand via the §2.4 fallthrough. Largely orthogonal to Lever A; it is
-what gives **both** builds long-term headroom.
+| Build | Contents | ROM filename (≤7) |
+|-------|----------|----------------|
+| **Product ROM** | disk filing system + network device + resident bootstrap/recovery | `FN-NET` / `FN-NET-M` |
 
-### 4.1 Shipped builds
+The boot/config utilities disk is shipped alongside it as **`FN-UTLS.ssd`** /
+**`FN-UTLS-M.ssd`**. The filename may be revisited later, but the role is settled:
+configuration and utility applications live on disk so resident ROM space remains available for
+device/protocol functionality.
 
-| Build | `FEATURE_NET` | `UTILITIES` | Actors | ROM filename (≤7) |
-|-------|:------------:|:-----------:|--------|----------------|
-| **DISK**     | off | disk     | 1, 4 | `FN-DISK` |
-| **DISK+NET** (default) | on  | disk     | 2, 3 | `FN-NET`  |
-| **ALL** (compat/diagnostic) | on | resident | regression tests and legacy convenience while it fits | `FN-ALL` |
+The product shape is orthogonal to `BUILD_MACHINE` (BBC|MASTER) and `BUILD_INTERFACE`
+(SERIAL|USERPORT|1MHZ). These are hardware axes, not product profiles.
 
-> Naming note: a DFS **title** may be up to 12 chars, but a **filename** is ≤7. ROM images and
-> transient utilities are *files*, so all names above are ≤7; the utilities SSD's on-disk name is
-> **`FN-UTLS`** (the host-side image may be `fn-utls.ssd`).
->
-> Decisions taken (owner, rev 3): **default build = DISK+NET**; **minimal resident kernel** (move
-> self-contained management/informational commands to the boot/config disk — but see §4.2 on thin
-> wrappers); **`ALL` is compatibility/diagnostic only**. It may stay while it fits, but if the choice
-> is between an all-resident utility and device/protocol functionality, the utility moves to disk. A
-> disk-only-resident variant is *possible* (NET off + resident) but is not a headline distributable.
-
-Role is orthogonal to the existing `BUILD_MACHINE` (BBC|MASTER) and `BUILD_INTERFACE`
-(SERIAL|USERPORT|1MHZ) axes; output names encode all of it, e.g. `FN-NET-BBC-SERIAL.rom`.
-
-### 4.2 Resident kernel vs transient utilities (the minimal-kernel boundary)
+### 4.1 Resident kernel vs transient utilities
 
 **Resident in every build (the kernel):**
 - Filing-system vectors: OSFIND/BGET/BPUT/FILE/ARGS/GBPB — this *is* the DFS
@@ -169,8 +155,8 @@ Role is orthogonal to the existing `BUILD_MACHINE` (BBC|MASTER) and `BUILD_INTER
   path, so `*FCD` isn't needed to position a disk; the other F-commands are informational — see
   transient list.)
 - `*CAT`, `*RUN`, `*DRIVE` (DFS drive-select), `*DIR`/`*LIB`
-- **(DISK+NET / ALL only)** the OSWORD &78 network ABI + network vector branch
-- **(DISK+NET / ALL only)** `*FJSON` — verified to be a *thin wrapper* (171 lines of arg-parsing that
+- the OSWORD &78 network ABI + network vector branch
+- `*FJSON` — verified to be a *thin wrapper* (171 lines of arg-parsing that
   call `fujibus_network_translate_configure`; the JSON engine is in the already-resident network
   code). A thin wrapper over a resident ABI costs almost nothing, so it stays resident and avoids any
   discoverability problem. **General rule:** *thin command-wrappers over already-resident ABI stay
@@ -191,10 +177,9 @@ Role is orthogonal to the existing `BUILD_MACHINE` (BBC|MASTER) and `BUILD_INTER
 The line: anything needed to *use* a disk or *get the boot/config disk mounted*
 (`*FHOST`/`*FIN`/`*FMOUNT`/`*FBOOT`) stays resident; everything else — management *and*
 informational F-commands — is transient. Frequently-used, latency-sensitive things (the vectors,
-`*CAT`) never move. This boundary applies to future work as well as DISK/DISK+NET today: ROM
-headroom is for device behaviour, not utility-app convenience.
+`*CAT`) never move. ROM headroom is for device behaviour, not utility-app convenience.
 
-### 4.2.1 Discoverability: the boot/config library drive
+### 4.2 Discoverability: the boot/config library drive
 
 A transient utility lives on the boot/config disk (e.g. drive 3), but the user's *current* drive is usually
 their app/game disk (drive 0). BBC DFS already solves this: an unrecognised `*command` is looked up
@@ -218,8 +203,8 @@ Until that argument exists in code, the explicit `*FHOST`/`*FIN`/`*FMOUNT`/`*LIB
 the current mechanism.
 
 This (or a `!BOOT` that runs it, or ROM auto-mount at init) keeps the current drive on the app disk
-while management commands resolve from the library. ⚠️ Phase 3 must confirm the *unrecognised-command*
-route (service &04 → MOS → FSC) reuses this library-aware lookup, not only the explicit `*RUN`.
+while management commands resolve from the library. The Beebium command-from-disk lane covers the
+*unrecognised-command* route (service &04 → MOS → FSC) and the library-aware lookup.
 
 **Costs of transient utilities (accepted):** they consume user RAM when loaded and incur a disk hit
 per invocation; they need stable ROM entry points (MOS calls; OSWORD &78 for network). That is the
@@ -241,43 +226,29 @@ future slots:
 
 ## 5. Mechanism design
 
-Goal: **a command/feature is in the ROM iff its object module is linked; no inline `.if` in command
-tables or vector bodies.**
+Goal: **a command is resident only if it belongs to the kernel/protocol/recovery boundary.**
+Everything else is built as a boot/config disk utility.
 
-### 5.1 Build variables (Makefile)
+### 5.1 Build shape (Makefile)
 
-Add two first-class variables beside `BUILD_MACHINE`/`BUILD_INTERFACE`:
-
-```make
-FEATURE_NET ?= 0          # 0 | 1   (Lever A)
-UTILITIES   ?= disk       # disk | resident   (Lever B)
-
-ifeq ($(FEATURE_NET),1)
-  ASFLAGS += --asm-define FEATURE_NET
-endif
-ifeq ($(UTILITIES),resident)
-  ASFLAGS += --asm-define UTILITIES_RESIDENT
-endif
-```
-
-Provide convenience targets for the three shipped builds (`make disk`, `make net`, `make all-rom`)
-that set the pair appropriately. Fold both into `BUILD_VARIANT` so `obj/<variant>/` stays correct
-(stale-object safety).
+The Makefile has no product profile levers. `make all` builds the BBC product ROM; add
+`BUILD_MACHINE=MASTER` for the Master product ROM. `src/net/` is always compiled. `src/utils/` is
+always filtered out of resident ROM sources and is built by `scripts/build_fn_utls.sh` into
+`FN-UTLS.ssd`.
 
 ### 5.2 Source selection by directory (preferred over file-level `.if`)
 
-Reorganise so feature membership is expressed by location, and compose `SOURCES` from selected dirs:
+Source residency is expressed by location:
 
 ```
-src/kernel/    always compiled (vectors shells, transport, channel, init, matcher, bootstrap mounts, CAT/RUN)
-src/disk/      always compiled (disk catalog + sector IO + disk vector branch)   -- "disk" is in every build
-src/net/       compiled when FEATURE_NET        (fujibus_network.s, fnnet/, network vector branch, OSWORD &78)
-src/utils/     compiled when UTILITIES_RESIDENT  (the transient management commands)
+src/kernel/    resident (vector shells, transport, channel, init, matcher, bootstrap/recovery, CAT/RUN)
+src/disk/      resident (disk catalog + sector IO + disk vector branch)
+src/net/       resident (network builders, network vector branch, OSWORD &78, FJSON)
+src/utils/     boot/config disk utilities only
 ```
 
-`src/utils/` files, when not compiled, are instead **built as standalone disk binaries** for the
-utilities SSD (see Phase 4). Because cc65 omits unlinked modules wholesale (§2.5), absence costs zero
-ROM bytes — no `.if` wrappers needed inside shared files.
+Because cc65 omits unlinked modules wholesale (§2.5), keeping utility modules out of the ROM costs
+zero resident bytes.
 
 ### 5.3 Composable command table (retires the blunt ifdef)
 
@@ -289,19 +260,8 @@ declarative. The matcher walks linker-exported `__CMDSTR_START__..__CMDSTR_END__
 module contributes nothing — **no `.if` anywhere in the table**, and the "print leading F" boundary
 logic is re-expressed against segment boundaries rather than hard-coded order.
 
-This serves *both* levers uniformly: a command is absent from the table either because its feature
-is off (network) or because it's transient-on-disk (utilities) — same machinery, two reasons.
-
-### 5.4 Network branch hook (only one direction now)
-
-Because disk is always resident, the vectors always keep the real disk branch. Only the **network**
-branch is optional:
-- `network_open_file`, `network_bget`, `network_bput`, `close_network_channel` live in `src/net/`.
-- When `FEATURE_NET` is off, those modules aren't linked. Provide a tiny kernel stub (or simply leave
-  `fuji_network_url_flag` permanently clear) so `findv_entry.s:340` and the BGET/BPUT handle tests
-  fall straight through to disk and the linker omits the network modules.
-- `read_fspba` URL-detection tail (§2.2): gate just the bytes that set the flag; in DISK builds the
-  flag stays clear and the branch is dead.
+This machinery now mainly separates resident commands from boot/config disk commands. Network is
+resident in the product ROM.
 
 ### 5.5 Transient-utility extraction
 
@@ -316,151 +276,55 @@ For each `src/utils/` command:
    supports per-file load/exec via `.inf` sidecars (and `!BOOT`-style on-disk renaming), so no tooling
    change is needed — each utility ships with its own `<name>.inf`.
 3. Ship on `FN-UTLS.ssd` produced by `scripts/create_ssd.py`.
-4. Removing it from the ROM = removing its `src/utils/*` module + its table fragment; the §2.4
+4. It is absent from the ROM because `src/utils/*` is never part of resident `SOURCES`; the §2.4
    fallthrough loads it on use.
 
 ### 5.6 Workspace / ZP
 
-Single authoritative, feature-tagged map in `os.s`. DISK builds may reclaim the network state bytes;
-do **not** let disk and net assign the same ZP/workspace to incompatible meanings, so `ALL` stays
-consistent.
+Single authoritative map in `os.s`. Do not create alternative workspace meanings for no-network or
+resident-utility variants; those product variants are retired.
 
 ---
 
-## 6. Phased implementation plan (each phase independently mergeable, ROM always builds)
+## 6. Current implementation path
 
-> **Testing runs through every phase, not just at the end.** The existing suite (
-> beebium scripted/real integration tests) are the regression net for this refactor — see
-> **Appendix C** for the strategy, coverage model, and the new scenarios the transition requires.
-> Each phase below carries a concrete **Test gate**.
+The role-split migration has served its purpose and is no longer the product model. Current work should follow this path:
 
-### Phase 0 — Measure & baseline
-- Add `make sizes` (segment usage + free bytes from `.map` per ROM).
-- Experimentally exclude `src/net` (network) and the management-command set; record real KB deltas to
-  confirm §2.5 and size the three builds.
-- **Test gate:** establish the **golden baseline** — run the full beebium
-  scripted suite **locally** on today's `main` and record results; this is the behaviour every refactor
-  phase must preserve. Confirm the local toolchain is installed (Appendix C.5).
-- **Acceptance:** documented byte budget per feature/build; green baseline captured.
+1. Build one resident product ROM with disk and network always present.
+2. Keep management and informational utilities out of resident ROM. Build them from `src/utils/` into `FN-UTLS.ssd` with `scripts/build_fn_utls.sh`.
+3. Keep `*FHOST`, `*FIN`, `*FMOUNT`, `*FBOOT`, DFS vectors, `*CAT`, `*RUN`, `*DRIVE`, `*DIR`/`*LIB`, `*FJSON`, and OSWORD &78 resident.
+4. Spend recovered ROM space on protocol and device functionality, not resident utility convenience.
+5. Do not add release targets for no-network or all-resident ROMs.
 
-### Phase 1 — Composable command table (prove on one group)
-- Implement the `cmd_entry` macro + segment-collected table (§5.3); migrate **only** FREE/MAP off
-  `.if .defined(_FREE_MAP_)` as the proving ground.
-- **Acceptance:** command behaviour byte-identical to today; no `.if` left for FREE/MAP; new
-  table-dispatch unit tests green.
+## 7. Testing
 
-### Phase 2 — Source reorg into kernel/disk/net/utils
-- Move files (§5.2); update Makefile `SOURCES`, `--asm-include-dir`, import lists
-  (`scripts/clean_imports.py`). Still all-compiled (≈ `ALL`).
-- **Test gate:** full beebium scripted suites green and **emitted FujiBus frames identical**
-  to the Phase 0 baseline (pure move ⇒ no behaviour change).
-- **Acceptance:** `ALL` ROM byte-identical (or trivially close); diff is moves + import fixes only.
+The local gate is:
 
-### Phase 3 — Network feature toggle (Lever A) + service-&04 / library verify
-- Network branch hook/stub (§5.4); build `FEATURE_NET=0`.
-- Verify unrecognised commands leave service &04 unclaimed → MOS asks the FS to run them, **and that
-  the route reuses the library-aware lookup** (§4.2.1), so a util on the library drive resolves while
-  the current drive is the app disk.
-- **Test gate:** parameterise the beebium scripted suite by build (Appendix C.3). Run network tests
-  (`test_network_device.py`, OSWORD `&78`) against `DISK+NET`/`ALL`; add **negative tests** asserting
-  the `DISK` build emits *no* network frames for the same inputs. Add a **fallthrough test**: an
-  unknown `*command` on a current-drive shell resolves+runs a binary from the library drive.
-- **Acceptance:** `DISK` build has no network open path; `*FJSON` present only in NET builds;
-  `DISK+NET` matches `ALL` network behaviour; both smaller than `ALL`; negative + fallthrough tests green.
+```bash
+make clean all-machines
+make sizes
+./run_unit_tests.sh
+./integration-tests/beebium/run_product_tests.sh
+```
 
-### Phase 4 — Transient utilities (Lever B) + utilities SSD
-- Extract self-contained management commands per §5.5; produce `FN-UTLS.ssd` (per-file `.inf`); finish
-  migrating all table entries to the composable mechanism. Provide the documented bootstrap (§4.2.1)
-  and/or ROM auto-mount of the boot/config disk + `*LIB`.
-- **Test gate:** new **command-from-disk** scenario (Appendix C.4) — in beebium, mount `FN-UTLS.ssd`,
-  set the library, then run e.g. `*FLS`/`*FORM` and assert the *same* FujiBus frames / results as when
-  resident in `ALL`.
-- **Acceptance:** in `DISK`/`DISK+NET`, e.g. `*FORM`/`*COPY` are absent from ROM but run from the
-  library-mounted boot/config disk with identical behaviour; `make all-rom` keeps them in ROM.
+The Beebium gate has two lanes:
 
-### Phase 5 — Consolidate test matrix, docs, examples
-- Make the **build × test matrix** runnable **locally with one command** (Appendix C.3): build all
-  three profiles and run the feature-appropriate suites; `run_unit_tests.sh` and the beebium runner
-  gain a build/profile arg. Keep it **CI-ready** (cargo-from-git install, env-var path config) for the
-  future GitHub CI, but do not block on CI now.
-- Update `README.md`, `AGENTS.md`, `docs/fn-rom-bootstrap.md`, `docs/ARCHITECTURE.md`; document the
-  ROM ABI used by transient utilities and the per-build test matrix.
-- Ensure `bas/` examples + `FN-UTLS.ssd` ship with the `DISK+NET` build.
-- Retire/alias `_FREE_MAP_`/`_UTILS_`/`_ROMS_`.
-- **Acceptance:** the full matrix runs green **locally**; coverage matrix (Appendix C.3) has no
-  unintended gaps.
+| Lane | What it proves |
+|------|----------------|
+| product | resident ROM disk/network behaviour over the scripted FujiBus/SLIP transport |
+| utls | boot/config disk command loading, library fallback, and transient utility argument passing |
 
----
+Tests that require `FN-UTLS.ssd` mounted as the library use the `needs_boot_utils_setup` marker and are covered by the `utls` lane.
 
-## 7. Risks & mitigations
+## 8. Decisions
 
-| Risk | Mitigation |
-|------|------------|
-| Composable table breaks "leading-F"/`not_cmd_*` boundary logic | Phase 1 proves on one feature, byte-for-byte |
-| cc65 doesn't dead-strip → no real savings | §2.5/§5.2: feature = unlinked object modules; Phase 0 measures |
-| Service &04 doesn't fall through to FS run / doesn't use library lookup | Explicit Phase 3 verification (§4.2.1) before relying on it |
-| Transient util not found because current drive ≠ utils drive | Resolved by the **library drive** (§4.2.1); fn-rom already does library fallback in `cmd_run.s` |
-| Transient utility needs an undocumented ROM internal | Phase 4 audits imports; publish entry points / OSWORD reason |
-| Source reorg churns imports | Phase 2 is a pure move; verify `ALL` byte-identical |
-| ZP/workspace divergence | Single feature-tagged map in `os.s` (§5.6) |
-| Behaviour regression hidden by a "pure refactor" | Per-phase test gates assert emitted FujiBus frames identical to the Phase 0 baseline (Appendix C) |
-| Test tooling is the author's own (beebium serial PR un-merged upstream) — not generally packaged | Local-first testing during this transition (Appendix C.5); build beebium; promote beebium once its serial support lands |
-| New disk-loaded command path (Phase 4) untested by existing suites | New "command-from-disk" beebium scenario added in Phase 4 (Appendix C.4) |
-| `ALL` won't fit after future growth | Trim or move resident utility commands; do not block protocol/device work. DISK/DISK+NET are the lean primaries; bank-switch is the escape hatch (§8.6) |
-
----
-
-## 8. Decisions (resolved) and remaining open points
-
-**Resolved (owner, rev 3):**
-- **8.1 Names** — ROM files `FN-DISK` / `FN-NET` / `FN-ALL` (≤7); boot/config utilities disk
-  **`FN-UTLS`** (title may be 12 chars but the filename limit of 7 governs). ✅
-- **8.2 Default build** — **DISK+NET**. ✅
-- **8.3 `*FJSON`** — stays **resident in NET builds** (thin wrapper over the resident OSWORD &78
-  engine; cheap, and avoids a discoverability problem). Absent in `DISK`. ✅
-- **8.4 ROM headroom policy** — device/protocol functionality wins over resident utility
-  convenience. Utility commands that can run from disk belong on the boot/config disk. `ALL` is a
-  compatibility/diagnostic lane, not the design target. ✅
-- **8.5 `create_ssd.py`** — already supports per-file load/exec via `.inf` sidecars; no tooling change
-  needed. ✅
-- **8.6 Bank-switching** — **deferred** (power-user; precedent: owner's cc65 `bbc-clib` target running
-  core functions from ROM to free application RAM). Not for the general user. ✅
-
-- **Auto-setup approach** — **decided: a dedicated drive/mount for the boot/config disk** (the consumed-drive
-  trade-off in Appendix A.4 is accepted for now), hooked into the cold-boot autoboot facility
-  (Appendix A.1). Ship with instructions to copy `FN-UTLS.ssd` to the ESP32's SD card. ✅
-- **Library drive number** — **decided: drive 3** (the last supported drive). Users rarely need all
-  four drives at once, so reserving drive 3 for the utils/library mount is low-impact. ✅
-- **`*FBOOT [drive]` direction** — resident `*FBOOT` should become the recovery shortcut for mounting
-  the boot/config disk to the chosen drive. `*FBOOT 3` is the preferred workflow for keeping config
-  and utilities reachable as `:3` after real disks are mounted. ✅
-
-**Remaining open:**
-1. **Boot/config disk distribution detail** — whether the `FN-UTLS` image name remains long-term or
-   is replaced by a clearer boot/config disk name. Short-term, `FN-UTLS.ssd` remains the filename for
-   compatibility and DFS-safe naming.
-2. **Final bootstrap policy** — ROM auto-mount via the `skip_autoload` hook vs a `!BOOT`; Appendix
-   A.5 recommends shipping `!BOOT` (Layer C) first, then evolving to config-driven auto-mount
-   (Layer A — see Appendix B).
-3. **Modem feature placement** (8.7) — `FEATURE_MODEM` as its own feature vs a NET sub-feature; where
-   the modem-device plumbing lives.
-4. **Terminal** (8.7) — in scope eventually; resident `*TERM` command vs transient app. Decide
-   alongside modem plumbing.
-5. **Pure terminal/modem-only product** — out of scope as a *disk-less* build for now, but the modem
-   plumbing above should not preclude it later.
-
----
-
-## 9. Appendix: quick reference
-
-- ROM budget: `MAIN $8000–$BFFF = $4000` (16384) bytes; current free ≈ 800 bytes (§1).
-- Network/disk seams: `findv_entry.s:337/340`, `bgetv_entry.s:85`, `bputv_entry.s:85`,
-  `findv_entry.s:258` (close).
-- Network ABI: OSWORD &78, `src/fnnet.s` + `src/fnnet/*.inc`; dispatched via `service08`.
-- Unknown-command → disk `*RUN`: `services/service09.s:81` (service &04), `cmd_run.s`
-  (`fscv2_4_11_starRUN`).
-- Macros to retire/fold: `_FREE_MAP_`, `_UTILS_`, `_ROMS_`. New: `FEATURE_NET`, `UTILITIES_RESIDENT`.
-- Orthogonal dims: `BUILD_MACHINE` (BBC|MASTER), `BUILD_INTERFACE` (SERIAL|USERPORT|1MHZ).
+- **One product ROM:** `FN-NET` for BBC and `FN-NET-M` for Master.
+- **No `FN-DISK` release:** users who only want disk replacement can use the normal product ROM and ignore the network API.
+- **No `FN-ALL` release:** all-resident utilities are retired so ROM headroom belongs to device/protocol work.
+- **Boot/config disk:** `FN-UTLS.ssd` remains the short filename for now and carries config/utility applications.
+- **`*FJSON`:** remains resident because it is a thin wrapper over the resident OSWORD &78 network API.
+- **`*FBOOT [drive]`:** resident recovery command direction; no argument preserves existing default boot behaviour, and a drive argument should restore the boot/config disk to that drive.
+- **Bank-switching:** deferred for power-user scenarios, not a substitute for moving ordinary utilities to disk.
 
 ---
 
@@ -567,65 +431,15 @@ From fn-rom's side this is small and well-contained. Places to grow:
 
 ---
 
-## Appendix C — Testing strategy across the transition
+## Appendix C — Current testing strategy
 
-> The role split is a large, mostly-mechanical refactor of working code; its safety case rests
-> entirely on **behaviour-preservation verified by tests**. The repo already has the two suites we
-> need — this appendix maps them to the transition and names the new scenarios it requires.
+The current product has no profile matrix. Test coverage is split by runtime setup:
 
-### C.1 Principle
-Every phase preserves *observable behaviour*; "byte-identical" is a nice-to-have for pure-move phases,
-but the real invariant is **the FujiBus/SLIP frames the ROM emits and the ROM-internal results** stay
-the same for the same inputs. Tests — not byte diffs — are the source of truth, because feature
-gating and the composable table will legitimately move bytes around.
+| Suite | Command | Protects |
+|-------|---------|----------|
+| Unit tests | `./run_unit_tests.sh` | soft65c02 checks assembled against the product ROM labels |
+| Beebium product lane | `./integration-tests/beebium/run_product_tests.sh` | scripted serial/PTY FujiBus frames for resident disk and network behaviour |
+| Beebium FN-UTLS lane | `./scripts/run_fn_utls_test.sh` | disk-loaded utility execution, library fallback, and argument passing |
+| Real interop | `cd integration-tests/beebium && ./run_pytest.sh real/ -q` | opt-in live fujinet-nio transport/firmware integration |
 
-### C.2 The suites and what each protects
-
-| Suite | Where | Level | Protects |
-|-------|-------|-------|----------|
-| **beebium scripted** | `integration-tests/beebium/scripted/` | End-to-end over real serial+PTY, scripted `FujiDevice` mock | The **contract**: exact FujiBus frames per command (the README device-coverage matrix). Deterministic — **the primary merge gate (run locally)**. |
-| **beebium real interop** | `integration-tests/beebium/real/` (opt-in) | Real posix `fujinet-nio`, asserts on firmware logs | Live interop; catches drift between ROM and firmware. Opt-in (needs the firmware binary). |
-
-The scripted suite already covers Fuji/Clock/Modem/Disk/Network/File device traffic and the OSWORD
-`&78` flows — i.e. precisely the seams this plan touches (network branch, `*FJSON`, `*FHOST`/`*FLS`,
-mount). That makes it the primary guardrail.
-
-### C.3 Coverage model: tag tests by required feature, run per build
-Each test declares the feature it needs; the runner selects tests per build:
-
-| Test class | Needs | Runs on `DISK` | `DISK+NET` | `ALL` |
-|------------|-------|:---:|:---:|:---:|
-| kernel/disk (`*FHOST`, `*FIN`, `*FMOUNT`, `*CAT`, OPENIN/BGET on disk files) | kernel | ✅ | ✅ | ✅ |
-| network (`OPENIN "://"`, `*FJSON`, OSWORD `&78`) | `FEATURE_NET` | ❌ (assert **absent** — C.4) | ✅ | ✅ |
-| transient management (`*FORM`, `*COPY`, `*FLS`, `*FDRIVE`) | boot/config disk **or** resident | from disk | from disk | resident |
-
-The beebium runner already accepts `--fn-rom`/`FN_ROM` (and slot), so pointing it at each profile's
-ROM is a one-liner; add a `--profile {disk,net,all}` (or marker) that selects the tagged subset.
-`run_unit_tests.sh` gains the same build/profile arg.
-
-### C.4 New scenarios the transition introduces (don't exist today)
-1. **Negative / absence tests** (Phase 3): on `DISK`, the inputs that drive network traffic on
-   `DISK+NET` must emit **no** network frames (and report the right "not available" behaviour). Today's
-   suite only asserts presence.
-2. **Unknown-command fallthrough** (Phase 3): an unrecognised `*command` with the current drive on an
-   app disk resolves+runs a binary from the **library** drive (service &04 → MOS → FSC → library lookup).
-3. **Command-from-disk equivalence** (Phase 4): mount `FN-UTLS.ssd`, set the library, run a migrated
-   command (e.g. `*FLS`, `*FORM`) and assert it produces the **same** FujiBus frames / results as the
-   resident version in `ALL`. This proves the transient path is behaviourally identical, not just that
-   the file loads.
-4. **Cold-boot auto-mount** (when Appendix A lands): on cold boot with the utils slot bound, the ROM
-   mounts drive 3 + sets the library; on a *missing* boot/config disk it continues booting and leaves
-   `fuji_lib_drive = 0` (Appendix A.3) — assert both.
-
-### C.5 Running the gates: local now, CI later
-**There is no GitHub CI for fn-rom yet — that is a future plan.** Through this transition, the test
-gates are **run locally by the implementer before merging each phase**. The plan is structured so the
-suites stay CI-ready, but nothing here blocks on CI existing.
-
-- **Local toolchain (both pieces are the author's own):**
-  - **beebium** — build the server(s) and wire the env vars per `integration-tests/beebium/README.md`
-    (`BEEBIUM_HOME`, `FUJINET_TOOLS`, `FN_ROM`, …). Its serial support is a recently-submitted PR still
-    being integrated upstream.
-- **Future CI (when it comes):** provision the beebium build +
-  `FUJINET_TOOLS`/`BEEBIUM_HOME` paths, build all three profiles, gate on `make sizes` + the
-  feature-appropriate suite subset. (fujinet has its own automation scripts; out of scope here.)
+`run_product_tests.sh` runs the product lane and then the FN-UTLS lane. `run_tests.sh` wraps builds, sizes, unit tests, and the Beebium gate.

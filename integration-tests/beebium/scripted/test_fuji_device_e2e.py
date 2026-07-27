@@ -9,7 +9,7 @@ from fuji_device import HOST_CMD_SET_CURRENT, HOST_SERVICE_ID, full_stack_respon
 from helpers import command, wait_for_screen_text
 
 
-@pytest.mark.needs_resident_utils
+@pytest.mark.needs_boot_utils_setup
 def test_fdrive_requests_formatted_mounts(beebium, fuji_device):
     command(beebium, "*FDRIVE")
 
@@ -45,7 +45,7 @@ def test_fin_emits_set_mount_request(beebium, fuji_device):
     assert mode == "auto"
 
 
-@pytest.mark.needs_resident_utils
+@pytest.mark.needs_boot_utils_setup
 def test_fout_round_trip_gets_then_clears_mount(beebium, fuji_device):
     fuji_device.set_responder(mounted_disk_responder(slot=2, uri="sd0:/BOOT.SSD"))
 

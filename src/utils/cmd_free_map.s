@@ -3,9 +3,7 @@
 ; *FREE displays free space on disk
 ; *MAP displays disk usage map showing address and length of free blocks
 ;
-; A transient utility (role-split Lever B): built into the ROM only when
-; UTILITIES=resident, otherwise shipped on FN-UTLS.ssd. Governed purely by its
-; src/utils/ location + the UTILITIES lever in the Makefile (no per-command .if).
+; Boot/config disk utility source. This is not linked into the resident ROM.
 
         .export cmd_fs_free
         .export cmd_fs_map
@@ -41,8 +39,8 @@
         .include "fujinet.inc"
 
         ; Register *FREE / *MAP into the FujiNet (FUJIFS) command group. Because
-        ; this whole module is linked only in UTILITIES=resident builds, the
-        ; commands are present iff the feature is built — no .if in the table.
+        ; this whole module is built only as a transient utility, the
+        ; command table entries are local to the disk utility binary.
         cmd_entry "FUJIFS_EXT", "FREE", $4, $00, cmd_fs_free   ; (<drive>)
         cmd_entry "FUJIFS_EXT", "MAP",  $4, $00, cmd_fs_map    ; (<drive>)
 

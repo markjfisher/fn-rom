@@ -31,28 +31,20 @@ This will create an SSD containing the ROM
 make clean ssd
 ```
 
-## Build profiles (role split)
+## Product build
 
-fn-rom is built in one of three role-split *profiles*, selected by two
-orthogonal levers (see [docs/ROM_ROLE_SPLIT_PLAN.md](docs/ROM_ROLE_SPLIT_PLAN.md)):
+fn-rom now has one product shape: disk + network device in ROM, with bulky
+management/informational commands on the boot/config utilities disk. There is no
+ALL/DISK/DISK+NET product matrix.
 
-- `FEATURE_NET` (Lever A) — `1` adds the network device (OPENIN `"scheme://"`,
-  `*FJSON`, the OSWORD &78 API); `0` is disk-only. Disk is always resident.
-- `UTILITIES` (Lever B) — `disk` is the forward path: bulky
-  management/informational commands (`*FORM`, `*COPY`, `*FLS`, `*FDRIVE`, ...)
-  ship on the boot/config utilities disk (`FN-UTLS.ssd`) and load on demand via
-  the MOS unrecognised-command → `*RUN` fallthrough. `resident` is retained for
-  compatibility and regression testing while it fits.
-
-| Profile | Target | FEATURE_NET | UTILITIES | For |
-|---------|--------|:-----------:|:---------:|-----|
-| **ALL**      | `make all-rom` (== bare `make all`) | 1 | resident | compatibility/diagnostic, not the headroom target |
-| **DISK+NET** | `make net`     | 1 | disk     | default shipped build (network + disk) |
-| **DISK**     | `make disk`    | 0 | disk     | disk-only |
+| Build | Target | For |
+|-------|--------|-----|
+| **FN-NET** | `make all` | BBC product ROM |
+| **FN-NET-M** | `make all BUILD_MACHINE=MASTER` | BBC Master product ROM |
 
 `make sizes` reports per-ROM segment usage and free bytes (build first).
-Profiles are orthogonal to `BUILD_MACHINE` (BBC|MASTER) and `BUILD_INTERFACE`
-(SERIAL|USERPORT|1MHZ).
+The build remains orthogonal to `BUILD_MACHINE` (BBC|MASTER) and
+`BUILD_INTERFACE` (SERIAL|USERPORT|1MHZ).
 
 The resident ROM budget is reserved for functionality that cannot be delivered
 from disk: filing-system vectors, FujiBus/SLIP/channel code, device protocols,
@@ -62,7 +54,7 @@ device work has headroom on constrained BBC-class machines.
 
 ## Release bundle
 
-`make release` (alias `make dist`) stages the shippable **DISK+NET** bundle in
+`make release` (alias `make dist`) stages the shippable bundle in
 `dist/release/`: the `FN-NET` / `FN-NET-M` ROM images, `FN-UTLS.ssd` (the
 boot/config utilities disk), and the `bas/` example apps as ready-to-mount SSDs.
 Choose which examples with `RELEASE_APPS="weather iss"`.
@@ -71,18 +63,17 @@ Choose which examples with `RELEASE_APPS="weather iss"`.
 
 See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for Beebium test setup (two env vars).
 
-A single command builds every profile, reports sizes, and runs the unit +
-beebium scripted suites for each:
+A single command builds the product ROMs, reports sizes, and runs the unit +
+Beebium scripted suites:
 ```
 ./run_tests.sh                # full matrix (add --no-beebium for builds-only)
-./run_unit_tests.sh [all|net|disk]   # soft65c02 unit tests for one profile
+./run_unit_tests.sh           # soft65c02 unit tests
 ```
-The beebium matrix (`integration-tests/beebium/run_profile_tests.sh`) runs the
-scripted suite against the `all`, `net` and `disk` ROMs plus the FN-UTLS
-command-from-disk equivalence test. Tests declare the feature they need
-(`needs_net`, `needs_resident_utils`, `disk_only`) and are skipped on profiles
-that don't provide it. See [docs/ROM_ROLE_SPLIT_PLAN.md](docs/ROM_ROLE_SPLIT_PLAN.md)
-Appendix C and `integration-tests/beebium/README.md`. Day-to-day Beebium commands:
+The Beebium runner (`integration-tests/beebium/run_product_tests.sh`) runs the
+product scripted suite plus the FN-UTLS command-from-disk tests. Tests that need
+FN-UTLS mounted as the library use the `needs_boot_utils_setup` marker and are
+covered by that command-from-disk lane. See
+`integration-tests/beebium/README.md`. Day-to-day Beebium commands:
 [integration-tests/beebium/RUNNING_TESTS.md](integration-tests/beebium/RUNNING_TESTS.md).
 
 # Creating SSD images from folder contents

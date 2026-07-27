@@ -3,7 +3,7 @@
 # standalone RAM binary that calls the resident ROM through the stable utility
 # ABI table (role-split Lever B disk execution).
 #
-# Mechanism: build the UTILITIES=disk ROM, generate a ca65 source (rom_abi.s)
+# Mechanism: build the product ROM, generate a ca65 source (rom_abi.s)
 # that maps resident routine imports to fixed jump-table slots and direct data
 # imports to the target machine's stable workspace addresses, then assemble each
 # utility (+ duplicated utils-internal helpers + a generated entry wrapper) for
@@ -91,8 +91,8 @@ SEGMENTS {
 EOF
 echo "==> transient utility load/exec address: $UTIL_INF_ADDR"
 
-echo "==> building UTILITIES=disk ROM (for resident symbol addresses)"
-make -B -C "$root" FEATURE_NET=1 UTILITIES=disk BUILD_MACHINE="$MACHINE" all >/dev/null
+echo "==> building product ROM (for resident symbol addresses)"
+make -B -C "$root" BUILD_MACHINE="$MACHINE" all >/dev/null
 
 echo "==> generating rom_abi.s from $LBL"
 python3 - "$LBL" "$ABISRC" "$UTIL_ABI_SRC" <<'PY'
@@ -298,7 +298,6 @@ U="$root/src/utils"
 
 # Each binary is staged under the full command name the FS *RUN looks up.
 build_util FDRIVE  noarg:cmd_fs_fdrive "$U/cmd_fdrive.s" "$U/cmd_flist.s" "$U/flist_resolve_target.s"
-build_util FBOOT   noarg:cmd_fs_fboot  "$U/cmd_fboot.s"
 build_util FCD     cmd_fs_fcd      "$U/cmd_fcd.s" "$U/flist_resolve_target.s"
 build_util FLS     cmd_fs_flist    "$U/cmd_flist.s" "$U/flist_resolve_target.s"
 build_util FLIST   cmd_fs_flist    "$U/cmd_flist.s" "$U/flist_resolve_target.s"

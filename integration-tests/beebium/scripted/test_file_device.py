@@ -36,7 +36,7 @@ def test_fhost_request_payload_is_structured(beebium, fuji_device):
     assert "PATH: /bbc/" in screen
 
 
-@pytest.mark.needs_resident_utils
+@pytest.mark.needs_boot_utils_setup
 def test_fcd_emits_relative_host_service_set_request(beebium, fuji_device):
     fuji_device.set_responder(host_service_responder())
 
@@ -52,7 +52,7 @@ def test_fcd_emits_relative_host_service_set_request(beebium, fuji_device):
     assert _parse_host_set_req(pkt.payload) == "games"
 
 
-@pytest.mark.needs_resident_utils
+@pytest.mark.needs_boot_utils_setup
 def test_fls_round_trip_uses_formatted_list_response(beebium, fuji_device):
     listing = "A.$.BOOT\nA.$.GAMES\n"
     fuji_device.set_responder(file_listing_responder(

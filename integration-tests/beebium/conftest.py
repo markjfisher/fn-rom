@@ -51,13 +51,6 @@ def pytest_addoption(parser):
         help="fn-rom sideways ROM image to load",
     )
     group.addoption(
-        "--fn-profile",
-        action="store",
-        choices=("all", "net", "disk"),
-        default=os.environ.get("FN_PROFILE", "net"),
-        help="role-split build profile the loaded ROM represents",
-    )
-    group.addoption(
         "--fn-rom-slot",
         action="store",
         type=int,
@@ -97,34 +90,20 @@ def pytest_configure(config):
             stamp = _dt.datetime.now().strftime("%Y%m%d-%H%M%S")
             evidence_root = _FN_ROM_ROOT / "test-evidence" / f"beebium-{stamp}"
         config._fn_beebium_evidence_root = evidence_root
-    config.addinivalue_line(
-        "markers", "needs_net: requires the network device (skipped on the DISK profile)"
-    )
-    config.addinivalue_line(
-        "markers", "disk_only: only meaningful on the DISK profile (skipped on net)"
-    )
+    config.addinivalue_line("markers", "needs_net: requires the network device")
     config.addinivalue_line(
         "markers",
-        "needs_resident_utils: requires a management/informational utility to be "
-        "resident in the ROM (only the all profile)",
+        "needs_boot_utils_setup: requires FN-UTLS.ssd mounted as the library; "
+        "covered by the command-from-disk test lane",
     )
 
 
 def pytest_collection_modifyitems(config, items):
-    profile = config.getoption("--fn-profile")
-    utils_resident = profile == "all"
-    skip_net = pytest.mark.skip(reason="needs the network device; --fn-profile is 'disk'")
-    skip_disk = pytest.mark.skip(reason="DISK-profile test; --fn-profile is 'net'/'all'")
     skip_utils = pytest.mark.skip(
-        reason="needs a resident management utility; --fn-profile is not 'all' "
-               "(UTILITIES=disk -> utility is transient on FN-UTLS.ssd)"
+        reason="needs FN-UTLS.ssd mounted as the library; covered by test_command_from_disk.py"
     )
     for item in items:
-        if profile == "disk" and "needs_net" in item.keywords:
-            item.add_marker(skip_net)
-        if profile != "disk" and "disk_only" in item.keywords:
-            item.add_marker(skip_disk)
-        if not utils_resident and "needs_resident_utils" in item.keywords:
+        if "needs_boot_utils_setup" in item.keywords:
             item.add_marker(skip_utils)
 
 
@@ -150,7 +129,7 @@ def screen_evidence(pytestconfig, request):
 
     recorder = ScreenEvidenceRecorder(
         root=Path(root),
-        profile=pytestconfig.getoption("--fn-profile"),
+        lane=os.environ.get("FN_BEEBIUM_LANE", "product"),
         nodeid=request.node.nodeid,
     )
     try:
@@ -159,11 +138,6 @@ def screen_evidence(pytestconfig, request):
         report = getattr(request.node, "rep_call", None)
         status = report.outcome if report is not None else "unknown"
         recorder.finish(status=status)
-
-
-@pytest.fixture()
-def fn_profile(pytestconfig):
-    return pytestconfig.getoption("--fn-profile")
 
 
 @pytest.fixture(scope="session")

@@ -11,7 +11,7 @@
         .include "fujinet.inc"
 
         ; Self-register into the command group (Lever B). Present iff this
-        ; module is linked (UTILITIES=resident) -- no .if in the command table.
+        ; module is built as a boot/config disk utility -- no resident command-table entry.
         cmd_entry "FUJIFS_EXT", "FORM",    $5, $12, cmd_fs_form      ; (<drive>)... 40/80
         cmd_entry "FUJIFS_EXT", "VERIFY",  $5, $00, cmd_fs_verify    ; (<drive>)...
 

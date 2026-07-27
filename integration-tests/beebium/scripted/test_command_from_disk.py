@@ -1,13 +1,13 @@
 """Phase 4 command-from-disk equivalence (ROM_ROLE_SPLIT_PLAN Appendix C.4 #3).
 
-Runs against the UTILITIES=disk ROM (so *FDRIVE is NOT in the ROM) with the
+Runs against the product ROM (so *FDRIVE is NOT in the ROM) with the
 FN-UTLS.ssd mounted as the library. Typing *FDRIVE must load+run the transient
 binary from disk and emit the same Fuji GET_MOUNTS request as the resident
 command — proving the disk-loaded utility behaves identically.
 
 Built + run together by scripts/run_fn_utls_test.sh (the binary calls the
 resident ROM by absolute address, so the ROM under test must be the exact
-UTILITIES=disk build the binary was linked against).
+product build the binary was linked against).
 """
 from __future__ import annotations
 
@@ -47,7 +47,7 @@ _OTHER_SSD = _BUILD / "OTHER.ssd"
 
 pytestmark = pytest.mark.skipif(
     os.environ.get("FN_UTLS_TEST") != "1" or not _SSD.is_file(),
-    reason="needs the UTILITIES=disk ROM + build/FN-UTLS.ssd "
+    reason="needs the product ROM + build/FN-UTLS.ssd "
            "(run scripts/run_fn_utls_test.sh)",
 )
 
@@ -66,7 +66,7 @@ def test_fdrive_runs_from_library_disk(beebium, fuji_device):
     _mount_utils_drive(beebium, fuji_device)
     fuji_device.clear()
 
-    # *FDRIVE is absent from this (UTILITIES=disk) ROM -> service &04 unclaimed
+    # *FDRIVE is absent from the product ROM -> service &04 unclaimed
     # -> FS *RUN resolves the file "FDRIVE" (the full typed name) on the mounted
     # drive -> the transient binary runs and drives the Fuji device exactly as
     # the resident command would.

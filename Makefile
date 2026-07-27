@@ -5,21 +5,10 @@ PROGRAM = fujinet
 CURRENT_TARGET = none
 BUILD_MACHINE ?= BBC
 
-# Network device feature (role-split Lever A; see docs/ROM_ROLE_SPLIT_PLAN.md).
-# FEATURE_NET=1 (default) is the DISK+NET build: OPENIN "scheme://", *FJSON and
-# the OSWORD &78 network API. FEATURE_NET=0 is the DISK build: src/net/ is not
-# linked and the network branch in the filing vectors is gated out.
-FEATURE_NET ?= 1
-
-# Transient utilities (role-split Lever B). UTILITIES=resident links the
-# management/informational commands (src/utils/) into the ROM; UTILITIES=disk
-# drops them (they ship on FN-UTLS.ssd and load on demand via the *RUN
-# fallthrough). Default is 'resident' so the bare `make all` is the ALL build;
-# the lean shipped builds use the disk/net targets below.
-UTILITIES ?= resident
-
-# obj/ is keyed by variant so net-on/off and utils resident/disk never collide.
-BUILD_VARIANT = $(CURRENT_TARGET)-$(BUILD_MACHINE)$(if $(filter 0,$(FEATURE_NET)),-nonet)$(if $(filter disk,$(UTILITIES)),-utld)
+# There is one product ROM: disk + network device, with bulky utilities on the
+# boot/config utilities disk. Keep FEATURE_NET defined while the older assembly
+# guards are being retired; UTILITIES_RESIDENT is intentionally never defined.
+BUILD_VARIANT = $(CURRENT_TARGET)-$(BUILD_MACHINE)
 SUPPORTED_BUILD_MACHINES := BBC MASTER
 
 # Interface selection - can be overridden on command line
@@ -52,7 +41,7 @@ else
 $(error Invalid BUILD_INTERFACE: $(BUILD_INTERFACE). Must be SERIAL, USERPORT, 1MHZ)
 endif
 
-# Define the target machine profile.
+# Define the target machine.
 # BBC is the existing baseline. MASTER starts enabling alternate workspace/layout.
 ifeq ($(BUILD_MACHINE),BBC)
 
@@ -106,27 +95,13 @@ ASM_INCLUDES := $(call rwildcard,$(SRCDIR)/,*.inc)
 # remove trailing and leading spaces.
 SOURCES := $(strip $(SOURCES))
 
-# Lever A: compile + link src/net/ only when the network feature is on. When off,
-# drop the network modules entirely (cc65 omits unlinked object modules wholesale)
-# and define nothing, so the gated network branch in the vectors is not assembled.
-ifeq ($(FEATURE_NET),1)
+# Network device is always present in the product ROM.
 ASFLAGS += --asm-define FEATURE_NET
 CFLAGS += -DFEATURE_NET
-else
-SOURCES := $(filter-out $(call rwildcard,$(SRCDIR)/net/,*.s),$(SOURCES))
-endif
 
-# Lever B: link src/utils/ only when UTILITIES=resident. When on disk, drop the
-# modules (their command-table fragments self-register from src/utils/, so they
-# vanish from the table too) and they are instead built as FN-UTLS.ssd binaries.
-ifeq ($(UTILITIES),resident)
-ASFLAGS += --asm-define UTILITIES_RESIDENT
-CFLAGS += -DUTILITIES_RESIDENT
-else ifeq ($(UTILITIES),disk)
+# Utilities are always transient disk binaries, except kernel recovery commands
+# that live under src/kernel/commands.
 SOURCES := $(filter-out $(call rwildcard,$(SRCDIR)/utils/,*.s),$(SOURCES))
-else
-$(error Invalid UTILITIES: $(UTILITIES). Must be resident or disk)
-endif
 
 # convert from src/your/long/path/foo.[c|s] to obj/<variant>/your/long/path/foo.o
 # we need the variant because target/machine macro changes must not reuse stale objects
@@ -141,7 +116,7 @@ ASFLAGS += --asm-include-dir $(SRCDIR) --asm-include-dir $(SRCDIR)/inc
 CFLAGS += --include-dir $(SRCDIR) --include-dir $(SRCDIR)/inc
 
 .SUFFIXES:
-.PHONY: all clean release dist $(DISK_TASKS) $(BUILD_TASKS) $(PROGRAM_TGT) all-machines ssd clean-imports sizes disk net all-rom
+.PHONY: all clean release dist $(DISK_TASKS) $(BUILD_TASKS) $(PROGRAM_TGT) all-machines ssd clean-imports sizes
 
 all: $(PROGRAM_TGT)
 
@@ -150,18 +125,8 @@ all-machines:
 	  $(MAKE) BUILD_MACHINE=$$machine all || exit $$?; \
 	done
 
-# Role-split shipped builds. disk/net ship the utilities on FN-UTLS.ssd;
-# all-rom (== bare `make all`) keeps everything resident.
-disk:                       ## DISK profile: no network device, utils on disk
-	$(MAKE) FEATURE_NET=0 UTILITIES=disk all
-net:                        ## DISK+NET profile: network device, utils on disk
-	$(MAKE) FEATURE_NET=1 UTILITIES=disk all
-all-rom:                    ## ALL profile: network + utilities resident
-	$(MAKE) FEATURE_NET=1 UTILITIES=resident all
-
-# Stage the shippable DISK+NET bundle: FN-NET ROM(s) + FN-UTLS.ssd + example
-# app SSDs from bas/ (see scripts/build_release.sh). Override apps with
-# RELEASE_APPS="weather iss".
+# Stage the shippable bundle: FN-NET ROM(s) + FN-UTLS.ssd + example app SSDs
+# from bas/ (see scripts/build_release.sh). Override apps with RELEASE_APPS.
 release:               ## Stage dist/release: FN-NET ROM + FN-UTLS.ssd + bas examples
 	./scripts/build_release.sh
 
