@@ -99,7 +99,7 @@ _ALL_TRANSIENT_COMMANDS = [
     ("*WIPE", "*WIPE FDRIVE"),
     ("*TITLE", "*TITLE TEST"),
     ("*ACCESS", "*ACCESS FDRIVE"),
-    ("*RENAME", "*RENAME FBOOT FBOOT"),
+    ("*RENAME", "*RENAME FDRIVE FDRIVE"),
     ("*VERIFY", "*VERIFY"),
     ("*MAP", "*MAP"),
     ("*FORM", "*FORM"),

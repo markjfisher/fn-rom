@@ -251,10 +251,12 @@ slip_process_char:
 
 slip_store_byte:
         jsr     slip_split_checksum
+        tax
 
         lda     cws_tmp8
         bne     slip_store_split
 
+        txa
         pha
         lda     cws_tmp6
         ora     cws_tmp7
@@ -327,11 +329,13 @@ slip_split_checksum:
         lda     buffer_ptr
         clc
         adc     #$04
-        cmp     aws_tmp08
-        bne     @normal
+        tay
         lda     buffer_ptr+1
         adc     #$00
         cmp     aws_tmp09
+        bne     @normal
+        tya
+        cmp     aws_tmp08
         bne     @normal
         beq     @checksum_byte
 @split_offset:
