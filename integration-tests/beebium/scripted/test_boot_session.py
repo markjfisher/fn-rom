@@ -50,6 +50,7 @@ class BootSessionResponder:
         self.images = {
             1: boot_image,  # boot/config disk in BBC drive 0
             2: work_image,  # *FMOUNT 1 0 maps Fuji slot 1 to DiskDevice slot 2
+            4: boot_image,  # *FBOOT 3 restores the boot/config disk to drive 3
         }
 
     def __call__(self, pkt):
@@ -77,11 +78,12 @@ class BootSessionResponder:
             )
 
         if pkt.command == dp.CMD_RESTORE_BOOT:
+            slot = pkt.payload[1]
             return build_disk_mount_like_response(
                 command=dp.CMD_RESTORE_BOOT,
-                slot=1,
+                slot=slot,
                 readonly=True,
-                sector_count=len(self.images[1]) // 256,
+                sector_count=len(self.images.get(slot, b"")) // 256,
             )
 
         if pkt.command == dp.CMD_MOUNT:
@@ -134,6 +136,12 @@ def _soft_break(beebium) -> None:
 def _cat_and_expect(beebium, text: str) -> None:
     command(beebium, "CLS")
     command(beebium, "*CAT")
+    wait_for_screen_text(beebium, text, timeout=8.0)
+
+
+def _cat_drive_and_expect(beebium, drive: int, text: str) -> None:
+    command(beebium, "CLS")
+    command(beebium, f"*. :{drive}")
     wait_for_screen_text(beebium, text, timeout=8.0)
 
 
@@ -206,7 +214,6 @@ def test_hard_break_replaces_manually_mounted_disk_with_boot_disk(
     _cat_and_expect(beebium, "BOOTMRK")
 
 
-@pytest.mark.needs_boot_utils_setup
 def test_fboot_restores_boot_disk_without_beginning_new_session(
     beebium, fuji_device, boot_session_responder
 ):
@@ -229,3 +236,28 @@ def test_fboot_restores_boot_disk_without_beginning_new_session(
     ) is None
 
     _cat_and_expect(beebium, "BOOTMRK")
+
+
+def test_fboot_can_restore_boot_disk_to_named_drive(
+    beebium, fuji_device, boot_session_responder
+):
+    fuji_device.set_responder(boot_session_responder)
+    _hard_break(beebium)
+    _mount_work_drive(beebium, fuji_device)
+    _cat_and_expect(beebium, "WORKMRK")
+
+    fuji_device.clear()
+    command(beebium, "*FBOOT 3")
+
+    restore = fuji_device.wait_for_command(
+        dp.DISK_DEVICE_ID, dp.CMD_RESTORE_BOOT, timeout=8.0
+    )
+    assert restore is not None
+    assert restore.checksum_ok
+    assert restore.payload == bytes([dp.DISKPROTO_VERSION, 4])
+    assert fuji_device.wait_for_command(
+        dp.DISK_DEVICE_ID, DISK_CMD_BEGIN_HOST_SESSION, timeout=1.0
+    ) is None
+
+    _cat_and_expect(beebium, "WORKMRK")
+    _cat_drive_and_expect(beebium, 3, "BOOTMRK")

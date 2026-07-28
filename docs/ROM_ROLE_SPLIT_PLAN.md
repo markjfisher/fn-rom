@@ -43,7 +43,7 @@ user*". This plan replaces it.
 
 > **Scope:** fn-rom is **BBC-only** (Acorn family — the `BUILD_MACHINE` axis is `BBC | MASTER`, not
 > other 8-bits). Atari/C64 are *not* fn-rom targets. They appear only in the wider product sense of a
-> "release" bundle: a **BBC release** = fn-rom + `FN-UTLS.ssd` + a BBC-flavoured fujinet build; an
+> "release" bundle: a **BBC release** = fn-rom + `FN-BOOT.ssd` + a BBC-flavoured fujinet build; an
 > "Atari release" would be fujinet firmware + any future Atari-side client, which is a separate
 > product, not this ROM.
 
@@ -137,8 +137,8 @@ There is one release shape:
 |-------|----------|----------------|
 | **Product ROM** | disk filing system + network device + resident bootstrap/recovery | `FN-NET` / `FN-NET-M` |
 
-The boot/config utilities disk is shipped alongside it as **`FN-UTLS.ssd`** /
-**`FN-UTLS-M.ssd`**. The filename may be revisited later, but the role is settled:
+The boot/config utilities disk is shipped alongside it as **`FN-BOOT.ssd`** /
+**`FN-BOOT-M.ssd`**. The filename may be revisited later, but the role is settled:
 configuration and utility applications live on disk so resident ROM space remains available for
 device/protocol functionality.
 
@@ -162,7 +162,7 @@ The product shape is orthogonal to `BUILD_MACHINE` (BBC|MASTER) and `BUILD_INTER
   discoverability problem. **General rule:** *thin command-wrappers over already-resident ABI stay
   resident; only commands whose bulk is self-contained become transient.*
 
-**Transient — on the boot/config utilities SSD (`FN-UTLS`), loaded on demand:**
+**Transient — on the boot/config utilities SSD (`FN-BOOT`), loaded on demand:**
 - Disk management whose bulk is self-contained: `*FORM`, `*DESTROY`, `*WIPE`, `*VERIFY`, `*ACCESS`,
   `*TITLE`, `*INFO`, `*RENAME`, `*COPY`, `*FNEW`, `*FREE`/`*MAP`, `*ROMS`, `*FUMOUNT`, `*FOUT`
 - **Informational / navigation F-commands** (not needed to position a disk): `*FCD` (covered by
@@ -187,20 +187,16 @@ in the current directory **and then the library**, and the library may be on a d
 fn-rom already implements this fallback — `cmd_run.s:56–60` ("File not found in default location, try
 library") consults `fuji_lib_drive`/`fuji_lib_dir`, and `*LIB` (`cmd_fs_lib`) sets the library slot.
 
-So the bootstrap is: mount the boot/config disk to a drive **and set it as the library**, e.g.
+So the bootstrap is: restore the configured boot disk to a drive **and set it as the library**, e.g.
 
 ```
-*FHOST sd0:/
-*FIN 7 fn-utls.ssd      ; bind boot/config image to slot 7
-*FMOUNT 7 3             ; mount slot 7 as BBC drive 3
+*FBOOT 3                ; restore configured boot image to BBC drive 3
 *LIB :3                 ; library = drive 3  -> *FORM etc. resolve here regardless of current drive
 ```
 
 The forward resident helper is `*FBOOT [drive]`: with no argument it preserves the current default
 boot behaviour, and with a drive argument such as `*FBOOT 3` it restores the boot/config disk to that
 drive so `CONFIG`/`CONFNIO` and utility commands remain available after the user mounts real disks.
-Until that argument exists in code, the explicit `*FHOST`/`*FIN`/`*FMOUNT`/`*LIB` sequence above is
-the current mechanism.
 
 This (or a `!BOOT` that runs it, or ROM auto-mount at init) keeps the current drive on the app disk
 while management commands resolve from the library. The Beebium command-from-disk lane covers the
@@ -233,8 +229,8 @@ Everything else is built as a boot/config disk utility.
 
 The Makefile has no product profile levers. `make all` builds the BBC product ROM; add
 `BUILD_MACHINE=MASTER` for the Master product ROM. `src/net/` is always compiled. `src/utils/` is
-always filtered out of resident ROM sources and is built by `scripts/build_fn_utls.sh` into
-`FN-UTLS.ssd`.
+always filtered out of resident ROM sources and is built by `scripts/build_fn_boot.sh` into
+`FN-BOOT.ssd`.
 
 ### 5.2 Source selection by directory (preferred over file-level `.if`)
 
@@ -275,7 +271,7 @@ For each `src/utils/` command:
 2. Build it as a BBC binary with its own load/exec address. `scripts/create_ssd.py` **already**
    supports per-file load/exec via `.inf` sidecars (and `!BOOT`-style on-disk renaming), so no tooling
    change is needed — each utility ships with its own `<name>.inf`.
-3. Ship on `FN-UTLS.ssd` produced by `scripts/create_ssd.py`.
+3. Ship on `FN-BOOT.ssd` produced by `scripts/create_ssd.py`.
 4. It is absent from the ROM because `src/utils/*` is never part of resident `SOURCES`; the §2.4
    fallthrough loads it on use.
 
@@ -291,7 +287,7 @@ resident-utility variants; those product variants are retired.
 The role-split migration has served its purpose and is no longer the product model. Current work should follow this path:
 
 1. Build one resident product ROM with disk and network always present.
-2. Keep management and informational utilities out of resident ROM. Build them from `src/utils/` into `FN-UTLS.ssd` with `scripts/build_fn_utls.sh`.
+2. Keep management and informational utilities out of resident ROM. Build them from `src/utils/` into `FN-BOOT.ssd` with `scripts/build_fn_boot.sh`.
 3. Keep `*FHOST`, `*FIN`, `*FMOUNT`, `*FBOOT`, DFS vectors, `*CAT`, `*RUN`, `*DRIVE`, `*DIR`/`*LIB`, `*FJSON`, and OSWORD &78 resident.
 4. Spend recovered ROM space on protocol and device functionality, not resident utility convenience.
 5. Do not add release targets for no-network or all-resident ROMs.
@@ -312,16 +308,16 @@ The Beebium gate has two lanes:
 | Lane | What it proves |
 |------|----------------|
 | product | resident ROM disk/network behaviour over the scripted FujiBus/SLIP transport |
-| utls | boot/config disk command loading, library fallback, and transient utility argument passing |
+| boot | boot/config disk command loading, library fallback, and transient utility argument passing |
 
-Tests that require `FN-UTLS.ssd` mounted as the library use the `needs_boot_utils_setup` marker and are covered by the `utls` lane.
+Tests that require `FN-BOOT.ssd` mounted as the library use the `needs_boot_utils_setup` marker and are covered by the `boot` lane.
 
 ## 8. Decisions
 
 - **One product ROM:** `FN-NET` for BBC and `FN-NET-M` for Master.
 - **No `FN-DISK` release:** users who only want disk replacement can use the normal product ROM and ignore the network API.
 - **No `FN-ALL` release:** all-resident utilities are retired so ROM headroom belongs to device/protocol work.
-- **Boot/config disk:** `FN-UTLS.ssd` remains the short filename for now and carries config/utility applications.
+- **Boot/config disk:** `FN-BOOT.ssd` remains the short filename for now and carries config/utility applications.
 - **`*FJSON`:** remains resident because it is a thin wrapper over the resident OSWORD &78 network API.
 - **`*FBOOT [drive]`:** resident recovery command direction; no argument preserves existing default boot behaviour, and a drive argument should restore the boot/config disk to that drive.
 - **Bank-switching:** deferred for power-user scenarios, not a substitute for moving ordinary utilities to disk.
@@ -332,7 +328,7 @@ Tests that require `FN-UTLS.ssd` mounted as the library use the `needs_boot_util
 
 > Status: **chosen direction, implementation still staged.** Captures where the policy could live,
 > rough resident byte cost, and the failure modes when no boot/config disk is present. The short-term
-> disk image may still be named `FN-UTLS.ssd`, but its role is broader: config app plus utilities.
+> disk image may still be named `FN-BOOT.ssd`, but its role is broader: config app plus utilities.
 
 ### A.1 The hook already exists
 `fuji_init.s` reads the break type and branches at **`skip_autoload`**, which already carries the
@@ -439,7 +435,7 @@ The current product has no profile matrix. Test coverage is split by runtime set
 |-------|---------|----------|
 | Unit tests | `./run_unit_tests.sh` | soft65c02 checks assembled against the product ROM labels |
 | Beebium product lane | `./integration-tests/beebium/run_product_tests.sh` | scripted serial/PTY FujiBus frames for resident disk and network behaviour |
-| Beebium FN-UTLS lane | `./scripts/run_fn_utls_test.sh` | disk-loaded utility execution, library fallback, and argument passing |
+| Beebium FN-BOOT lane | `./scripts/run_fn_boot_test.sh` | disk-loaded utility execution, library fallback, and argument passing |
 | Real interop | `cd integration-tests/beebium && ./run_pytest.sh real/ -q` | opt-in live fujinet-nio transport/firmware integration |
 
-`run_product_tests.sh` runs the product lane and then the FN-UTLS lane. `run_tests.sh` wraps builds, sizes, unit tests, and the Beebium gate.
+`run_product_tests.sh` runs the product lane and then the FN-BOOT lane. `run_tests.sh` wraps builds, sizes, unit tests, and the Beebium gate.

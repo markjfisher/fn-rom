@@ -1,4 +1,4 @@
-; Stable ABI used by FN-UTLS transient utilities.
+; Stable ABI used by FN-BOOT transient utilities.
 ;
 ; Disk-loaded utilities must not call moving resident ROM labels directly.
 ; Each slot here is a fixed-address JMP veneer. A utility can JSR/JMP to the

@@ -94,28 +94,26 @@ BBC-class builds keep headroom for richer device features.
 ### Transient utilities and their ROM ABI
 
 The management/informational commands are not in the ROM; they ship on the
-boot/config utilities disk (`FN-UTLS.ssd`) and load on demand via the standard MOS
+boot/config utilities disk (`FN-BOOT.ssd`) and load on demand via the standard MOS
 unrecognised-command → filing-system `*RUN` fallthrough (service &04 is left
 unclaimed, so the MOS asks the FS to run the command as a file, using the
-library-aware lookup so it resolves from the utils/library drive regardless of
+library-aware lookup so it resolves from the boot/library drive regardless of
 the current drive).
 
 The forward recovery workflow is `*FBOOT [drive]`: no argument preserves the
-existing default boot behaviour, while `*FBOOT 3` should restore the boot/config
-disk to drive 3 and make it available as the library. Until that argument is
-implemented, use the explicit bootstrap sequence documented in
-`docs/ROM_ROLE_SPLIT_PLAN.md`.
+existing default boot behaviour, while `*FBOOT 3` restores the boot/config disk
+to drive 3 so `!BOOT` can make it available as the library with `*LIB :3`.
 
 Each transient utility is a standalone RAM binary loaded and entered by the FS
 `*RUN` path. BBC utility binaries load/exec at `$1900`; Master utility binaries
 load/exec at `$0E00`, which is another reason the release ships separate
-`FN-UTLS.ssd` and `FN-UTLS-M.ssd` images. The generated wrapper calls resident
+`FN-BOOT.ssd` and `FN-BOOT-M.ssd` images. The generated wrapper calls resident
 ROM routines through the stable utility ABI table at `$8030`
 (`src/kernel/util_abi.s`). The table is a sequence of fixed-address `JMP`
 veneers; the real resident implementations can move inside the ROM as long as
 the table start and slot order are preserved.
 
-`scripts/build_fn_utls.sh` builds the product ROM, turns its label file into
+`scripts/build_fn_boot.sh` builds the product ROM, turns its label file into
 `rom_abi.s`, and links each utility against it. Routine imports are mapped
 to the fixed `$8030` table slots; direct workspace/data imports are mapped to
 the target machine's real label addresses. That means a boot/config utility disk
@@ -130,7 +128,7 @@ whatever ROM happens to be active.
 
 Utils-internal helpers shared only between utilities are duplicated into the
 binary (cost is disk, not ROM), never promoted to a resident ROM entry point. A
-small wrapper (`utils-bin/<cmd>.s`) sets up the command line and calls the
+small wrapper (`boot-bin/<cmd>.s`) sets up the command line and calls the
 resident handler, exiting via `exit_user_ok`. The FS ROM is paged in while an
 `*RUN` command from the FS executes, so the table `jsr`s into the ROM are valid.
 

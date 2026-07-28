@@ -1,11 +1,11 @@
 """Phase 4 command-from-disk equivalence (ROM_ROLE_SPLIT_PLAN Appendix C.4 #3).
 
 Runs against the product ROM (so *FDRIVE is NOT in the ROM) with the
-FN-UTLS.ssd mounted as the library. Typing *FDRIVE must load+run the transient
+FN-BOOT.ssd mounted as the library. Typing *FDRIVE must load+run the transient
 binary from disk and emit the same Fuji GET_MOUNTS request as the resident
 command — proving the disk-loaded utility behaves identically.
 
-Built + run together by scripts/run_fn_utls_test.sh (the binary calls the
+Built + run together by scripts/run_fn_boot_test.sh (the binary calls the
 resident ROM by absolute address, so the ROM under test must be the exact
 product build the binary was linked against).
 """
@@ -43,10 +43,10 @@ from fuji_device import (
 from helpers import command, wait_for_screen_text
 
 _BUILD = pathlib.Path(__file__).resolve().parents[3] / "build"
-_SSD = _BUILD / "FN-UTLS.ssd"
+_SSD = _BUILD / "FN-BOOT.ssd"
 _OTHER_SSD = _BUILD / "OTHER.ssd"
 
-_EXPECTED_UTLS_FILES = {
+_EXPECTED_BOOT_FILES = {
     "!BOOT",
     "ACCESS",
     "COPY",
@@ -68,24 +68,24 @@ _EXPECTED_UTLS_FILES = {
 }
 
 pytestmark = pytest.mark.skipif(
-    os.environ.get("FN_UTLS_TEST") != "1" or not _SSD.is_file(),
-    reason="needs the product ROM + build/FN-UTLS.ssd "
-           "(run scripts/run_fn_utls_test.sh)",
+    os.environ.get("FN_BOOT_TEST") != "1" or not _SSD.is_file(),
+    reason="needs the product ROM + build/FN-BOOT.ssd "
+           "(run scripts/run_fn_boot_test.sh)",
 )
 
 
 def test_fdrive_runs_from_library_disk(beebium, fuji_device):
     fuji_device.set_responder(
         disk_image_responder(
-            image_path=str(_SSD), fuji_slot=7, drive_slot=4, uri="sd0:/fn-utls.ssd"
+            image_path=str(_SSD), fuji_slot=7, drive_slot=4, uri="sd0:/fn-boot.ssd"
         )
     )
 
-    # Mount the utils image as the current drive (0) so the FS *RUN finds the
+    # Mount the boot image as the current drive (0) so the FS *RUN finds the
     # transient command there. (The library-drive *fallback* path itself is
     # verified separately in Phase 3 / service08; here we prove the disk-loaded
     # binary runs and behaves identically.)
-    _mount_utils_drive(beebium, fuji_device)
+    _mount_boot_drive(beebium, fuji_device)
     fuji_device.clear()
 
     # *FDRIVE is absent from the product ROM -> service &04 unclaimed
@@ -103,7 +103,7 @@ def test_fdrive_runs_from_library_disk(beebium, fuji_device):
     assert pkt.checksum_ok
 
 
-# Every transient utility on FN-UTLS.ssd, by the command the user types. Proves
+# Every transient utility on FN-BOOT.ssd, by the command the user types. Proves
 # each one *resolves and loads* from the mounted disk (no "Bad command"): the
 # matcher leaves service &04 unclaimed, the FS *RUNs the file under the leaf it
 # requests (full name, or F-stripped for "F"-prefixed commands), and the binary
@@ -128,13 +128,13 @@ _ALL_TRANSIENT_COMMANDS = [
 ]
 
 
-def test_fn_utls_catalog_matches_disk_only_role_split():
+def test_fn_boot_catalog_matches_disk_only_role_split():
     image = _SSD.read_bytes()
     desc, entries = parse_dfs_catalogue_090(sector0=image[:256], sector1=image[256:512])
     names = {entry.name for entry in entries}
 
-    assert desc.title == "FN-UTLS"
-    assert names == _EXPECTED_UTLS_FILES
+    assert desc.title == "FN-BOOT"
+    assert names == _EXPECTED_BOOT_FILES
     assert "FBOOT" not in names
 
 
@@ -147,7 +147,7 @@ def _answer_confirm_prompt_if_visible(beebium) -> None:
     time.sleep(0.2)
 
 
-def _mount_utils_drive(beebium, fuji_device) -> None:
+def _mount_boot_drive(beebium, fuji_device) -> None:
     command(beebium, "*FHOST sd0:/")
     screen = wait_for_screen_text(beebium, "HOST: sd0:/", timeout=8.0)
     assert "PATH: /" in screen
@@ -157,7 +157,7 @@ def _mount_utils_drive(beebium, fuji_device) -> None:
     assert pkt.checksum_ok
     assert pkt.payload == bytes([HOST_VERSION, 5, 0]) + b"sd0:/"
 
-    command(beebium, "*FIN 7 fn-utls.ssd")
+    command(beebium, "*FIN 7 fn-boot.ssd")
     command(beebium, "*FMOUNT 7 0")
 
 
@@ -169,11 +169,11 @@ def _mount_utils_drive(beebium, fuji_device) -> None:
 def test_transient_command_resolves_from_disk(beebium, fuji_device, cmd, command_line):
     fuji_device.set_responder(
         disk_image_responder(
-            image_path=str(_SSD), fuji_slot=7, drive_slot=4, uri="sd0:/fn-utls.ssd"
+            image_path=str(_SSD), fuji_slot=7, drive_slot=4, uri="sd0:/fn-boot.ssd"
         )
     )
 
-    _mount_utils_drive(beebium, fuji_device)
+    _mount_boot_drive(beebium, fuji_device)
 
     command(beebium, "CLS")          # fresh screen so we only see this command's output
     command(beebium, command_line)
@@ -188,7 +188,7 @@ def test_transient_command_resolves_from_disk(beebium, fuji_device, cmd, command
     # to BASIC after the transient utility has already returned.
     for bad in ("Bad command", "Bad string", "Mistake", "Bad program"):
         assert bad not in screen, (
-            f"{cmd} did not run cleanly from FN-UTLS.ssd (got {bad!r}):\n{screen}"
+            f"{cmd} did not run cleanly from FN-BOOT.ssd (got {bad!r}):\n{screen}"
         )
 
 
@@ -259,17 +259,17 @@ def test_transient_command_resolves_via_library_drive(beebium, fuji_device):
     current_drv at &CD), so the re-parse read a garbage pointer and lost the
     library drive — *LIB was silently ignored. The fix reuses the already-parsed
     fuji_filename_buffer and just re-points at the library drive/dir."""
-    fnutls = _SSD.read_bytes()
+    fnboot = _SSD.read_bytes()
     other = _OTHER_SSD.read_bytes()
     fuji_device.set_responder(_two_image_responder({
-        7: ("sd0:/fn-utls.ssd", fnutls),   # host slot 7 -> fn-utls (has FLS)
+        7: ("sd0:/fn-boot.ssd", fnboot),   # host slot 7 -> fn-boot (has FLS)
         6: ("sd0:/other.ssd", other),      # host slot 6 -> other  (no FLS)
     }))
 
     command(beebium, "*FHOST sd0:/")
-    command(beebium, "*FIN 7 fn-utls.ssd")   # slot 7 -> fn-utls (has FLS)
+    command(beebium, "*FIN 7 fn-boot.ssd")   # slot 7 -> fn-boot (has FLS)
     command(beebium, "*FIN 6 other.ssd")     # slot 6 -> other  (no FLS)
-    command(beebium, "*FMOUNT 7 3")          # drive 3 = utils/library disk
+    command(beebium, "*FMOUNT 7 3")          # drive 3 = boot/library disk
     command(beebium, "*FMOUNT 6 0")          # drive 0 = current app disk (no FLS)
     command(beebium, "*LIB :3")
     command(beebium, "*DRIVE 0")
@@ -301,14 +301,14 @@ def test_transient_command_resolves_via_library_drive_when_current_drive_unmount
     Regression for the remaining bug where the initial current-drive lookup tried
     to load drive 0's catalog and threw "No disk" before cmd_run.s ever reached
     the library fallback."""
-    fnutls = _SSD.read_bytes()
+    fnboot = _SSD.read_bytes()
     fuji_device.set_responder(_two_image_responder({
-        7: ("sd0:/fn-utls.ssd", fnutls),   # host slot 7 -> fn-utls (has FLS)
+        7: ("sd0:/fn-boot.ssd", fnboot),   # host slot 7 -> fn-boot (has FLS)
     }))
 
     command(beebium, "*FHOST sd0:/")
-    command(beebium, "*FIN 7 fn-utls.ssd")   # slot 7 -> fn-utls (has FLS)
-    command(beebium, "*FMOUNT 7 3")          # drive 3 = utils/library disk
+    command(beebium, "*FIN 7 fn-boot.ssd")   # slot 7 -> fn-boot (has FLS)
+    command(beebium, "*FMOUNT 7 3")          # drive 3 = boot/library disk
     command(beebium, "*LIB :3")
     command(beebium, "*DRIVE 0")             # current drive remains unmounted
     fuji_device.clear()
@@ -331,10 +331,10 @@ def test_transient_command_receives_arguments(beebium, fuji_device):
     HostService to set the current host/path, carrying the typed path."""
     fuji_device.set_responder(
         disk_image_responder(
-            image_path=str(_SSD), fuji_slot=7, drive_slot=4, uri="sd0:/fn-utls.ssd"
+            image_path=str(_SSD), fuji_slot=7, drive_slot=4, uri="sd0:/fn-boot.ssd"
         )
     )
-    _mount_utils_drive(beebium, fuji_device)
+    _mount_boot_drive(beebium, fuji_device)
     fuji_device.clear()
 
     command(beebium, "*FCD bbc")

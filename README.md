@@ -55,7 +55,7 @@ device work has headroom on constrained BBC-class machines.
 ## Release bundle
 
 `make release` (alias `make dist`) stages the shippable bundle in
-`dist/release/`: the `FN-NET` / `FN-NET-M` ROM images, `FN-UTLS.ssd` (the
+`dist/release/`: the `FN-NET` / `FN-NET-M` ROM images, `FN-BOOT.ssd` (the
 boot/config utilities disk), and the `bas/` example apps as ready-to-mount SSDs.
 Choose which examples with `RELEASE_APPS="weather iss"`.
 
@@ -70,8 +70,8 @@ Beebium scripted suites:
 ./run_unit_tests.sh           # soft65c02 unit tests
 ```
 The Beebium runner (`integration-tests/beebium/run_product_tests.sh`) runs the
-product scripted suite plus the FN-UTLS command-from-disk tests. Tests that need
-FN-UTLS mounted as the library use the `needs_boot_utils_setup` marker and are
+product scripted suite plus the FN-BOOT command-from-disk tests. Tests that need
+FN-BOOT mounted as the library use the `needs_boot_utils_setup` marker and are
 covered by that command-from-disk lane. See
 `integration-tests/beebium/README.md`. Day-to-day Beebium commands:
 [integration-tests/beebium/RUNNING_TESTS.md](integration-tests/beebium/RUNNING_TESTS.md).

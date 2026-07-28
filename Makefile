@@ -120,9 +120,9 @@ all-machines:
 	  $(MAKE) BUILD_MACHINE=$$machine all || exit $$?; \
 	done
 
-# Stage the shippable bundle: FN-NET ROM(s) + FN-UTLS.ssd + example app SSDs
+# Stage the shippable bundle: FN-NET ROM(s) + FN-BOOT.ssd + example app SSDs
 # from bas/ (see scripts/build_release.sh). Override apps with RELEASE_APPS.
-release:               ## Stage dist/release: FN-NET ROM + FN-UTLS.ssd + bas examples
+release:               ## Stage dist/release: FN-NET ROM + FN-BOOT.ssd + bas examples
 	./scripts/build_release.sh
 
 # Report ROM size usage (segment usage, free bytes, per-feature subtotals) from

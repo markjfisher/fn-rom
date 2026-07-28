@@ -42,7 +42,7 @@ Optional for `real/` interop tests: build fujinet-nio and set `FUJINET_BIN`.
 ```bash
 ./run_tests.sh --no-beebium          # builds + unit tests only
 ./run_unit_tests.sh                  # soft65c02 unit tests
-./integration-tests/beebium/run_product_tests.sh   # Beebium scripted + FN-UTLS tests
+./integration-tests/beebium/run_product_tests.sh   # Beebium scripted + FN-BOOT tests
 cd integration-tests/beebium && ./run_pytest.sh scripted/ -q   # one-off pytest
 ./integration-tests/beebium/check_test_env.sh   # preflight (optional)
 ```

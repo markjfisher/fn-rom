@@ -10,7 +10,7 @@
         ; Self-register into the command group (Lever B). Present iff this
         ; module is built as a boot/config disk utility -- no resident command-table entry.
         ; *FUMOUNT (registered as "UMOUNT" + the F prefix). Kept to 7 chars so it
-        ; also works as a transient FN-UTLS.ssd binary (DFS leaf limit is 7).
+        ; also works as a transient FN-BOOT.ssd binary (DFS leaf limit is 7).
         cmd_entry "FUTILS_EXT", "UMOUNT", $3, $00, cmd_fs_funmount  ; <drive>
 
         .segment "CODE"

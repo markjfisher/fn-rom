@@ -84,7 +84,7 @@ cmd_adr_futils:
         .segment "CMDSTR_FUTILS"
 cmd_str_futils:
         cmd_entry "FUTILS", "FS",      $15, $00, cmd_fs_fhost
-        cmd_entry "FUTILS", "BOOT",    $00, $00, cmd_fs_fboot
+        cmd_entry "FUTILS", "BOOT",    $04, $00, cmd_fs_fboot
         cmd_entry "FUTILS", "HOST",    $15, $00, cmd_fs_fhost
         cmd_entry "FUTILS", "IN",      $0B, $08, cmd_fs_fin      ; (<slot>) <dos name>
         cmd_entry "FUTILS", "MOUNT",   $0A, $04, cmd_fs_fmount   ; <slot> (<drive>)

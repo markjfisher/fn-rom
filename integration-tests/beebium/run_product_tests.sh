@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Build the product ROM and run the Beebium scripted suite against it. Then run
-# the command-from-disk tests: build FN-UTLS.ssd and prove transient utilities
+# the command-from-disk tests: build FN-BOOT.ssd and prove transient utilities
 # loaded from the library disk emit the expected FujiBus frames.
 #
 # Pass-through pytest args are forwarded to the product scripted run (e.g. -v,
-# -k name). The FN-UTLS lane owns its focused test selection.
+# -k name). The FN-BOOT lane owns its focused test selection.
 set -euo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd)"
@@ -27,8 +27,8 @@ fi
 
 echo "==> Beebium scripted coverage lanes:"
 echo "    1. product = resident kernel + network + boot/config utilities on disk"
-echo "    2. utls    = FN-UTLS transient-command lane (rebuilds FN-UTLS.ssd + OTHER.ssd)"
-echo "==> Skips in the product lane are tests that need FN-UTLS mounted as a library."
+echo "    2. boot    = FN-BOOT transient-command lane (rebuilds FN-BOOT.ssd + OTHER.ssd)"
+echo "==> Skips in the product lane are tests that need FN-BOOT mounted as a library."
 echo "==> See integration-tests/beebium/RUNNING_TESTS.md for the coverage map."
 echo "==> Screen evidence: $evidence_msg"
 
@@ -48,7 +48,7 @@ echo "==> [product] beebium scripted"
 ( cd "$here" && echo "    expected skips: needs_boot_utils_setup" )
 ( cd "$here" && ./run_pytest.sh scripted/ -q "$@" )
 
-echo "==> [utls] command-from-disk tests (build product ROM + FN-UTLS.ssd)"
-"$root/scripts/run_fn_utls_test.sh"
+echo "==> [boot] command-from-disk tests (build product ROM + FN-BOOT.ssd)"
+"$root/scripts/run_fn_boot_test.sh"
 
-echo "==> coverage summary: product + utls lanes passed"
+echo "==> coverage summary: product + boot lanes passed"

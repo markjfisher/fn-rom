@@ -7,7 +7,7 @@ Sequence:
 
 ```
 *FMOUNT 7 3
-*. :3   # lists drive 3's files (fn-utls.ssd)
+*. :3   # lists drive 3's files (fn-boot.ssd)
 *LIB :3
 
 *FDRIVE

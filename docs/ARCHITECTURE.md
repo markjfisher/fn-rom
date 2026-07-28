@@ -15,7 +15,7 @@ boot/config disk binaries.
 | `src/kernel/` | always | filing-system vectors, transport/channel, init, command matcher + tables, bootstrap/recovery commands (`*FHOST`/`*FIN`/`*FMOUNT`/`*FBOOT`), `*CAT`/`*RUN` |
 | `src/disk/`   | always | DFS catalog + sector IO + the disk branch of the shared vectors |
 | `src/net/`    | always | network FujiBus builders, the network vector branch, `*FJSON`, OSWORD &78 |
-| `src/utils/`  | never in ROM | management/informational commands built onto the boot/config utilities disk, `FN-UTLS.ssd` |
+| `src/utils/`  | never in ROM | management/informational commands built onto the boot/config utilities disk, `FN-BOOT.ssd` |
 
 The disk and network paths meet only at well-defined dispatch points inside the
 shared MOS filing vectors (`OSFIND`/`OSBGET`/`OSBPUT`/close). There is no

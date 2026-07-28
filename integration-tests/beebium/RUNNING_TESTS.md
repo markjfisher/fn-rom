@@ -29,9 +29,9 @@ If you want the repository's normal full local gate, run:
 Coverage is complete when both Beebium lanes pass:
 
 1. product ROM scripted tests
-2. `FN-UTLS` command-from-disk lane
+2. `FN-BOOT` command-from-disk lane
 
-Skips in the product lane are expected only for tests that need `FN-UTLS.ssd`
+Skips in the product lane are expected only for tests that need `FN-BOOT.ssd`
 mounted as the library. Those are covered by the command-from-disk lane.
 
 Each Beebium test that launches an emulator writes screen evidence under
@@ -66,9 +66,9 @@ This is the main command for the Beebium scripted gate.
 This runs two lanes in sequence:
 
 1. `product`: build the product ROM and run the normal scripted suite
-2. `utls`: rebuild transient utility artifacts and run `test_command_from_disk.py`
+2. `boot`: rebuild transient utility artifacts and run `test_command_from_disk.py`
 
-The second lane is important. It creates `build/FN-UTLS.ssd` and
+The second lane is important. It creates `build/FN-BOOT.ssd` and
 `build/OTHER.ssd` and proves the transient-command-on-disk behavior.
 
 The script prints the evidence directory near the start of the run.
@@ -83,19 +83,19 @@ cd integration-tests/beebium
 ./run_pytest.sh scripted/ -q
 ```
 
-### 4. Transient command / FN-UTLS lane only
+### 4. Transient command / FN-BOOT lane only
 
 Use this when changing disk-loaded utility behavior such as `*FLS`, `*FDRIVE`,
 `*FCD`, library-drive fallback, or argument passing.
 
 ```bash
-./scripts/run_fn_utls_test.sh
+./scripts/run_fn_boot_test.sh
 ```
 
 This script:
 
 1. builds the product ROM
-2. rebuilds `build/FN-UTLS.ssd`
+2. rebuilds `build/FN-BOOT.ssd`
 3. rebuilds `build/OTHER.ssd`
 4. runs `integration-tests/beebium/scripted/test_command_from_disk.py`
 
@@ -103,7 +103,7 @@ If you need just one command-from-disk test after the assets exist:
 
 ```bash
 cd integration-tests/beebium
-FN_UTLS_TEST=1 FN_ROM=../../build/fujinet.rom \
+FN_BOOT_TEST=1 FN_ROM=../../build/fujinet.rom \
   ./run_pytest.sh scripted/test_command_from_disk.py -q -k library_drive
 ```
 
@@ -130,7 +130,7 @@ Supported today:
 - `02_osargs.yaml`
 - `03_open.yaml`
 - `04_ctests.yaml` is marked `needs_boot_utils_setup`; utility coverage runs in
-  the FN-UTLS command-from-disk lane
+  the FN-BOOT command-from-disk lane
 - `05_long_str.yaml`
 - `06_json.yaml`
 
@@ -182,23 +182,23 @@ or pass `--no-screen-evidence` through `run_pytest.sh` for direct pytest runs.
 
 ## Why The Skips Are Expected
 
-The normal scripted suite runs without `FN-UTLS.ssd` mounted as the library.
+The normal scripted suite runs without `FN-BOOT.ssd` mounted as the library.
 Tests that exercise disk-loaded utilities are skipped there and covered in the
-FN-UTLS lane.
+FN-BOOT lane.
 
 ### Marker meanings
 
 | Marker | Runs on | Skips on | Why |
 |--------|---------|----------|-----|
 | `needs_net` | product lane | never by product build | the network device is always resident |
-| `needs_boot_utils_setup` | FN-UTLS lane | product lane | utility requires the boot/config disk mounted as library |
+| `needs_boot_utils_setup` | FN-BOOT lane | product lane | utility requires the boot/config disk mounted as library |
 
 ### Meaning of each lane
 
 | Lane | What it proves | Expected skips |
 |------|----------------|----------------|
 | `product` | resident kernel, disk, network paths, normal scripted transport coverage | `needs_boot_utils_setup` |
-| `utls` | transient command loading from `FN-UTLS.ssd`, including library fallback and argument passing | none expected |
+| `boot` | transient command loading from `FN-BOOT.ssd`, including library fallback and argument passing | none expected |
 
 So the presence of skips does not mean coverage is missing. It means coverage is
 split across lanes.
@@ -208,15 +208,15 @@ split across lanes.
 For the Beebium scripted layer, coverage is complete when these both pass:
 
 1. product scripted lane
-2. `utls` command-from-disk lane
+2. `boot` command-from-disk lane
 
 That is exactly what `run_product_tests.sh` is intended to represent.
 
-The product lane covers resident ROM behavior. The `utls` lane covers transient
+The product lane covers resident ROM behavior. The `boot` lane covers transient
 utilities that are deliberately absent from the ROM.
 
 If only the product lane runs, coverage is not complete for transient utilities.
-If only the `utls` lane runs, coverage is not complete for resident ROM behavior.
+If only the `boot` lane runs, coverage is not complete for resident ROM behavior.
 
 ## Recommended Workflows
 
@@ -233,7 +233,7 @@ cd integration-tests/beebium
 Transient utility change:
 
 ```bash
-./scripts/run_fn_utls_test.sh -k fls
+./scripts/run_fn_boot_test.sh -k fls
 ```
 
 ### Before committing
@@ -268,10 +268,10 @@ These tests are additional confidence, not part of the scripted product gate.
 If you use the wrapper scripts, you do not need to remember to create these by
 hand:
 
-- `build/FN-UTLS.ssd`
+- `build/FN-BOOT.ssd`
 - `build/OTHER.ssd`
 
-`./scripts/run_fn_utls_test.sh` creates them.
+`./scripts/run_fn_boot_test.sh` creates them.
 `./integration-tests/beebium/run_product_tests.sh` includes that script as its
 final lane.
 
@@ -281,5 +281,5 @@ Use these commands as the mental model:
 
 - `./run_tests.sh` = repo-level local gate
 - `./integration-tests/beebium/run_product_tests.sh` = complete Beebium scripted gate
-- `./scripts/run_fn_utls_test.sh` = transient command / library-drive lane
+- `./scripts/run_fn_boot_test.sh` = transient command / library-drive lane
 - `cd integration-tests/beebium && ./run_pytest.sh scripted/...` = one scripted subset while iterating

@@ -109,15 +109,16 @@ fuji_unmount_disk:
         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; fuji_restore_boot_disk - Restore configured boot/config disk to drive 0
+; fuji_restore_boot_disk - Restore configured boot/config disk to drive A
 ;
+; Entry: A = target BBC drive number (0-3)
 ; Exit:  C clear on success, set on failure
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 fuji_restore_boot_disk:
         jsr     remember_xy_only
 
-        lda     #$00
+        and     #$03
         sta     fuji_disk_slot
 
         jsr     fuji_begin_transaction
@@ -132,7 +133,9 @@ fuji_restore_boot_disk:
         and     #DISK_MOUNT_RESP_FLAG_MOUNTED
         beq     @restore_boot_exit
 
-        jsr     mark_drive0_boot_mounted
+        ldx     fuji_disk_slot
+        txa
+        sta     fuji_drive_disk_map,x
 
 @restore_boot_exit:
         rts
@@ -164,12 +167,12 @@ fuji_begin_host_session:
         and     #DISK_MOUNT_RESP_FLAG_MOUNTED
         beq     @begin_session_exit
 
-        jsr     mark_drive0_boot_mounted
+        jsr     mark_drive0_only_boot_mounted
 
 @begin_session_exit:
         rts
 
-mark_drive0_boot_mounted:
+mark_drive0_only_boot_mounted:
         lda     #$00
         sta     fuji_drive_disk_map+0
         lda     #$FF

@@ -2,7 +2,7 @@
 
 Per `docs/ROM_ROLE_SPLIT_PLAN.md` §6 Phase 5 / Appendix C. Goal: make the build ×
 test matrix runnable locally with one command, retire the last legacy macros,
-update the docs, and ship the DISK+NET distributable (ROM + `FN-UTLS.ssd` + the
+update the docs, and ship the DISK+NET distributable (ROM + `FN-BOOT.ssd` + the
 `bas/` examples).
 
 ## Macro cleanup (retire `_FREE_MAP_`/`_UTILS_`/`_ROMS_`)
@@ -22,10 +22,10 @@ update the docs, and ship the DISK+NET distributable (ROM + `FN-UTLS.ssd` + the
 
 ## Utils-disk build fix
 
-The mid-commit had deleted `dist/fn-utls/!BOOT`, which `scripts/build_fn_utls.sh`
+The mid-commit had deleted `dist/fn-boot/!BOOT`, which `scripts/build_fn_boot.sh`
 needs — and `dist/` is wiped by `make clean` (`DIST_DIR`), so committing sources
-there was unsafe. The `!BOOT` + `README.md` now live in the `utils-bin/` source
-tree; the script and Phase 4 doc were updated. `FN-UTLS.ssd` now rebuilds after
+there was unsafe. The `!BOOT` + `README.md` now live in the `boot-bin/` source
+tree; the script and Phase 4 doc were updated. `FN-BOOT.ssd` now rebuilds after
 `make clean`.
 
 ## One-command build × test matrix (C.3)
@@ -37,7 +37,7 @@ tree; the script and Phase 4 doc were updated. `FN-UTLS.ssd` now rebuilds after
   the harness assembles against) and skips cleanly when `soft65c02_unit` is
   absent.
 - **`integration-tests/beebium/run_profile_tests.sh`**: extended from `net`/`disk`
-  to `all`/`net`/`disk` plus the FN-UTLS command-from-disk equivalence test, and
+  to `all`/`net`/`disk` plus the FN-BOOT command-from-disk equivalence test, and
   clears a stale PTY symlink left by a killed run (the cause of intermittent
   `wait_for_command` timeouts).
 
@@ -67,13 +67,13 @@ value, `all`. The transient management/informational command tests
 - `docs/ARCHITECTURE.md` — role-split layering section.
 - `integration-tests/beebium/README.md` — the per-profile marker/skip matrix.
 
-## Release bundle (ship FN-UTLS.ssd + bas/ examples)
+## Release bundle (ship FN-BOOT.ssd + bas/ examples)
 
 `make release` (alias `make dist`) → `scripts/build_release.sh` stages
 `dist/release/`:
 
 - `FN-NET` / `FN-NET-M` — the DISK+NET ROM for BBC and Master.
-- `FN-UTLS.ssd` — the transient utilities.
+- `FN-BOOT.ssd` — the transient utilities.
 - `examples/<app>.ssd` — bundled `bas/` apps (default: `weather iss net fcs`;
   override with `RELEASE_APPS=…`).
 - `README.txt` — what each file is + the utils-disk bootstrap.
@@ -87,7 +87,7 @@ Full matrix, clean run:
 | `[all]`  | 19 passed / 5 skipped |
 | `[net]`  | 11 passed / 13 skipped |
 | `[disk]` | 7 passed / 17 skipped |
-| `[utls]` command-from-disk | 1 passed |
+| `[boot]` command-from-disk | 1 passed |
 
 All three profile ROMs build for BBC + Master. The intermittent failures seen
 during bring-up were a stale `/tmp/fujinet-pty-e2e` symlink (left by
@@ -97,7 +97,7 @@ full-suite comparison (both 19 passed) and now guarded against in the runner.
 ## Transient utility binaries — all commands (generalised)
 
 Phase 4 proved the disk-binary mechanism on `*FDRIVE` only; Phase 5 generalised it
-to every transient command. `scripts/build_fn_utls.sh` now builds them all from a
+to every transient command. `scripts/build_fn_boot.sh` now builds them all from a
 single generated wrapper:
 
 - **Leaf names = the full typed command.** The FS `*RUN` reads the leaf from the
@@ -113,8 +113,8 @@ single generated wrapper:
 - **Shared helpers** used only between utilities (e.g. `confirm`,
   `flist_resolve_target`, `cmd_flist`) are linked into the binaries that need them.
 
-Verified by `scripted/test_command_from_disk.py` (run via `scripts/run_fn_utls_test.sh`):
-every command resolves+runs from `FN-UTLS.ssd` (no "Bad command"/"Bad string"),
+Verified by `scripted/test_command_from_disk.py` (run via `scripts/run_fn_boot_test.sh`):
+every command resolves+runs from `FN-BOOT.ssd` (no "Bad command"/"Bad string"),
 `*FCD <path>` shows arguments reach the handler, and `*FDRIVE` emits frames
 identical to the resident command. **19 passed.**
 
@@ -125,8 +125,8 @@ identical to the resident command. **19 passed.**
 
 Transient utilities no longer call moving resident ROM routine addresses
 directly. `src/kernel/util_abi.s` reserves `$8030..$80FF` for fixed-address JMP
-veneers, and `scripts/build_fn_utls.sh` derives the slot order from that source
-when it generates `build/fn-utls/rom_abi.s`. The ROM can move the real
+veneers, and `scripts/build_fn_boot.sh` derives the slot order from that source
+when it generates `build/fn-boot/rom_abi.s`. The ROM can move the real
 implementations behind the veneers without forcing a utility disk rebuild, as
 long as the table start and slot order are preserved.
 
@@ -136,7 +136,7 @@ signature in the reserved ABI area, then leaves that ROM paged. This protects
 against running a utility while another ROM is active, or against pairing a new
 utility disk with an old ROM that has the `FujiNet` title but no ABI table.
 
-This does not yet make one universal BBC+Master `FN-UTLS.ssd`. Some utilities
+This does not yet make one universal BBC+Master `FN-BOOT.ssd`. Some utilities
 still import resident workspace/data symbols directly, so the generated
 `rom_abi.s` must use the matching target machine's labels for those addresses.
 The disks also intentionally use different load/exec addresses: BBC stays at

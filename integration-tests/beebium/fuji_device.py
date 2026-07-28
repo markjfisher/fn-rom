@@ -1070,7 +1070,7 @@ def disk_image_responder(
             if pkt.command == FILE_CMD_RESOLVE_PATH:
                 return build_resolve_path_response(uri, uri, device=pkt.device)
             if pkt.command == fp.CMD_LIST:
-                return build_list_response(formatted_text="FN-UTLS\n", device=pkt.device)
+                return build_list_response(formatted_text="FN-BOOT\n", device=pkt.device)
         if fuji is not None and pkt.device == fuji.FUJI_DEVICE_ID:
             if pkt.command == fuji.CMD_GET_MOUNT:
                 return build_get_mount_response(slot=fuji_slot, enabled=True, uri=uri)

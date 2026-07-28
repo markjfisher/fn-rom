@@ -321,7 +321,7 @@ fujibus_disk_unmount:
 
 fujibus_disk_restore_boot:
         lda     #DISK_CMD_RESTORE_BOOT
-        jmp     fujibus_disk_slot_command
+        bne     fujibus_disk_slot_command
 
 ; fujibus_disk_begin_host_session
 ;   Start a new host-side disk session, clearing runtime recovery and restoring

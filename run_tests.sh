@@ -2,7 +2,7 @@
 # One-command product build x test runner.
 #
 # Builds the product ROMs, reports ROM sizes, runs the soft65c02 unit tests, then
-# the Beebium scripted suite plus the FN-UTLS command-from-disk tests. Set
+# the Beebium scripted suite plus the FN-BOOT command-from-disk tests. Set
 # BEEBIUM_HOME and FUJINET_NIO_HOME (see docs/DEVELOPMENT.md).
 #
 # Usage:
@@ -40,7 +40,7 @@ echo "############################################################"
 if [ "$RUN_BEEBIUM" = "1" ]; then
   echo
   echo "############################################################"
-  echo "# 4/4  Beebium scripted tests + FN-UTLS"
+  echo "# 4/4  Beebium scripted tests + FN-BOOT"
   echo "############################################################"
   ./integration-tests/beebium/run_product_tests.sh
 else

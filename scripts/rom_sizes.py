@@ -9,7 +9,7 @@ For each map file:
 
 The grouping is a residency view. The product ROM always includes disk and net;
 `src/utils` modules are expected to be absent from normal ROM maps because they
-are built into FN-UTLS.ssd instead.
+are built into FN-BOOT.ssd instead.
 
 Usage:
     scripts/rom_sizes.py build/fujinet.rom.map [build/fujinet-master.rom.map ...]

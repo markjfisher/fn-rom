@@ -32,8 +32,8 @@ Source is grouped by role under `src/`:
 - `src/disk/` — always compiled: DFS catalog + sector IO + the disk vector branch.
 - `src/net/` — always compiled: network FujiBus builders, the network vector
   branch, `*FJSON`, and the OSWORD &78 API.
-- `src/utils/` — disk-only utility sources, built as standalone `FN-UTLS.ssd`
-  binaries by `scripts/build_fn_utls.sh`; they are not linked into the resident
+- `src/utils/` — disk-only utility sources, built as standalone `FN-BOOT.ssd`
+  binaries by `scripts/build_fn_boot.sh`; they are not linked into the resident
   ROM.
 
 Do **not** reintroduce the retired product builds or macros
@@ -44,4 +44,4 @@ functionality; utility apps belong on the boot/config disk.
 `make sizes` reports ROM usage. `./run_tests.sh` runs the full local test path;
 `./run_unit_tests.sh` runs the unit tests. Beebium scripted tests that need the
 boot/config disk mounted use `needs_boot_utils_setup` and are covered by the
-FN-UTLS command-from-disk lane.
+FN-BOOT command-from-disk lane.

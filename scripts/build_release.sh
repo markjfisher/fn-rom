@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 # Stage the product release bundle (docs/ROM_ROLE_SPLIT_PLAN.md §1, §6
-# Phase 5): the FN-NET ROM(s) + FN-UTLS.ssd (boot/config utilities disk) + the
+# Phase 5): the FN-NET ROM(s) + FN-BOOT.ssd (boot/config utilities disk) + the
 # bundled BASIC example apps as ready-to-mount SSDs.
 #
-# A "BBC release" = fn-rom + FN-UTLS.ssd + the example disks; pair it with a
+# A "BBC release" = fn-rom + FN-BOOT.ssd + the example disks; pair it with a
 # BBC-flavoured fujinet build on the device side.
 #
 # Output: dist/release/
 #   FN-NET          BBC product ROM image  (sideways ROM, load $8000)
 #   FN-NET-M        Master product ROM image
-#   FN-UTLS.ssd     BBC boot/config utilities disk
-#   FN-UTLS-M.ssd   Master boot/config utilities disk
+#   FN-BOOT.ssd     BBC boot/config utilities disk
+#   FN-BOOT-M.ssd   Master boot/config utilities disk
 #   examples/<app>.ssd   one SSD per bundled bas/ example
 #   README.txt      what each file is + how to use it
 #
@@ -33,15 +33,15 @@ cp "$root/build/fujinet.rom" "$REL/FN-NET"
 make -C "$root" all BUILD_MACHINE=MASTER >/dev/null
 cp "$root/build/fujinet-master.rom" "$REL/FN-NET-M"
 
-echo "==> building FN-UTLS.ssd (BBC boot/config utilities disk)"
-BUILD_MACHINE=BBC FN_UTLS_SSD="$root/build/FN-UTLS.ssd" \
-  "$root/scripts/build_fn_utls.sh" >/dev/null
-cp "$root/build/FN-UTLS.ssd" "$REL/FN-UTLS.ssd"
+echo "==> building FN-BOOT.ssd (BBC boot/config utilities disk)"
+BUILD_MACHINE=BBC FN_BOOT_SSD="$root/build/FN-BOOT.ssd" \
+  "$root/scripts/build_fn_boot.sh" >/dev/null
+cp "$root/build/FN-BOOT.ssd" "$REL/FN-BOOT.ssd"
 
-echo "==> building FN-UTLS-M.ssd (Master boot/config utilities disk)"
-BUILD_MACHINE=MASTER FN_UTLS_SSD="$root/build/FN-UTLS-M.ssd" \
-  "$root/scripts/build_fn_utls.sh" >/dev/null
-cp "$root/build/FN-UTLS-M.ssd" "$REL/FN-UTLS-M.ssd"
+echo "==> building FN-BOOT-M.ssd (Master boot/config utilities disk)"
+BUILD_MACHINE=MASTER FN_BOOT_SSD="$root/build/FN-BOOT-M.ssd" \
+  "$root/scripts/build_fn_boot.sh" >/dev/null
+cp "$root/build/FN-BOOT-M.ssd" "$REL/FN-BOOT-M.ssd"
 
 # Example app SSDs. Needs basictool + dfstool (see README); skip gracefully if
 # absent so a ROM-only release still builds.
@@ -65,28 +65,26 @@ fn-rom product release bundle
 
 Contents
   FN-NET         BBC sideways ROM (network device + disk; management
-                 utilities are on the boot/config disk, FN-UTLS.ssd). Burn to a
+                 utilities are on the boot/config disk, FN-BOOT.ssd). Burn to a
                  sideways ROM or load into an emulator at $8000.
   FN-NET-M       As above, for the BBC Master.
-  FN-UTLS.ssd    BBC boot/config utilities disk: config tools plus
+  FN-BOOT.ssd    BBC boot/config utilities disk: config tools plus
                  management/informational utilities (*FORM, *COPY, *FLS,
                  *FDRIVE, ...). Copy to the fujinet device's SD card when using
                  FN-NET.
-  FN-UTLS-M.ssd  Master boot/config utilities disk. Copy as the boot/config disk
+  FN-BOOT-M.ssd  Master boot/config utilities disk. Copy as the boot/config disk
                  when using FN-NET-M.
   examples/      Ready-to-mount demo apps (one SSD each).
 
 Using the boot/config utilities disk
   The utilities are not in the ROM in this build; they load on demand from
-  FN-UTLS.ssd via the MOS unrecognised-command -> *RUN fallthrough. Mount it and
+  FN-BOOT.ssd via the MOS unrecognised-command -> *RUN fallthrough. Mount it and
   make it the library so a *command resolves there from any current drive:
 
-    *FHOST sd0:/
-    *FIN 7 fn-utls.ssd      ; bind the utils image to slot 7
-    *FMOUNT 7 3             ; mount slot 7 as BBC drive 3
+    *FBOOT 3                ; restore the configured boot disk to BBC drive 3
     *LIB :3                 ; library = drive 3
 
-  (FN-UTLS.ssd ships a !BOOT that does exactly this; *OPT 4,3 to auto-run it.)
+  (FN-BOOT.ssd ships a !BOOT that does exactly this; *OPT 4,3 to auto-run it.)
 
 Pair with a BBC-flavoured fujinet build on the device side.
 

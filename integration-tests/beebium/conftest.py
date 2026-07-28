@@ -93,14 +93,14 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "needs_net: requires the network device")
     config.addinivalue_line(
         "markers",
-        "needs_boot_utils_setup: requires FN-UTLS.ssd mounted as the library; "
+        "needs_boot_utils_setup: requires FN-BOOT.ssd mounted as the library; "
         "covered by the command-from-disk test lane",
     )
 
 
 def pytest_collection_modifyitems(config, items):
     skip_utils = pytest.mark.skip(
-        reason="needs FN-UTLS.ssd mounted as the library; covered by test_command_from_disk.py"
+        reason="needs FN-BOOT.ssd mounted as the library; covered by test_command_from_disk.py"
     )
     for item in items:
         if "needs_boot_utils_setup" in item.keywords:
