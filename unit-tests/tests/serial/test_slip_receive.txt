@@ -1,0 +1,33 @@
+///////////////////////////////
+marker $$ SLIP receive stores decoded FujiBus frame $$
+///////////////////////////////
+
+memory load rom #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+
+symbols remove "__.*"
+
+; HostService SET_CURRENT success response:
+;   decoded: F0 02 08 00 FC 01 00 01
+;   SLIP:    C0 ... C0
+; This catches both the byte-4 checksum split and the full-frame byte store.
+memory write #0xC000 0x(C0,F0,02,08,00,FC,01,00,01,C0)
+memory write $mock_slip_len 0x(0A,00)
+memory write $mock_slip_pos 0x(00,00)
+
+memory fill #0x1700~#0x171F 0xAA
+memory write $buffer_ptr 0x(00,17)
+
+registers flush
+
+run $t_receive_packet until (CP = $t_receive_packet_end OR cycle_count > 20000)
+
+assert CP = $t_receive_packet_end $$completed receive call$$
+assert $result_len_lo = 0x08 $$decoded length low byte$$
+assert $result_len_hi = 0x00 $$decoded length high byte$$
+assert $result_checksum_calc = 0xFC $$streamed checksum matches frame$$
+assert $result_checksum_wire = 0xFC $$wire checksum byte captured from offset 4$$
+assert #0x1700 ~ 0x(F0,02,08,00,FC,01,00,01) $$decoded frame bytes stored in packet buffer$$
