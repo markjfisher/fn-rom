@@ -29,9 +29,9 @@ SRC_DIR = REPO_ROOT / "src"
 OS_S = SRC_DIR / "os.s"
 
 
-def object_make_target(src: Path, current_target: str) -> str:
+def object_make_target(src: Path, build_variant: str) -> str:
     rel = src.relative_to(SRC_DIR).with_suffix(".o")
-    return f"obj/{current_target}/{rel.as_posix()}"
+    return f"obj/{build_variant}/{rel.as_posix()}"
 
 
 def parse_make_cl65_line(make_n_stdout: str) -> list[str] | None:
@@ -60,9 +60,9 @@ def compile_staging(
     repo: Path,
     src: Path,
     staging: Path,
-    current_target: str,
+    build_variant: str,
 ) -> tuple[int, str]:
-    obj = object_make_target(src, current_target)
+    obj = object_make_target(src, build_variant)
     mn = subprocess.run(
         ["make", "-n", "-B", obj],
         cwd=str(repo),
@@ -157,7 +157,7 @@ def splice_imports(
 def process_file(
     src: Path,
     zp: set[str],
-    current_target: str,
+    build_variant: str,
     dry_run: bool,
     verbose: bool,
 ) -> bool:
@@ -173,7 +173,7 @@ def process_file(
     staging.write_text("\n".join(stripped) + ("\n" if stripped else ""), encoding="utf-8")
 
     try:
-        _rc, combined = compile_staging(REPO_ROOT, src, staging, current_target)
+        _rc, combined = compile_staging(REPO_ROOT, src, staging, build_variant)
     except Exception as e:
         print(f"{src}: compile setup failed: {e}", file=sys.stderr)
         return False
@@ -228,7 +228,7 @@ def main() -> int:
     )
     args = ap.parse_args()
 
-    current_target = os.environ.get("CURRENT_TARGET", "none")
+    build_variant = os.environ.get("BUILD_VARIANT", os.environ.get("BUILD_MACHINE", "BBC"))
     zp = parse_exportzp_symbols(OS_S)
 
     (REPO_ROOT / "build").mkdir(parents=True, exist_ok=True)
@@ -247,7 +247,7 @@ def main() -> int:
 
     ok = True
     for src in sources:
-        if not process_file(src, zp, current_target, args.dry_run, args.verbose):
+        if not process_file(src, zp, build_variant, args.dry_run, args.verbose):
             ok = False
 
     scratch = REPO_ROOT / "build" / "clean-imports-staging"

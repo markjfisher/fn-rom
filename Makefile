@@ -2,13 +2,12 @@
 #
 
 PROGRAM = fujinet
-CURRENT_TARGET = none
+CC65_TARGET = none
 BUILD_MACHINE ?= BBC
 
 # There is one product ROM: disk + network device, with bulky utilities on the
-# boot/config utilities disk. FEATURE_NET remains defined until the older
-# network guards are retired, but there is no no-network product target.
-BUILD_VARIANT = $(CURRENT_TARGET)-$(BUILD_MACHINE)
+# boot/config utilities disk.
+BUILD_VARIANT = $(BUILD_MACHINE)
 SUPPORTED_BUILD_MACHINES := BBC MASTER
 
 # Interface selection - can be overridden on command line
@@ -95,16 +94,12 @@ ASM_INCLUDES := $(call rwildcard,$(SRCDIR)/,*.inc)
 # remove trailing and leading spaces.
 SOURCES := $(strip $(SOURCES))
 
-# Network device is always present in the product ROM.
-ASFLAGS += --asm-define FEATURE_NET
-CFLAGS += -DFEATURE_NET
-
 # Utilities are always transient disk binaries, except kernel recovery commands
 # that live under src/kernel/commands.
 SOURCES := $(filter-out $(call rwildcard,$(SRCDIR)/utils/,*.s),$(SOURCES))
 
-# convert from src/your/long/path/foo.[c|s] to obj/<variant>/your/long/path/foo.o
-# we need the variant because target/machine macro changes must not reuse stale objects
+# convert from src/your/long/path/foo.[c|s] to obj/<machine>/your/long/path/foo.o
+# we need the variant because machine macro changes must not reuse stale objects
 OBJ1 := $(SOURCES:.c=.o)
 OBJECTS := $(OBJ1:.s=.o)
 OBJECTS := $(OBJECTS:$(SRCDIR)/%=$(OBJDIR)/$(BUILD_VARIANT)/%)
@@ -162,17 +157,17 @@ vpath %.c $(SRC_INC_DIRS)
 
 $(OBJDIR)/$(BUILD_VARIANT)/%.o: %.c | $(OBJDIR)/$(BUILD_VARIANT)
 	@mkdir -p $(dir $@)
-	$(CC) -t $(CURRENT_TARGET) -c $(CFLAGS) --create-dep $(@:.o=.d) --listing $(@:.o=.lst) -Ln $@.lbl -o $@ $<
+	$(CC) -t $(CC65_TARGET) -c $(CFLAGS) --create-dep $(@:.o=.d) --listing $(@:.o=.lst) -Ln $@.lbl -o $@ $<
 
 vpath %.s $(SRC_INC_DIRS)
 
 $(OBJDIR)/$(BUILD_VARIANT)/%.o: %.s $(ASM_INCLUDES) | $(OBJDIR)/$(BUILD_VARIANT)
 	@mkdir -p $(dir $@)
-	$(CC) -t $(CURRENT_TARGET) -c $(ASFLAGS) --create-dep $(@:.o=.d) --listing $(@:.o=.lst) -Ln $@.lbl -o $@ $<
+	$(CC) -t $(CC65_TARGET) -c $(ASFLAGS) --create-dep $(@:.o=.d) --listing $(@:.o=.lst) -Ln $@.lbl -o $@ $<
 
 
 $(BUILD_DIR)/$(PROGRAM_TGT): $(OBJECTS) $(LIBS) | $(BUILD_DIR)
-	$(CC) -t $(CURRENT_TARGET) $(LDFLAGS) --mapfile $@.map -Ln $@.lbl -o $@ $^
+	$(CC) -t $(CC65_TARGET) $(LDFLAGS) --mapfile $@.map -Ln $@.lbl -o $@ $^
 $(PROGRAM_TGT): $(BUILD_DIR)/$(PROGRAM_TGT) | $(BUILD_DIR)
 
 ssd: all-machines | $(BUILD_DIR) $(BUILD_DIR)/ssd
@@ -186,7 +181,7 @@ ssd: all-machines | $(BUILD_DIR) $(BUILD_DIR)/ssd
 # Optional: make clean-imports CLEAN_IMPORTS_ARGS='--dry-run src/commands/cmd_cat.s'
 clean-imports:
 	@mkdir -p build
-	@CURRENT_TARGET=$(CURRENT_TARGET) BUILD_INTERFACE=$(BUILD_INTERFACE) python3 scripts/clean_imports.py $(CLEAN_IMPORTS_ARGS)
+	@BUILD_VARIANT=$(BUILD_VARIANT) BUILD_INTERFACE=$(BUILD_INTERFACE) python3 scripts/clean_imports.py $(CLEAN_IMPORTS_ARGS)
 
 
 # Use "./" in front of all dirs being removed as a simple safety guard to

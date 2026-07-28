@@ -8,10 +8,8 @@
         .export bp_entry
         .export ai_suggestion
         .export updext
-.if .defined(FEATURE_NET)
         .export network_flush_write
         .export network_bput
-.endif
 
         .importzp aws_tmp00
         .importzp aws_tmp01
@@ -51,10 +49,8 @@
         .import fuji_ch_write_pos_mid
         .import fuji_channel_start
         .import fuji_intch
-.if .defined(FEATURE_NET)
         .import fuji_network_flush_mode
         .import fujibus_network_write
-.endif
         .import load_then_inc_seq_ptr_yintch
         .import remember_axy
         .import report_error_cb
@@ -86,7 +82,6 @@ bputv_entry:
         ; Save byte to write (A) before handle check clobbers it
         pha
 
-.if .defined(FEATURE_NET)
         ; Check for network channel by testing handle bytes
         lda     fuji_ch_handle_low,y
         ora     fuji_ch_handle_high,y
@@ -94,7 +89,6 @@ bputv_entry:
         pla                             ; restore byte for network_bput
         jmp     network_bput
 not_network:
-.endif
         pla                             ; restore byte for bp_entry
         jmp     bp_entry
 
@@ -211,10 +205,9 @@ err_file_read_only:
 ; Write buffer state per-channel (independent from read state):
 ;   fuji_ch_write_count,y    — number of buffered bytes ($1A)
 ;   fuji_ch_write_pos_low..hi — write stream position ($0A..$0C)
-; FEATURE_NET only — the disk BPUT path above is always present.
+; The disk BPUT path above is always present.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-.if .defined(FEATURE_NET)
 network_bput:
         pha                             ; save byte on stack
 
@@ -311,4 +304,3 @@ err_write_fail:
         nop
         sec
         rts
-.endif  ; FEATURE_NET (network_bput / network_flush_write)
