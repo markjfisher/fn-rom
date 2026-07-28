@@ -1,0 +1,9 @@
+name: SLIP split receive stores header and caller payload
+
+configs:
+  - ${UNIT_TEST_DIR}/harness/harness.yaml
+
+src_files:
+  - test_slip_receive_to_payload.s
+
+test_script: test_slip_receive_to_payload.txt

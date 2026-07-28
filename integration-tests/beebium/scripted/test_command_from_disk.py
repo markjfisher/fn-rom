@@ -18,6 +18,7 @@ import time
 import pytest
 
 from beebium.client.screen import dump_screen
+from fujinet_tools.bbc_dfs import parse_dfs_catalogue_090
 from fujinet_tools import fileproto as fp
 from fujinet_tools import fujiproto as fuji
 from fujinet_tools import diskproto as dp
@@ -44,6 +45,27 @@ from helpers import command, wait_for_screen_text
 _BUILD = pathlib.Path(__file__).resolve().parents[3] / "build"
 _SSD = _BUILD / "FN-UTLS.ssd"
 _OTHER_SSD = _BUILD / "OTHER.ssd"
+
+_EXPECTED_UTLS_FILES = {
+    "!BOOT",
+    "ACCESS",
+    "COPY",
+    "DESTROY",
+    "FCD",
+    "FDRIVE",
+    "FLIST",
+    "FLS",
+    "FNEW",
+    "FORM",
+    "FOUT",
+    "FREE",
+    "FUMOUNT",
+    "MAP",
+    "RENAME",
+    "TITLE",
+    "VERIFY",
+    "WIPE",
+}
 
 pytestmark = pytest.mark.skipif(
     os.environ.get("FN_UTLS_TEST") != "1" or not _SSD.is_file(),
@@ -88,7 +110,6 @@ def test_fdrive_runs_from_library_disk(beebium, fuji_device):
 # starts. This is the per-command generalisation of the FDRIVE equivalence test.
 _ALL_TRANSIENT_COMMANDS = [
     ("*FDRIVE", "*FDRIVE"),
-    ("*FBOOT", "*FBOOT"),
     ("*FCD", "*FCD"),
     ("*FLS", "*FLS"),
     ("*FLIST", "*FLIST"),
@@ -105,6 +126,16 @@ _ALL_TRANSIENT_COMMANDS = [
     ("*FORM", "*FORM"),
     ("*FREE", "*FREE"),
 ]
+
+
+def test_fn_utls_catalog_matches_disk_only_role_split():
+    image = _SSD.read_bytes()
+    desc, entries = parse_dfs_catalogue_090(sector0=image[:256], sector1=image[256:512])
+    names = {entry.name for entry in entries}
+
+    assert desc.title == "FN-UTLS"
+    assert names == _EXPECTED_UTLS_FILES
+    assert "FBOOT" not in names
 
 
 def _answer_confirm_prompt_if_visible(beebium) -> None:

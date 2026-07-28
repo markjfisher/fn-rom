@@ -1,0 +1,76 @@
+///////////////////////////////
+marker $$ SLIP split receive stores header and caller payload $$
+///////////////////////////////
+
+memory load rom #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+
+symbols remove "__.*"
+
+; Three FileService APPSTORE_READ responses:
+;   1. payload "ABC" fits in the caller buffer.
+;   2. payload "WXYZ" exceeds a 2-byte caller buffer and must be drained.
+;   3. payload "OK" proves the oversized frame did not desynchronise SLIP.
+memory write #0xC000 0x(C0,FE,21,0A,00,F1,01,00,41,42,43,C0,C0,FE,21,0B,00,8F,01,00,57,58,59,5A,C0,C0,FE,21,09,00,C4,01,00,4F,4B,C0)
+memory write $mock_slip_len 0x(24,00)
+memory write $mock_slip_pos 0x(00,00)
+
+; ---------------------------------------------------------------------------
+; Response 1: full payload fits.
+memory fill #0x1700~#0x171F 0xAA
+memory fill #0x2400~#0x241F 0xAA
+memory write $buffer_ptr 0x(00,17)
+memory write $aws_tmp06 0x(00,24)
+memory write $aws_tmp08 0x(03,00)
+
+registers flush
+run $t_receive_to_payload until (CP = $t_receive_to_payload_end OR cycle_count > 20000)
+
+assert CP = $t_receive_to_payload_end $$completed fit receive call$$
+assert $result_len_lo = 0x0A $$fit decoded length low byte$$
+assert $result_len_hi = 0x00 $$fit decoded length high byte$$
+assert $result_checksum_calc = 0xF1 $$fit streamed checksum matches frame$$
+assert $result_checksum_wire = 0xF1 $$fit wire checksum byte captured from offset 4$$
+assert #0x1700 ~ 0x(FE,21,0A,00,F1,01,00) $$fit header and status stored in packet buffer$$
+assert #0x2400 ~ 0x(41,42,43) $$fit payload stored in caller buffer$$
+
+; ---------------------------------------------------------------------------
+; Response 2: payload exceeds capacity, so only the first two bytes are stored.
+memory fill #0x1700~#0x171F 0xAA
+memory fill #0x2400~#0x241F 0xAA
+memory write $buffer_ptr 0x(00,17)
+memory write $aws_tmp06 0x(00,24)
+memory write $aws_tmp08 0x(02,00)
+
+registers flush
+run $t_receive_to_payload until (CP = $t_receive_to_payload_end OR cycle_count > 20000)
+
+assert CP = $t_receive_to_payload_end $$completed oversize receive call$$
+assert $result_len_lo = 0x0B $$oversize decoded length low byte includes drained bytes$$
+assert $result_len_hi = 0x00 $$oversize decoded length high byte$$
+assert $result_checksum_calc = 0x8F $$oversize streamed checksum includes drained bytes$$
+assert $result_checksum_wire = 0x8F $$oversize wire checksum byte captured from offset 4$$
+assert #0x1700 ~ 0x(FE,21,0B,00,8F,01,00) $$oversize header and status stored in packet buffer$$
+assert #0x2400 ~ 0x(57,58,AA,AA) $$oversize stores only caller capacity bytes$$
+
+; ---------------------------------------------------------------------------
+; Response 3: next frame still decodes, proving the oversized frame was drained.
+memory fill #0x1700~#0x171F 0xAA
+memory fill #0x2400~#0x241F 0xAA
+memory write $buffer_ptr 0x(00,17)
+memory write $aws_tmp06 0x(00,24)
+memory write $aws_tmp08 0x(02,00)
+
+registers flush
+run $t_receive_to_payload until (CP = $t_receive_to_payload_end OR cycle_count > 20000)
+
+assert CP = $t_receive_to_payload_end $$completed post-oversize receive call$$
+assert $result_len_lo = 0x09 $$post-oversize decoded length low byte$$
+assert $result_len_hi = 0x00 $$post-oversize decoded length high byte$$
+assert $result_checksum_calc = 0xC4 $$post-oversize streamed checksum matches frame$$
+assert $result_checksum_wire = 0xC4 $$post-oversize wire checksum byte captured from offset 4$$
+assert #0x1700 ~ 0x(FE,21,09,00,C4,01,00) $$post-oversize header and status stored in packet buffer$$
+assert #0x2400 ~ 0x(4F,4B,AA,AA) $$post-oversize payload stored in caller buffer$$
