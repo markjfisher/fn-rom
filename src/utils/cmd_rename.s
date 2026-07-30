@@ -23,8 +23,8 @@
 
         .include "fujinet.inc"
 
-        ; Self-register into the command group (Lever B). Present iff this
-        ; module is built as a boot/config disk utility -- no resident command-table entry.
+        ; Registration is local to the transient boot-disk utility binary;
+        ; there is no resident command-table entry.
         cmd_entry "FUJIFS_EXT", "RENAME",  $10, $00, cmd_fs_rename   ; <old fsp> <new fsp>
 
         .segment "CODE"
@@ -84,4 +84,3 @@ cmd_fs_rename:
         bpl     @rname_loop
 
         jmp     save_cat_to_disk        ; Save catalog
-

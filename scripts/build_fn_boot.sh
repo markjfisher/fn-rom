@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # Build FN-BOOT.ssd: the boot disk. Each transient utility is a
 # standalone RAM binary that calls the resident ROM through the stable utility
-# ABI table (role-split Lever B disk execution).
+# ABI table used by transient boot-disk utilities.
 #
 # Mechanism: build the product ROM, generate a ca65 source (rom_abi.s)
 # that maps resident routine imports to fixed jump-table slots and direct data
 # imports to the target machine's stable workspace addresses, then assemble each
 # utility (+ duplicated utils-internal helpers + a generated entry wrapper) for
-# RAM and link it against rom_abi.o. See docs/ROM_ROLE_SPLIT_PHASE4.md /
-# docs/ROM_ROLE_SPLIT_PHASE5.md.
+# RAM and link it against rom_abi.o. See docs/BOOT_DISK_PHASE4.md /
+# docs/BOOT_DISK_PHASE5.md.
 #
 # Filename note: when a transient command is typed, fn-rom leaves service &04
 # unclaimed and the MOS asks the FS to *RUN it as a file. The FS reads the leaf
@@ -310,9 +310,8 @@ build_util WIPE    cmd_fs_wipe     "$U/cmd_wipe.s" "$U/confirm.s"
 build_util TITLE   cmd_fs_title    "$U/cmd_title.s"
 build_util ACCESS  cmd_fs_access   "$U/cmd_access.s"
 build_util RENAME  cmd_fs_rename   "$U/cmd_rename.s"
-build_util VERIFY  cmd_fs_verify   "$U/cmd_verify_format.s"
 build_util MAP     cmd_fs_map      "$U/cmd_free_map.s"
-build_util FORM    cmd_fs_form     "$U/cmd_verify_format.s"
+build_util FORM    cmd_fs_form     "$U/cmd_format.s" "$U/confirm.s"
 build_util FREE    cmd_fs_free     "$U/cmd_free_map.s"
 
 echo "==> staging + bundling FN-BOOT.ssd ($(ls "$STAGE" | grep -vc '\.inf$') files)"

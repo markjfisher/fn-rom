@@ -11,6 +11,7 @@
         .export fuji_create_disk_data
         .export fuji_get_mount_slot_data
         .export fuji_mount_disk_data
+        .export fuji_reinitialize_disk_data
         .export fuji_read_block_data
         .export fuji_read_catalog_data
         .export fuji_read_disc_title_data
@@ -30,6 +31,11 @@ fuji_mount_disk_data:
 
 fuji_create_disk_data:
         lda     #$00
+        rts
+
+fuji_reinitialize_disk_data:
+        lda     #$00
+        sec
         rts
 
 fuji_unmount_disk_data:

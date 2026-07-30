@@ -38,7 +38,7 @@ NET = {
 UTILS = {
     "cmd_copy", "cmd_wipe", "cmd_destroy", "cmd_rename", "cmd_access",
     "cmd_title", "cmd_info", "cmd_fs_fnew", "cmd_fout", "cmd_funmount",
-    "cmd_free_map", "cmd_verify_format", "confirm",
+    "cmd_free_map", "cmd_format", "confirm",
     "cmd_fcd", "cmd_flist", "cmd_fdrive", "flist_resolve_target",
 }
 # Disk catalog / sector IO / disk-side of the filing operations (always present,

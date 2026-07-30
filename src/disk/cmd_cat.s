@@ -54,7 +54,13 @@ fscv5_starCAT:
         jsr     set_text_pointer_yx
         jsr     param_optional_drive_no
         jsr     fuji_read_catalog
-        bmi     err_cat
+        bpl     :+
+        jsr     print_string
+        .byte   "No disk"
+        nop
+        jsr     print_newline
+        rts
+:
 
         ldy     #$FF
         sty     aws_tmp07

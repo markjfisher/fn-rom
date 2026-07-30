@@ -50,6 +50,44 @@ HOST_CMD_SELECT_HISTORY = 0x04
 HOST_CMD_DELETE_HISTORY = 0x05
 DISK_CMD_BEGIN_HOST_SESSION = 0x0B
 FILE_CMD_RESOLVE_PATH = 0x05
+FILE_CMD_APPSTORE_READ = 0x21
+FILE_CMD_APPSTORE_WRITE = 0x22
+FILE_CMD_APPSTORE_DELETE = 0x23
+
+
+def _appstore_prefix(payload: bytes) -> tuple[str, str, int]:
+    if len(payload) < 5 or payload[0] != 1:
+        return "", "", 0
+    ns_len = int.from_bytes(payload[1:3], "little")
+    pos = 3
+    namespace = payload[pos : pos + ns_len].decode("utf-8")
+    pos += ns_len
+    key_len = int.from_bytes(payload[pos : pos + 2], "little")
+    pos += 2
+    key = payload[pos : pos + key_len].decode("utf-8")
+    return namespace, key, pos + key_len
+
+
+def build_appstore_read_response(
+    data: bytes | None, *, offset: int = 0, command: int = FILE_CMD_APPSTORE_READ
+) -> bytes:
+    exists = data is not None
+    chunk = (data or b"")[offset:]
+    flags = (0x02 if exists else 0) | 0x01
+    body = bytes([1, flags]) + b"\0\0" + struct.pack("<I", offset)
+    body += struct.pack("<H", len(chunk)) + chunk
+    return fb.build_fuji_response_wire(0xFE, command, 0, body)
+
+
+def appstore_slot_read_response(pkt: FujiPacket, slot: int, uri: str, mode: str) -> Optional[bytes]:
+    if pkt.device != 0xFE or pkt.command != FILE_CMD_APPSTORE_READ:
+        return None
+    namespace, key, pos = _appstore_prefix(pkt.payload)
+    if namespace != "config-nio" or key != f"slot-{slot:03d}":
+        return build_appstore_read_response(None)
+    offset = int.from_bytes(pkt.payload[pos : pos + 4], "little")
+    flags = 0x01 if mode.lower() in ("r", "ro") else 0
+    return build_appstore_read_response(bytes([1, flags]) + uri.encode(), offset=offset)
 
 
 def default_success_responder(pkt: FujiPacket) -> bytes:
@@ -497,6 +535,23 @@ def build_disk_create_response(
     )
     return fb.build_fuji_response_wire(dp.DISK_DEVICE_ID, dp.CMD_CREATE, status, body)
 
+def build_disk_reinitialize_response(
+    *,
+    slot: int,
+    sector_count: int,
+    sector_size: int = 256,
+    img_type: int = 2,
+    status: int = 0,
+) -> bytes:
+    return build_disk_mount_like_response(
+        command=dp.CMD_REINITIALIZE,
+        slot=slot,
+        sector_count=sector_count,
+        sector_size=sector_size,
+        img_type=img_type,
+        status=status,
+    )
+
 
 def build_disk_unmount_response(status: int = 0) -> bytes:
     if dp is None:
@@ -872,6 +927,9 @@ def mounted_disk_responder(
 
     def _resp(pkt: FujiPacket) -> Optional[bytes]:
         nonlocal mount_enabled
+        slot_reply = appstore_slot_read_response(pkt, slot, uri, mode)
+        if slot_reply is not None:
+            return slot_reply
         if fuji is not None and pkt.device == fuji.FUJI_DEVICE_ID:
             if pkt.command == fuji.CMD_GET_MOUNTS:
                 return build_get_mounts_response(_mounts_text())
@@ -946,15 +1004,15 @@ def full_stack_responder(
     return _resp
 
 
-# --- Disk-image-backed responder (role-split Lever B: *RUN a util from disk) ---
+# --- Disk-image-backed responder: *RUN a transient utility from the boot disk ---
 
 def build_disk_info_response(
     *, slot: int, sector_count: int, sector_size: int = 256,
-    img_type: int = 2, status: int = 0,
+    img_type: int = 2, mounted: bool = True, status: int = 0,
 ) -> bytes:
     if dp is None:
         raise RuntimeError("fujinet_tools.diskproto is unavailable")
-    flags = 0x01  # inserted
+    flags = 0x01 if mounted else 0x00
     body = (
         bytes([dp.DISKPROTO_VERSION, flags])
         + struct.pack("<H", 0)
@@ -1032,7 +1090,7 @@ def build_disk_mount_like_response(
 
 def disk_image_responder(
     *, image_path, fuji_slot: int, drive_slot: int, uri: str,
-    formatted_mounts: str = "0: AUTO\n", inner: "Responder | None" = None,
+    formatted_mounts: str | None = None, inner: "Responder | None" = None,
 ):
     """Serve a real DFS .ssd image so fn-rom can *RUN a file from it: Fuji slot
     lookup + Disk mount/info + Disk READ_SECTOR/WRITE_SECTOR.
@@ -1042,6 +1100,13 @@ def disk_image_responder(
         image = bytearray(fh.read())
     nsec = max(1, len(image) // 256)
     host_resp = host_service_responder([uri])
+    appstore: dict[tuple[str, str], bytes] = {}
+    runtime_mounts: dict[int, tuple[str, str]] = {}
+    available_images: dict[str, bytearray] = {
+        uri: image,
+        uri.rsplit("/", 1)[-1]: image,
+    }
+    mounted_images: dict[int, bytearray] = {}
 
     def _read_sector(lba: int, maxb: int) -> bytes:
         start = lba * 256
@@ -1059,6 +1124,24 @@ def disk_image_responder(
         return len(data)
 
     def _resp(pkt: "FujiPacket"):
+        if pkt.device == 0xFE and pkt.command in (
+            FILE_CMD_APPSTORE_READ,
+            FILE_CMD_APPSTORE_WRITE,
+            FILE_CMD_APPSTORE_DELETE,
+        ):
+            namespace, key, pos = _appstore_prefix(pkt.payload)
+            store_key = (namespace, key)
+            if pkt.command == FILE_CMD_APPSTORE_DELETE:
+                appstore.pop(store_key, None)
+                return default_success_responder(pkt)
+            offset = int.from_bytes(pkt.payload[pos : pos + 4], "little")
+            if pkt.command == FILE_CMD_APPSTORE_WRITE:
+                data_len = int.from_bytes(pkt.payload[pos + 4 : pos + 6], "little")
+                data = pkt.payload[pos + 6 : pos + 6 + data_len]
+                old = appstore.get(store_key, b"")
+                appstore[store_key] = old[:offset] + data + old[offset + len(data) :]
+                return default_success_responder(pkt)
+            return build_appstore_read_response(appstore.get(store_key), offset=offset)
         if inner is not None:
             r = inner(pkt)
             if r is not None:
@@ -1077,25 +1160,87 @@ def disk_image_responder(
             if pkt.command == fuji.CMD_SET_MOUNT:
                 return build_set_mount_response()
             if pkt.command == fuji.CMD_GET_MOUNTS:
-                return build_get_mounts_response(formatted_mounts)
+                text = formatted_mounts
+                if text is None:
+                    text = "".join(
+                        f"{drive}: {mode} {mount_uri}\n"
+                        for drive, (mode, mount_uri) in sorted(runtime_mounts.items())
+                    )
+                return build_get_mounts_response(text)
         if dp is not None and pkt.device == dp.DISK_DEVICE_ID:
+            if pkt.command == dp.CMD_CREATE:
+                uri_len = int.from_bytes(pkt.payload[9:11], "little")
+                create_uri = pkt.payload[11:11 + uri_len].decode("utf-8")
+                sector_count = int.from_bytes(pkt.payload[5:9], "little")
+                available_images[create_uri] = bytearray(max(1, sector_count) * 256)
+                return build_disk_create_response()
             if pkt.command == dp.CMD_MOUNT:
-                return build_disk_mount_response(slot=drive_slot, sector_count=nsec)
+                drive = max(0, pkt.payload[1] - 1)
+                flags = pkt.payload[2]
+                uri_len = pkt.payload[6]
+                mount_uri = pkt.payload[8:8 + uri_len].decode("utf-8")
+                mount_image = available_images.get(mount_uri)
+                if mount_image is None:
+                    return build_disk_mount_response(
+                        slot=pkt.payload[1], status=5
+                    )
+                mode = "RO" if flags & 0x01 else "AUTO"
+                runtime_mounts[drive] = (mode, mount_uri)
+                mounted_images[pkt.payload[1]] = mount_image
+                return build_disk_mount_response(
+                    slot=pkt.payload[1],
+                    sector_count=max(1, len(mount_image) // 256),
+                )
+            if pkt.command == dp.CMD_UNMOUNT:
+                drive = max(0, pkt.payload[1] - 1)
+                runtime_mounts.pop(drive, None)
+                mounted_images.pop(pkt.payload[1], None)
+                return build_disk_unmount_response()
+            if pkt.command == dp.CMD_REINITIALIZE:
+                slot = pkt.payload[1]
+                sector_size = int.from_bytes(pkt.payload[2:4], "little")
+                sector_count = int.from_bytes(pkt.payload[4:8], "little")
+                mount_image = mounted_images.get(slot)
+                if mount_image is None:
+                    return build_disk_reinitialize_response(
+                        slot=slot, sector_count=sector_count, status=5
+                    )
+                if sector_size != 256 or sector_count not in (400, 800):
+                    return build_disk_reinitialize_response(
+                        slot=slot, sector_count=sector_count, status=5
+                    )
+                mount_image.clear()
+                mount_image.extend(bytes(sector_count * sector_size))
+                mount_image[0:5] = b"BLANK"
+                mount_image[0x106] = (sector_count >> 8) & 0x03
+                mount_image[0x107] = sector_count & 0xFF
+                return build_disk_reinitialize_response(
+                    slot=slot, sector_count=sector_count
+                )
             if pkt.command == dp.CMD_INFO:
-                return build_disk_info_response(slot=drive_slot, sector_count=nsec)
+                mount_image = mounted_images.get(pkt.payload[1])
+                return build_disk_info_response(
+                    slot=pkt.payload[1],
+                    mounted=mount_image is not None,
+                    sector_count=max(1, len(mount_image or b"") // 256),
+                )
             if pkt.command == dp.CMD_READ_SECTOR:
+                mount_image = mounted_images.get(pkt.payload[1], bytearray())
                 lba = int.from_bytes(pkt.payload[2:6], "little")
                 maxb = int.from_bytes(pkt.payload[6:8], "little") or 256
+                start = lba * 256
+                data = bytes(mount_image[start:start + min(maxb, 256)])
+                if len(data) < 256:
+                    data += bytes(256 - len(data))
                 return build_disk_read_sector_response(
-                    slot=drive_slot, lba=lba, data=_read_sector(lba, maxb)
-                )
+                    slot=pkt.payload[1], lba=lba, data=data)
             if pkt.command == dp.CMD_WRITE_SECTOR:
                 lba = int.from_bytes(pkt.payload[2:6], "little")
                 data_len = int.from_bytes(pkt.payload[6:8], "little")
                 data = pkt.payload[8:8 + data_len]
                 written = _write_sector(lba, data)
                 return build_disk_write_sector_response(
-                    slot=drive_slot, lba=lba, written_len=written
+                    slot=pkt.payload[1], lba=lba, written_len=written
                 )
         return default_success_responder(pkt)
 

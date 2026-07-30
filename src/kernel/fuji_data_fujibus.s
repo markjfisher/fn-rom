@@ -7,6 +7,7 @@
         .export fuji_create_disk_data
         .export fuji_get_mount_slot_data
         .export fuji_mount_disk_data
+        .export fuji_reinitialize_disk_data
         .export fuji_read_block_data
         .export fuji_read_catalog_data
         .export fuji_read_disc_title_data
@@ -31,6 +32,7 @@
         .import fujibus_disk_begin_host_session
         .import fujibus_disk_create
         .import fujibus_disk_mount
+        .import fujibus_disk_reinitialize
         .import fujibus_disk_read_sector
         .import fujibus_disk_read_sector_partial
         .import fujibus_disk_restore_boot
@@ -284,6 +286,9 @@ fuji_mount_disk_data:
 
 fuji_create_disk_data:
         jmp     fujibus_disk_create
+
+fuji_reinitialize_disk_data:
+        jmp     fujibus_disk_reinitialize
 
 fuji_unmount_disk_data:
         jmp     fujibus_disk_unmount

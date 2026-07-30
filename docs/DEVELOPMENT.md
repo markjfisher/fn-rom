@@ -50,4 +50,4 @@ cd integration-tests/beebium && ./run_pytest.sh scripted/ -q   # one-off pytest
 ## Further reading
 
 - [integration-tests/beebium/RUNNING_TESTS.md](../integration-tests/beebium/RUNNING_TESTS.md) — coverage map
-- [docs/ROM_ROLE_SPLIT_PLAN.md](ROM_ROLE_SPLIT_PLAN.md) — product ROM and boot/config disk policy
+- [docs/BOOT_DISK_PLAN.md](BOOT_DISK_PLAN.md) — product ROM and boot/config disk policy

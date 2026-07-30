@@ -17,8 +17,8 @@
 
         .include "fujinet.inc"
 
-        ; Self-register into the command group (Lever B). Present iff this
-        ; module is built as a boot/config disk utility -- no resident command-table entry.
+        ; Registration is local to the transient boot-disk utility binary;
+        ; there is no resident command-table entry.
         cmd_entry "FUJIFS_EXT", "WIPE",    $2, $00, cmd_fs_wipe      ; <afsp>
 
         .segment "CODE"
@@ -54,4 +54,3 @@ cmd_fs_wipe:
         jsr     get_cat_nextentry       ; Get next matching entry
         bcs     @wipeloop               ; Loop if more files
         rts
-

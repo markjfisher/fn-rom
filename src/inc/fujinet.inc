@@ -57,9 +57,11 @@ DISK_CMD_CLEAR_CHANGED = $06
 DISK_CMD_CREATE      = $07
 DISK_CMD_RESTORE_BOOT = $0A
 DISK_CMD_BEGIN_HOST_SESSION = $0B
+DISK_CMD_REINITIALIZE = $0C
 
 ; Disk mount flags / response flags
 DISK_MOUNT_FLAG_READONLY      = $01
+DISK_MOUNT_FLAG_LAZY          = $02
 DISK_MOUNT_RESP_FLAG_MOUNTED  = $01
 DISK_MOUNT_RESP_FLAG_READONLY = $02
 
@@ -154,7 +156,7 @@ HOST_CMD_DELETE_HISTORY = $05
 FN_HEADER_SIZE = 6
 FN_PARAMS_OFFSET = 4
 ; Private workspace (PWS) layout for FujiBus: packet buffer at PWS+0.
-; Plan: first 256 bytes were reserved for the packet slice; remaining PWS for strings.
+; Plan: first 256 bytes were reserved for the packet buffer; remaining PWS for strings.
 ; Disk read decodes 274 bytes (7+11 + 256-byte sector)
 ; at PWS+0 until responses are streamed or split.
 FUJI_PWS_PACKET_OFFSET = 0

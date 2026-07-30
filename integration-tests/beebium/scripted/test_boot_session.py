@@ -16,6 +16,7 @@ from fuji_device import (
     build_disk_mount_like_response,
     build_disk_mount_response,
     build_disk_read_sector_response,
+    appstore_slot_read_response,
     build_get_mount_response,
     build_set_mount_response,
     default_success_responder,
@@ -47,13 +48,17 @@ def _make_marker_ssd(tmp_path: Path, title: str, marker: str) -> Path:
 
 class BootSessionResponder:
     def __init__(self, boot_image: bytes, work_image: bytes):
+        self.boot_image = boot_image
+        self.work_image = work_image
         self.images = {
             1: boot_image,  # boot/config disk in BBC drive 0
-            2: work_image,  # *FMOUNT 1 0 maps Fuji slot 1 to DiskDevice slot 2
             4: boot_image,  # *FBOOT 3 restores the boot/config disk to drive 3
         }
 
     def __call__(self, pkt):
+        slot_reply = appstore_slot_read_response(pkt, 1, "sd0:/work.ssd", "auto")
+        if slot_reply is not None:
+            return slot_reply
         if pkt.device == fuji.FUJI_DEVICE_ID:
             if pkt.command == fuji.CMD_GET_MOUNT:
                 slot = pkt.payload[0]
@@ -70,6 +75,7 @@ class BootSessionResponder:
             return default_success_responder(pkt)
 
         if pkt.command == DISK_CMD_BEGIN_HOST_SESSION:
+            self.images[1] = self.boot_image
             return build_disk_mount_like_response(
                 command=DISK_CMD_BEGIN_HOST_SESSION,
                 slot=1,
@@ -79,6 +85,7 @@ class BootSessionResponder:
 
         if pkt.command == dp.CMD_RESTORE_BOOT:
             slot = pkt.payload[1]
+            self.images[slot] = self.boot_image
             return build_disk_mount_like_response(
                 command=dp.CMD_RESTORE_BOOT,
                 slot=slot,
@@ -88,6 +95,7 @@ class BootSessionResponder:
 
         if pkt.command == dp.CMD_MOUNT:
             slot = pkt.payload[1]
+            self.images[slot] = self.work_image
             return build_disk_mount_response(
                 slot=slot,
                 sector_count=len(self.images.get(slot, b"")) // 256,
@@ -151,13 +159,15 @@ def _mount_work_drive(beebium, fuji_device) -> None:
     pkt = fuji_device.wait_for_command(dp.DISK_DEVICE_ID, dp.CMD_MOUNT, timeout=8.0)
     assert pkt is not None
     assert pkt.checksum_ok
-    assert pkt.payload == dp.build_mount_req(
-        slot=2,
+    expected = bytearray(dp.build_mount_req(
+        slot=1,
         uri="sd0:/work.ssd",
         readonly=False,
         type_override=0,
         sector_size_hint=0,
-    )
+    ))
+    expected[2] |= 0x02
+    assert pkt.payload == bytes(expected)
 
 
 def test_hard_break_begins_host_session_and_restores_boot_disk(

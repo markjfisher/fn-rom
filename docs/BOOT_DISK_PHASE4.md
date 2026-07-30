@@ -1,6 +1,6 @@
-# Phase 4 — Transient utilities (Lever B) + utilities SSD
+# Phase 4 — Transient utilities on the boot disk
 
-Per `docs/ROM_ROLE_SPLIT_PLAN.md` §5.1/§5.2/§5.5 / §6 Phase 4. Makes the management and
+Per `docs/BOOT_DISK_PLAN.md` §5.1/§5.2/§5.5 / §6 Phase 4. Makes the management and
 informational commands an optional, on-disk feature: `UTILITIES=resident` links them into the ROM
 (`make all-rom`); `UTILITIES=disk` drops them from the ROM (they ship on `FN-BOOT.ssd` and load on
 demand via the `*RUN` fallthrough).
@@ -25,12 +25,13 @@ from their `src/utils/` modules (`cmd_entry "FUJIFS_EXT"/"FUTILS_EXT", …`), ex
 *FJSON. So they are absent from `cmd_tables.s` and **vanish from the command table** when their module
 isn't linked — no `.if` in the table. Transient set:
 
-- FUJIFS_EXT: `ACCESS COPY DESTROY FORM RENAME TITLE VERIFY WIPE` (+ `FREE`/`MAP` from cmd_free_map.s)
+- FUJIFS_EXT: `ACCESS COPY DESTROY FORM RENAME TITLE WIPE` (+ `FREE`/`MAP` from cmd_free_map.s)
 - FUTILS_EXT: `CD DRIVE LS LIST UNMOUNT OUT NEW`
 
 `*INFO` stays **resident** (moved `cmd_info.s` to `src/kernel/commands/`): it has a resident FSCV hook
 (`fscv10_starINFO` in the filing-vector table) and shares `cmd_info_loop` with the resident `*EX`, so
-it cannot be cleanly transient. `*FORM`/`*VERIFY` share `cmd_verify_format.s`; both self-register.
+it cannot be cleanly transient. `*FORM` is implemented by `cmd_format.s` and
+self-registers in its transient utility binary.
 
 ## Verification
 
@@ -87,7 +88,7 @@ resident command. **1 passed** — the disk-loaded utility behaves identically.
 ## Generalising to the other commands (completed in Phase 5)
 
 All transient commands are now built as disk binaries — see
-`docs/ROM_ROLE_SPLIT_PHASE5.md`. The wrapper is generated per handler (no hand-written `boot-bin/<cmd>.s`
+`docs/BOOT_DISK_PHASE5.md`. The wrapper is generated per handler (no hand-written `boot-bin/<cmd>.s`
 files), with two argument modes: no-arg commands (`*FDRIVE`) point the GSINIT pointer at an in-binary
 empty line; arg commands point `text_pointer` at the `*RUN` tail (`fuji_text_ptr_*`). The FS `*RUN`
 looks the file up under the **full** typed name (the parser rewinds to offset 0), so leaves are
@@ -99,4 +100,4 @@ flow (`*FCD <path>`), and that `*FDRIVE` emits frames identical to the resident 
 
 `_ROMS_`/`_UTILS_` (ROMS command, UTILS help topic) and `_FREE_MAP_` were retired
 in Phase 5 — folded into the `UTILITIES_RESIDENT` lever / the `src/utils/`
-location. See `docs/ROM_ROLE_SPLIT_PHASE5.md`.
+location. See `docs/BOOT_DISK_PHASE5.md`.

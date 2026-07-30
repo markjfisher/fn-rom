@@ -1,6 +1,6 @@
 # Phase 2 — Source reorg into kernel/disk/net/utils (results)
 
-Per `docs/ROM_ROLE_SPLIT_PLAN.md` §5.2 / §6 Phase 2. Goal: express feature membership by source
+Per `docs/BOOT_DISK_PLAN.md` §5.2 / §6 Phase 2. Goal: express feature membership by source
 *location*, so later phases can compose `SOURCES` from selected directories. Pure move — everything
 is still compiled (≈ the `ALL` build), so behaviour (and ROM size) is unchanged.
 
@@ -11,7 +11,7 @@ is still compiled (≈ the `ALL` build), so behaviour (and ROM size) is unchange
 | `src/kernel/` | transport (`fujibus`, `fuji_link_slip`, `fuji_data_fujibus`), channel (`serial/`, `fuji_serial`, `fuji_userport`), init (`fuji_init`), matcher/help (`services/`, `help`), Fuji device builder (`fujibus_fuji`), shared MOS filing-vector shells (`vectors/`), and resident/bootstrap commands (`commands/`: `cmd_fhost`/`cmd_fin`/`cmd_fmount`, `cmd_run`, `cmd_drive`, `cmd_dir_lib`, `cmd_tables`, `cmd_enable`, `cmd_ex`, `cmd_opt`, `cmd_delete`, `commands`), plus core (`os`, `print_utils`, `remember_axy`, `rom_header`, `service`, `spool`, `user_flag`, `utils`, `workspace_utils`, `channels`, `crc7`, `fuji_host`) | always |
 | `src/disk/` | catalog + sector IO (`fs_functions`, `fujibus_disk`, `fuji_mount`, `fuji_fs`, `cmd_cat`) and the disk-side vector files (`vectors/fastgb`, `vectors/gbpb_functions`, `vectors/filev/*`) | always |
 | `src/net/` | `fnnet.s` (+ `fnnet/` reason includes), `fujibus_network.s`, `cmd_fjson.s` (OSWORD &78 network ABI + builders + `*FJSON`) | Phase 3: when `FEATURE_NET` |
-| `src/utils/` | transient management + informational commands (`cmd_copy`, `cmd_wipe`, `cmd_destroy`, `cmd_rename`, `cmd_access`, `cmd_title`, `cmd_info`, `cmd_fs_fnew`, `cmd_fout`, `cmd_funmount`, `cmd_free_map`, `cmd_verify_format`, `confirm`, `cmd_fcd`, `cmd_flist`, `cmd_fdrive`, `flist_resolve_target`) | Phase 4: when `UTILITIES_RESIDENT` |
+| `src/utils/` | transient management + informational commands (`cmd_copy`, `cmd_wipe`, `cmd_destroy`, `cmd_rename`, `cmd_access`, `cmd_title`, `cmd_info`, `cmd_fs_fnew`, `cmd_fout`, `cmd_funmount`, `cmd_free_map`, `cmd_format`, `confirm`, `cmd_fcd`, `cmd_flist`, `cmd_fdrive`, `flist_resolve_target`) | Phase 4: when `UTILITIES_RESIDENT` |
 | `src/inc/` | shared includes (`fujinet.inc`, `macros.inc`, `os.inc`) — unchanged include dir | n/a |
 
 The shared filing-vector shells (`findv_entry`, `bgetv_entry`, `bputv_entry`, `filev_entry`,

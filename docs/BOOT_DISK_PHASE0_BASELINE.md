@@ -1,6 +1,6 @@
 # Phase 0 — Measure & baseline (results)
 
-Captured per `docs/ROM_ROLE_SPLIT_PLAN.md` §6 Phase 0. This is the **green baseline** every
+Captured per `docs/BOOT_DISK_PLAN.md` §6 Phase 0. This is the **green baseline** every
 later refactor phase must preserve, plus the documented byte budget that sizes the three builds.
 
 > Toolchain note (rev): the soft65c02 unit suite has been **dropped as a gate** for this transition —

@@ -1,4 +1,4 @@
-# fn-rom Product ROM Plan — Resident kernel + boot/config utilities
+# fn-rom Product Plan — Resident ROM + transient boot-disk utilities
 
 **Status:** Chosen direction (rev 4 — single product ROM)
 **Author:** (drafted with Claude Code)
@@ -7,8 +7,8 @@
 > **Rev 2 note.** An earlier draft proposed three peer profiles (FS / DEV / COMBINED).
 > Analysing the actual users (§3) showed there is **no network-without-disk user**, so the model
 > collapses to a **base + option**: disk is always resident, network is a strict additive feature.
-> A second, orthogonal lever — moving rarely-used commands out of ROM onto disk — is what relieves
-> the long-term size pressure. This revision is built around those two levers.
+> Moving rarely-used commands out of ROM into boot-disk utilities relieves the
+> long-term size pressure. This revision is built around those two decisions.
 >
 > **Rev 3 decision.** The boot/config disk is now a first-class part of the BBC experience, not an
 > afterthought. Going forward, resident ROM bytes are reserved for device/protocol functionality that
@@ -163,7 +163,7 @@ The product shape is orthogonal to `BUILD_MACHINE` (BBC|MASTER) and `BUILD_INTER
   resident; only commands whose bulk is self-contained become transient.*
 
 **Transient — on the boot/config utilities SSD (`FN-BOOT`), loaded on demand:**
-- Disk management whose bulk is self-contained: `*FORM`, `*DESTROY`, `*WIPE`, `*VERIFY`, `*ACCESS`,
+- Disk management whose bulk is self-contained: `*FORM`, `*DESTROY`, `*WIPE`, `*ACCESS`,
   `*TITLE`, `*INFO`, `*RENAME`, `*COPY`, `*FNEW`, `*FREE`/`*MAP`, `*ROMS`, `*FUMOUNT`, `*FOUT`
 - **Informational / navigation F-commands** (not needed to position a disk): `*FCD` (covered by
   `*FHOST <path>`), `*FLIST`/`*FLS` (~361+250 lines — large directory listing), `*FDRIVE` (shows what
@@ -284,7 +284,7 @@ resident-utility variants; those product variants are retired.
 
 ## 6. Current implementation path
 
-The role-split migration has served its purpose and is no longer the product model. Current work should follow this path:
+The resident-ROM/boot-disk migration has served its purpose and is no longer the product model. Current work should follow this path:
 
 1. Build one resident product ROM with disk and network always present.
 2. Keep management and informational utilities out of resident ROM. Build them from `src/utils/` into `FN-BOOT.ssd` with `scripts/build_fn_boot.sh`.

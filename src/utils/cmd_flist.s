@@ -48,12 +48,13 @@
         .import param_get_string
         .import print_char
         .import print_newline
+        .import print_string
         .import report_error
 
         .include "fujinet.inc"
 
-        ; Self-register into the command group (Lever B). Present iff this
-        ; module is built as a boot/config disk utility -- no resident command-table entry.
+        ; Registration is local to the transient boot-disk utility binary;
+        ; there is no resident command-table entry.
         cmd_entry "FUTILS_EXT", "LS",      $7, $00, cmd_fs_flist     ; (<path>)
         cmd_entry "FUTILS_EXT", "LIST",    $7, $00, cmd_fs_flist     ; (<path>)
 
@@ -91,7 +92,8 @@ one_param:
         jsr     param_get_string
         sta     fuji_filename_len
         jsr     cfl_copy_arg_uri
-        bcc     cfl_start_list_restore
+        bcs     err_bad_flist_path
+        jmp     cfl_start_list_restore
 
 err_bad_flist_path:
         jsr     err_bad
@@ -102,13 +104,67 @@ err_bad_flist_path:
 ; Use current HOST stored in FujiNet (no path argument): send empty spec.
 ;------------------------------------------------------------------------------
 cfl_use_current_uri:
+        jsr     cfl_current_host_is_set
+        bcs     :+
+        jsr     print_string
+        .byte   "No host"
+        nop
+        jsr     print_newline
+        jmp     cfl_done_ok
+:
         lda     #$00
         sta     fuji_current_fs_len
         jsr     get_fuji_fs_uri_addr_to_aws_tmp00
         ldy     #$00
         lda     #$00
         sta     (aws_tmp00),y
-        beq     cfl_start_list_restore
+        jmp     cfl_start_list_restore
+
+;------------------------------------------------------------------------------
+; Ask HostService whether an empty FileDevice spec has a current HOST to use.
+; Output: C=1 when a non-empty current HOST is set, C=0 otherwise.
+;------------------------------------------------------------------------------
+cfl_current_host_is_set:
+        ldy     #$06
+        lda     #FN_PROTOCOL_VERSION
+        sta     (buffer_ptr),y
+
+        lda     #FN_DEVICE_HOST
+        sta     fuji_bus_tx_device
+        lda     #HOST_CMD_GET_CURRENT
+        sta     fuji_bus_tx_command
+        jsr     fujibus_set_payload_buffer_ptr
+
+        lda     #$01
+        ldx     #$00
+        jsr     fujibus_send_packet
+        jsr     fujibus_receive_packet
+
+        ldy     #$05
+        lda     (buffer_ptr),y
+        cmp     #$01
+        bne     @not_set
+        iny
+        lda     (buffer_ptr),y
+        bne     @not_set
+        iny
+        lda     (buffer_ptr),y
+        cmp     #FN_PROTOCOL_VERSION
+        bne     @not_set
+
+        ; A successful response still needs a non-empty host. HostService uses
+        ; a 16-bit length, although BBC clients currently accept only <=255.
+        ldy     #$08
+        lda     (buffer_ptr),y
+        iny
+        ora     (buffer_ptr),y
+        beq     @not_set
+        sec
+        rts
+
+@not_set:
+        clc
+        rts
 
 ;------------------------------------------------------------------------------
 ; Copy raw path/URI argument into the FS URI buffer.

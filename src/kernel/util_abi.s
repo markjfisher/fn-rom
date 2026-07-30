@@ -29,6 +29,7 @@
         .import fuji_fs_uri_ptr
         .import fuji_get_slot
         .import fuji_restore_boot_disk
+        .import fuji_reinitialize_disk
         .import fuji_set_disk_slot_from_mapping_or_error
         .import fuji_unmount_disk
         .import fujibus_receive_packet
@@ -198,6 +199,8 @@ fuji_util_abi_y_add8:
         jmp     y_add8
 fuji_util_abi_y_sub8:
         jmp     y_sub8
+fuji_util_abi_fuji_reinitialize_disk:
+        jmp     fuji_reinitialize_disk
 fuji_util_abi_end:
 fuji_util_abi_signature:
         .byte   "FNABI1", 0

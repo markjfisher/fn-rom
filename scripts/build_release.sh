@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Stage the product release bundle (docs/ROM_ROLE_SPLIT_PLAN.md §1, §6
+# Stage the product release bundle (docs/BOOT_DISK_PLAN.md §1, §6
 # Phase 5): the FN-NET ROM(s) + FN-BOOT.ssd (boot/config utilities disk) + the
 # bundled BASIC example apps as ready-to-mount SSDs.
 #

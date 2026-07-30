@@ -146,7 +146,7 @@ Lists memory subsystems in map order (`MemoryStack`) with address ranges.
 memory write #0x1234 0x(00,01,02,…)
 ```
 
-Write a slice of contiguous bytes at the given address.
+Write a contiguous range of bytes at the given address.
 
 Additionally writing supports strings, including escaped chars `\t`, `\n`, `\r`, `\0`, hexadecimal escape sequences `\xAA` where `AA` is a two-digit hex value (e.g., `\x0D`, `\xFF`), and line continuation with `\` at the end of a line.
 

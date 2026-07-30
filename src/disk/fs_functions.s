@@ -26,6 +26,7 @@
         .export param_drive_no_syntax
         .export param_drive_or_default
         .export param_get_num
+        .export param_get_byte
         .export param_get_string
         .export param_get_string_max_x
         .export param_get_string_no_init
@@ -489,6 +490,52 @@ param_get_num:
         ; good result in A
         rts
 
+; Read an unsigned decimal byte (0-255), continuing from current position (Y).
+; Unlike param_get_num this accepts one to three digits.
+param_get_byte:
+        clc
+        jsr     param_get_string
+        beq     err_bad_num
+        cmp     #$04
+        bcs     err_bad_num
+        sta     aws_tmp09               ; digit count
+        lda     #$00
+        sta     aws_tmp00               ; accumulated value
+        ldx     #$00
+@next_digit:
+        lda     fuji_filename_buffer,x
+        sec
+        sbc     #'0'
+        bmi     err_bad_num
+        cmp     #10
+        bcs     err_bad_num
+        sta     aws_tmp01               ; new digit
+
+        ; Reject values above 255 before multiplying the accumulator by 10.
+        lda     aws_tmp00
+        cmp     #25
+        bcc     @multiply
+        bne     err_bad_num
+        lda     aws_tmp01
+        cmp     #6
+        bcs     err_bad_num
+
+@multiply:
+        lda     aws_tmp00
+        asl     a                       ; 2x
+        sta     aws_tmp00
+        asl     a                       ; 4x
+        asl     a                       ; 8x
+        clc
+        adc     aws_tmp00               ; 10x
+        adc     aws_tmp01
+        sta     aws_tmp00
+        inx
+        cpx     aws_tmp09
+        bne     @next_digit
+        lda     aws_tmp00
+        rts
+
 err_bad_num:
         jsr     err_bad
         .byte   $CB                             ; i'm guessing this byte is for the memory param to show? Not sure how to do this for a generic "number" error
@@ -498,7 +545,9 @@ err_bad_num:
 ; (<drive>)
 param_optional_drive_no:
         jsr     GSINIT_A
-        beq     set_curdrv_to_default
+        bne     :+
+        jmp     set_curdrv_to_default
+:
 
 ; <drive>
 ; Exit: A=DrvNo, C=0, XY preserved
@@ -516,7 +565,8 @@ param_drive_no_bad_drive:
         sbc     #'0'
         cmp     #$04              ; TODO: how many drives do we want to support - how does this map from FujiNet drives, to BBC drives?
         ; exit with C=0
-        bcc     set_current_drive_adrive_noand
+        bcs     err_bad_drive
+        jmp     set_current_drive_adrive_noand
 
 err_bad_drive:
         jsr     err_bad

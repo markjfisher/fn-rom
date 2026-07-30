@@ -1,6 +1,6 @@
 # Phase 1 — Composable command table (results)
 
-Per `docs/ROM_ROLE_SPLIT_PLAN.md` §5.3 / §6 Phase 1. Goal: retire the inline `.if` in the command
+Per `docs/BOOT_DISK_PLAN.md` §5.3 / §6 Phase 1. Goal: retire the inline `.if` in the command
 tables in favour of a linker-segment-collected table, proven on the FREE/MAP feature.
 
 ## What changed

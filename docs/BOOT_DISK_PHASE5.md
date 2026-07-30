@@ -1,6 +1,6 @@
 # Phase 5 — Consolidate test matrix, docs, examples (results)
 
-Per `docs/ROM_ROLE_SPLIT_PLAN.md` §6 Phase 5 / Appendix C. Goal: make the build ×
+Per `docs/BOOT_DISK_PLAN.md` §6 Phase 5 / Appendix C. Goal: make the build ×
 test matrix runnable locally with one command, retire the last legacy macros,
 update the docs, and ship the DISK+NET distributable (ROM + `FN-BOOT.ssd` + the
 `bas/` examples).
@@ -57,14 +57,14 @@ value, `all`. The transient management/informational command tests
 
 - `README.md` — build profiles, the three targets, `make release`, the test
   matrix.
-- `AGENTS.md` — role-split source layout + profile table + "don't reintroduce the
+- `AGENTS.md` — resident-ROM and boot-disk source layout + profile table + "don't reintroduce the
   retired macros".
-- `docs/fn-rom-bootstrap.md` — role-split table, fixed the stale `src/commands/`
+- `docs/fn-rom-bootstrap.md` — resident-ROM and boot-disk table, fixed the stale `src/commands/`
   path, and documented the **transient-utility ROM ABI**. Resident routine calls
   now go through the fixed utility jump table at `$8030`; `rom_abi.s` maps those
   imports to table slots and maps direct workspace/data imports to the target
   machine's addresses.
-- `docs/ARCHITECTURE.md` — role-split layering section.
+- `docs/ARCHITECTURE.md` — resident-ROM and boot-disk layering section.
 - `integration-tests/beebium/README.md` — the per-profile marker/skip matrix.
 
 ## Release bundle (ship FN-BOOT.ssd + bas/ examples)
@@ -116,10 +116,12 @@ single generated wrapper:
 Verified by `scripted/test_command_from_disk.py` (run via `scripts/run_fn_boot_test.sh`):
 every command resolves+runs from `FN-BOOT.ssd` (no "Bad command"/"Bad string"),
 `*FCD <path>` shows arguments reach the handler, and `*FDRIVE` emits frames
-identical to the resident command. **19 passed.**
+identical to the resident command. The suite also checks the observable effects
+of state-changing utilities rather than relying on command loading alone.
 
-`*FORM`/`*VERIFY` are still ROM-side stubs (`rts`), so their binaries are stubs too
-— implementing them is fujinet-side work, unrelated to the role split.
+`*FORM` is a transient boot-disk utility that recreates the image already
+mounted in a BBC drive. Physical-media `*VERIFY` was removed because reading
+every sector of a virtual image did not provide meaningful integrity checking.
 
 ## Stable utility ABI table
 

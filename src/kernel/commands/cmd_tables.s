@@ -6,7 +6,7 @@
 ; matcher (service09.s) walks a group's CMDSTR segment to a $00 terminator and
 ; dispatches through CMDADR by entry position, so a command is present in the
 ; ROM iff its object module is linked — there is no inline .if in the tables.
-; See docs/ROM_ROLE_SPLIT_PLAN.md §5.3.
+; See docs/BOOT_DISK_PLAN.md §5.3.
 ;
 ; Groups: FUJIFS (DFS file-system commands), FUTILS ("F"-prefixed FujiNet
 ; commands), UTILS (non-FS), FS (filing-system selection), HELP (*HELP topics).
@@ -31,7 +31,7 @@
 
         ; Resident command handlers only. Transient management/informational
         ; commands self-register into CMDSTR_<grp>_EXT from their src/utils/
-        ; modules (Lever B), and *FJSON from src/net/ — so they are absent here
+        ; boot-disk utility modules, and *FJSON from src/net/ — so they are absent here
         ; and vanish from the table when their module is not linked.
         .import cmd_fs_close
         .import cmd_fs_delete
@@ -69,8 +69,8 @@ cmd_str_fujifs:
 cmd_table_info:
         cmd_entry "FUJIFS", "INFO",    $02, $00, cmd_fs_info     ; <afsp>
         cmd_entry "FUJIFS", "LIB",     $06, $00, cmd_fs_lib      ; (<dir>)
-        ; Transient (Lever B), self-registering into CMDSTR_FUJIFS_EXT from
-        ; src/utils/: ACCESS, COPY, DESTROY, FORM, RENAME, TITLE, VERIFY, WIPE,
+        ; Transient boot-disk utilities self-register into CMDSTR_FUJIFS_EXT from
+        ; src/utils/: ACCESS, COPY, DESTROY, FORM, RENAME, TITLE, WIPE,
         ; and FREE/MAP (cmd_free_map.s).
         .segment "CMDSTR_FUJIFS_T"
         .byte   $00
@@ -88,7 +88,7 @@ cmd_str_futils:
         cmd_entry "FUTILS", "HOST",    $15, $00, cmd_fs_fhost
         cmd_entry "FUTILS", "IN",      $0B, $08, cmd_fs_fin      ; (<slot>) <dos name>
         cmd_entry "FUTILS", "MOUNT",   $0A, $04, cmd_fs_fmount   ; <slot> (<drive>)
-        ; Transient (Lever B), self-registering into CMDSTR_FUTILS_EXT from
+        ; Transient boot-disk utilities self-register into CMDSTR_FUTILS_EXT from
         ; src/utils/: CD, DRIVE, LS, LIST, UMOUNT, OUT, NEW. *FJSON from src/net/.
         .segment "CMDSTR_FUTILS_T"
         .byte   $00

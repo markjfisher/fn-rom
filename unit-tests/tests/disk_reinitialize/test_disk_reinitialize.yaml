@@ -1,0 +1,9 @@
+name: DiskDevice reinitialize request serialization
+
+configs:
+  - ${UNIT_TEST_DIR}/harness/harness.yaml
+
+src_files:
+  - test_disk_reinitialize.s
+
+test_script: test_disk_reinitialize.txt

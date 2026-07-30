@@ -13,10 +13,12 @@
 ;   0x07 - Create
 ;   0x0A - RestoreBoot
 ;   0x0B - BeginHostSession
+;   0x0C - Reinitialize
 
         .export  fujibus_disk_begin_host_session
         .export  fujibus_disk_create
         .export  fujibus_disk_mount
+        .export  fujibus_disk_reinitialize
         .export  fujibus_disk_read_sector
         .export  fujibus_disk_read_sector_partial
         .export  fujibus_disk_restore_boot
@@ -174,6 +176,82 @@ fujibus_disk_create:
         rts
 
 @fail:
+        sec
+        rts
+
+; fujibus_disk_reinitialize
+;   Recreate the image mounted in fuji_disk_slot and keep it mounted.
+;   Input: A = BBC DFS track count (40 or 80)
+;   Output: C clear on success, set on failure
+;
+; Request payload at buffer+6:
+;   +0 version
+;   +1 active slot (1-based)
+;   +2 sector size low  (0)
+;   +3 sector size high (1, for 256)
+;   +4..+7 sector count (400 or 800, little-endian)
+
+fujibus_disk_reinitialize:
+        sta     cws_tmp7
+
+        lda     #FN_PROTOCOL_VERSION
+        ldy     #$06
+        sta     (buffer_ptr),y
+
+        lda     fuji_disk_slot
+        clc
+        adc     #$01
+        iny
+        sta     (buffer_ptr),y
+
+        lda     #$00
+        iny
+        sta     (buffer_ptr),y
+        lda     #$01
+        iny
+        sta     (buffer_ptr),y
+
+        lda     cws_tmp7
+        cmp     #40
+        bne     @eighty_tracks
+        lda     #$90                    ; 400 = $00000190
+        ldx     #$01
+        bne     @store_sector_count
+
+@eighty_tracks:
+        lda     #$20                    ; 800 = $00000320
+        ldx     #$03
+
+@store_sector_count:
+        iny
+        sta     (buffer_ptr),y
+        txa
+        iny
+        sta     (buffer_ptr),y
+        lda     #$00
+        iny
+        sta     (buffer_ptr),y
+        iny
+        sta     (buffer_ptr),y
+
+        lda     #FN_DEVICE_DISK
+        sta     fuji_bus_tx_device
+        lda     #DISK_CMD_REINITIALIZE
+        sta     fuji_bus_tx_command
+        jsr     fujibus_set_payload_buffer_ptr
+
+        lda     #$08
+        ldx     #$00
+        jsr     fujibus_send_packet
+
+        jsr     fujibus_receive_packet
+        cmp     #$07
+        jsr     fd_check_ok_response
+        bcs     @reinitialize_fail
+        clc
+        rts
+
+@reinitialize_fail:
         sec
         rts
 

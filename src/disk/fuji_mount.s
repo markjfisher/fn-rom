@@ -7,6 +7,7 @@
         .export fuji_create_disk
         .export fuji_get_slot
         .export fuji_mount_disk
+        .export fuji_reinitialize_disk
         .export fuji_restore_boot_disk
         .export fuji_set_disk_slot_from_mapping_or_error
         .export fuji_set_slot
@@ -25,6 +26,7 @@
         .import fuji_end_transaction
         .import fuji_get_mount_slot_data
         .import fuji_mount_disk_data
+        .import fuji_reinitialize_disk_data
         .import fuji_restore_boot_disk_data
         .import fuji_set_mount_slot_data
         .import fuji_unmount_disk_data
@@ -52,6 +54,25 @@ fuji_create_disk:
         php                             ; Save carry result
         jsr     fuji_end_transaction    ; Restore &BC-&CB
         plp                             ; Restore carry result
+        rts
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; fuji_reinitialize_disk - Recreate the image mounted in fuji_disk_slot
+;
+; Entry: A = number of BBC DFS tracks (40 or 80)
+; Exit:  C clear on success, set on failure
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+fuji_reinitialize_disk:
+        jsr     remember_xy_only
+        pha
+
+        jsr     fuji_begin_transaction
+        pla
+        jsr     fuji_reinitialize_disk_data
+        php
+        jsr     fuji_end_transaction
+        plp
         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

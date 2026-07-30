@@ -3,7 +3,7 @@
 
 ; Emit one command-table entry into a command group's paired string + address
 ; segments. Group membership is by *segment*, so a command is in the ROM iff its
-; object module is linked — no inline .if in the tables (see ROM_ROLE_SPLIT_PLAN
+; object module is linked — no inline .if in the tables (see BOOT_DISK_PLAN
 ; §5.3). The matcher (service09.s) walks each group's CMDSTR_<grp> segment and
 ; dispatches via the parallel CMDADR_<grp> segment by entry position, so string
 ; and address can never drift out of lockstep.

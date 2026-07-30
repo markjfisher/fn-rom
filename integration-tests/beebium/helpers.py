@@ -48,7 +48,14 @@ def command(bbc, text: str) -> None:
     ready = _has_prompt if _clears_or_replaces_echo(text) else lambda b: _has_prompt_after_echo(b, text)
     deadline = time.monotonic() + 5.0
     while time.monotonic() < deadline:
-        if ready(bbc) or _awaits_confirmation(bbc):
+        if ready(bbc):
+            screen = dump_screen(bbc)
+            if "Bad program" in screen:
+                raise AssertionError(
+                    f"command {text!r} returned to BASIC via Bad program\n{screen}"
+                )
+            return
+        if _awaits_confirmation(bbc):
             return
         time.sleep(0.01)
     else:

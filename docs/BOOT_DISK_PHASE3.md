@@ -1,6 +1,6 @@
-# Phase 3 — Network feature toggle (Lever A) + service-&04 / library verify
+# Phase 3 — Optional network feature + service-&04/library verification
 
-Per `docs/ROM_ROLE_SPLIT_PLAN.md` §5.1/§5.4 / §6 Phase 3. Makes the network device an
+Per `docs/BOOT_DISK_PLAN.md` §5.1/§5.4 / §6 Phase 3. Makes the network device an
 optional, additive feature: `FEATURE_NET=1` (default) is the DISK+NET build; `FEATURE_NET=0`
 is the DISK build with no network open path, no `*FJSON`, and no OSWORD &78.
 
@@ -76,5 +76,5 @@ shared vectors (the Phase 0 "vectors-mixed" net bytes), confirming §5.4.
 
 ## Still gated by `.if` (Phase 5 cleanup)
 
-`_ROMS_`/`_UTILS_` (ROMS command, UTILS help topic). The UTILITIES lever (Lever B, transient utils on
+`_ROMS_`/`_UTILS_` (ROMS command, UTILS help topic). The UTILITIES setting (transient utilities on
 disk) is Phase 4; until then DISK+NET == ALL.

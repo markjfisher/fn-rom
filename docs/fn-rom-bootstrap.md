@@ -64,13 +64,13 @@ The command **matcher and tables** live in `@src/kernel/commands/` (notably
 handlers live under the role directory that owns them (`src/kernel/`,
 `src/disk/`, `src/net/` or `src/utils/`). Each handler self-registers into a
 command group with the `cmd_entry` macro (`src/inc/macros.inc`), so a command is
-present in a build iff its object module is linked — see the role split below.
+present in a build iff its object module is linked — see the resident-ROM/boot-disk model below.
 
 ## Product ROM and boot/config utilities
 
 Source is grouped by residency. The product ROM always includes disk and network
 support; bulky management/informational utilities live on the boot/config disk
-(full detail in `docs/ROM_ROLE_SPLIT_PLAN.md`):
+(full detail in `docs/BOOT_DISK_PLAN.md`):
 
 | Dir | Always built? | Gate |
 |-----|---------------|------|

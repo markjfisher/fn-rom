@@ -1,0 +1,59 @@
+///////////////////////////////
+marker $$ 40-track reinitialize request $$
+///////////////////////////////
+
+memory load rom #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+symbols remove "__.*"
+memory protect ro #0xFF00 0x0100
+
+registers flush
+run $init_harness until (CP = $end_init_harness OR cycle_count > 5000)
+assert CP = $end_init_harness $$completed harness init$$
+
+run $t_reinitialize_40 until (CP = $fujibus_send_packet OR cycle_count > 5000)
+assert CP = $fujibus_send_packet $$reached FujiBus send boundary$$
+assert A = 0x08 $$payload length low is eight bytes$$
+assert X = 0x00 $$payload length high is zero$$
+assert $fuji_bus_tx_device = 0xFC $$request targets DiskDevice$$
+assert $fuji_bus_tx_command = 0x0C $$request uses Reinitialize command$$
+assert #0x0E06 = 0x01 $$protocol version$$
+assert #0x0E07 = 0x03 $$runtime slot converted to one-based wire slot$$
+assert #0x0E08 = 0x00 $$sector size low byte$$
+assert #0x0E09 = 0x01 $$sector size high byte$$
+assert #0x0E0A = 0x90 $$400-sector count byte zero$$
+assert #0x0E0B = 0x01 $$400-sector count byte one$$
+assert #0x0E0C = 0x00 $$400-sector count byte two$$
+assert #0x0E0D = 0x00 $$400-sector count byte three$$
+
+///////////////////////////////
+marker $$ 80-track reinitialize request $$
+///////////////////////////////
+
+memory load rom #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+symbols remove "__.*"
+memory protect ro #0xFF00 0x0100
+
+registers flush
+run $init_harness until (CP = $end_init_harness OR cycle_count > 5000)
+assert CP = $end_init_harness $$completed harness init$$
+
+run $t_reinitialize_80 until (CP = $fujibus_send_packet OR cycle_count > 5000)
+assert CP = $fujibus_send_packet $$reached FujiBus send boundary$$
+assert A = 0x08 $$payload length low is eight bytes$$
+assert X = 0x00 $$payload length high is zero$$
+assert $fuji_bus_tx_device = 0xFC $$request targets DiskDevice$$
+assert $fuji_bus_tx_command = 0x0C $$request uses Reinitialize command$$
+assert #0x0E06 = 0x01 $$protocol version$$
+assert #0x0E07 = 0x03 $$runtime slot converted to one-based wire slot$$
+assert #0x0E08 = 0x00 $$sector size low byte$$
+assert #0x0E09 = 0x01 $$sector size high byte$$
+assert #0x0E0A = 0x20 $$800-sector count byte zero$$
+assert #0x0E0B = 0x03 $$800-sector count byte one$$
+assert #0x0E0C = 0x00 $$800-sector count byte two$$
+assert #0x0E0D = 0x00 $$800-sector count byte three$$

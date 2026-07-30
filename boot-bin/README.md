@@ -24,10 +24,12 @@ Run it with `*OPT 4,3` set on the boot disk, or copy these lines into your own b
 addresses. Each is staged under the full command name the FS `*RUN` looks up (`*FDRIVE` -> `FDRIVE`,
 `*COPY` -> `COPY`, ...). DFS leaf names are <= 7 chars, which is why the unmount command is `*FUMOUNT`:
 
-  FORM VERIFY ACCESS TITLE RENAME COPY WIPE DESTROY FREE MAP   (DFS management)
+  FORM ACCESS TITLE RENAME COPY WIPE DESTROY FREE MAP          (DFS management)
   FDRIVE FCD FLS FLIST FOUT FNEW FUMOUNT                       ("F" navigation/mount admin)
 
-(`*FORM`/`*VERIFY` are currently stubs in the ROM, so their binaries are stubs too.) The wrapper sets
+`*FORM` recreates the writable SSD currently mounted in a BBC drive after
+confirmation. Traditional physical-media `*VERIFY` is intentionally not
+provided for virtual disk images. The wrapper sets
 the GSINIT pointer to the `*RUN` argument tail (`fuji_text_ptr_*`) before entering the resident
 handler, so the disk-loaded command sees its arguments exactly as the resident command would —
 verified by `integration-tests/beebium/scripted/test_command_from_disk.py`.

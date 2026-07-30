@@ -183,3 +183,82 @@ run $t_param_get_string_max_x_truncates until CP = $t_param_get_string_max_x_tru
 assert $result_a = 0x03 $$truncated length returned$$
 assert $result_carry = 0x00 $$carry clear for truncation$$
 assert $fuji_filename_buffer ~ "HEL\0" $$string truncated to requested max$$
+
+///////////////////////////////
+marker $$ param_get_byte parses decimal byte boundaries and multi-digit values $$
+///////////////////////////////
+
+enable run_limit 100000
+memory load rom #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+symbols remove "__.*"
+memory protect ro #0xFF00 0x0100
+
+registers flush
+run $init_harness until (CP = $end_init_harness OR cycle_count > 5000)
+assert CP = $end_init_harness $$completed harness init$$
+run $t_param_get_byte_all until CP = $t_param_get_byte_all_end
+assert $byte_results+0 = 0 $$zero parsed$$
+assert $byte_results+1 = 9 $$single digit parsed$$
+assert $byte_results+2 = 10 $$two digits parsed$$
+assert $byte_results+3 = 69 $$remembered slot parsed$$
+assert $byte_results+4 = 255 $$maximum byte parsed$$
+
+///////////////////////////////
+marker $$ param_get_byte rejects non-decimal text $$
+///////////////////////////////
+
+enable run_limit 100000
+memory load rom #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+symbols remove "__.*"
+memory protect ro #0xFF00 0x0100
+
+registers flush
+run $init_harness until (CP = $end_init_harness OR cycle_count > 5000)
+assert CP = $end_init_harness $$completed harness init$$
+run $t_param_get_byte_rejects_text until CP = $param_error_block
+assert $param_error_block+1 = 0xCB $$bad-number error code returned for text$$
+assert $param_error_block+2 ~ "Bad number\0" $$bad-number message returned for text$$
+
+///////////////////////////////
+marker $$ param_get_byte rejects more than three digits $$
+///////////////////////////////
+
+enable run_limit 100000
+memory load rom #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+symbols remove "__.*"
+memory protect ro #0xFF00 0x0100
+
+registers flush
+run $init_harness until (CP = $end_init_harness OR cycle_count > 5000)
+assert CP = $end_init_harness $$completed harness init$$
+run $t_param_get_byte_rejects_four_digits until CP = $param_error_block
+assert $param_error_block+1 = 0xCB $$bad-number error code returned for four digits$$
+assert $param_error_block+2 ~ "Bad number\0" $$bad-number message returned for four digits$$
+
+///////////////////////////////
+marker $$ param_get_byte rejects values above 255 $$
+///////////////////////////////
+
+enable run_limit 100000
+memory load rom #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+symbols remove "__.*"
+memory protect ro #0xFF00 0x0100
+
+registers flush
+run $init_harness until (CP = $end_init_harness OR cycle_count > 5000)
+assert CP = $end_init_harness $$completed harness init$$
+run $t_param_get_byte_rejects_overflow until CP = $param_error_block
+assert $param_error_block+1 = 0xCB $$bad-number error code returned for overflow$$
+assert $param_error_block+2 ~ "Bad number\0" $$bad-number message returned for overflow$$

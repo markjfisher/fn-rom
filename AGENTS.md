@@ -21,7 +21,7 @@ Read [fn-rom-bootstrap.md](docs/fn-rom-bootstrap.md) for more context about tran
 
 The ROM has one product shape: disk + network device in ROM, with bulky
 management/informational commands on the boot/config utilities disk. See
-[docs/ROM_ROLE_SPLIT_PLAN.md](docs/ROM_ROLE_SPLIT_PLAN.md).
+[docs/BOOT_DISK_PLAN.md](docs/BOOT_DISK_PLAN.md).
 
 Source is grouped by role under `src/`:
 

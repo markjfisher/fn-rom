@@ -16,14 +16,15 @@ def test_fmount_gets_slot_then_mounts_disk(beebium, fuji_device):
     pkt = fuji_device.wait_for_command(dp.DISK_DEVICE_ID, dp.CMD_MOUNT, timeout=6.0)
     assert pkt is not None
     assert pkt.checksum_ok
-    req = dp.build_mount_req(
-        slot=3,
+    req = bytearray(dp.build_mount_req(
+        slot=1,
         uri="tnfs://example.invalid/bbc/BOOT.SSD",
         readonly=True,
         type_override=0,
         sector_size_hint=0,
-    )
-    assert pkt.payload == req
+    ))
+    req[2] |= 0x02  # lazy: open the image on first drive access
+    assert pkt.payload == bytes(req)
 
 
 @pytest.mark.needs_boot_utils_setup
