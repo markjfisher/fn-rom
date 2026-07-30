@@ -118,6 +118,26 @@ def test_real_fujinet_fmount_mounts_catalog_uri(
     )
 
 
+def test_real_fujinet_fmount_reuses_catalog_slot_in_another_drive(
+    beebium_real_host_tree, real_fujinet_host_tree
+):
+    command(beebium_real_host_tree, "*FHOST host:/")
+    command(beebium_real_host_tree, "*FIN 0 foo/bar/weather.ssd")
+    command(beebium_real_host_tree, "*FIN 1 foo/bar/weather.ssd")
+    command(beebium_real_host_tree, "*FMOUNT 0 0")
+    command(beebium_real_host_tree, "*FMOUNT 1 1")
+
+    # Exercise the same intervening operations as a user diagnosing an empty
+    # drive before reusing an existing sparse catalogue entry.
+    command(beebium_real_host_tree, "*. :2")
+    wait_for_screen_text(beebium_real_host_tree, "No disk", timeout=8.0)
+    command(beebium_real_host_tree, "*FDRIVE")
+    command(beebium_real_host_tree, "*FMOUNT 0 2")
+    command(beebium_real_host_tree, "*. :2.$")
+
+    wait_for_screen_text(beebium_real_host_tree, "WEATHER", timeout=8.0)
+
+
 def test_real_fujinet_receives_openin(beebium_real, real_fujinet):
     run_basic_program(beebium_real, ['10 A%=OPENIN("http://example.com/data.json")'])
     assert real_fujinet.wait_for_log("dev=0xFD cmd=0x01", timeout=8.0)

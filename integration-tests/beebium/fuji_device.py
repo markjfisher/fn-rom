@@ -51,6 +51,7 @@ FILE_CMD_RESOLVE_PATH = 0x05
 FILE_CMD_APPSTORE_READ = 0x21
 FILE_CMD_APPSTORE_WRITE = 0x22
 FILE_CMD_APPSTORE_DELETE = 0x23
+FILE_CMD_SLOT_CATALOG_RANGE = fp.CMD_SLOT_CATALOG_RANGE
 
 
 def _appstore_prefix(payload: bytes) -> tuple[str, str, int]:
@@ -75,6 +76,56 @@ def build_appstore_read_response(
     body = bytes([1, flags]) + b"\0\0" + struct.pack("<I", offset)
     body += struct.pack("<H", len(chunk)) + chunk
     return fb.build_fuji_response_wire(0xFE, command, 0, body)
+
+
+def build_slot_catalog_response(
+    payload: bytes, appstore: dict[tuple[str, str], bytes]
+) -> bytes:
+    if len(payload) != 8 or payload[0] != 1:
+        return fb.build_fuji_response_wire(0xFE, FILE_CMD_SLOT_CATALOG_RANGE, 2, b"")
+    lower, upper, cursor, request_flags, max_uri = payload[1:6]
+    max_payload = int.from_bytes(payload[6:8], "little")
+    presence_len = ((upper - lower + 1) + 7) // 8
+    presence = bytearray(presence_len)
+    records: list[tuple[int, int, bytes]] = []
+    for index in range(lower, upper + 1):
+        value = appstore.get(("config-nio", f"slot-{index:03d}"))
+        if value is None:
+            continue
+        relative = index - lower
+        presence[relative // 8] |= 1 << (relative % 8)
+        if index < cursor:
+            continue
+        flags = 0
+        uri = b""
+        if len(value) >= 3 and value[0] == 1:
+            flags = 0x01 | (0x02 if value[1] & 1 else 0)
+            uri = value[2:]
+            if len(uri) > max_uri:
+                flags |= 0x04
+                uri = uri[-max_uri:] if request_flags & 1 else uri[:max_uri]
+        records.append((index, flags, uri))
+
+    formatted = bool(request_flags & 2)
+    data = bytearray()
+    count = 0
+    more = False
+    next_index = 0
+    for index, flags, uri in records:
+        if formatted:
+            record = f"{index}: ".encode() + (uri if flags & 1 else b"<invalid>") + b"\n"
+        else:
+            record = bytes([index, flags, len(uri)]) + uri
+        if presence_len + len(data) + len(record) > max_payload:
+            more = True
+            next_index = index
+            break
+        data += record
+        count += 1
+    response_flags = (0x01 if more else 0) | (0x02 if formatted else 0)
+    body = bytes([1, response_flags, next_index, presence_len, count])
+    body += struct.pack("<H", len(data)) + presence + data
+    return fb.build_fuji_response_wire(0xFE, FILE_CMD_SLOT_CATALOG_RANGE, 0, body)
 
 
 def appstore_slot_read_response(pkt: FujiPacket, slot: int, uri: str, mode: str) -> Optional[bytes]:
@@ -1082,6 +1133,8 @@ def disk_image_responder(
         return len(data)
 
     def _resp(pkt: "FujiPacket"):
+        if pkt.device == 0xFE and pkt.command == FILE_CMD_SLOT_CATALOG_RANGE:
+            return build_slot_catalog_response(pkt.payload, appstore)
         if pkt.device == 0xFE and pkt.command in (
             FILE_CMD_APPSTORE_READ,
             FILE_CMD_APPSTORE_WRITE,

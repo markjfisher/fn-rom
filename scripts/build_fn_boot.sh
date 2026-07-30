@@ -300,6 +300,7 @@ U="$root/src/utils"
 build_util FCD     cmd_fs_fcd      "$U/cmd_fcd.s" "$U/flist_resolve_target.s"
 build_util FLS     cmd_fs_flist    "$U/cmd_flist.s" "$U/flist_resolve_target.s"
 build_util FLIST   cmd_fs_flist    "$U/cmd_flist.s" "$U/flist_resolve_target.s"
+build_util FSLOTS  cmd_fs_fslots   "$U/cmd_fslots.s"
 build_util FNEW    cmd_fs_fnew     "$U/cmd_fs_fnew.s"
 build_util FOUT    cmd_fs_fout     "$U/cmd_fout.s"
 build_util FUMOUNT cmd_fs_funmount "$U/cmd_funmount.s"   # *FUMOUNT (renamed from FUNMOUNT to fit DFS 7-char leaf)

@@ -168,7 +168,14 @@ The product shape is orthogonal to `BUILD_MACHINE` (BBC|MASTER) and `BUILD_INTER
 - Disk management whose bulk is self-contained: `*FORM`, `*DESTROY`, `*WIPE`, `*ACCESS`,
   `*TITLE`, `*INFO`, `*RENAME`, `*COPY`, `*FNEW`, `*FREE`/`*MAP`, `*ROMS`, `*FUMOUNT`, `*FOUT`
 - **Informational / navigation F-commands**: `*FCD` (covered by
-  `*FHOST <path>`) and `*FLIST`/`*FLS` (large directory listing).
+  `*FHOST <path>`), `*FLIST`/`*FLS` (large directory listing), and `*FSLOTS`
+  (sparse persistent slot catalogue).
+
+`*FSLOTS` lists populated catalogue entries without confusing them with active
+drive mappings (`*FDRIVE`). `*FSLOTS N` inspects one index and
+`*FSLOTS LOWER UPPER` restricts output to an inclusive byte-sized range. The
+utility asks FileDevice for server-formatted batches, so it does not probe 256
+AppStore keys or retain their URIs in BBC RAM.
 
 > Shared-helper note: the small formatted-response printer is resident because
 > both resident `*FDRIVE` and transient `*FLIST`/`*FLS` use it. Transient

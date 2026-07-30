@@ -30,6 +30,7 @@ from fuji_device import (
     FILE_CMD_APPSTORE_WRITE,
     FILE_CMD_APPSTORE_READ,
     FILE_CMD_APPSTORE_DELETE,
+    FILE_CMD_SLOT_CATALOG_RANGE,
     FILE_CMD_RESOLVE_PATH,
     _appstore_prefix,
     build_appstore_read_response,
@@ -61,6 +62,7 @@ _EXPECTED_BOOT_FILES = {
     "FORM",
     "FOUT",
     "FREE",
+    "FSLOTS",
     "FUMOUNT",
     "MAP",
     "RENAME",
@@ -420,6 +422,26 @@ def test_fn_boot_catalog_contains_the_transient_utility_set():
     assert desc.title == "FN-BOOT"
     assert names == _EXPECTED_BOOT_FILES
     assert "FBOOT" not in names
+
+
+def test_fslots_lists_only_populated_slots_in_requested_range(beebium, fuji_device):
+    fuji_device.set_responder(disk_image_responder(
+        image_path=str(_SSD), catalog_slot=7, uri="sd0:/fn-boot.ssd"
+    ))
+    _mount_boot_drive(beebium, fuji_device)
+
+    command(beebium, "*FIN 69 games/elite.ssd")
+    command(beebium, "CLS")
+    command(beebium, "*FSLOTS 64 72")
+    screen = wait_for_screen_text(beebium, "69: games/elite.ssd", timeout=8.0)
+    assert "7: sd0:/fn-boot.ssd" not in screen
+    assert "Bad program" not in screen
+
+    pkt = fuji_device.wait_for_command(
+        fp.FILE_DEVICE_ID, FILE_CMD_SLOT_CATALOG_RANGE, timeout=8.0
+    )
+    assert pkt is not None
+    assert pkt.payload == bytes([1, 64, 72, 64, 2, 128, 220, 0])
 
 
 def test_form_recreates_current_slot_uri_and_disk_remains_usable(
