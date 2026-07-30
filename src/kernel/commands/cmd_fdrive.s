@@ -23,13 +23,9 @@
         .import fujibus_set_payload_buffer_ptr
         .import fujibus_send_packet
         .import num_params
-        .import report_error
+        .import print_string
 
         .include "fujinet.inc"
-
-        ; Registration is local to the transient boot-disk utility binary;
-        ; there is no resident command-table entry.
-        cmd_entry "FUTILS_EXT", "DRIVE",   $0, $00, cmd_fs_fdrive
 
         .segment "CODE"
 
@@ -57,6 +53,9 @@ cmd_fs_fdrive:
 
 @page_loop:
         ldy     #$06
+        lda     #FN_PROTOCOL_VERSION
+        sta     (buffer_ptr),y
+        iny
         lda     #FDRIVE_REQ_FLAG_FORMATTED
         sta     (buffer_ptr),y
         iny
@@ -81,16 +80,16 @@ cmd_fs_fdrive:
         lda     #>FDRIVE_MAX_PAYLOAD
         sta     (buffer_ptr),y
 
-        lda     #FN_DEVICE_FUJI
+        lda     #FN_DEVICE_DISK
         sta     fuji_bus_tx_device
 
-        lda     #FUJI_CMD_GET_MOUNTS
+        lda     #DISK_CMD_LIST_MOUNTS
         sta     fuji_bus_tx_command
 
         jsr     fujibus_set_payload_buffer_ptr
 
         ldx     #$00
-        lda     #$09
+        lda     #$0A
         jsr     fujibus_send_packet
 
         jsr     fujibus_receive_packet
@@ -106,9 +105,10 @@ cmd_fs_fdrive:
         bcs     @check_header
 
 @fail:
-        jsr     report_error
-        .byte   $CB
-        .byte   "List", 0
+        jsr     print_string
+        .byte   "FDRIVE err", $0D
+        nop
+        jmp     exit_user_ok
 
 
 @check_header:
@@ -156,6 +156,15 @@ cmd_fs_fdrive:
         adc     aws_tmp08
         sta     pws_tmp05
 
+        ; A valid empty page has no text to print. Calling the shared formatter
+        ; with identical start/end pointers would consume stale buffer bytes
+        ; left by the previous transient command (commonly *FLS).
+        ldy     #FDRIVE_RESP_ENTRIES_LEN
+        lda     (buffer_ptr),y
+        iny
+        ora     (buffer_ptr),y
+        beq     @after_print
+
         ; entries blob end = buffer + FDRIVE_RESP_DATA + entriesLen
         lda     buffer_ptr
         clc
@@ -183,6 +192,7 @@ cmd_fs_fdrive:
 
         jsr     cfl_print_formatted_blob
 
+@after_print:
         lda     aws_tmp02
         and     #FDRIVE_RESP_FLAG_MORE
         beq     @done

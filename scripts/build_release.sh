@@ -70,7 +70,7 @@ Contents
   FN-NET-M       As above, for the BBC Master.
   FN-BOOT.ssd    BBC boot/config utilities disk: config tools plus
                  management/informational utilities (*FORM, *COPY, *FLS,
-                 *FDRIVE, ...). Copy to the fujinet device's SD card when using
+                 *FOUT, ...). Copy to the fujinet device's SD card when using
                  FN-NET.
   FN-BOOT-M.ssd  Master boot/config utilities disk. Copy as the boot/config disk
                  when using FN-NET-M.

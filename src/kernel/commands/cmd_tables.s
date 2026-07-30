@@ -41,6 +41,7 @@
         .import cmd_fs_enable
         .import cmd_fs_ex
         .import cmd_fs_fboot
+        .import cmd_fs_fdrive
         .import cmd_fs_fhost
         .import cmd_fs_fin
         .import cmd_fs_fmount
@@ -85,11 +86,12 @@ cmd_adr_futils:
 cmd_str_futils:
         cmd_entry "FUTILS", "FS",      $15, $00, cmd_fs_fhost
         cmd_entry "FUTILS", "BOOT",    $04, $00, cmd_fs_fboot
+        cmd_entry "FUTILS", "DRIVE",   $00, $00, cmd_fs_fdrive
         cmd_entry "FUTILS", "HOST",    $15, $00, cmd_fs_fhost
         cmd_entry "FUTILS", "IN",      $0B, $08, cmd_fs_fin      ; (<slot>) <dos name>
         cmd_entry "FUTILS", "MOUNT",   $0A, $04, cmd_fs_fmount   ; <slot> (<drive>)
         ; Transient boot-disk utilities self-register into CMDSTR_FUTILS_EXT from
-        ; src/utils/: CD, DRIVE, LS, LIST, UMOUNT, OUT, NEW. *FJSON from src/net/.
+        ; src/utils/: CD, LS, LIST, UMOUNT, OUT, NEW. *FJSON from src/net/.
         .segment "CMDSTR_FUTILS_T"
         .byte   $00
 

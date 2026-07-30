@@ -21,11 +21,14 @@ Run it with `*OPT 4,3` set on the boot disk, or copy these lines into your own b
 
 `scripts/build_fn_boot.sh` builds every transient command as a standalone BBC binary (load/exec
 `$1900`, `.inf` sidecar), linked from `src/utils/` against the resident ROM at its actual symbol
-addresses. Each is staged under the full command name the FS `*RUN` looks up (`*FDRIVE` -> `FDRIVE`,
+addresses. Each is staged under the full command name the FS `*RUN` looks up (`*FLS` -> `FLS`,
 `*COPY` -> `COPY`, ...). DFS leaf names are <= 7 chars, which is why the unmount command is `*FUMOUNT`:
 
   FORM ACCESS TITLE RENAME COPY WIPE DESTROY FREE MAP          (DFS management)
-  FDRIVE FCD FLS FLIST FOUT FNEW FUMOUNT                       ("F" navigation/mount admin)
+  FCD FLS FLIST FOUT FNEW FUMOUNT                              ("F" navigation/mount admin)
+
+`*FDRIVE` is resident because it must remain available after an application
+disk replaces the boot disk in drive 0.
 
 `*FORM` recreates the writable SSD currently mounted in a BBC drive after
 confirmation. Traditional physical-media `*VERIFY` is intentionally not

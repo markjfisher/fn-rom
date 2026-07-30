@@ -14,6 +14,7 @@
         .import check_file_not_locked_or_open_y
         .import check_file_not_open_y
         .import check_for_disk_change
+        .import cfl_print_formatted_blob
         .import copy_aws_tmp00_to_aws_tmp02_a
         .import create_file_3
         .import delete_cat_entry_adjust_ptr
@@ -201,6 +202,8 @@ fuji_util_abi_y_sub8:
         jmp     y_sub8
 fuji_util_abi_fuji_reinitialize_disk:
         jmp     fuji_reinitialize_disk
+fuji_util_abi_cfl_print_formatted_blob:
+        jmp     cfl_print_formatted_blob
 fuji_util_abi_end:
 fuji_util_abi_signature:
         .byte   "FNABI1", 0

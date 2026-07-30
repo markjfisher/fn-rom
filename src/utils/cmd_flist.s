@@ -2,7 +2,6 @@
 
         .export  cfl_done_ok
         .export  cfl_flist_one_page
-        .export  cfl_print_formatted_blob
         .export  cfl_page_loop
         .export  cfl_rxlen_ok
         .export  cfl_tx_uri
@@ -35,6 +34,7 @@
 
         .import err_bad
         .import err_syntax
+        .import cfl_print_formatted_blob
         .import exit_user_ok
         .import fuji_current_dir_len
         .import fuji_current_fs_len
@@ -46,7 +46,6 @@
         .import get_fuji_fs_uri_addr_to_aws_tmp00
         .import param_count
         .import param_get_string
-        .import print_char
         .import print_newline
         .import print_string
         .import report_error
@@ -390,34 +389,4 @@ cfl_rxlen_ok:
 :
         jsr     cfl_print_formatted_blob
         clc
-        rts
-
-;------------------------------------------------------------------------------
-; Print preformatted listing text at aws_tmp00..aws_tmp12:13 ($0A = newline).
-;------------------------------------------------------------------------------
-cfl_print_formatted_blob:
-cfl_fmt_blob_loop:
-        lda     aws_tmp00
-        cmp     aws_tmp12
-        lda     aws_tmp01
-        sbc     aws_tmp13
-        bcs     cfl_fmt_blob_done
-
-        ldy     #$00
-        lda     (aws_tmp00),y
-        cmp     #$0A
-        beq     cfl_fmt_blob_nl
-        jsr     print_char
-        bne     cfl_fmt_blob_adv        ; always. A is restored last, and is not 0
-
-cfl_fmt_blob_nl:
-        jsr     print_newline
-
-cfl_fmt_blob_adv:
-        inc     aws_tmp00
-        bne     cfl_fmt_blob_loop
-        inc     aws_tmp01
-        bne     cfl_fmt_blob_loop       ; always, the upper byte can never roll over to 00
-
-cfl_fmt_blob_done:
         rts

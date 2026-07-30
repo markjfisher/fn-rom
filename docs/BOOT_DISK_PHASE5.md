@@ -1,5 +1,10 @@
 # Phase 5 — Consolidate test matrix, docs, examples (results)
 
+> Current implementation note: `*FDRIVE` now remains resident so active drive
+> mappings can be inspected even when `FN-BOOT` is no longer mounted. It queries
+> DiskDevice runtime mappings; it is no longer one of the transient binaries
+> described historically below.
+
 Per `docs/BOOT_DISK_PLAN.md` §6 Phase 5 / Appendix C. Goal: make the build ×
 test matrix runnable locally with one command, retire the last legacy macros,
 update the docs, and ship the DISK+NET distributable (ROM + `FN-BOOT.ssd` + the

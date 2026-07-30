@@ -1,9 +1,9 @@
-"""Boot-disk transient-command integration tests.
+"""Boot-disk transient-command and resident mount-administration tests.
 
-Runs against the product ROM (so *FDRIVE is NOT in the ROM) with the
-FN-BOOT.ssd mounted as the library. Typing *FDRIVE must load+run the transient
-binary from disk and emit the same Fuji GET_MOUNTS request as the resident
-command — proving the disk-loaded utility behaves identically.
+Runs against the product ROM with FN-BOOT.ssd mounted as the library. FDRIVE
+is deliberately resident so replacing the boot disk cannot remove the command
+needed to inspect active mappings. The remaining transient utilities must still
+load and execute from disk.
 
 Built + run together by scripts/run_fn_boot_test.sh (the binary calls the
 resident ROM by absolute address, so the ROM under test must be the exact
@@ -39,11 +39,11 @@ from fuji_device import (
     build_resolve_path_response,
     build_list_response,
     build_get_mount_response,
-    build_get_mounts_response,
     build_set_mount_response,
     build_disk_mount_response,
     build_disk_info_response,
     build_disk_read_sector_response,
+    build_disk_list_mounts_response,
     host_service_responder,
 )
 from helpers import command, run_basic_program, wait_for_screen_text
@@ -58,7 +58,6 @@ _EXPECTED_BOOT_FILES = {
     "COPY",
     "DESTROY",
     "FCD",
-    "FDRIVE",
     "FLIST",
     "FLS",
     "FNEW",
@@ -79,35 +78,101 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def test_fdrive_runs_from_library_disk(beebium, fuji_device):
+def test_resident_fdrive_lists_runtime_mount_after_fls_used_response_buffer(
+    beebium, fuji_device
+):
     fuji_device.set_responder(
         disk_image_responder(
             image_path=str(_SSD), fuji_slot=7, drive_slot=4, uri="sd0:/fn-boot.ssd"
         )
     )
 
-    # Mount the boot image as the current drive (0) so the FS *RUN finds the
-    # transient command there. (The library-drive *fallback* path itself is
-    # verified separately in Phase 3 / service08; here we prove the disk-loaded
-    # binary runs and behaves identically.)
     _mount_boot_drive(beebium, fuji_device)
+
+    command(beebium, "*FLS")
+    wait_for_screen_text(beebium, "FN-BOOT", timeout=8.0)
+    command(beebium, "CLS")
     fuji_device.clear()
 
-    # *FDRIVE is absent from the product ROM -> service &04 unclaimed
-    # -> FS *RUN resolves the file "FDRIVE" (the full typed name) on the mounted
-    # drive -> the transient binary runs and drives the Fuji device exactly as
-    # the resident command would.
     command(beebium, "*FDRIVE")
 
     pkt = fuji_device.wait_for_command(
-        fuji.FUJI_DEVICE_ID, fuji.CMD_GET_MOUNTS, timeout=8.0
+        dp.DISK_DEVICE_ID, dp.CMD_LIST_MOUNTS, timeout=8.0
     )
     if pkt is None:
         print("SCREEN AFTER *FDRIVE:\n" + dump_screen(beebium))
-    assert pkt is not None, "no GET_MOUNTS observed -> *FDRIVE did not run from disk"
+    assert pkt is not None, "resident *FDRIVE did not request runtime mappings"
     assert pkt.checksum_ok
+    assert pkt.payload == bytes([
+        dp.DISKPROTO_VERSION,
+        0x01,       # formatted text
+        0, 0,       # all units: first
+        0, 0,       # all units: last
+        0, 0,       # start index
+        220, 0,     # maximum response data
+    ])
     screen = wait_for_screen_text(beebium, "0: AUTO fn-boot.ssd", timeout=8.0)
     assert "0: AUTO fn-boot.ssd" in screen
+    assert "FN-BOOT" not in screen
+
+
+def test_resident_fdrive_empty_runtime_does_not_print_stale_fls_text(
+    beebium, fuji_device
+):
+    fuji_device.set_responder(disk_image_responder(
+        image_path=str(_SSD),
+        fuji_slot=7,
+        drive_slot=4,
+        uri="sd0:/fn-boot.ssd",
+        formatted_mounts="",
+    ))
+    _mount_boot_drive(beebium, fuji_device)
+
+    command(beebium, "*FLS")
+    wait_for_screen_text(beebium, "FN-BOOT", timeout=8.0)
+    command(beebium, "CLS")
+    fuji_device.clear()
+
+    command(beebium, "*FDRIVE")
+    pkt = fuji_device.wait_for_command(
+        dp.DISK_DEVICE_ID, dp.CMD_LIST_MOUNTS, timeout=8.0
+    )
+    assert pkt is not None
+    screen = dump_screen(beebium)
+    assert "FN-BOOT" not in screen
+    assert "FDRIVE err" not in screen
+    assert "Bad program" not in screen
+
+
+def test_resident_fdrive_survives_replacing_boot_disk_and_lists_new_mappings(
+    beebium, fuji_device
+):
+    fuji_device.set_responder(disk_image_responder(
+        image_path=str(_SSD),
+        fuji_slot=7,
+        drive_slot=4,
+        uri="sd0:/fn-boot.ssd",
+        available_uris=("chuck.ssd", "bwc.ssd"),
+    ))
+    _mount_boot_drive(beebium, fuji_device)
+
+    command(beebium, "*FIN 1 chuck.ssd")
+    command(beebium, "*FIN 2 bwc.ssd")
+    command(beebium, "*FMOUNT 1 0")  # replaces the disk that held FN-BOOT
+    command(beebium, "*FMOUNT 2 1")
+    command(beebium, "CLS")
+    fuji_device.clear()
+
+    command(beebium, "*FDRIVE")
+    pkt = fuji_device.wait_for_command(
+        dp.DISK_DEVICE_ID, dp.CMD_LIST_MOUNTS, timeout=8.0
+    )
+    assert pkt is not None
+    assert pkt.checksum_ok
+    screen = wait_for_screen_text(beebium, "0: AUTO chuck.ssd", timeout=8.0)
+    assert "1: AUTO bwc.ssd" in screen
+    assert "Bad command" not in screen
+    assert "Bad program" not in screen
 
 
 def test_fls_without_current_host_exits_cleanly(beebium, fuji_device):
@@ -192,6 +257,8 @@ def test_fout_removes_sparse_slot_so_it_cannot_be_mounted(beebium, fuji_device):
     _mount_boot_drive(beebium, fuji_device)
 
     command(beebium, "*FIN 69 retired.ssd")
+    command(beebium, "*FLS")  # leave a different transient binary at its load address
+    wait_for_screen_text(beebium, "FN-BOOT", timeout=8.0)
     fuji_device.clear()
     command(beebium, "*FOUT 69")
 
@@ -310,25 +377,25 @@ def test_access_locks_and_unlocks_real_catalogue_entry(beebium, fuji_device):
     _mount_boot_drive(beebium, fuji_device)
 
     fuji_device.clear()
-    command(beebium, "*ACCESS FDRIVE L")
+    command(beebium, "*ACCESS FLS L")
     assert _catalogue_entry_from_disk_writes(
-        fuji_device, "FDRIVE"
+        fuji_device, "FLS"
     ).locked is True
 
     command(beebium, "CLS")
-    command(beebium, "*INFO FDRIVE")
-    locked_info = _info_tokens_for_leaf(beebium, "FDRIVE")
+    command(beebium, "*INFO FLS")
+    locked_info = _info_tokens_for_leaf(beebium, "FLS")
     assert locked_info[1] == "L"
 
     fuji_device.clear()
-    command(beebium, "*ACCESS FDRIVE")
+    command(beebium, "*ACCESS FLS")
     assert _catalogue_entry_from_disk_writes(
-        fuji_device, "FDRIVE"
+        fuji_device, "FLS"
     ).locked is False
 
     command(beebium, "CLS")
-    command(beebium, "*INFO FDRIVE")
-    unlocked_info = _info_tokens_for_leaf(beebium, "FDRIVE")
+    command(beebium, "*INFO FLS")
+    unlocked_info = _info_tokens_for_leaf(beebium, "FLS")
     assert unlocked_info[1] != "L"
 
 
@@ -336,16 +403,15 @@ def test_access_locks_and_unlocks_real_catalogue_entry(beebium, fuji_device):
 # each one *resolves and loads* from the mounted disk (no "Bad command"): the
 # matcher leaves service &04 unclaimed, the FS *RUNs the file under the leaf it
 # requests (full name, or F-stripped for "F"-prefixed commands), and the binary
-# starts. This is the per-command generalisation of the FDRIVE equivalence test.
+# starts.
 _ALL_TRANSIENT_COMMANDS = [
-    ("*FDRIVE", "*FDRIVE"),
     ("*FCD", "*FCD"),
     ("*FLS", "*FLS"),
     ("*FLIST", "*FLIST"),
-    ("*DESTROY", "*DESTROY FDRIVE"),
-    ("*WIPE", "*WIPE FDRIVE"),
+    ("*DESTROY", "*DESTROY FLS"),
+    ("*WIPE", "*WIPE FLS"),
     ("*TITLE", "*TITLE TEST"),
-    ("*RENAME", "*RENAME FDRIVE FDRIVE"),
+    ("*RENAME", "*RENAME FLS FLS"),
     ("*MAP", "*MAP"),
     ("*FORM", "*FORM 40 0"),
     ("*FREE", "*FREE"),
@@ -393,7 +459,7 @@ def test_form_recreates_current_slot_uri_and_disk_remains_usable(
     command(beebium, "*CAT")
     screen = dump_screen(beebium)
     assert "BLANK" in screen
-    assert "FDRIVE" not in screen
+    assert "FLS" not in screen
 
     run_basic_program(beebium, [
         '10 A%=OPENOUT("TEST")',
@@ -540,9 +606,9 @@ def _two_image_responder(by_host_slot: dict[int, tuple[str, bytes]]):
                     slot=slot, enabled=True, uri=uris.get(slot, "sd0:/"))
             if pkt.command == fuji.CMD_SET_MOUNT:
                 return build_set_mount_response()
-            if pkt.command == fuji.CMD_GET_MOUNTS:
-                return build_get_mounts_response("0: AUTO\n")
         if pkt.device == dp.DISK_DEVICE_ID:
+            if pkt.command == dp.CMD_LIST_MOUNTS:
+                return build_disk_list_mounts_response("0: AUTO\n")
             slot = pkt.payload[1]
             if pkt.command == dp.CMD_MOUNT:
                 uri_len = pkt.payload[6]

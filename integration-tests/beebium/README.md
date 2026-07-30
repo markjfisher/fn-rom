@@ -82,7 +82,7 @@ BEEBIUM_SERVER=/path/to/beebium-model-b ./run_pytest.sh
 | Marker | Skipped unless | Meaning |
 |--------|----------------|---------|
 | `needs_net` | never skipped by product build | network OPEN/OSWORD &78 traffic |
-| `needs_boot_utils_setup` | FN-BOOT is mounted as library | utility command tests (`*FDRIVE`/`*FLS`/`*FCD`/`*FNEW`/`*FOUT`) covered by the command-from-disk lane |
+| `needs_boot_utils_setup` | FN-BOOT is mounted as library | utility command tests (`*FLS`/`*FCD`/`*FNEW`/`*FOUT`) covered by the command-from-disk lane; resident `*FDRIVE` is exercised there too |
 
 `run_product_tests.sh` builds the product ROM, runs the normal scripted suite,
 then runs the FN-BOOT command-from-disk tests; `../../run_tests.sh` wraps the

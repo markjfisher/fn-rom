@@ -155,6 +155,8 @@ The product shape is orthogonal to `BUILD_MACHINE` (BBC|MASTER) and `BUILD_INTER
   path, so `*FCD` isn't needed to position a disk; the other F-commands are informational — see
   transient list.)
 - `*CAT`, `*RUN`, `*DRIVE` (DFS drive-select), `*DIR`/`*LIB`
+- `*FDRIVE` — active-mapping inspection must remain available after `*FMOUNT`
+  replaces the boot disk in drive 0
 - the OSWORD &78 network ABI + network vector branch
 - `*FJSON` — verified to be a *thin wrapper* (171 lines of arg-parsing that
   call `fujibus_network_translate_configure`; the JSON engine is in the already-resident network
@@ -165,14 +167,12 @@ The product shape is orthogonal to `BUILD_MACHINE` (BBC|MASTER) and `BUILD_INTER
 **Transient — on the boot/config utilities SSD (`FN-BOOT`), loaded on demand:**
 - Disk management whose bulk is self-contained: `*FORM`, `*DESTROY`, `*WIPE`, `*ACCESS`,
   `*TITLE`, `*INFO`, `*RENAME`, `*COPY`, `*FNEW`, `*FREE`/`*MAP`, `*ROMS`, `*FUMOUNT`, `*FOUT`
-- **Informational / navigation F-commands** (not needed to position a disk): `*FCD` (covered by
-  `*FHOST <path>`), `*FLIST`/`*FLS` (~361+250 lines — large directory listing), `*FDRIVE` (shows what
-  the fujinet has in its slots).
+- **Informational / navigation F-commands**: `*FCD` (covered by
+  `*FHOST <path>`) and `*FLIST`/`*FLS` (large directory listing).
 
-> Shared-helper note: `*FLIST`/`*FLS` reuses some variable-width result-display code from `*FDRIVE`.
-> Both move out together, so that helper moves to disk too — **duplicate it into the utility** (or a
-> shared loadable module) rather than keeping it as a resident ROM entry point (§5.5). Duplication
-> costs disk, not ROM, which is the goal.
+> Shared-helper note: the small formatted-response printer is resident because
+> both resident `*FDRIVE` and transient `*FLIST`/`*FLS` use it. Transient
+> callers reach it through the stable utility ABI.
 
 The line: anything needed to *use* a disk or *get the boot/config disk mounted*
 (`*FHOST`/`*FIN`/`*FMOUNT`/`*FBOOT`) stays resident; everything else — management *and*
@@ -265,7 +265,7 @@ For each `src/utils/` command:
 1. It must reach the ROM only through documented entry points (MOS calls; OSWORD &78 for network).
    Audit each command's current `.import` list — anything it pulls from kernel/disk internals must
    become a published entry or be inlined into the utility. **Helpers shared only between transient
-   utilities** (e.g. the variable-width display code shared by `*FLIST` and `*FDRIVE`) should be
+   utilities** should be
    **duplicated into each utility or shipped as a shared loadable module** — *not* promoted to a
    resident ROM entry point, since that would re-spend the ROM bytes we are trying to reclaim.
 2. Build it as a BBC binary with its own load/exec address. `scripts/create_ssd.py` **already**

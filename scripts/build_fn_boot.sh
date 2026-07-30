@@ -14,7 +14,7 @@
 # unclaimed and the MOS asks the FS to *RUN it as a file. The FS reads the leaf
 # from the *start* of the command line (read_fspba in fs_functions.s rewinds to
 # offset 0), so the requested leaf is the **full typed name** including any
-# leading F (e.g. *FDRIVE -> "FDRIVE", *FORM -> "FORM", *COPY -> "COPY"). DFS
+# leading F (e.g. *FLS -> "FLS", *FORM -> "FORM", *COPY -> "COPY"). DFS
 # caps a disc at 31 files and a leaf at 7 chars; every transient command name is
 # <= 7 chars (the unmount command is *FUMOUNT, not *FUNMOUNT, for this reason).
 set -euo pipefail
@@ -297,7 +297,6 @@ build_util() {
 U="$root/src/utils"
 
 # Each binary is staged under the full command name the FS *RUN looks up.
-build_util FDRIVE  noarg:cmd_fs_fdrive "$U/cmd_fdrive.s" "$U/cmd_flist.s" "$U/flist_resolve_target.s"
 build_util FCD     cmd_fs_fcd      "$U/cmd_fcd.s" "$U/flist_resolve_target.s"
 build_util FLS     cmd_fs_flist    "$U/cmd_flist.s" "$U/flist_resolve_target.s"
 build_util FLIST   cmd_fs_flist    "$U/cmd_flist.s" "$U/flist_resolve_target.s"

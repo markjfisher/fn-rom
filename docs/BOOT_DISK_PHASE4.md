@@ -1,5 +1,10 @@
 # Phase 4 — Transient utilities on the boot disk
 
+> Current implementation note: `*FDRIVE` was subsequently made resident. It is
+> a recovery/inspection command and must still work after an application disk
+> replaces `FN-BOOT` in drive 0. The historical sections below describe the
+> mechanism originally proven using FDRIVE.
+
 Per `docs/BOOT_DISK_PLAN.md` §5.1/§5.2/§5.5 / §6 Phase 4. Makes the management and
 informational commands an optional, on-disk feature: `UTILITIES=resident` links them into the ROM
 (`make all-rom`); `UTILITIES=disk` drops them from the ROM (they ship on `FN-BOOT.ssd` and load on

@@ -1,5 +1,11 @@
 # Issues with split rom
 
+Current status: `*FDRIVE` is resident because replacing the boot disk must not
+remove the command used to inspect active drive mappings. It now queries the
+DiskDevice runtime mount table rather than the obsolete Fuji configuration
+mount list. Other boot-disk utilities continue to exercise the library fallback
+fix documented below.
+
 *FLS after a while runs whatever is in &1900, so runs *FDRIVE if that was already loaded.
 Usually when you're on *DRIVE 0, and *LIB is :3.$
 

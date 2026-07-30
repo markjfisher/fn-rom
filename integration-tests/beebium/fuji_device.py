@@ -361,6 +361,33 @@ def build_get_mounts_response(
     return fb.build_fuji_response_wire(fuji.FUJI_DEVICE_ID, fuji.CMD_GET_MOUNTS, status, body)
 
 
+def build_disk_list_mounts_response(
+    text: str,
+    *,
+    first_slot: int = 0,
+    start_index: int = 0,
+    more: bool = False,
+    status: int = 0,
+) -> bytes:
+    """A Disk LIST_MOUNTS (0x0D) formatted runtime-mapping response."""
+    if dp is None:
+        raise RuntimeError("fujinet_tools.diskproto is unavailable")
+    flags = 0x02 | (0x01 if more else 0)
+    text_b = text.encode("utf-8")
+    entry_count = text.count("\n") + (1 if text and not text.endswith("\n") else 0)
+    body = (
+        bytes([dp.DISKPROTO_VERSION, flags])
+        + struct.pack("<H", first_slot)
+        + struct.pack("<H", start_index)
+        + struct.pack("<H", entry_count)
+        + struct.pack("<H", len(text_b))
+        + text_b
+    )
+    return fb.build_fuji_response_wire(
+        dp.DISK_DEVICE_ID, dp.CMD_LIST_MOUNTS, status, body
+    )
+
+
 def build_get_mount_response(
     *,
     slot: int,
@@ -1091,6 +1118,7 @@ def build_disk_mount_like_response(
 def disk_image_responder(
     *, image_path, fuji_slot: int, drive_slot: int, uri: str,
     formatted_mounts: str | None = None, inner: "Responder | None" = None,
+    available_uris=(),
 ):
     """Serve a real DFS .ssd image so fn-rom can *RUN a file from it: Fuji slot
     lookup + Disk mount/info + Disk READ_SECTOR/WRITE_SECTOR.
@@ -1106,6 +1134,8 @@ def disk_image_responder(
         uri: image,
         uri.rsplit("/", 1)[-1]: image,
     }
+    for available_uri in available_uris:
+        available_images[available_uri] = bytearray(image)
     mounted_images: dict[int, bytearray] = {}
 
     def _read_sector(lba: int, maxb: int) -> bytes:
@@ -1159,15 +1189,15 @@ def disk_image_responder(
                 return build_get_mount_response(slot=fuji_slot, enabled=True, uri=uri)
             if pkt.command == fuji.CMD_SET_MOUNT:
                 return build_set_mount_response()
-            if pkt.command == fuji.CMD_GET_MOUNTS:
+        if dp is not None and pkt.device == dp.DISK_DEVICE_ID:
+            if pkt.command == dp.CMD_LIST_MOUNTS:
                 text = formatted_mounts
                 if text is None:
                     text = "".join(
                         f"{drive}: {mode} {mount_uri}\n"
                         for drive, (mode, mount_uri) in sorted(runtime_mounts.items())
                     )
-                return build_get_mounts_response(text)
-        if dp is not None and pkt.device == dp.DISK_DEVICE_ID:
+                return build_disk_list_mounts_response(text)
             if pkt.command == dp.CMD_CREATE:
                 uri_len = int.from_bytes(pkt.payload[9:11], "little")
                 create_uri = pkt.payload[11:11 + uri_len].decode("utf-8")
