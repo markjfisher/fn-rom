@@ -8,7 +8,6 @@ from pathlib import Path
 import pytest
 
 from fujinet_tools import diskproto as dp
-from fujinet_tools import fujiproto as fuji
 
 from fuji_device import (
     DISK_CMD_BEGIN_HOST_SESSION,
@@ -17,8 +16,6 @@ from fuji_device import (
     build_disk_mount_response,
     build_disk_read_sector_response,
     appstore_slot_read_response,
-    build_get_mount_response,
-    build_set_mount_response,
     default_success_responder,
 )
 from helpers import command, wait_for_screen_text
@@ -59,18 +56,6 @@ class BootSessionResponder:
         slot_reply = appstore_slot_read_response(pkt, 1, "sd0:/work.ssd", "auto")
         if slot_reply is not None:
             return slot_reply
-        if pkt.device == fuji.FUJI_DEVICE_ID:
-            if pkt.command == fuji.CMD_GET_MOUNT:
-                slot = pkt.payload[0]
-                return build_get_mount_response(
-                    slot=slot,
-                    enabled=True,
-                    uri="sd0:/work.ssd" if slot == 1 else "sd0:/boot.ssd",
-                )
-            if pkt.command == fuji.CMD_SET_MOUNT:
-                return build_set_mount_response()
-            return default_success_responder(pkt)
-
         if pkt.device != dp.DISK_DEVICE_ID:
             return default_success_responder(pkt)
 

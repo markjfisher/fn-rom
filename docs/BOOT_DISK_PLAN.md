@@ -59,7 +59,7 @@ MOS filing vectors (OSFIND/BGET/BPUT/ARGS/GBPB/FILE)  <- src/vectors/*    [SHARE
         |- disk branch  -> DFS catalog + sector IO     [always resident]
         |- net  branch  -> network stream read/write   [network feature]
 OSWORD &78 network API (long URIs, JSON paths)         <- src/fnnet.s, src/fnnet/*  [network feature, ABI]
-FujiBus device builders                                <- fujibus_disk.s | fujibus_network.s | fujibus_fuji.s
+FujiBus device builders                                <- fujibus_disk.s | fujibus_network.s
 FujiBus packet + SLIP framing + shared data ops        <- fujibus.s, fuji_link_slip.s, fuji_data_fujibus.s  [KERNEL]
 Channel (serial / PTY / RS232, userport, 1MHz)         <- src/serial/*, fuji_serial.s, fuji_userport.s      [KERNEL]
 ```
@@ -350,7 +350,7 @@ issues the FujiBus mount), then `sta fuji_lib_drive`.
 
 | Layer | Where | ROM cost | Flexibility | Notes |
 |-------|-------|---------:|-------------|-------|
-| **A. Device config** | fujinet auto-mounts the boot/config SSD to a *slot* at device boot (it already persists a `mounts:` list — see `posix.fujinet.yaml`); ROM reads "which slot is the library disk" from a config field and does FMOUNT+`*LIB` | ~80–120 B | High — retune the slot/drive without reflashing the ROM | Needs a small device-side config field + one status/config FujiBus read at boot |
+| **A. Device boot config** | fujinet projects `boot.config_uri` into an active Disk unit; ROM uses `*FBOOT`/`*LIB` to restore and select the boot disk | ~80–120 B | High — retune the boot image without reflashing the ROM | Implemented independently of the AppStore catalogue |
 | **B. ROM resident, hardcoded** | ROM mounts a fixed `BOOT_SLOT`→`BOOT_DRIVE` and sets library at cold boot | **~30–50 B** | Low — slot/drive baked into ROM | Cheapest; brittle if the user’s slot/drive differs |
 | **C. User `!BOOT`** | The boot/config disk has a `!BOOT` running `*FMOUNT … ; *LIB :n` | **0 B** | High — fully user-editable | Requires a boot disk and `*OPT 4,n`; nothing automatic on a bare machine |
 

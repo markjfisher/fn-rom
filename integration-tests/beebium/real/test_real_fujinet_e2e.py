@@ -78,8 +78,10 @@ def _wait_for_receive_payloads(real_fujinet, dev_hex: str, cmd_hex: str, expecte
 def test_real_fujinet_receives_fdrive(beebium_real, real_fujinet):
     command(beebium_real, "*FDRIVE")
 
-    assert real_fujinet.wait_for_log("dev=0x70 cmd=0xFD", timeout=8.0)
-    assert real_fujinet.wait_for_log("send: dev=0x70", timeout=2.0)
+    assert real_fujinet.wait_for_log("dev=0xFC cmd=0x0D", timeout=8.0)
+    assert real_fujinet.wait_for_log(
+        "send: dev=0xFC status=0 cmd=0x0D", timeout=2.0
+    )
 
 
 def test_real_fujinet_receives_fhost(beebium_real, real_fujinet):
@@ -93,10 +95,27 @@ def test_real_fujinet_receives_fhost(beebium_real, real_fujinet):
     wait_for_screen_text(beebium_real, "PATH: /", timeout=8.0)
 
 
-def test_real_fujinet_receives_fmount(beebium_real, real_fujinet):
-    command(beebium_real, "*FMOUNT 0 0")
-    assert real_fujinet.wait_for_log("dev=0x70 cmd=0xFB", timeout=8.0)
-    assert real_fujinet.wait_for_log("send: dev=0x70", timeout=2.0)
+def test_real_fujinet_fmount_mounts_catalog_uri(
+    beebium_real_host_tree, real_fujinet_host_tree
+):
+    command(beebium_real_host_tree, "*FHOST host:/")
+    command(beebium_real_host_tree, "*FIN 0 foo/bar/weather.ssd")
+    command(beebium_real_host_tree, "*FMOUNT 0 0")
+    command(beebium_real_host_tree, "*. :0.$")
+
+    wait_for_screen_text(beebium_real_host_tree, "WEATHER", timeout=8.0)
+    assert real_fujinet_host_tree.wait_for_log(
+        "dev=0xFE cmd=0x21", timeout=8.0
+    )
+    assert real_fujinet_host_tree.wait_for_log(
+        "dev=0xFC cmd=0x01", timeout=8.0
+    )
+    assert real_fujinet_host_tree.wait_for_log(
+        "send: dev=0xFC status=0 cmd=0x01", timeout=4.0
+    )
+    assert real_fujinet_host_tree.wait_for_log(
+        "dev=0xFC cmd=0x03", timeout=8.0
+    )
 
 
 def test_real_fujinet_receives_openin(beebium_real, real_fujinet):
@@ -223,10 +242,10 @@ def test_real_fujinet_host_listing_and_mount_catalog_reads(beebium_real_host_tre
     )
 
     log = real_fujinet_host_tree.log_text()
-    assert "dev=0xFE cmd=0x05" in log
-    assert "dev=0xFE cmd=0x02" in log
-    assert log.count("dev=0x70 cmd=0xFC") >= 2, log[-4000:]
-    assert log.count("dev=0x70 cmd=0xFB") >= 2, log[-4000:]
+    assert "dev=0xFE cmd=0x21" in log
+    assert "dev=0xFE cmd=0x22" in log
+    assert log.count("dev=0xFC cmd=0x01") >= 2, log[-4000:]
+    assert log.count("send: dev=0xFC status=0 cmd=0x01") >= 2, log[-4000:]
 
     missing = expected_payloads - seen_payloads
     assert not missing, (

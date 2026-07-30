@@ -45,7 +45,7 @@ The ROM must maintain "current filesystem" state internally.
 
 The transport used by fn-rom is FujiBus (header, descriptors and payload definition) with SLIP framing. FujiBus packet logic lives in `@src/fujibus.s`, and shared SLIP framing lives in `@src/fuji_link_slip.s`.
 
-Shared FujiBus-backed data operations live in `@src/fuji_data_fujibus.s` and the device-specific command builders live in `@src/fujibus_disk.s`, `@src/fujibus_fuji.s`, and `@src/fujibus_network.s`.
+Shared FujiBus-backed data operations live in `@src/fuji_data_fujibus.s` and the device-specific command builders live in `@src/fujibus_disk.s` and `@src/fujibus_network.s`.
 
 The channel is the raw byte stream beneath SLIP and FujiBus. Today that channel is serial data over PTY or RS423/RS232, implemented in `@src/serial/`. Future userport or 1MHz support should provide the same `fuji_link_*` raw-link entry points without duplicating the SLIP or FujiBus layers.
 

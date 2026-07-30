@@ -2,17 +2,14 @@
 ; These operations are channel-agnostic: serial, userport, and 1MHz all use
 ; the same FujiBus commands and packet formats underneath.
 
-        .export fuji_clear_mount_slot_data
         .export fuji_begin_host_session_data
         .export fuji_create_disk_data
-        .export fuji_get_mount_slot_data
         .export fuji_mount_disk_data
         .export fuji_reinitialize_disk_data
         .export fuji_read_block_data
         .export fuji_read_catalog_data
         .export fuji_read_disc_title_data
         .export fuji_restore_boot_disk_data
-        .export fuji_set_mount_slot_data
         .export fuji_unmount_disk_data
         .export fuji_write_block_data
         .export fuji_write_catalog_data
@@ -28,7 +25,6 @@
         .import fuji_block_size
         .import fuji_current_sector
         .import fuji_file_offset
-        .import fujibus_clear_mount_slot
         .import fujibus_disk_begin_host_session
         .import fujibus_disk_create
         .import fujibus_disk_mount
@@ -38,8 +34,6 @@
         .import fujibus_disk_restore_boot
         .import fujibus_disk_unmount
         .import fujibus_disk_write_sector
-        .import fujibus_get_mount_slot
-        .import fujibus_set_mount_slot
 
         .include "fujinet.inc"
 
@@ -298,12 +292,3 @@ fuji_restore_boot_disk_data:
 
 fuji_begin_host_session_data:
         jmp     fujibus_disk_begin_host_session
-
-fuji_clear_mount_slot_data:
-        jmp     fujibus_clear_mount_slot
-
-fuji_set_mount_slot_data:
-        jmp     fujibus_set_mount_slot
-
-fuji_get_mount_slot_data:
-        jmp     fujibus_get_mount_slot

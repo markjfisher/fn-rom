@@ -25,10 +25,8 @@
         .import exit_user_ok
         .import fhost_copy_and_resolve
         .import fhost_show_current
-        .import fuji_clear_slot
         .import fuji_create_disk
         .import fuji_fs_uri_ptr
-        .import fuji_get_slot
         .import fuji_restore_boot_disk
         .import fuji_reinitialize_disk
         .import fuji_set_disk_slot_from_mapping_or_error
@@ -109,13 +107,16 @@ fuji_util_abi_fhost_copy_and_resolve:
 fuji_util_abi_fhost_show_current:
         jmp     fhost_show_current
 fuji_util_abi_fuji_clear_slot:
-        jmp     fuji_clear_slot
+        ; Retired legacy Fuji configuration-mount ABI slot. Keep this veneer
+        ; position stable for existing boot disks, but fail cleanly.
+        jmp     err_bad
 fuji_util_abi_fuji_create_disk:
         jmp     fuji_create_disk
 fuji_util_abi_fuji_fs_uri_ptr:
         jmp     fuji_fs_uri_ptr
 fuji_util_abi_fuji_get_slot:
-        jmp     fuji_get_slot
+        ; Retired legacy Fuji configuration-mount ABI slot.
+        jmp     err_bad
 fuji_util_abi_fuji_restore_boot_disk:
         jmp     fuji_restore_boot_disk
 fuji_util_abi_fuji_set_disk_slot_from_mapping_or_error:

@@ -46,7 +46,7 @@ The system now separates FujiNet operations into policy, shared FujiBus protocol
 ┌─────────────────────────────────────────────────────────────┐
 │  Transaction / Policy Layer                                 │
 │  - fuji_read_catalog() / fuji_write_catalog()               │
-│  - fuji_mount_disk() / fuji_get_slot()                      │
+│  - fuji_mount_disk() / fuji_reinitialize_disk()             │
 │  - fuji_begin_transaction() / fuji_end_transaction()        │
 │  Files: fuji_fs.s, fuji_mount.s                             │
 │  CRITICAL: All functions here manage &BC-&CB preservation   │
@@ -55,7 +55,7 @@ The system now separates FujiNet operations into policy, shared FujiBus protocol
 ┌─────────────────────────────────────────────────────────────┐
 │  Shared FujiBus Operations                                  │
 │  - fuji_*_data() exports backed by FujiBus                  │
-│  - fujibus_disk.s / fujibus_fuji.s / fujibus_network.s      │
+│  - fujibus_disk.s / fujibus_network.s                       │
 │  - Packet layout and response validation                    │
 │  Files: fuji_data_fujibus.s, fujibus*.s                     │
 └─────────────────────────────────────────────────────────────┘
@@ -84,7 +84,7 @@ The system now separates FujiNet operations into policy, shared FujiBus protocol
 - `fuji_fs.s` and `fuji_mount.s`: top-level FujiNet operations, state, transaction boundaries
 - `fuji_data_fujibus.s`: shared `fuji_*_data` implementations for mount, catalog, and block operations
 - `fujibus.s`: shared FujiBus packet encode/decode and checksum handling
-- `fujibus_disk.s`, `fujibus_fuji.s`, `fujibus_network.s`: shared device-specific FujiBus commands
+- `fujibus_disk.s`, `fujibus_network.s`: shared device-specific FujiBus commands
 - `fuji_link_slip.s`: shared SLIP framing over the selected raw link
 - `src/serial/*.s`: current serial raw-link implementation used by the shared SLIP layer
 - `fuji_serial.s`: serial-only error helpers, not the main FujiBus data path

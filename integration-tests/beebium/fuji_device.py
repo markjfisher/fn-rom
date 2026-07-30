@@ -28,12 +28,10 @@ from fujinet_tools import fujibus as fb
 try:  # protocol constants/helpers (optional -- only needed by some helpers)
     from fujinet_tools import diskproto as dp
     from fujinet_tools import fileproto as fp
-    from fujinet_tools import fujiproto as fuji
     from fujinet_tools import netproto as netp
 except Exception:  # pragma: no cover - defensive
     dp = None
     fp = None
-    fuji = None
     netp = None
 
 FujiPacket = fb.FujiPacket
@@ -334,33 +332,6 @@ def build_list_response(
     return fb.build_fuji_response_wire(device or fp.FILE_DEVICE_ID, fp.CMD_LIST, status, body)
 
 
-def build_get_mounts_response(
-    text: str,
-    *,
-    first_slot: int = 0,
-    start_index: int = 0,
-    more: bool = False,
-    status: int = 0,
-) -> bytes:
-    """A Fuji GET_MOUNTS (0xFD) formatted response."""
-    if fuji is None:
-        raise RuntimeError("fujinet_tools.fujiproto is unavailable")
-    flags = fuji.GET_MOUNTS_RESP_FLAG_FORMATTED
-    if more:
-        flags |= fuji.GET_MOUNTS_RESP_FLAG_MORE
-    text_b = text.encode("utf-8")
-    entry_count = text.count("\n") + (1 if text and not text.endswith("\n") else 0)
-    body = (
-        bytes([fuji.GET_MOUNTS_VERSION, flags])
-        + struct.pack("<H", first_slot)
-        + struct.pack("<H", start_index)
-        + struct.pack("<H", entry_count)
-        + struct.pack("<H", len(text_b))
-        + text_b
-    )
-    return fb.build_fuji_response_wire(fuji.FUJI_DEVICE_ID, fuji.CMD_GET_MOUNTS, status, body)
-
-
 def build_disk_list_mounts_response(
     text: str,
     *,
@@ -386,33 +357,6 @@ def build_disk_list_mounts_response(
     return fb.build_fuji_response_wire(
         dp.DISK_DEVICE_ID, dp.CMD_LIST_MOUNTS, status, body
     )
-
-
-def build_get_mount_response(
-    *,
-    slot: int,
-    enabled: bool,
-    uri: str,
-    mode: str = "auto",
-    status: int = 0,
-) -> bytes:
-    """A Fuji GET_MOUNT (0xFB) reply matching the ROM's expected compact format."""
-    if fuji is None:
-        raise RuntimeError("fujinet_tools.fujiproto is unavailable")
-    uri_b = uri.encode("utf-8")
-    mode_b = mode.encode("utf-8")
-    body = bytes([
-        slot & 0xFF,
-        0x01 if enabled else 0x00,
-        len(uri_b) & 0xFF,
-    ]) + uri_b + bytes([len(mode_b) & 0xFF]) + mode_b
-    return fb.build_fuji_response_wire(fuji.FUJI_DEVICE_ID, fuji.CMD_GET_MOUNT, status, body)
-
-
-def build_set_mount_response(status: int = 0) -> bytes:
-    if fuji is None:
-        raise RuntimeError("fujinet_tools.fujiproto is unavailable")
-    return fb.build_fuji_response_wire(fuji.FUJI_DEVICE_ID, fuji.CMD_SET_MOUNT, status, b"")
 
 
 def _display_path_for_host(uri: str) -> str:
@@ -944,7 +888,7 @@ def mounted_disk_responder(
     mode: str = "auto",
     readonly: bool = False,
 ) -> Responder:
-    """Answer Fuji slot lookup plus subsequent Disk mount/unmount requests."""
+    """Answer AppStore slot lookup plus subsequent Disk mount/unmount requests."""
     mount_enabled = True
 
     def _mounts_text() -> str:
@@ -957,16 +901,9 @@ def mounted_disk_responder(
         slot_reply = appstore_slot_read_response(pkt, slot, uri, mode)
         if slot_reply is not None:
             return slot_reply
-        if fuji is not None and pkt.device == fuji.FUJI_DEVICE_ID:
-            if pkt.command == fuji.CMD_GET_MOUNTS:
-                return build_get_mounts_response(_mounts_text())
-            if pkt.command == fuji.CMD_GET_MOUNT:
-                return build_get_mount_response(slot=slot, enabled=mount_enabled, uri=uri, mode=mode)
-            if pkt.command == fuji.CMD_SET_MOUNT:
-                if len(pkt.payload) >= 2 and pkt.payload[0] == slot:
-                    mount_enabled = bool(pkt.payload[1])
-                return build_set_mount_response()
         if dp is not None and pkt.device == dp.DISK_DEVICE_ID:
+            if pkt.command == dp.CMD_LIST_MOUNTS:
+                return build_disk_list_mounts_response(_mounts_text())
             if pkt.command == dp.CMD_MOUNT:
                 return build_disk_mount_response(slot=slot + 1, readonly=readonly)
             if pkt.command == dp.CMD_UNMOUNT:
@@ -981,14 +918,12 @@ def full_stack_responder(
     resolved_uri: str,
     display_path: str,
     mount_slot: int,
-    mount_uri: Optional[str] = None,
     formatted_mounts: str = "0: AUTO\n",
     translated_handle: int = 1,
     translated_size: int = 0,
 ) -> Responder:
-    """Handle the common File/Fuji/Disk/Network flows used by fn-rom tests."""
+    """Handle the common File/Disk/Network flows used by fn-rom tests."""
 
-    effective_mount_uri = mount_uri or resolved_uri
     host_resp = host_service_responder([resolved_uri])
 
     def _resp(pkt: FujiPacket) -> Optional[bytes]:
@@ -1000,18 +935,9 @@ def full_stack_responder(
                 return build_resolve_path_response(resolved_uri, display_path)
             if pkt.command == fp.CMD_LIST:
                 return build_list_response(formatted_text="FILE\n")
-        if fuji is not None and pkt.device == fuji.FUJI_DEVICE_ID:
-            if pkt.command == fuji.CMD_GET_MOUNTS:
-                return build_get_mounts_response(formatted_mounts)
-            if pkt.command == fuji.CMD_GET_MOUNT:
-                return build_get_mount_response(
-                    slot=mount_slot,
-                    enabled=True,
-                    uri=effective_mount_uri,
-                )
-            if pkt.command == fuji.CMD_SET_MOUNT:
-                return build_set_mount_response()
         if dp is not None and pkt.device == dp.DISK_DEVICE_ID:
+            if pkt.command == dp.CMD_LIST_MOUNTS:
+                return build_disk_list_mounts_response(formatted_mounts)
             if pkt.command == dp.CMD_MOUNT:
                 return build_disk_mount_response(slot=mount_slot + 1)
             if pkt.command == dp.CMD_CREATE:
@@ -1116,19 +1042,21 @@ def build_disk_mount_like_response(
 
 
 def disk_image_responder(
-    *, image_path, fuji_slot: int, drive_slot: int, uri: str,
+    *, image_path, catalog_slot: int, uri: str,
     formatted_mounts: str | None = None, inner: "Responder | None" = None,
     available_uris=(),
 ):
-    """Serve a real DFS .ssd image so fn-rom can *RUN a file from it: Fuji slot
-    lookup + Disk mount/info + Disk READ_SECTOR/WRITE_SECTOR.
+    """Serve a real DFS .ssd image so fn-rom can *RUN a file from it: AppStore
+    catalogue lookup + Disk mount/info + Disk READ_SECTOR/WRITE_SECTOR.
     `inner` (if given) answers anything else first (e.g. the command's own
     FujiBus traffic once it runs)."""
     with open(image_path, "rb") as fh:
         image = bytearray(fh.read())
     nsec = max(1, len(image) // 256)
     host_resp = host_service_responder([uri])
-    appstore: dict[tuple[str, str], bytes] = {}
+    appstore: dict[tuple[str, str], bytes] = {
+        ("config-nio", f"slot-{catalog_slot:03d}"): bytes([1, 0]) + uri.encode()
+    }
     runtime_mounts: dict[int, tuple[str, str]] = {}
     available_images: dict[str, bytearray] = {
         uri: image,
@@ -1184,11 +1112,6 @@ def disk_image_responder(
                 return build_resolve_path_response(uri, uri, device=pkt.device)
             if pkt.command == fp.CMD_LIST:
                 return build_list_response(formatted_text="FN-BOOT\n", device=pkt.device)
-        if fuji is not None and pkt.device == fuji.FUJI_DEVICE_ID:
-            if pkt.command == fuji.CMD_GET_MOUNT:
-                return build_get_mount_response(slot=fuji_slot, enabled=True, uri=uri)
-            if pkt.command == fuji.CMD_SET_MOUNT:
-                return build_set_mount_response()
         if dp is not None and pkt.device == dp.DISK_DEVICE_ID:
             if pkt.command == dp.CMD_LIST_MOUNTS:
                 text = formatted_mounts

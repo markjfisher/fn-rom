@@ -79,7 +79,7 @@ hand-written ABI jump table needed:
 
 **Equivalence test (Appendix C.4 #3) — passing.** `scripts/run_fn_boot_test.sh` builds the SSD + ROM
 and runs `scripted/test_command_from_disk.py`: with `*FDRIVE` absent from the ROM, mounting `FN-BOOT.ssd`
-and typing `*FDRIVE` loads+runs the disk binary, which emits the **same Fuji GET_MOUNTS frame** as the
+and typing `*FDRIVE` loads+runs the disk binary, which emits the **same Disk LIST_MOUNTS frame** as the
 resident command. **1 passed** — the disk-loaded utility behaves identically.
 
 ## Acceptance

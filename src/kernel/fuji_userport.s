@@ -6,17 +6,14 @@
 ; Only compile this file if USERPORT interface is selected
 .ifdef FUJINET_INTERFACE_USERPORT
 
-        .export fuji_clear_mount_slot_data
         .export fuji_begin_host_session_data
         .export fuji_create_disk_data
-        .export fuji_get_mount_slot_data
         .export fuji_mount_disk_data
         .export fuji_reinitialize_disk_data
         .export fuji_read_block_data
         .export fuji_read_catalog_data
         .export fuji_read_disc_title_data
         .export fuji_restore_boot_disk_data
-        .export fuji_set_mount_slot_data
         .export fuji_unmount_disk_data
         .export fuji_write_block_data
         .export fuji_write_catalog_data
@@ -47,18 +44,6 @@ fuji_restore_boot_disk_data:
         rts
 
 fuji_begin_host_session_data:
-        lda     #$00
-        rts
-
-fuji_clear_mount_slot_data:
-        lda     #$00
-        rts
-
-fuji_get_mount_slot_data:
-        lda     #$00
-        rts
-
-fuji_set_mount_slot_data:
         lda     #$00
         rts
 

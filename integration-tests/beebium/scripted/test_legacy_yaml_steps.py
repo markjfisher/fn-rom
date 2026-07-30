@@ -125,9 +125,8 @@ def _run_disk_yaml(
     fuji_device.set_responder(
         disk_image_responder(
             image_path=str(image_path),
-            fuji_slot=7,
-            drive_slot=4,
-            uri=f"sd0:/{suite.disk}",
+            catalog_slot=7,
+                        uri=f"sd0:/{suite.disk}",
             inner=inner,
         )
     )

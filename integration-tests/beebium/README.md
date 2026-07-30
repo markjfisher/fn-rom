@@ -19,7 +19,7 @@ keyboard ─▶ MOS/OSCLI ─▶ fn-rom command ─▶ FujiBus/SLIP encode
 | Piece | Repo | Role |
 |-------|------|------|
 | Beebium gRPC client (`beebium`) | beebium | drive the emulator (load ROM, type keys, step) |
-| `fujinet_tools` (`fujibus`, `fileproto`, `fujiproto`) | fujinet-nio | SLIP framing + FujiBus encode/decode/parse |
+| `fujinet_tools` (`fujibus`, `fileproto`, `diskproto`) | fujinet-nio | SLIP framing + FujiBus encode/decode/parse |
 | these tests | fn-rom | the assertions |
 
 The Beebium client is attached automatically by `./run_pytest.sh`
@@ -102,7 +102,7 @@ PTY** here (`--host-serial mode=pty:path=<pty>`) and the test plugs into the sla
 | Test | Command | Asserted frame |
 |------|---------|----------------|
 | `scripted/test_serial_e2e.py::test_fhost_emits_resolve_path_request` | `*FHOST <uri>` | FileService `RESOLVE_PATH` (0xFE/0x05), URI in payload, checksum OK |
-| `scripted/test_serial_e2e.py::test_fdrive_emits_fuji_get_mounts_request` | `*FDRIVE` | Fuji `GET_MOUNTS` (0x70/0xFD), checksum OK |
+| `scripted/test_serial_e2e.py::test_fdrive_emits_disk_list_mounts_request` | `*FDRIVE` | Disk `LIST_MOUNTS` (0xFC/0x0D), checksum OK |
 | `scripted/test_serial_e2e.py::test_fhost_then_fls_round_trip` | `*FHOST` then `*FLS` | RESOLVE_PATH answered by the device, then FileService `LIST` (0xFE/0x02) — proves responses flow back over the PTY |
 | `scripted/test_network_device.py::test_openin_bget_close_cycle_emits_open_read_close` | `OPENIN`/`BGET#`/`CLOSE#` | Network `OPEN`, `READ`, `CLOSE` |
 | `scripted/test_network_device.py::test_openin_fjson_bget_close_cycle_emits_open_translate_read_close` | `OPENIN`/`*FJSON`/`BGET#`/`CLOSE#` | Network `OPEN`, `TRANSLATE_CONFIGURE`, `READ`, `CLOSE` |
@@ -116,10 +116,10 @@ The `tnfs://example.invalid/...` URIs used in scripted tests are synthetic. The 
 
 | Device | ID | Scripted transport coverage | Real-firmware interop coverage | Notes |
 |--------|----|-----------------------------|-------------------------------|-------|
-| Fuji | `0x70` | `scripted/test_fuji_device_e2e.py` (`*FDRIVE`, `*FIN`, `*FOUT`) | `real/test_real_fujinet_e2e.py` (`*FDRIVE`, `*FMOUNT`) | Covers `GET_MOUNTS`, `GET_MOUNT`, `SET_MOUNT` |
+| Fuji | `0x70` | none | reset is not exercised by these command tests | FujiDevice no longer owns catalogue or disk-mount state |
 | Clock | `0x45` | `scripted/test_clock_device.py` | `real/test_real_fujinet_e2e.py` skip | `fn-rom` currently has no BBC command/vector path to Clock |
 | Modem | `0xFB` | `scripted/test_modem_device.py` | `real/test_real_fujinet_e2e.py` skip | `fn-rom` currently has no BBC command/vector path to Modem |
-| Disk | `0xFC` | `scripted/test_disk_device.py` (`*FMOUNT`, `*FNEW`, `*FOUT`) | `real/test_real_fujinet_e2e.py` (`*FMOUNT`) | Covers `MOUNT`, `UNMOUNT`, `CREATE`; real interop proves live `MOUNT` |
+| Disk | `0xFC` | `scripted/test_disk_device.py` (`*FMOUNT`, `*FNEW`, `*FDRIVE`) | `real/test_real_fujinet_e2e.py` (`*FDRIVE`, `*FMOUNT`) | Covers `MOUNT`, `LIST_MOUNTS`, `CREATE`; real interop proves live mappings |
 | Network | `0xFD` | `scripted/test_network_device.py` (`OPENIN`, `OPENIN`/`BGET#`/`CLOSE#`, `OPENIN`/`*FJSON`/`BGET#`/`CLOSE#`, OSWORD `&78` reasons `&00..&04`) | `real/test_real_fujinet_e2e.py` (`OPENIN`, `OPENIN`+`*FJSON`, OSWORD long URL, OSWORD POST/write) | Covers representative chuck/iss/weather-style ROM flows and the `fnnet.s` jump table |
 | File | `0xFE` | `scripted/test_file_device.py` (`*FHOST`, `*FCD`, `*FLS`) | `real/test_real_fujinet_e2e.py` (`*FHOST`) | Covers `RESOLVE_PATH`, `LIST` |
 
@@ -153,12 +153,11 @@ repo) or point `--fujinet-bin` / `FUJINET_BIN` at the binary.
 
 | Test | Checks |
 |------|--------|
-| `real/test_real_fujinet_e2e.py::test_real_fujinet_receives_fdrive` | firmware logs a Fuji `GET_MOUNTS` receive (`dev=0x70 cmd=0xFD`) **and** a reply |
+| `real/test_real_fujinet_e2e.py::test_real_fujinet_receives_fdrive` | firmware logs a Disk `LIST_MOUNTS` receive (`dev=0xFC cmd=0x0D`) **and** a reply |
 | `real/test_real_fujinet_e2e.py::test_real_fujinet_receives_fhost` | firmware logs a FileService `RESOLVE_PATH` receive (`dev=0xFE cmd=0x05`) |
 | `real/test_real_fujinet_e2e.py::test_real_fujinet_receives_openin_then_fjson` | firmware logs Network `OPEN`, `TRANSLATE_CONFIGURE`, `READ`, `CLOSE` |
 | `real/test_real_fujinet_e2e.py::test_real_fujinet_receives_osword78_long_open_url` | firmware logs Network `OPEN` from OSWORD long-URL path |
 | `real/test_real_fujinet_e2e.py::test_real_fujinet_receives_osword78_post_write` | firmware logs Network `OPEN`, `WRITE`, `CLOSE` from OSWORD body/profile/write flow |
-| `real/test_real_fujinet_e2e.py::test_real_fujinet_host_listing_and_mount_catalog_reads` | controlled `host:/` tree, FileService `LIST`, Fuji `SET/GET_MOUNT`, and Disk `READ_SECTOR` sector-0/1 catalog fetches for mounted drives |
 | `real/test_real_fujinet_e2e.py::test_fujinet_created_the_pty` | the firmware created the advertised PTY slave |
 
 These assert on the **firmware's own log** — fujinet-nio logs
@@ -180,12 +179,12 @@ To assert real served data (e.g. `*FLS` listing known files), give the firmware
 a backing filesystem. Either point `*FHOST` at a TNFS server you control, or
 pre-populate the isolated run dir's host filesystem and use a local URI. The
 `IsolatedFujinet` constructor takes `extra_config=` to inject extra YAML (e.g.
-`mounts:`), and the run dir's `fujinet-data/` is the host filesystem root.
+other settings), and the run dir's `fujinet-data/` is the host filesystem root.
 
 The suite now uses that mechanism for a representative `host:/` scenario: it
 creates `foo/bar/weather.ssd` and `foo/baz/iss.ssd` under the isolated
 `fujinet-data/`, then drives `*FHOST host:/`, `*FIN`, `*FMOUNT`, and `*.` to
-assert the real firmware performs the expected File, Fuji, and Disk traffic,
+assert the real firmware performs the expected File/AppStore and Disk traffic,
 including the two `READ_SECTOR` catalog fetches (sectors 0 and 1) per mounted
 drive.
 

@@ -20,7 +20,6 @@ import pytest
 from beebium.client.screen import dump_screen, read_mode7_screen
 from fujinet_tools.bbc_dfs import parse_dfs_catalogue_090
 from fujinet_tools import fileproto as fp
-from fujinet_tools import fujiproto as fuji
 from fujinet_tools import diskproto as dp
 
 from fuji_device import (
@@ -38,8 +37,6 @@ from fuji_device import (
     default_success_responder,
     build_resolve_path_response,
     build_list_response,
-    build_get_mount_response,
-    build_set_mount_response,
     build_disk_mount_response,
     build_disk_info_response,
     build_disk_read_sector_response,
@@ -83,7 +80,7 @@ def test_resident_fdrive_lists_runtime_mount_after_fls_used_response_buffer(
 ):
     fuji_device.set_responder(
         disk_image_responder(
-            image_path=str(_SSD), fuji_slot=7, drive_slot=4, uri="sd0:/fn-boot.ssd"
+            image_path=str(_SSD), catalog_slot=7, uri="sd0:/fn-boot.ssd"
         )
     )
 
@@ -121,9 +118,8 @@ def test_resident_fdrive_empty_runtime_does_not_print_stale_fls_text(
 ):
     fuji_device.set_responder(disk_image_responder(
         image_path=str(_SSD),
-        fuji_slot=7,
-        drive_slot=4,
-        uri="sd0:/fn-boot.ssd",
+        catalog_slot=7,
+                uri="sd0:/fn-boot.ssd",
         formatted_mounts="",
     ))
     _mount_boot_drive(beebium, fuji_device)
@@ -149,9 +145,8 @@ def test_resident_fdrive_survives_replacing_boot_disk_and_lists_new_mappings(
 ):
     fuji_device.set_responder(disk_image_responder(
         image_path=str(_SSD),
-        fuji_slot=7,
-        drive_slot=4,
-        uri="sd0:/fn-boot.ssd",
+        catalog_slot=7,
+                uri="sd0:/fn-boot.ssd",
         available_uris=("chuck.ssd", "bwc.ssd"),
     ))
     _mount_boot_drive(beebium, fuji_device)
@@ -183,9 +178,8 @@ def test_fls_without_current_host_exits_cleanly(beebium, fuji_device):
 
     fuji_device.set_responder(disk_image_responder(
         image_path=str(_SSD),
-        fuji_slot=7,
-        drive_slot=4,
-        uri="sd0:/fn-boot.ssd",
+        catalog_slot=7,
+                uri="sd0:/fn-boot.ssd",
         inner=switched_host_service,
     ))
     _mount_boot_drive(beebium, fuji_device)
@@ -215,7 +209,7 @@ def test_fnew_creates_image_that_can_be_mounted_and_catalogued(
     beebium, fuji_device
 ):
     fuji_device.set_responder(disk_image_responder(
-        image_path=str(_SSD), fuji_slot=7, drive_slot=4, uri="sd0:/fn-boot.ssd"
+        image_path=str(_SSD), catalog_slot=7, uri="sd0:/fn-boot.ssd"
     ))
     _mount_boot_drive(beebium, fuji_device)
     fuji_device.clear()
@@ -252,7 +246,7 @@ def test_fnew_creates_image_that_can_be_mounted_and_catalogued(
 
 def test_fout_removes_sparse_slot_so_it_cannot_be_mounted(beebium, fuji_device):
     fuji_device.set_responder(disk_image_responder(
-        image_path=str(_SSD), fuji_slot=7, drive_slot=4, uri="sd0:/fn-boot.ssd"
+        image_path=str(_SSD), catalog_slot=7, uri="sd0:/fn-boot.ssd"
     ))
     _mount_boot_drive(beebium, fuji_device)
 
@@ -293,7 +287,7 @@ def test_fumount_unmounts_live_disk_and_drive_becomes_unavailable(
     beebium, fuji_device
 ):
     fuji_device.set_responder(disk_image_responder(
-        image_path=str(_SSD), fuji_slot=7, drive_slot=4, uri="sd0:/fn-boot.ssd"
+        image_path=str(_SSD), catalog_slot=7, uri="sd0:/fn-boot.ssd"
     ))
     _mount_boot_drive(beebium, fuji_device)
     command(beebium, "*FMOUNT 7 1")
@@ -324,7 +318,7 @@ def test_fumount_rejects_invalid_and_unmounted_drives_cleanly(
     beebium, fuji_device
 ):
     fuji_device.set_responder(disk_image_responder(
-        image_path=str(_SSD), fuji_slot=7, drive_slot=4, uri="sd0:/fn-boot.ssd"
+        image_path=str(_SSD), catalog_slot=7, uri="sd0:/fn-boot.ssd"
     ))
     _mount_boot_drive(beebium, fuji_device)
     fuji_device.clear()
@@ -372,7 +366,7 @@ def _info_tokens_for_leaf(beebium, leaf: str) -> list[str]:
 
 def test_access_locks_and_unlocks_real_catalogue_entry(beebium, fuji_device):
     fuji_device.set_responder(disk_image_responder(
-        image_path=str(_SSD), fuji_slot=7, drive_slot=4, uri="sd0:/fn-boot.ssd"
+        image_path=str(_SSD), catalog_slot=7, uri="sd0:/fn-boot.ssd"
     ))
     _mount_boot_drive(beebium, fuji_device)
 
@@ -432,7 +426,7 @@ def test_form_recreates_current_slot_uri_and_disk_remains_usable(
     beebium, fuji_device
 ):
     fuji_device.set_responder(disk_image_responder(
-        image_path=str(_SSD), fuji_slot=7, drive_slot=4, uri="sd0:/fn-boot.ssd"
+        image_path=str(_SSD), catalog_slot=7, uri="sd0:/fn-boot.ssd"
     ))
     _mount_boot_drive(beebium, fuji_device)
     fuji_device.clear()
@@ -474,7 +468,7 @@ def test_form_without_geometry_reports_syntax_and_exits_cleanly(
     beebium, fuji_device
 ):
     fuji_device.set_responder(disk_image_responder(
-        image_path=str(_SSD), fuji_slot=7, drive_slot=4, uri="sd0:/fn-boot.ssd"
+        image_path=str(_SSD), catalog_slot=7, uri="sd0:/fn-boot.ssd"
     ))
     _mount_boot_drive(beebium, fuji_device)
     fuji_device.clear()
@@ -533,7 +527,7 @@ def _mount_boot_drive(beebium, fuji_device) -> None:
 def test_transient_command_resolves_from_disk(beebium, fuji_device, cmd, command_line):
     fuji_device.set_responder(
         disk_image_responder(
-            image_path=str(_SSD), fuji_slot=7, drive_slot=4, uri="sd0:/fn-boot.ssd"
+            image_path=str(_SSD), catalog_slot=7, uri="sd0:/fn-boot.ssd"
         )
     )
 
@@ -562,7 +556,6 @@ def _two_image_responder(by_host_slot: dict[int, tuple[str, bytes]]):
     Persist sparse AppStore catalog entries, then bind the URI in each Disk
     MOUNT request to its bounded runtime drive slot so each BBC drive sees the
     selected image independently of the catalog index."""
-    uris = {hs: u for hs, (u, _) in by_host_slot.items()}
     images_by_uri = {}
     for uri, image in by_host_slot.values():
         images_by_uri[uri] = image
@@ -599,13 +592,6 @@ def _two_image_responder(by_host_slot: dict[int, tuple[str, bytes]]):
                 return build_resolve_path_response("sd0:/", "sd0:/")
             if pkt.command == fp.CMD_LIST:
                 return build_list_response(formatted_text="LISTED\n")
-        if pkt.device == fuji.FUJI_DEVICE_ID:
-            if pkt.command == fuji.CMD_GET_MOUNT:
-                slot = pkt.payload[0]
-                return build_get_mount_response(
-                    slot=slot, enabled=True, uri=uris.get(slot, "sd0:/"))
-            if pkt.command == fuji.CMD_SET_MOUNT:
-                return build_set_mount_response()
         if pkt.device == dp.DISK_DEVICE_ID:
             if pkt.command == dp.CMD_LIST_MOUNTS:
                 return build_disk_list_mounts_response("0: AUTO\n")
@@ -725,7 +711,7 @@ def test_transient_fcd_receives_argument_and_updates_current_host(
     filing system. FCD itself is verified solely through HostService."""
     fuji_device.set_responder(
         disk_image_responder(
-            image_path=str(_SSD), fuji_slot=7, drive_slot=4, uri="sd0:/fn-boot.ssd"
+            image_path=str(_SSD), catalog_slot=7, uri="sd0:/fn-boot.ssd"
         )
     )
     _mount_boot_drive(beebium, fuji_device)

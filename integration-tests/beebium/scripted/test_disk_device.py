@@ -8,7 +8,7 @@ from fuji_device import HOST_CMD_SET_CURRENT, HOST_SERVICE_ID, full_stack_respon
 from helpers import command
 
 
-def test_fmount_gets_slot_then_mounts_disk(beebium, fuji_device):
+def test_fmount_reads_appstore_slot_then_mounts_disk(beebium, fuji_device):
     fuji_device.set_responder(mounted_disk_responder(slot=2, uri="tnfs://example.invalid/bbc/BOOT.SSD"))
 
     command(beebium, "*FMOUNT 2 0 RO")
@@ -50,18 +50,3 @@ def test_fnew_emits_disk_create_request(beebium, fuji_device):
         sector_count=800,
         overwrite=False,
     )
-
-
-@pytest.mark.needs_boot_utils_setup
-def test_fmount_then_fout_unmounts_disk_when_slot_is_mapped(beebium, fuji_device):
-    fuji_device.set_responder(mounted_disk_responder(slot=2, uri="tnfs://example.invalid/bbc/BOOT.SSD"))
-
-    command(beebium, "*FMOUNT 2 0")
-    assert fuji_device.wait_for_command(dp.DISK_DEVICE_ID, dp.CMD_MOUNT, timeout=6.0)
-
-    fuji_device.clear()
-    command(beebium, "*FOUT 2")
-    pkt = fuji_device.wait_for_command(dp.DISK_DEVICE_ID, dp.CMD_UNMOUNT, timeout=6.0)
-    assert pkt is not None
-    assert pkt.checksum_ok
-    assert pkt.payload == dp.build_unmount_req(slot=3)

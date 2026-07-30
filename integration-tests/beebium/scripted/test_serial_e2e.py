@@ -5,8 +5,8 @@ import time
 import pytest
 
 from beebium.client.screen import dump_screen
+from fujinet_tools import diskproto as dp
 from fujinet_tools import fileproto as fp
-from fujinet_tools import fujiproto as fuji
 
 from fuji_device import (
     HOST_CMD_DELETE_HISTORY,
@@ -137,11 +137,13 @@ def test_fhost_host_history_crd_screen_flow(beebium, fuji_device):
 
 
 @pytest.mark.needs_boot_utils_setup
-def test_fdrive_emits_fuji_get_mounts_request(beebium, fuji_device):
+def test_fdrive_emits_disk_list_mounts_request(beebium, fuji_device):
     command(beebium, "*FDRIVE")
 
-    pkt = fuji_device.wait_for_command(fuji.FUJI_DEVICE_ID, fuji.CMD_GET_MOUNTS, timeout=6.0)
-    assert pkt is not None, "no GET_MOUNTS request observed for *FDRIVE"
+    pkt = fuji_device.wait_for_command(
+        dp.DISK_DEVICE_ID, dp.CMD_LIST_MOUNTS, timeout=6.0
+    )
+    assert pkt is not None, "no LIST_MOUNTS request observed for *FDRIVE"
     assert pkt.checksum_ok
 
 
