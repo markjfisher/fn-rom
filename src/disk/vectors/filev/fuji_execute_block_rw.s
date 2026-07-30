@@ -16,6 +16,7 @@
         .import fuji_block_size
         .import fuji_file_offset
         .import fuji_read_block_data
+        .import fuji_set_disk_slot_from_mapping_or_error
         .import fuji_write_block_data
 
         .include "fujinet.inc"
@@ -30,6 +31,17 @@
 fuji_execute_block_rw:
         ; Store operation type
         pha
+
+        ; fuji_disk_slot is shared command scratch (for example, *FIN leaves
+        ; its catalogue index here). A DFS block transfer must always address
+        ; the runtime DiskDevice slot mapped to the current BBC drive.
+        jsr     fuji_set_disk_slot_from_mapping_or_error
+        bpl     @mapped
+        pla
+        lda     #$00
+        sec
+        rts
+@mapped:
 
         ; Get buffer address from workspace (set by LoadFile_Ycatoffset)
         ; &BC-&BD contain the buffer address (load address)

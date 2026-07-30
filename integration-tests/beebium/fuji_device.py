@@ -46,6 +46,7 @@ HOST_CMD_SET_CURRENT = 0x02
 HOST_CMD_LIST_HISTORY = 0x03
 HOST_CMD_SELECT_HISTORY = 0x04
 HOST_CMD_DELETE_HISTORY = 0x05
+HOST_CMD_RESOLVE_TARGET = 0x06
 DISK_CMD_BEGIN_HOST_SESSION = 0x0B
 FILE_CMD_RESOLVE_PATH = 0x05
 FILE_CMD_APPSTORE_READ = 0x21
@@ -442,6 +443,13 @@ def build_host_simple_response(command: int, *, status: int = 0) -> bytes:
     body = bytes([HOST_VERSION]) if status == 0 else b""
     return fb.build_fuji_response_wire(HOST_SERVICE_ID, command, status, body)
 
+def build_host_resolve_target_response(uri: str, *, status: int = 0) -> bytes:
+    uri_b = uri.encode("utf-8")
+    body = bytes([HOST_VERSION]) + struct.pack("<H", len(uri_b)) + uri_b if status == 0 else b""
+    return fb.build_fuji_response_wire(
+        HOST_SERVICE_ID, HOST_CMD_RESOLVE_TARGET, status, body
+    )
+
 
 def build_host_list_history_response(
     text: str,
@@ -507,6 +515,17 @@ def host_service_responder(initial_hosts: Iterable[str] = ()) -> Responder:
                 return build_host_simple_response(pkt.command, status=5)
             del history[pkt.payload[1]]
             return build_host_simple_response(pkt.command)
+        if pkt.command == HOST_CMD_RESOLVE_TARGET:
+            if len(pkt.payload) < 3:
+                return build_host_resolve_target_response("", status=2)
+            spec_len = pkt.payload[1] | (pkt.payload[2] << 8)
+            if len(pkt.payload) != 3 + spec_len:
+                return build_host_resolve_target_response("", status=2)
+            spec = pkt.payload[3:].decode("utf-8")
+            resolved = resolve(spec)
+            if not resolved or (not current and "://" not in spec and ":" not in spec):
+                return build_host_resolve_target_response("", status=1)
+            return build_host_resolve_target_response(resolved)
         return fb.build_fuji_response_wire(pkt.device, pkt.command, 8, b"")
 
     return _resp
@@ -1178,7 +1197,15 @@ def disk_image_responder(
                 uri_len = int.from_bytes(pkt.payload[9:11], "little")
                 create_uri = pkt.payload[11:11 + uri_len].decode("utf-8")
                 sector_count = int.from_bytes(pkt.payload[5:9], "little")
-                available_images[create_uri] = bytearray(max(1, sector_count) * 256)
+                created_image = bytearray(max(1, sector_count) * 256)
+                available_images[create_uri] = created_image
+                # DiskService resolves a relative Create target against the
+                # current host before creating it. FIN subsequently persists
+                # that same canonical URI, so make the mock image available
+                # under both request spelling and resolved spelling.
+                if ":" not in create_uri:
+                    base_uri = uri.rsplit("/", 1)[0] + "/"
+                    available_images[base_uri + create_uri] = created_image
                 return build_disk_create_response()
             if pkt.command == dp.CMD_MOUNT:
                 drive = max(0, pkt.payload[1] - 1)

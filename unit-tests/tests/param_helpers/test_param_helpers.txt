@@ -17,6 +17,25 @@ run $t_num_params_zero until CP = $t_num_params_zero_end
 assert A = 0x00 $$no params counted$$
 
 ///////////////////////////////
+marker $$ num_params accepts transient tail pointing directly at CR $$
+///////////////////////////////
+
+enable run_limit 100000
+memory load rom #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+symbols remove "__.*"
+memory protect ro #0xFF00 0x0100
+
+registers flush
+run $init_harness until (CP = $end_init_harness OR cycle_count > 5000)
+assert CP = $end_init_harness $$completed harness init$$
+run $t_num_params_cr_zero until CP = $t_num_params_cr_zero_end
+assert A = 0x00 $$direct CR tail counted as no parameters$$
+assert Y = 0x00 $$command-tail offset preserved$$
+
+///////////////////////////////
 marker $$ num_params counts two parameters $$
 ///////////////////////////////
 

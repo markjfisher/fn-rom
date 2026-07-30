@@ -7,6 +7,7 @@
         .export  err_bad_mount_slot
 
         .importzp aws_tmp00
+        .importzp aws_tmp01
         .importzp buffer_ptr
         .importzp cws_tmp2
         .importzp cws_tmp3
@@ -60,7 +61,8 @@ cmd_fs_fin:
         jsr     param_get_string
         sta     fuji_filename_len
 
-        jsr     fin_build_full_uri
+        jsr     fin_resolve_target
+        bcs     err_no_host
         jsr     fin_write_slot
         bcs     @set_ok
 
@@ -83,30 +85,101 @@ err_no_host:
         .byte   $CB
         .byte   "No host", 0
 
-; Copy user path/URI into PWS FS slot, NUL, fuji_current_fs_len.
+; Resolve the user path/URI against FujiNet's current host and copy the
+; canonical URI into the PWS FS buffer.
+; Carry set indicates that the target could not be resolved.
 ;------------------------------------------------------------------------------
-fin_build_full_uri:
+fin_resolve_target:
+        jsr     fuji_begin_transaction
+
+        ldy     #$06
+        lda     #FN_PROTOCOL_VERSION
+        sta     (buffer_ptr),y
+        iny
+        lda     fuji_filename_len
+        sta     (buffer_ptr),y
+        iny
+        lda     #$00
+        sta     (buffer_ptr),y
+        iny
+        ldx     #$00
+@copy_request:
+        cpx     fuji_filename_len
+        beq     @send
+        lda     fuji_filename_buffer,x
+        sta     (buffer_ptr),y
+        iny
+        inx
+        bne     @copy_request
+@send:
+        lda     #FN_DEVICE_HOST
+        sta     fuji_bus_tx_device
+        lda     #HOST_CMD_RESOLVE_TARGET
+        sta     fuji_bus_tx_command
+        jsr     fujibus_set_payload_buffer_ptr
+        lda     fuji_filename_len
+        clc
+        adc     #$03
+        ldx     #$00
+        jsr     fujibus_send_packet
+        jsr     fujibus_receive_packet
+
+        cpx     #$00
+        bne     @check_status
+        cmp     #$0A
+        bcc     @failed
+@check_status:
+        ldy     #$05
+        lda     (buffer_ptr),y
+        cmp     #$01
+        bne     @failed
+        iny
+        lda     (buffer_ptr),y
+        bne     @failed
+        ldy     #$07
+        lda     (buffer_ptr),y
+        cmp     #FN_PROTOCOL_VERSION
+        bne     @failed
+        ldy     #$09
+        lda     (buffer_ptr),y
+        bne     @failed
+        dey
+        lda     (buffer_ptr),y
+        beq     @failed
+        cmp     #(FUJI_FS_URI_BUFFER_SIZE + 1)
+        bcs     @failed
+        sta     fuji_current_fs_len
+
         jsr     fuji_fs_uri_ptr
         sta     cws_tmp2
         stx     cws_tmp3
 
-        ldy     #$00
-        lda     fuji_filename_len
-        tax
-        beq     @terminate
+        lda     buffer_ptr
+        clc
+        adc     #$0A
+        sta     aws_tmp00
+        lda     buffer_ptr+1
+        adc     #$00
+        sta     aws_tmp01
 
-@copy_fn:
-        lda     fuji_filename_buffer,y
+        ldx     fuji_current_fs_len
+        ldy     #$00
+@copy_uri:
+        lda     (aws_tmp00),y
         sta     (cws_tmp2),y
         iny
         dex
-        bne     @copy_fn
+        bne     @copy_uri
 
-@terminate:
         lda     #$00
         sta     (cws_tmp2),y
-        lda     fuji_filename_len
-        sta     fuji_current_fs_len
+        jsr     fuji_end_transaction
+        clc
+        rts
+
+@failed:
+        jsr     fuji_end_transaction
+        sec
         rts
 
 ;------------------------------------------------------------------------------

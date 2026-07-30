@@ -1,6 +1,7 @@
 ;
 ; Minimal MOS GSINIT / GSREAD for unit-test command lines.
-; Command text lives in RAM at MOCK_CMDLINE_BUF (tests use memory write #0x1E00 …).
+; Command text lives in the harness's dedicated mock-data RAM, outside the
+; linked test-program region.
 ; NUL ends the line. GSREAD returns CR with C=1 at end of line (BBC MOS style).
 ;
         .export  h_gsinit_entry
@@ -12,7 +13,7 @@
 
         .segment "CODE"
 
-MOCK_CMDLINE_BUF = $1E00
+MOCK_CMDLINE_BUF = $C900
 
 mock_cmdline        := MOCK_CMDLINE_BUF
 

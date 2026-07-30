@@ -46,11 +46,12 @@ FSLOTS_RESP_DATA         = $0E
 ; *FSLOTS <lower> <upper> inclusive range
 cmd_fs_fslots:
         jsr     num_params
+        sta     aws_tmp02
         cmp     #3
         bcc     :+
         jmp     @syntax
 :
-        sta     aws_tmp02
+        lda     aws_tmp02
         beq     @all
         jsr     param_get_byte
         sta     pws_tmp04              ; lower

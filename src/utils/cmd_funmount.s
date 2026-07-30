@@ -6,6 +6,7 @@
         .import GSREAD_A
         .import current_cat
         .import exit_user_ok
+        .import fmount_update_mapping
         .import fuji_drive_disk_map
         .import fuji_unmount_disk
         .import num_params
@@ -64,6 +65,10 @@ cmd_fs_funmount:
         beq     @not_mounted
 
         jsr     fuji_unmount_disk
+        bcs     @error
+        lda     #$00                    ; clear shared config-nio mapping
+        tax
+        jsr     fmount_update_mapping
         bcs     @error
         lda     #$FF
         sta     current_cat             ; invalidate cached catalog after unmapping a drive

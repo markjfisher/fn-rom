@@ -1,6 +1,8 @@
 .export _main
 .export t_num_params_zero
 .export t_num_params_zero_end
+.export t_num_params_cr_zero
+.export t_num_params_cr_zero_end
 .export t_num_params_two
 .export t_num_params_two_end
 .export t_param_count_range01_lower
@@ -34,9 +36,6 @@
 .export result_carry
 .export result_a
 
-result_carry = $2220
-result_a = $2221
-byte_results = $2222
 param_error_block = $0100
 
 .import mock_cmdline
@@ -77,6 +76,17 @@ t_num_params_zero:
         sta     mock_cmdline+0
         jsr     num_params
 t_num_params_zero_end:
+        rts
+
+t_num_params_cr_zero:
+        jsr     set_cmd_ptr
+        ldy     #$00
+        lda     #$0D
+        sta     mock_cmdline+0
+        lda     #$00
+        sta     mock_cmdline+1
+        jsr     num_params
+t_num_params_cr_zero_end:
         rts
 
 t_num_params_two:
@@ -280,3 +290,9 @@ str_byte_255: .byte "255",0
 str_byte_text: .byte "foo",0
 str_byte_four_digits: .byte "1000",0
 str_byte_overflow: .byte "256",0
+
+; Keep test results inside the linked test image. Fixed addresses here used to
+; collide with the growing test program and made later assertions read opcodes.
+result_carry: .byte 0
+result_a:     .byte 0
+byte_results:.byte 0, 0, 0, 0, 0

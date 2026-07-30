@@ -110,8 +110,8 @@ def test_resident_fdrive_lists_runtime_mount_after_fls_used_response_buffer(
         0, 0,       # start index
         220, 0,     # maximum response data
     ])
-    screen = wait_for_screen_text(beebium, "0: AUTO fn-boot.ssd", timeout=8.0)
-    assert "0: AUTO fn-boot.ssd" in screen
+    screen = wait_for_screen_text(beebium, "0: AUTO sd0:/fn-boot.ssd", timeout=8.0)
+    assert "0: AUTO sd0:/fn-boot.ssd" in screen
     assert "FN-BOOT" not in screen
 
 
@@ -149,7 +149,7 @@ def test_resident_fdrive_survives_replacing_boot_disk_and_lists_new_mappings(
         image_path=str(_SSD),
         catalog_slot=7,
                 uri="sd0:/fn-boot.ssd",
-        available_uris=("chuck.ssd", "bwc.ssd"),
+        available_uris=("sd0:/chuck.ssd", "sd0:/bwc.ssd"),
     ))
     _mount_boot_drive(beebium, fuji_device)
 
@@ -166,8 +166,8 @@ def test_resident_fdrive_survives_replacing_boot_disk_and_lists_new_mappings(
     )
     assert pkt is not None
     assert pkt.checksum_ok
-    screen = wait_for_screen_text(beebium, "0: AUTO chuck.ssd", timeout=8.0)
-    assert "1: AUTO bwc.ssd" in screen
+    screen = wait_for_screen_text(beebium, "0: AUTO sd0:/chuck.ssd", timeout=8.0)
+    assert "1: AUTO sd0:/bwc.ssd" in screen
     assert "Bad command" not in screen
     assert "Bad program" not in screen
 
@@ -306,7 +306,7 @@ def test_fumount_unmounts_live_disk_and_drive_becomes_unavailable(
     command(beebium, "CLS")
     command(beebium, "*FDRIVE")
     screen = wait_for_screen_text(
-        beebium, "0: AUTO fn-boot.ssd", timeout=8.0
+        beebium, "0: AUTO sd0:/fn-boot.ssd", timeout=8.0
     )
     assert "1: AUTO" not in screen
 
@@ -433,7 +433,7 @@ def test_fslots_lists_only_populated_slots_in_requested_range(beebium, fuji_devi
     command(beebium, "*FIN 69 games/elite.ssd")
     command(beebium, "CLS")
     command(beebium, "*FSLOTS 64 72")
-    screen = wait_for_screen_text(beebium, "69: games/elite.ssd", timeout=8.0)
+    screen = wait_for_screen_text(beebium, "69: sd0:/games/elite.ssd", timeout=8.0)
     assert "7: sd0:/fn-boot.ssd" not in screen
     assert "Bad program" not in screen
 
@@ -442,6 +442,58 @@ def test_fslots_lists_only_populated_slots_in_requested_range(beebium, fuji_devi
     )
     assert pkt is not None
     assert pkt.payload == bytes([1, 64, 72, 64, 2, 128, 220, 0])
+
+
+def test_fslots_empty_catalogue_returns_cleanly(beebium, fuji_device):
+    fuji_device.set_responder(disk_image_responder(
+        image_path=str(_SSD), catalog_slot=7, uri="sd0:/fn-boot.ssd"
+    ))
+    _mount_boot_drive(beebium, fuji_device)
+
+    command(beebium, "*FSLOTS")
+    screen = dump_screen(beebium)
+    assert "Bad string" not in screen
+    assert "Bad program" not in screen
+
+    pkt = fuji_device.wait_for_command(
+        fp.FILE_DEVICE_ID, FILE_CMD_SLOT_CATALOG_RANGE, timeout=8.0
+    )
+    assert pkt is not None
+    assert pkt.payload == bytes([1, 0, 255, 0, 2, 128, 220, 0])
+
+
+def test_fslots_runs_after_fls_and_fin_with_high_slot(beebium, fuji_device):
+    fuji_device.set_responder(disk_image_responder(
+        image_path=str(_SSD), catalog_slot=7, uri="sd0:/fn-boot.ssd"
+    ))
+    _mount_boot_drive(beebium, fuji_device)
+
+    command(beebium, "*FLS")
+    wait_for_screen_text(beebium, "FN-BOOT", timeout=8.0)
+    command(beebium, "*FIN 200 chuck.ssd")
+    fuji_device.clear()
+    command(beebium, "*FSLOTS")
+
+    pkt = fuji_device.wait_for_command(
+        fp.FILE_DEVICE_ID, FILE_CMD_SLOT_CATALOG_RANGE, timeout=8.0
+    )
+    assert pkt is not None, (
+        "*FSLOTS ran a stale transient utility instead of requesting the slot catalogue"
+    )
+    assert pkt.payload == bytes([1, 0, 255, 0, 2, 128, 220, 0])
+    sector_reads = [
+        request for request in fuji_device.requests
+        if request.device == dp.DISK_DEVICE_ID
+        and request.command == dp.CMD_READ_SECTOR
+    ]
+    assert sector_reads
+    read_slots = [request.payload[1] for request in sector_reads]
+    assert read_slots == [1] * len(read_slots), (
+        "transient utility was read from a catalogue slot left behind by *FIN, "
+        f"not runtime DiskDevice slot 0 mapped to BBC drive 0: {read_slots}"
+    )
+    screen = wait_for_screen_text(beebium, "200: sd0:/chuck.ssd", timeout=8.0)
+    assert "Bad program" not in screen
 
 
 def test_form_recreates_current_slot_uri_and_disk_remains_usable(
@@ -534,8 +586,8 @@ def _mount_boot_drive(beebium, fuji_device) -> None:
         + bytes([8, 0])
         + b"slot-007"
         + bytes(4)
-        + bytes([13, 0, 1, 0])
-        + b"fn-boot.ssd"
+        + bytes([18, 0, 1, 0])
+        + b"sd0:/fn-boot.ssd"
     )
 
     command(beebium, "*FMOUNT 7 0")

@@ -1083,6 +1083,13 @@ num_params:
         pha
 
         ldx     #$00
+        ; Transient *RUN wrappers can pass an empty argument tail as
+        ; text_pointer -> CR with Y=0. MOS GSINIT rejects that representation
+        ; as a bad string, although resident commands normally reach the same
+        ; CR through a command-line base pointer and non-zero Y.
+        lda     (text_pointer),y
+        cmp     #$0D
+        beq     @exit_count
 @loop1:
         jsr     GSINIT_A
         beq     @exit_count             ; finished reading string, got a null
