@@ -253,6 +253,32 @@ def test_fumount_unmounts_live_disk_and_drive_becomes_unavailable(
     assert "Bad program" not in screen
 
 
+def test_fumount_rejects_invalid_and_unmounted_drives_cleanly(
+    beebium, fuji_device
+):
+    fuji_device.set_responder(disk_image_responder(
+        image_path=str(_SSD), fuji_slot=7, drive_slot=4, uri="sd0:/fn-boot.ssd"
+    ))
+    _mount_boot_drive(beebium, fuji_device)
+    fuji_device.clear()
+
+    command(beebium, "CLS")
+    command(beebium, "*FUMOUNT 5")
+    screen = wait_for_screen_text(beebium, "Bad drive", timeout=8.0)
+    assert "Bad program" not in screen
+    assert fuji_device.wait_for_command(
+        dp.DISK_DEVICE_ID, dp.CMD_UNMOUNT, timeout=0.2
+    ) is None
+
+    command(beebium, "CLS")
+    command(beebium, "*FUMOUNT 1")
+    screen = wait_for_screen_text(beebium, "Not mounted", timeout=8.0)
+    assert "Bad program" not in screen
+    assert fuji_device.wait_for_command(
+        dp.DISK_DEVICE_ID, dp.CMD_UNMOUNT, timeout=0.2
+    ) is None
+
+
 def _catalogue_entry_from_disk_writes(fuji_device, leaf: str):
     sectors: dict[int, bytes] = {}
     for pkt in fuji_device.requests:
