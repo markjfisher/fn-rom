@@ -98,9 +98,9 @@ cmd_fs_fslots:
         lda     #>FSLOTS_MAX_PAYLOAD
         sta     (buffer_ptr),y
 
-        lda     #FN_DEVICE_FILE
+        lda     #FN_DEVICE_SLOT_CATALOG
         sta     fuji_bus_tx_device
-        lda     #FILE_CMD_SLOT_CATALOG_RANGE
+        lda     #SLOT_CATALOG_CMD_RANGE
         sta     fuji_bus_tx_command
         jsr     fujibus_set_payload_buffer_ptr
         lda     #8

@@ -3,10 +3,9 @@ from __future__ import annotations
 import pytest
 
 from fujinet_tools import diskproto as dp
-from fujinet_tools import fileproto as fp
+from fujinet_tools import slotproto as sp
 
 from fuji_device import (
-    FILE_CMD_APPSTORE_WRITE,
     HOST_CMD_SET_CURRENT,
     HOST_SERVICE_ID,
     full_stack_responder,
@@ -28,7 +27,7 @@ def test_fdrive_requests_formatted_mounts(beebium, fuji_device):
     )
 
 
-def test_fin_persists_sparse_appstore_slot(beebium, fuji_device):
+def test_fin_puts_sparse_slot_catalog_entry(beebium, fuji_device):
     fuji_device.set_responder(full_stack_responder(
         resolved_uri="tnfs://example.invalid/bbc/",
         display_path="bbc/",
@@ -41,17 +40,9 @@ def test_fin_persists_sparse_appstore_slot(beebium, fuji_device):
     fuji_device.clear()
     command(beebium, "*FIN 3 boot.ssd")
     pkt = fuji_device.wait_for_command(
-        fp.FILE_DEVICE_ID, FILE_CMD_APPSTORE_WRITE, timeout=6.0
+        sp.SLOT_CATALOG_DEVICE_ID, sp.CMD_PUT, timeout=6.0
     )
 
     assert pkt is not None
     assert pkt.checksum_ok
-    assert pkt.payload == (
-        bytes([fp.FILEPROTO_VERSION, 10, 0])
-        + b"config-nio"
-        + bytes([8, 0])
-        + b"slot-003"
-        + bytes(4)
-        + bytes([10, 0, 1, 0])
-        + b"boot.ssd"
-    )
+    assert pkt.payload == sp.build_put_req(3, "boot.ssd")

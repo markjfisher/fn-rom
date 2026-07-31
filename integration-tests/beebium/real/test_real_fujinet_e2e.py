@@ -105,7 +105,7 @@ def test_real_fujinet_fmount_mounts_catalog_uri(
 
     wait_for_screen_text(beebium_real_host_tree, "WEATHER", timeout=8.0)
     assert real_fujinet_host_tree.wait_for_log(
-        "dev=0xFE cmd=0x21", timeout=8.0
+        "dev=0xF2 cmd=0x01", timeout=8.0
     )
     assert real_fujinet_host_tree.wait_for_log(
         "dev=0xFC cmd=0x01", timeout=8.0
@@ -262,8 +262,8 @@ def test_real_fujinet_host_listing_and_mount_catalog_reads(beebium_real_host_tre
     )
 
     log = real_fujinet_host_tree.log_text()
-    assert "dev=0xFE cmd=0x21" in log
-    assert "dev=0xFE cmd=0x22" in log
+    assert "dev=0xF2 cmd=0x01" in log
+    assert "dev=0xF2 cmd=0x02" in log
     assert log.count("dev=0xFC cmd=0x01") >= 2, log[-4000:]
     assert log.count("send: dev=0xFC status=0 cmd=0x01") >= 2, log[-4000:]
 

@@ -28,10 +28,14 @@ from fujinet_tools import fujibus as fb
 try:  # protocol constants/helpers (optional -- only needed by some helpers)
     from fujinet_tools import diskproto as dp
     from fujinet_tools import fileproto as fp
+    from fujinet_tools import appstoreproto as ap
+    from fujinet_tools import slotproto as sp
     from fujinet_tools import netproto as netp
 except Exception:  # pragma: no cover - defensive
     dp = None
     fp = None
+    ap = None
+    sp = None
     netp = None
 
 FujiPacket = fb.FujiPacket
@@ -46,13 +50,17 @@ HOST_CMD_SET_CURRENT = 0x02
 HOST_CMD_LIST_HISTORY = 0x03
 HOST_CMD_SELECT_HISTORY = 0x04
 HOST_CMD_DELETE_HISTORY = 0x05
-HOST_CMD_RESOLVE_TARGET = 0x06
 DISK_CMD_BEGIN_HOST_SESSION = 0x0B
 FILE_CMD_RESOLVE_PATH = 0x05
-FILE_CMD_APPSTORE_READ = 0x21
-FILE_CMD_APPSTORE_WRITE = 0x22
-FILE_CMD_APPSTORE_DELETE = 0x23
-FILE_CMD_SLOT_CATALOG_RANGE = fp.CMD_SLOT_CATALOG_RANGE
+APPSTORE_SERVICE_ID = 0xF1
+SLOT_CATALOG_SERVICE_ID = 0xF2
+APPSTORE_CMD_READ = 0x02
+APPSTORE_CMD_WRITE = 0x03
+APPSTORE_CMD_DELETE = 0x04
+SLOT_CATALOG_CMD_GET = 0x01
+SLOT_CATALOG_CMD_PUT = 0x02
+SLOT_CATALOG_CMD_DELETE = 0x03
+SLOT_CATALOG_CMD_RANGE = 0x04
 
 
 def _appstore_prefix(payload: bytes) -> tuple[str, str, int]:
@@ -69,42 +77,41 @@ def _appstore_prefix(payload: bytes) -> tuple[str, str, int]:
 
 
 def build_appstore_read_response(
-    data: bytes | None, *, offset: int = 0, command: int = FILE_CMD_APPSTORE_READ
+    data: bytes | None, *, offset: int = 0, command: int = APPSTORE_CMD_READ
 ) -> bytes:
     exists = data is not None
     chunk = (data or b"")[offset:]
     flags = (0x02 if exists else 0) | 0x01
     body = bytes([1, flags]) + b"\0\0" + struct.pack("<I", offset)
     body += struct.pack("<H", len(chunk)) + chunk
-    return fb.build_fuji_response_wire(0xFE, command, 0, body)
+    return fb.build_fuji_response_wire(APPSTORE_SERVICE_ID, command, 0, body)
 
 
 def build_slot_catalog_response(
-    payload: bytes, appstore: dict[tuple[str, str], bytes]
+    payload: bytes, slots: dict[int, tuple[int, str]]
 ) -> bytes:
     if len(payload) != 8 or payload[0] != 1:
-        return fb.build_fuji_response_wire(0xFE, FILE_CMD_SLOT_CATALOG_RANGE, 2, b"")
+        return fb.build_fuji_response_wire(
+            SLOT_CATALOG_SERVICE_ID, SLOT_CATALOG_CMD_RANGE, 2, b""
+        )
     lower, upper, cursor, request_flags, max_uri = payload[1:6]
     max_payload = int.from_bytes(payload[6:8], "little")
     presence_len = ((upper - lower + 1) + 7) // 8
     presence = bytearray(presence_len)
     records: list[tuple[int, int, bytes]] = []
     for index in range(lower, upper + 1):
-        value = appstore.get(("config-nio", f"slot-{index:03d}"))
-        if value is None:
+        entry = slots.get(index)
+        if entry is None:
             continue
         relative = index - lower
         presence[relative // 8] |= 1 << (relative % 8)
         if index < cursor:
             continue
-        flags = 0
-        uri = b""
-        if len(value) >= 3 and value[0] == 1:
-            flags = 0x01 | (0x02 if value[1] & 1 else 0)
-            uri = value[2:]
-            if len(uri) > max_uri:
-                flags |= 0x04
-                uri = uri[-max_uri:] if request_flags & 1 else uri[:max_uri]
+        flags, uri_text = entry
+        uri = uri_text.encode()
+        if len(uri) > max_uri:
+            flags |= 0x04
+            uri = uri[-max_uri:] if request_flags & 1 else uri[:max_uri]
         records.append((index, flags, uri))
 
     formatted = bool(request_flags & 2)
@@ -126,18 +133,57 @@ def build_slot_catalog_response(
     response_flags = (0x01 if more else 0) | (0x02 if formatted else 0)
     body = bytes([1, response_flags, next_index, presence_len, count])
     body += struct.pack("<H", len(data)) + presence + data
-    return fb.build_fuji_response_wire(0xFE, FILE_CMD_SLOT_CATALOG_RANGE, 0, body)
+    return fb.build_fuji_response_wire(
+        SLOT_CATALOG_SERVICE_ID, SLOT_CATALOG_CMD_RANGE, 0, body
+    )
+
+
+def slot_catalog_response(
+    pkt: FujiPacket,
+    slots: dict[int, tuple[int, str]],
+    *,
+    resolve_target: Callable[[str], str] | None = None,
+) -> Optional[bytes]:
+    if pkt.device != SLOT_CATALOG_SERVICE_ID:
+        return None
+    if pkt.command == SLOT_CATALOG_CMD_RANGE:
+        return build_slot_catalog_response(pkt.payload, slots)
+    if len(pkt.payload) < 2 or pkt.payload[0] != 1:
+        return fb.build_fuji_response_wire(pkt.device, pkt.command, 2, b"")
+    index = pkt.payload[1]
+    if pkt.command == SLOT_CATALOG_CMD_GET:
+        entry = slots.get(index)
+        if entry is None:
+            return fb.build_fuji_response_wire(pkt.device, pkt.command, 1, b"")
+        flags, uri = entry
+        uri_b = uri.encode()
+        body = bytes([1, flags, index]) + struct.pack("<H", len(uri_b)) + uri_b
+        return fb.build_fuji_response_wire(pkt.device, pkt.command, 0, body)
+    if pkt.command == SLOT_CATALOG_CMD_PUT:
+        if len(pkt.payload) < 5:
+            return fb.build_fuji_response_wire(pkt.device, pkt.command, 2, b"")
+        target_len = int.from_bytes(pkt.payload[3:5], "little")
+        target = pkt.payload[5:5 + target_len].decode()
+        if len(pkt.payload) != 5 + target_len:
+            return fb.build_fuji_response_wire(pkt.device, pkt.command, 2, b"")
+        uri = resolve_target(target) if resolve_target else target
+        flags = 0x01 | (pkt.payload[2] & 0x02)
+        slots[index] = (flags, uri)
+        uri_b = uri.encode()
+        body = bytes([1, flags, index]) + struct.pack("<H", len(uri_b)) + uri_b
+        return fb.build_fuji_response_wire(pkt.device, pkt.command, 0, body)
+    if pkt.command == SLOT_CATALOG_CMD_DELETE:
+        deleted = index in slots
+        slots.pop(index, None)
+        return fb.build_fuji_response_wire(
+            pkt.device, pkt.command, 0, bytes([1, int(deleted), index])
+        )
+    return fb.build_fuji_response_wire(pkt.device, pkt.command, 8, b"")
 
 
 def appstore_slot_read_response(pkt: FujiPacket, slot: int, uri: str, mode: str) -> Optional[bytes]:
-    if pkt.device != 0xFE or pkt.command != FILE_CMD_APPSTORE_READ:
-        return None
-    namespace, key, pos = _appstore_prefix(pkt.payload)
-    if namespace != "config-nio" or key != f"slot-{slot:03d}":
-        return build_appstore_read_response(None)
-    offset = int.from_bytes(pkt.payload[pos : pos + 4], "little")
-    flags = 0x01 if mode.lower() in ("r", "ro") else 0
-    return build_appstore_read_response(bytes([1, flags]) + uri.encode(), offset=offset)
+    flags = 0x01 | (0x02 if mode.lower() in ("r", "ro") else 0)
+    return slot_catalog_response(pkt, {slot: (flags, uri)})
 
 
 def default_success_responder(pkt: FujiPacket) -> bytes:
@@ -443,14 +489,6 @@ def build_host_simple_response(command: int, *, status: int = 0) -> bytes:
     body = bytes([HOST_VERSION]) if status == 0 else b""
     return fb.build_fuji_response_wire(HOST_SERVICE_ID, command, status, body)
 
-def build_host_resolve_target_response(uri: str, *, status: int = 0) -> bytes:
-    uri_b = uri.encode("utf-8")
-    body = bytes([HOST_VERSION]) + struct.pack("<H", len(uri_b)) + uri_b if status == 0 else b""
-    return fb.build_fuji_response_wire(
-        HOST_SERVICE_ID, HOST_CMD_RESOLVE_TARGET, status, body
-    )
-
-
 def build_host_list_history_response(
     text: str,
     *,
@@ -515,17 +553,6 @@ def host_service_responder(initial_hosts: Iterable[str] = ()) -> Responder:
                 return build_host_simple_response(pkt.command, status=5)
             del history[pkt.payload[1]]
             return build_host_simple_response(pkt.command)
-        if pkt.command == HOST_CMD_RESOLVE_TARGET:
-            if len(pkt.payload) < 3:
-                return build_host_resolve_target_response("", status=2)
-            spec_len = pkt.payload[1] | (pkt.payload[2] << 8)
-            if len(pkt.payload) != 3 + spec_len:
-                return build_host_resolve_target_response("", status=2)
-            spec = pkt.payload[3:].decode("utf-8")
-            resolved = resolve(spec)
-            if not resolved or (not current and "://" not in spec and ":" not in spec):
-                return build_host_resolve_target_response("", status=1)
-            return build_host_resolve_target_response(resolved)
         return fb.build_fuji_response_wire(pkt.device, pkt.command, 8, b"")
 
     return _resp
@@ -1124,9 +1151,8 @@ def disk_image_responder(
         image = bytearray(fh.read())
     nsec = max(1, len(image) // 256)
     host_resp = host_service_responder([uri])
-    appstore: dict[tuple[str, str], bytes] = {
-        ("config-nio", f"slot-{catalog_slot:03d}"): bytes([1, 0]) + uri.encode()
-    }
+    appstore: dict[tuple[str, str], bytes] = {}
+    slots: dict[int, tuple[int, str]] = {catalog_slot: (0x01, uri)}
     runtime_mounts: dict[int, tuple[str, str]] = {}
     available_images: dict[str, bytearray] = {
         uri: image,
@@ -1152,20 +1178,28 @@ def disk_image_responder(
         return len(data)
 
     def _resp(pkt: "FujiPacket"):
-        if pkt.device == 0xFE and pkt.command == FILE_CMD_SLOT_CATALOG_RANGE:
-            return build_slot_catalog_response(pkt.payload, appstore)
-        if pkt.device == 0xFE and pkt.command in (
-            FILE_CMD_APPSTORE_READ,
-            FILE_CMD_APPSTORE_WRITE,
-            FILE_CMD_APPSTORE_DELETE,
+        slot_reply = slot_catalog_response(
+            pkt,
+            slots,
+            resolve_target=lambda target: (
+                target if ":/" in target or "://" in target
+                else uri.rsplit("/", 1)[0] + "/" + target
+            ),
+        )
+        if slot_reply is not None:
+            return slot_reply
+        if pkt.device == APPSTORE_SERVICE_ID and pkt.command in (
+            APPSTORE_CMD_READ,
+            APPSTORE_CMD_WRITE,
+            APPSTORE_CMD_DELETE,
         ):
             namespace, key, pos = _appstore_prefix(pkt.payload)
             store_key = (namespace, key)
-            if pkt.command == FILE_CMD_APPSTORE_DELETE:
+            if pkt.command == APPSTORE_CMD_DELETE:
                 appstore.pop(store_key, None)
                 return default_success_responder(pkt)
             offset = int.from_bytes(pkt.payload[pos : pos + 4], "little")
-            if pkt.command == FILE_CMD_APPSTORE_WRITE:
+            if pkt.command == APPSTORE_CMD_WRITE:
                 data_len = int.from_bytes(pkt.payload[pos + 4 : pos + 6], "little")
                 data = pkt.payload[pos + 6 : pos + 6 + data_len]
                 old = appstore.get(store_key, b"")

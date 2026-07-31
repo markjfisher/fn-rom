@@ -1,7 +1,6 @@
-; *FMOUNT — bind BBC drive to a sparse config-nio AppStore slot
+; *FMOUNT — bind BBC drive to a Slot Catalog entry
 
         .export  cmd_fs_fmount
-        .export  fmount_build_slot_prefix
         .export  fmount_update_mapping
 
         .export  mount_ok
@@ -48,7 +47,6 @@
 MAX_BBC_DRIVE  := 3
 
 FMOUNT_FLAG_FORCE_RO := DISK_MOUNT_FLAG_READONLY
-FMOUNT_SLOT_VALUE_MAX := FUJI_FS_URI_BUFFER_SIZE + 2
 
 ;------------------------------------------------------------------------------
 ; Main entry — same layout as cmd_fin.s (parse, FujiBus, exit_user_ok)
@@ -118,17 +116,13 @@ mount_ok:
         ; set buffer_ptr/aws_tmp00/01 to PWS location
         ; jsr     set_fuji_data_buffer_ptr
 
-        ; AppStoreRead response payload begins at +7:
-        ; +7 version, +8 flags, +15 dataLenLo, +16 dataLenHi,
-        ; +17 record version, +18 record flags, +19 URI.
-        ; The compact record is [version=1, bit0=readonly, URI bytes].
-        ldy     #$10
+        ; Slot Get response payload begins at +7:
+        ; +7 version, +8 flags, +9 index, +10 URI length, +12 URI.
+        ldy     #$0B
         lda     (buffer_ptr),y
         bne     err_fmount
-        dey                             ; y=$0F data length low
+        dey                             ; y=$0A URI length low
         lda     (buffer_ptr),y
-        sec
-        sbc     #$02
         tax                             ; URI length
         bne     fmount_ok
 
@@ -141,27 +135,27 @@ err_fmount:
 
 fmount_ok:
         ; Apply the saved read-only mode unless the command already forced RO.
-        ldy     #$12
+        ldy     #$08
         lda     (buffer_ptr),y
-        and     #$01
+        and     #$02
         beq     fmount_copy_slot_uri
         lda     fuji_channel_scratch
         ora     #FMOUNT_FLAG_FORCE_RO
         sta     fuji_channel_scratch
 
 fmount_copy_slot_uri:
-        ; URI starts at response offset $13.
+        ; URI starts at response offset $0C.
         lda     #$00
         ldy     #$00
         sta     (cws_tmp2),y
         sta     cws_tmp6                ; used as a scratch value for following loop
-        lda     #$13
+        lda     #$0C
         sta     cws_tmp7
 
         cpx     #$00
         beq     @len_done
 
-        ; copy X bytes from buffer_ptr+10 to fs_uri
+        ; copy X bytes from buffer_ptr+12 to fs_uri
 @copy_uri:
         ldy     cws_tmp7
         lda     (buffer_ptr),y
@@ -241,8 +235,8 @@ fmount_slot_unallocated:
         jsr     print_newline
         jmp     exit_user_ok
 
-; Read config-nio/slot-NNN via FileDevice AppStoreRead.
-; Returns A=1 when the key exists and contains a valid compact slot record.
+; Read one typed Slot Catalog entry.
+; Returns A=1 when the entry exists and contains a URI.
 fmount_read_slot:
         jsr     fuji_begin_transaction
         jsr     fmount_read_slot_data
@@ -252,29 +246,19 @@ fmount_read_slot:
         rts
 
 fmount_read_slot_data:
-        jsr     fmount_build_slot_prefix
-
-        ; offset=0 (u32), maxBytes=FUJI_FS_URI_BUFFER_SIZE+2 (u16)
-        lda     #$00
-        ldx     #$04
-@zero_offset:
-        iny
+        ldy     #$06
+        lda     #FN_PROTOCOL_VERSION
         sta     (buffer_ptr),y
-        dex
-        bne     @zero_offset
-        lda     #FMOUNT_SLOT_VALUE_MAX
         iny
-        sta     (buffer_ptr),y
-        lda     #$00
-        iny
+        lda     fuji_disk_slot
         sta     (buffer_ptr),y
 
-        lda     #FN_DEVICE_FILE
+        lda     #FN_DEVICE_SLOT_CATALOG
         sta     fuji_bus_tx_device
-        lda     #FILE_CMD_APPSTORE_READ
+        lda     #SLOT_CATALOG_CMD_GET
         sta     fuji_bus_tx_command
         jsr     fujibus_set_payload_buffer_ptr
-        lda     #29
+        lda     #2
         ldx     #$00
         jsr     fujibus_send_packet
         jsr     fujibus_receive_packet
@@ -290,26 +274,27 @@ fmount_read_slot_data:
         lda     (buffer_ptr),y
         bne     @not_found
 
-        ; AppStore response: version 1, exists flag, zero offset, data >= 3.
+        ; Slot response: version, valid flags, requested index, URI length.
         iny                             ; y=$07
         lda     (buffer_ptr),y
         cmp     #FN_PROTOCOL_VERSION
         bne     @not_found
         iny
         lda     (buffer_ptr),y
-        and     #$02
+        and     #$01
         beq     @not_found
-        ldy     #$10
+        iny
+        lda     (buffer_ptr),y
+        cmp     fuji_disk_slot
+        bne     @not_found
+        ldy     #$0B
         lda     (buffer_ptr),y
         bne     @not_found
         dey
         lda     (buffer_ptr),y
-        cmp     #$03
-        bcc     @not_found
-        ldy     #$11
-        lda     (buffer_ptr),y
-        cmp     #$01
-        bne     @not_found
+        beq     @not_found
+        cmp     #(FUJI_FS_URI_BUFFER_SIZE + 1)
+        bcs     @not_found
         lda     #$01
         rts
 
@@ -317,85 +302,8 @@ fmount_read_slot_data:
         lda     #$00
         rts
 
-; Build the common AppStore request prefix for config-nio/slot-NNN.
-; Leaves Y at the final key byte (request payload offset 22).
-fmount_build_slot_prefix:
-        ; version + namespace length
-        lda     #FN_PROTOCOL_VERSION
-        ldy     #$06
-        sta     (buffer_ptr),y
-        lda     #$0A                    ; "config-nio"
-        iny
-        sta     (buffer_ptr),y
-        lda     #$00
-        iny
-        sta     (buffer_ptr),y
-
-        ldx     #$00
-@copy_namespace:
-        lda     fmount_namespace,x
-        iny
-        sta     (buffer_ptr),y
-        inx
-        cpx     #$0A
-        bne     @copy_namespace
-
-        lda     #$08                    ; "slot-NNN"
-        iny
-        sta     (buffer_ptr),y
-        lda     #$00
-        iny
-        sta     (buffer_ptr),y
-
-        ldx     #$00
-@copy_key_prefix:
-        lda     fmount_key_prefix,x
-        iny
-        sta     (buffer_ptr),y
-        inx
-        cpx     #$05
-        bne     @copy_key_prefix
-
-        lda     fuji_disk_slot
-        sta     cws_tmp6
-        ldx     #'0'
-@hundreds:
-        lda     cws_tmp6
-        cmp     #100
-        bcc     @hundreds_done
-        sbc     #100
-        sta     cws_tmp6
-        inx
-        bne     @hundreds
-@hundreds_done:
-        txa
-        iny
-        sta     (buffer_ptr),y
-
-        ldx     #'0'
-@tens:
-        lda     cws_tmp6
-        cmp     #10
-        bcc     @tens_done
-        sbc     #10
-        sta     cws_tmp6
-        inx
-        bne     @tens
-@tens_done:
-        txa
-        iny
-        sta     (buffer_ptr),y
-        lda     cws_tmp6
-        clc
-        adc     #'0'
-        iny
-        sta     (buffer_ptr),y
-        rts
-
 fmount_namespace:
         .byte   "config-nio"
-fmount_key_prefix:
-        .byte   "slot-"
 
 ; Update one entry in config-nio/mappings.
 ; Binary v1 format: [version=1], then eight [flags, catalog-slot] pairs.
@@ -423,9 +331,9 @@ fmount_update_mapping:
         lda     #$00
         iny
         sta     (buffer_ptr),y
-        lda     #FN_DEVICE_FILE
+        lda     #FN_DEVICE_APPSTORE
         sta     fuji_bus_tx_device
-        lda     #FILE_CMD_APPSTORE_READ
+        lda     #APPSTORE_CMD_READ
         sta     fuji_bus_tx_command
         jsr     fujibus_set_payload_buffer_ptr
         lda     #$1D
@@ -460,9 +368,9 @@ fmount_update_mapping:
 @initialize:
         ; Remove an incompatible early-development text record.
         jsr     fmount_build_mappings_prefix
-        lda     #FN_DEVICE_FILE
+        lda     #FN_DEVICE_APPSTORE
         sta     fuji_bus_tx_device
-        lda     #FILE_CMD_APPSTORE_DELETE
+        lda     #APPSTORE_CMD_DELETE
         sta     fuji_bus_tx_command
         jsr     fujibus_set_payload_buffer_ptr
         lda     #$17
@@ -508,9 +416,9 @@ fmount_update_mapping:
         lda     $0101,x                 ; retained catalog slot
         sta     (buffer_ptr),y
 
-        lda     #FN_DEVICE_FILE
+        lda     #FN_DEVICE_APPSTORE
         sta     fuji_bus_tx_device
-        lda     #FILE_CMD_APPSTORE_WRITE
+        lda     #APPSTORE_CMD_WRITE
         sta     fuji_bus_tx_command
         jsr     fujibus_set_payload_buffer_ptr
         lda     #$2E                    ; 29-byte prefix/write header + 17 data
@@ -546,9 +454,9 @@ fmount_update_mapping:
         iny
         sta     (buffer_ptr),y
 
-        lda     #FN_DEVICE_FILE
+        lda     #FN_DEVICE_APPSTORE
         sta     fuji_bus_tx_device
-        lda     #FILE_CMD_APPSTORE_WRITE
+        lda     #APPSTORE_CMD_WRITE
         sta     fuji_bus_tx_command
         jsr     fujibus_set_payload_buffer_ptr
         lda     #$1F                    ; 29-byte prefix/write header + 2 data

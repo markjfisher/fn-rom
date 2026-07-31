@@ -21,19 +21,19 @@ from beebium.client.screen import dump_screen, read_mode7_screen
 from fujinet_tools.bbc_dfs import parse_dfs_catalogue_090
 from fujinet_tools import fileproto as fp
 from fujinet_tools import diskproto as dp
+from fujinet_tools import slotproto as sp
 
 from fuji_device import (
     HOST_CMD_GET_CURRENT,
     HOST_CMD_SET_CURRENT,
     HOST_SERVICE_ID,
     HOST_VERSION,
-    FILE_CMD_APPSTORE_WRITE,
-    FILE_CMD_APPSTORE_READ,
-    FILE_CMD_APPSTORE_DELETE,
-    FILE_CMD_SLOT_CATALOG_RANGE,
     FILE_CMD_RESOLVE_PATH,
-    _appstore_prefix,
-    build_appstore_read_response,
+    SLOT_CATALOG_CMD_DELETE,
+    SLOT_CATALOG_CMD_GET,
+    SLOT_CATALOG_CMD_PUT,
+    SLOT_CATALOG_CMD_RANGE,
+    SLOT_CATALOG_SERVICE_ID,
     disk_image_responder,
     default_success_responder,
     build_resolve_path_response,
@@ -43,6 +43,7 @@ from fuji_device import (
     build_disk_read_sector_response,
     build_disk_list_mounts_response,
     host_service_responder,
+    slot_catalog_response,
 )
 from helpers import command, run_basic_program, wait_for_screen_text
 
@@ -259,23 +260,18 @@ def test_fout_removes_sparse_slot_so_it_cannot_be_mounted(beebium, fuji_device):
     command(beebium, "*FOUT 69")
 
     delete = fuji_device.wait_for_command(
-        fp.FILE_DEVICE_ID, FILE_CMD_APPSTORE_DELETE, timeout=8.0
+        SLOT_CATALOG_SERVICE_ID, SLOT_CATALOG_CMD_DELETE, timeout=8.0
     )
     assert delete is not None
-    assert delete.payload == (
-        bytes([fp.FILEPROTO_VERSION, 10, 0])
-        + b"config-nio"
-        + bytes([8, 0])
-        + b"slot-069"
-    )
+    assert delete.payload == bytes([1, 69])
 
     fuji_device.clear()
     command(beebium, "*FMOUNT 69 1")
     read = fuji_device.wait_for_command(
-        fp.FILE_DEVICE_ID, FILE_CMD_APPSTORE_READ, timeout=8.0
+        SLOT_CATALOG_SERVICE_ID, SLOT_CATALOG_CMD_GET, timeout=8.0
     )
     assert read is not None
-    assert b"slot-069" in read.payload
+    assert read.payload == bytes([1, 69])
     assert fuji_device.wait_for_command(
         dp.DISK_DEVICE_ID, dp.CMD_MOUNT, timeout=0.2
     ) is None
@@ -438,7 +434,7 @@ def test_fslots_lists_only_populated_slots_in_requested_range(beebium, fuji_devi
     assert "Bad program" not in screen
 
     pkt = fuji_device.wait_for_command(
-        fp.FILE_DEVICE_ID, FILE_CMD_SLOT_CATALOG_RANGE, timeout=8.0
+        SLOT_CATALOG_SERVICE_ID, SLOT_CATALOG_CMD_RANGE, timeout=8.0
     )
     assert pkt is not None
     assert pkt.payload == bytes([1, 64, 72, 64, 2, 128, 220, 0])
@@ -456,7 +452,7 @@ def test_fslots_empty_catalogue_returns_cleanly(beebium, fuji_device):
     assert "Bad program" not in screen
 
     pkt = fuji_device.wait_for_command(
-        fp.FILE_DEVICE_ID, FILE_CMD_SLOT_CATALOG_RANGE, timeout=8.0
+        SLOT_CATALOG_SERVICE_ID, SLOT_CATALOG_CMD_RANGE, timeout=8.0
     )
     assert pkt is not None
     assert pkt.payload == bytes([1, 0, 255, 0, 2, 128, 220, 0])
@@ -475,7 +471,7 @@ def test_fslots_runs_after_fls_and_fin_with_high_slot(beebium, fuji_device):
     command(beebium, "*FSLOTS")
 
     pkt = fuji_device.wait_for_command(
-        fp.FILE_DEVICE_ID, FILE_CMD_SLOT_CATALOG_RANGE, timeout=8.0
+        SLOT_CATALOG_SERVICE_ID, SLOT_CATALOG_CMD_RANGE, timeout=8.0
     )
     assert pkt is not None, (
         "*FSLOTS ran a stale transient utility instead of requesting the slot catalogue"
@@ -577,18 +573,10 @@ def _mount_boot_drive(beebium, fuji_device) -> None:
 
     command(beebium, "*FIN 7 fn-boot.ssd")
     pkt = fuji_device.wait_for_command(
-        fp.FILE_DEVICE_ID, FILE_CMD_APPSTORE_WRITE, timeout=8.0
+        SLOT_CATALOG_SERVICE_ID, SLOT_CATALOG_CMD_PUT, timeout=8.0
     )
-    assert pkt is not None, "*FIN 7 did not persist AppStore slot 007"
-    assert pkt.payload == (
-        bytes([fp.FILEPROTO_VERSION, 10, 0])
-        + b"config-nio"
-        + bytes([8, 0])
-        + b"slot-007"
-        + bytes(4)
-        + bytes([18, 0, 1, 0])
-        + b"sd0:/fn-boot.ssd"
-    )
+    assert pkt is not None, "*FIN 7 did not put Slot Catalog entry 7"
+    assert pkt.payload == sp.build_put_req(7, "fn-boot.ssd")
 
     command(beebium, "*FMOUNT 7 0")
 
@@ -627,7 +615,7 @@ def test_transient_command_resolves_from_disk(beebium, fuji_device, cmd, command
 def _two_image_responder(by_host_slot: dict[int, tuple[str, bytes]]):
     """Serve a different DFS image per fujinet host slot.
 
-    Persist sparse AppStore catalog entries, then bind the URI in each Disk
+    Persist sparse Slot Catalog entries, then bind the URI in each Disk
     MOUNT request to its bounded runtime drive slot so each BBC drive sees the
     selected image independently of the catalog index."""
     images_by_uri = {}
@@ -635,28 +623,20 @@ def _two_image_responder(by_host_slot: dict[int, tuple[str, bytes]]):
         images_by_uri[uri] = image
         images_by_uri[uri.rsplit("/", 1)[-1]] = image
     mounted_images: dict[int, bytes] = {}
-    appstore: dict[tuple[str, str], bytes] = {}
+    slots: dict[int, tuple[int, str]] = {}
     host_resp = host_service_responder(["sd0:/"])
 
     def _resp(pkt):
-        if pkt.device == fp.FILE_DEVICE_ID and pkt.command in (
-            FILE_CMD_APPSTORE_READ,
-            FILE_CMD_APPSTORE_WRITE,
-            FILE_CMD_APPSTORE_DELETE,
-        ):
-            namespace, key, pos = _appstore_prefix(pkt.payload)
-            store_key = (namespace, key)
-            if pkt.command == FILE_CMD_APPSTORE_DELETE:
-                appstore.pop(store_key, None)
-                return default_success_responder(pkt)
-            offset = int.from_bytes(pkt.payload[pos:pos + 4], "little")
-            if pkt.command == FILE_CMD_APPSTORE_WRITE:
-                data_len = int.from_bytes(pkt.payload[pos + 4:pos + 6], "little")
-                appstore[store_key] = pkt.payload[pos + 6:pos + 6 + data_len]
-                return default_success_responder(pkt)
-            return build_appstore_read_response(
-                appstore.get(store_key), offset=offset
-            )
+        slot_reply = slot_catalog_response(
+            pkt,
+            slots,
+            resolve_target=lambda target: (
+                target if ":/" in target or "://" in target
+                else "sd0:/" + target
+            ),
+        )
+        if slot_reply is not None:
+            return slot_reply
 
         host_reply = host_resp(pkt)
         if host_reply is not None:
