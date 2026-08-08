@@ -48,6 +48,7 @@ FN_DEVICE_FILE     = $FE
 FN_DEVICE_HOST     = $F0     ; New HostDevice
 FN_DEVICE_APPSTORE = $F1
 FN_DEVICE_SLOT_CATALOG = $F2
+FN_DEVICE_WIFI          = $F3
 
 ; Disk Commands
 DISK_CMD_MOUNT       = $01
@@ -95,6 +96,19 @@ NET_CMD_CLOSE      = $04
 NET_CMD_INFO       = $05
 NET_CMD_INFO_READ  = $06
 NET_CMD_TRANSLATE_CONFIGURE = $07
+
+; Wi-Fi management service (version 1, see fujinet-nio wifi_service_protocol.md)
+WIFI_PROTOCOL_VERSION = 1
+WIFI_CMD_GET_STATUS    = $01
+WIFI_CMD_GET_CONFIG    = $02
+WIFI_CMD_SET_CONFIG    = $03
+WIFI_CMD_SCAN          = $04
+WIFI_SET_ENABLED       = $01
+WIFI_SET_SSID          = $02
+WIFI_SET_BSSID         = $04
+WIFI_SET_PASSWORD      = $08
+WIFI_SET_PERSIST       = $10
+WIFI_SET_RECONNECT     = $20
 
 ; Host-side NotReady retry policy (fn-rom; configurable later)
 NET_RETRY_MAX         = 24    ; max attempts per operation
