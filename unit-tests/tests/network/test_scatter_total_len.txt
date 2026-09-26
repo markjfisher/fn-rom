@@ -1,0 +1,100 @@
+///////////////////////////////
+marker $$ a write_ext: 15-byte header region + 250-byte body $$
+///////////////////////////////
+
+memory load #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+
+symbols remove "__.*"
+
+registers flush
+
+memory write $aws_tmp02 0x(0F,00)
+memory write $aws_tmp08 0x(FA,00)
+memory write $cws_tmp6 0x(00,00)
+memory write #0x4002 0x(EE,EE)
+
+run $t_total until (CP = $t_total_end OR cycle_count > 5000)
+
+assert CP = $t_total_end $$completed$$
+assert #0x4002 = 0x09 $$total low byte (15+250+0=265)$$
+assert #0x4003 = 0x01 $$total high byte$$
+
+///////////////////////////////
+marker $$ carry out of both low-byte adds $$
+///////////////////////////////
+
+memory load #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+
+symbols remove "__.*"
+
+registers flush
+
+memory write $aws_tmp02 0x(F0,00)
+memory write $aws_tmp08 0x(F0,00)
+memory write $cws_tmp6 0x(F0,00)
+memory write #0x4002 0x(EE,EE)
+
+run $t_total until (CP = $t_total_end OR cycle_count > 5000)
+
+assert CP = $t_total_end $$completed$$
+assert #0x4002 = 0xD0 $$total low byte (240+240+240=720)$$
+assert #0x4003 = 0x02 $$total high byte$$
+
+///////////////////////////////
+marker $$ small packet, no carries $$
+///////////////////////////////
+
+memory load #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+
+symbols remove "__.*"
+
+registers flush
+
+memory write $aws_tmp02 0x(0B,00)
+memory write $aws_tmp08 0x(14,00)
+memory write $cws_tmp6 0x(08,00)
+memory write #0x4002 0x(EE,EE)
+
+run $t_total until (CP = $t_total_end OR cycle_count > 5000)
+
+assert CP = $t_total_end $$completed$$
+assert #0x4002 = 0x27 $$total low byte (11+20+8=39)$$
+assert #0x4003 = 0x00 $$total high byte$$
+
+///////////////////////////////
+marker $$ 16-bit regions $$
+///////////////////////////////
+
+memory load #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+
+symbols remove "__.*"
+
+registers flush
+
+memory write $aws_tmp02 0x(05,01)
+memory write $aws_tmp08 0x(FF,01)
+memory write $cws_tmp6 0x(02,00)
+memory write #0x4002 0x(EE,EE)
+
+run $t_total until (CP = $t_total_end OR cycle_count > 5000)
+
+assert CP = $t_total_end $$completed$$
+assert #0x4002 = 0x06 $$total low byte (261+511+2=774)$$
+assert #0x4003 = 0x03 $$total high byte$$
+
