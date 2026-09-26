@@ -1,3 +1,7 @@
+; SLIP over a byte link: serial and user port. The 1MHz build sends whole
+; packets instead (fuji_link_pi1mhz.s).
+.ifndef FUJINET_INTERFACE_1MHZ
+
 ; Shared SLIP framing over a raw FujiNet link.
 ; The selected physical link implementation provides the fuji_link_* symbols.
 
@@ -486,3 +490,5 @@ fuji_link_write_slip_frame_triple:
         lda     #SLIP_END
         jsr     fuji_link_write_byte
         rts
+
+.endif  ; !FUJINET_INTERFACE_1MHZ

@@ -81,9 +81,9 @@ fuji_get_host:
         
         rts
 
-.ifdef FUJINET_INTERFACE_SERIAL
+.if .defined(FUJINET_INTERFACE_SERIAL) .or .defined(FUJINET_INTERFACE_1MHZ)
 
-; Serial interface - call C implementation
+; Serial and 1MHz interfaces - both reach FujiNet through FujiBus packets
 
 ; For serial, set host is the same as resolve path (validates and stores)
 fuji_resolve_path_data:
