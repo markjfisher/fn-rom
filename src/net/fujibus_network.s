@@ -438,11 +438,15 @@ nw_read_after_receive:
         beq     read_fail
 
 check_descriptor:
-        ; Need at least FujiBus header so descriptor/status are present
+        ; Need at least FujiBus header so descriptor/status are present.
+        ; A reply of 256 bytes or more (X != 0) always has them.
+        sta     aws_tmp05               ; save total packet length (low)
+        stx     aws_tmp03               ; and high, for check_read_length
+        cpx     #$00
+        bne     :+
         cmp     #$07
         bcc     read_fail
-
-        sta     aws_tmp05               ; save total packet length
+:
 
         ; check descriptor byte
         ldy     #$05
@@ -472,9 +476,12 @@ check_read_length:
         sta     aws_tmp04               ; response flags (e.g. EOF)
 
         ; minimum length: 7 + 12 = 19 bytes (FujiBus hdr + network protocol hdr)
+        lda     aws_tmp03               ; 256 bytes or more: long enough
+        bne     :+
         lda     aws_tmp05
         cmp     #$13
         bcc     read_fail
+:
 
         ; get dataLen from response (u16le at NET_RESP_DATALEN = buffer+17)
         ldy     #NET_RESP_DATALEN

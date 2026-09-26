@@ -209,10 +209,12 @@ nwbg_net_read:
         lda     #$00
         sta     aws_tmp09
 
-        ; max_bytes = 256
-        lda     #$00
+        ; max_bytes = 255: the count is kept in one byte (fuji_ch_sect_cnt),
+        ; and a 256-byte reply (7 + 12 + 256 = 275 bytes) would not fit the
+        ; 274-byte packet buffer either.
+        lda     #$FF
         sta     aws_tmp14
-        lda     #$01
+        lda     #$00
         sta     aws_tmp15
 
         ; Retry NotReady with exponential backoff (see network_retry_* in utils.s).

@@ -35,6 +35,7 @@ soft65c02_unit -i unit-tests/tests/serial/test_slip_receive_to_payload.yaml
 soft65c02_unit -i unit-tests/tests/network/test_bget_stream_not_ready.yaml
 soft65c02_unit -i unit-tests/tests/network/test_bget_stream_no_probe_chunk.yaml
 soft65c02_unit -i unit-tests/tests/network/test_reason_write_data_cursor.yaml
+soft65c02_unit -i unit-tests/tests/network/test_read_reply_over_255.yaml
 soft65c02_unit -i unit-tests/tests/parsing/test_parsing_defaults.yaml
 soft65c02_unit -i unit-tests/tests/mapping/test_drive_mapping.yaml
 soft65c02_unit -i unit-tests/tests/catalog/test_catalog_lookup.yaml
