@@ -1,3 +1,6 @@
+; The RS423 byte link under fuji_link_slip.s; not in the 1MHz build.
+.ifndef FUJINET_INTERFACE_1MHZ
+
 ; Serial raw-link implementation for FujiBus.
 ; Shared SLIP framing lives in fuji_link_slip.s.
 ; RX currently uses MOS RS423 buffering, so callers must enter with IRQs
@@ -33,3 +36,5 @@ fuji_link_check_byte_available:
 
 fuji_link_read_byte:
         jmp     read_rs423_char
+
+.endif  ; !FUJINET_INTERFACE_1MHZ
