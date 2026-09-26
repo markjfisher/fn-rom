@@ -73,6 +73,14 @@ pi_address_block:
         sta     PI_ADDR_MID
         lda     #$FF
         sta     PI_ADDR_HI
+        ; fall through: a read of PI_DATA must give the Pi time to fetch it
+
+; The Pi republishes PI_DATA from its FIQ after each address write or data
+; read (measured up to ~5us). Called between accesses that would otherwise
+; be only a few cycles apart: the JSR/RTS and NOPs are ~8us at 2MHz.
+pi_settle:
+        nop
+        nop
         rts
 
 ; Write one contiguous region (aws_tmp00/01 = ptr, aws_tmp02/03 = len) to
@@ -152,6 +160,9 @@ fuji_link_write_slip_frame_triple:
         sta     PI_DATA                 ; capacity &0800
         lda     #PI_REPLY_CAP_HI
         sta     PI_DATA
+        lda     #$00                    ; reply length, written by the Pi:
+        sta     PI_DATA                 ; zero until it answers, so a stale
+        sta     PI_DATA                 ; "done" reads as an empty reply
 
         ; The packet, region by region.
         lda     #$00
@@ -196,10 +207,13 @@ pi_wait_reply:
         bpl     @answered
         dex
         bne     @poll
+        bit     $FF                     ; Escape gives up, as a timeout would
+        bmi     @gave_up
         dec     aws_tmp10
         bne     @poll
         dec     aws_tmp11
         bne     @poll
+@gave_up:
         sec
         rts
 @answered:
@@ -208,6 +222,7 @@ pi_wait_reply:
         jsr     pi_address_block
         lda     PI_DATA
         sta     aws_tmp02
+        jsr     pi_settle
         lda     PI_DATA
         sta     aws_tmp03
         lda     #$00
@@ -216,6 +231,7 @@ pi_wait_reply:
         sta     PI_ADDR_MID
         lda     #$00
         sta     PI_ADDR_HI
+        jsr     pi_settle
         sta     aws_tmp00
         sta     aws_tmp01
         sta     aws_tmp04
