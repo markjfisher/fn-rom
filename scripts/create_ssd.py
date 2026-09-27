@@ -17,6 +17,7 @@ Handles:
 import argparse
 import json
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -300,6 +301,61 @@ def create_manifest(
     return manifest_path
 
 
+def write_ssd(
+    entries: List[FileManifestEntry],
+    output_ssd: Path,
+    disc_title: str,
+    disc_sectors: int,
+):
+    """Write a single-sided Acorn DFS image (the layout dfstool makes) without
+    dfstool: files packed from sector 2 in order, catalogue in sectors 0-1
+    listed by descending start sector, boot option none, cycle 0."""
+    if len(entries) > 31:
+        print(f"Error: {len(entries)} files; a DFS catalogue holds 31")
+        sys.exit(1)
+    cat = bytearray(512)
+    title = disc_title.encode("ascii")[:12].ljust(12, b"\0")
+    cat[0:8] = title[:8]
+    cat[256:260] = title[8:12]
+    data = bytearray()
+    placed = []
+    sector = 2
+    for e in entries:
+        body = e.content_path.read_bytes()
+        name = e.file_name.encode("ascii")
+        if not 1 <= len(name) <= 7:
+            print(f"Error: bad DFS file name {e.file_name!r}")
+            sys.exit(1)
+        placed.append((e, name, len(body), sector))
+        data += body.ljust(((len(body) + 255) // 256) * 256, b"\0")
+        sector += (len(body) + 255) // 256
+    if sector > disc_sectors:
+        print(f"Error: files need {sector} sectors; the disc has {disc_sectors}")
+        sys.exit(1)
+    for i, (e, name, length, start) in enumerate(sorted(placed, key=lambda p: -p[3])):
+        load = parse_hex_address(e.load_addr)
+        exe = parse_hex_address(e.exec_addr)
+        dir_byte = ord(e.directory) | (0x80 if e.locked else 0)
+        cat[8 + i * 8 : 15 + i * 8] = name.ljust(7, b" ")
+        cat[15 + i * 8] = dir_byte
+        o = 256 + 8 + i * 8
+        cat[o : o + 2] = (load & 0xFFFF).to_bytes(2, "little")
+        cat[o + 2 : o + 4] = (exe & 0xFFFF).to_bytes(2, "little")
+        cat[o + 4 : o + 6] = (length & 0xFFFF).to_bytes(2, "little")
+        cat[o + 6] = (
+            ((exe >> 16) & 3) << 6
+            | ((length >> 16) & 3) << 4
+            | ((load >> 16) & 3) << 2
+            | ((start >> 8) & 3)
+        )
+        cat[o + 7] = start & 0xFF
+    cat[256 + 4] = 0                        # cycle number
+    cat[256 + 5] = len(placed) * 8
+    cat[256 + 6] = (disc_sectors >> 8) & 3  # boot option none
+    cat[256 + 7] = disc_sectors & 0xFF
+    output_ssd.write_bytes(bytes(cat) + bytes(data))
+
+
 def create_ssd(
     input_dir: Path,
     output_ssd: Path,
@@ -332,11 +388,7 @@ def create_ssd(
             print(f"Error: invalid --exec-addr {data_exec_addr!r}: {e}")
             sys.exit(1)
 
-    for tool in ["basictool", "dfstool"]:
-        result = subprocess.run(["which", tool], capture_output=True)
-        if result.returncode != 0:
-            print(f"Error: {tool} not found in PATH")
-            sys.exit(1)
+    have_dfstool = shutil.which("dfstool") is not None
 
     all_files = sorted(
         [
@@ -388,6 +440,10 @@ def create_ssd(
 
     if not paired_with_inf and not bas_files and not other_files:
         print(f"Error: No files found in '{input_dir}'")
+        sys.exit(1)
+
+    if bas_files and shutil.which("basictool") is None:
+        print("Error: basictool not found in PATH (needed to tokenize .bas files)")
         sys.exit(1)
 
     print("📄 Creating SSD disk image...")
@@ -478,23 +534,27 @@ def create_ssd(
             print("=== End Manifest ===\n")
 
         print(f"\nCreating SSD disk image: {output_ssd}")
-        result = subprocess.run(
-            [
-                "dfstool",
-                "make",
-                "--output",
-                str(output_ssd),
-                "--overwrite",
-                str(manifest_path),
-            ],
-            capture_output=True,
-            text=True,
-        )
+        if not have_dfstool:
+            print("dfstool not found in PATH: writing the image directly")
+            write_ssd(entries, output_ssd, disc_title, disc_size)
+        else:
+            result = subprocess.run(
+                [
+                    "dfstool",
+                    "make",
+                    "--output",
+                    str(output_ssd),
+                    "--overwrite",
+                    str(manifest_path),
+                ],
+                capture_output=True,
+                text=True,
+            )
 
-        if result.returncode != 0:
-            print("Error: Failed to create SSD disk image")
-            print(result.stderr)
-            sys.exit(1)
+            if result.returncode != 0:
+                print("Error: Failed to create SSD disk image")
+                print(result.stderr)
+                sys.exit(1)
 
     print(f"\nSSD disk image created: {output_ssd}")
     print("Files included:")
