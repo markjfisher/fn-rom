@@ -39,6 +39,7 @@ soft65c02_unit -i unit-tests/tests/network/test_read_reply_over_255.yaml
 soft65c02_unit -i unit-tests/tests/network/test_read_datalen_clamp.yaml
 soft65c02_unit -i unit-tests/tests/network/test_scatter_total_len.yaml
 soft65c02_unit -i unit-tests/tests/gbpb/test_gbpb_load_blkptr.yaml
+soft65c02_unit -i unit-tests/tests/gbpb/test_gbpb_network_bytewise.yaml
 soft65c02_unit -i unit-tests/tests/parsing/test_parsing_defaults.yaml
 soft65c02_unit -i unit-tests/tests/mapping/test_drive_mapping.yaml
 soft65c02_unit -i unit-tests/tests/catalog/test_catalog_lookup.yaml
