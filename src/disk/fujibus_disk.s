@@ -792,17 +792,15 @@ fujibus_resolve_path:
         rts
 
 ; Validate a simple disk OK response after FujiBus transport receive.
-; Input: A = minimum total packet length, X = received length high.
-; Output: C clear = ok, C set = fail.
+; Input: A/X = received length (low/high), and C from the caller's
+; "CMP #minimum" on A just before the JSR: C set = low byte >= minimum.
+; Output: C clear = ok, C set = fail.  Writes no workspace: aws_tmp14 holds
+; the trailing partial-sector count while fuji_read_block_data loads a file.
 fd_check_ok_response:
-        sta     aws_tmp14
-        cpx     #$00
-        bne     @fd_len_ok
-        cmp     #$00
+        bcs     @fd_len_ok              ; low byte >= minimum
+        cpx     #$00                    ; or 256 bytes or more
         beq     @fd_fail
 @fd_len_ok:
-        cmp     aws_tmp14
-        bcc     @fd_fail
         ldy     #$05
         lda     (buffer_ptr),y
         cmp     #$01
