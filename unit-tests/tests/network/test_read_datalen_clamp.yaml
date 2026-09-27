@@ -1,0 +1,9 @@
+name: network read never copies more than the reply holds
+
+configs:
+  - ${UNIT_TEST_DIR}/harness/harness.yaml
+
+src_files:
+  - test_read_datalen_clamp.s
+
+test_script: test_read_datalen_clamp.txt
