@@ -137,10 +137,12 @@ fuji_write_block_data:
 
         ; Preserve caller buffer; stage full sector at PWS payload (same offset
         ; as FujiBus rx[18+]) so catalogue RAM at $0E00 is not touched.
-        lda     data_ptr
-        sta     aws_tmp08
+        ; The caller's pointer is kept on the stack: the link's send and
+        ; receive use aws_tmp08/09 themselves (region length, capacity).
         lda     data_ptr+1
-        sta     aws_tmp09
+        pha
+        lda     data_ptr
+        pha
 
         lda     buffer_ptr
         clc
@@ -153,6 +155,11 @@ fuji_write_block_data:
         jsr     fujibus_disk_read_sector
         bcs     @write_partial_fail
 
+        tsx
+        lda     $0101,x                 ; caller's buffer, low
+        sta     aws_tmp08
+        lda     $0102,x                 ; high
+        sta     aws_tmp09
         ldy     #$00
 @merge_partial:
         lda     (aws_tmp08),y
@@ -164,16 +171,16 @@ fuji_write_block_data:
         jsr     fujibus_disk_write_sector
         bcs     @write_partial_fail
 
-        lda     aws_tmp08
+        pla
         sta     data_ptr
-        lda     aws_tmp09
+        pla
         sta     data_ptr+1
         jmp     @write_success
 
 @write_partial_fail:
-        lda     aws_tmp08
+        pla
         sta     data_ptr
-        lda     aws_tmp09
+        pla
         sta     data_ptr+1
         jmp     @write_error
 
