@@ -1,0 +1,141 @@
+///////////////////////////////
+marker $$ PTR inside the buffer: the buffered byte, no read $$
+///////////////////////////////
+
+memory load #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+
+symbols remove "__.*"
+
+registers flush
+
+memory write $fujibus_network_read 0x(4C)
+memory write $patch_fujibus_network_read $stub_fujibus_network_read_not_ready
+memory write $call_count 0x(00)
+memory write $result_a 0x(00)
+
+; Network channel 5 (handle $15 / intch $A0), open and streaming, unknown length.
+memory write $fuji_open_channels 0x(08)
+memory write $ch5_handle_low 0x(01)
+memory write $ch5_handle_high 0x(01)
+memory write $ch5_net_proto 0x(04)
+memory write $ch5_ext_low 0x(FF)
+memory write $ch5_ext_mid 0x(FF)
+memory write $ch5_ext_hi 0x(FF)
+
+; The buffer holds stream offsets 0..254, in page $30, every byte $5A.
+memory write $ch5_buf_page 0x(30)
+memory write $ch5_buf_start_low 0x(00)
+memory write $ch5_buf_start_mid 0x(00)
+memory write $ch5_buf_start_hi 0x(00)
+memory write $ch5_buf_count 0x(FF)
+memory write #0x302C 0x(5A)
+
+; PTR = 44
+memory write $ch5_bptr_low 0x(2C)
+memory write $ch5_bptr_mid 0x(00)
+memory write $ch5_bptr_hi 0x(00)
+
+run $t_bget until (CP = $t_bget_end OR cycle_count > 5000)
+
+assert CP = $t_bget_end $$completed bget call$$
+assert $call_count = 0x00 $$no network read for a buffered byte$$
+assert $result_a = 0x5A $$the buffered byte$$
+
+///////////////////////////////
+marker $$ PTR moved 256 on: not buffered, so a read is attempted $$
+///////////////////////////////
+
+memory load #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+
+symbols remove "__.*"
+
+registers flush
+
+memory write $fujibus_network_read 0x(4C)
+memory write $patch_fujibus_network_read $stub_fujibus_network_read_not_ready
+memory write $call_count 0x(00)
+memory write $result_a 0x(00)
+
+; Network channel 5 (handle $15 / intch $A0), open and streaming, unknown length.
+memory write $fuji_open_channels 0x(08)
+memory write $ch5_handle_low 0x(01)
+memory write $ch5_handle_high 0x(01)
+memory write $ch5_net_proto 0x(04)
+memory write $ch5_ext_low 0x(FF)
+memory write $ch5_ext_mid 0x(FF)
+memory write $ch5_ext_hi 0x(FF)
+
+; The buffer holds stream offsets 0..254, in page $30, every byte $5A.
+memory write $ch5_buf_page 0x(30)
+memory write $ch5_buf_start_low 0x(00)
+memory write $ch5_buf_start_mid 0x(00)
+memory write $ch5_buf_start_hi 0x(00)
+memory write $ch5_buf_count 0x(FF)
+memory write #0x302C 0x(5A)
+
+; PTR = 300
+memory write $ch5_bptr_low 0x(2C)
+memory write $ch5_bptr_mid 0x(01)
+memory write $ch5_bptr_hi 0x(00)
+
+run $t_bget until (CP = $t_bget_end OR cycle_count > 5000)
+
+assert CP = $t_bget_end $$completed bget call$$
+assert $call_count = 0x01 $$a network read for a byte outside the buffer$$
+assert $result_a = 0xFE $$not the stale byte at the same low offset$$
+
+///////////////////////////////
+marker $$ buffer across a page boundary: PTR 261 with the buffer from 240 is buffered $$
+///////////////////////////////
+
+memory load #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+
+symbols remove "__.*"
+
+registers flush
+
+memory write $fujibus_network_read 0x(4C)
+memory write $patch_fujibus_network_read $stub_fujibus_network_read_not_ready
+memory write $call_count 0x(00)
+memory write $result_a 0x(00)
+
+; Network channel 5 (handle $15 / intch $A0), open and streaming, unknown length.
+memory write $fuji_open_channels 0x(08)
+memory write $ch5_handle_low 0x(01)
+memory write $ch5_handle_high 0x(01)
+memory write $ch5_net_proto 0x(04)
+memory write $ch5_ext_low 0x(FF)
+memory write $ch5_ext_mid 0x(FF)
+memory write $ch5_ext_hi 0x(FF)
+
+; The buffer holds stream offsets 240..494, in page $30, every byte $5A.
+memory write $ch5_buf_page 0x(30)
+memory write $ch5_buf_start_low 0x(F0)
+memory write $ch5_buf_start_mid 0x(00)
+memory write $ch5_buf_start_hi 0x(00)
+memory write $ch5_buf_count 0x(FF)
+memory write #0x3015 0x(5A)
+
+; PTR = 261
+memory write $ch5_bptr_low 0x(05)
+memory write $ch5_bptr_mid 0x(01)
+memory write $ch5_bptr_hi 0x(00)
+
+run $t_bget until (CP = $t_bget_end OR cycle_count > 5000)
+
+assert CP = $t_bget_end $$completed bget call$$
+assert $call_count = 0x00 $$no network read for a buffered byte$$
+assert $result_a = 0x5A $$the buffered byte$$
+
