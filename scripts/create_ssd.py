@@ -313,6 +313,9 @@ def write_ssd(
     if len(entries) > 31:
         print(f"Error: {len(entries)} files; a DFS catalogue holds 31")
         sys.exit(1)
+    if not 2 <= disc_sectors <= 1023:
+        print(f"Error: disc size {disc_sectors} sectors; DFS holds 2 to 1023")
+        sys.exit(1)
     cat = bytearray(512)
     title = disc_title.encode("ascii")[:12].ljust(12, b"\0")
     cat[0:8] = title[:8]
@@ -332,7 +335,12 @@ def write_ssd(
     if sector > disc_sectors:
         print(f"Error: files need {sector} sectors; the disc has {disc_sectors}")
         sys.exit(1)
-    for i, (e, name, length, start) in enumerate(sorted(placed, key=lambda p: -p[3])):
+    # Descending start sector. An empty file shares its start with the next
+    # file; list the longer one first so no file's successor starts where
+    # it does, which would make DFS see a negative gap after it.
+    for i, (e, name, length, start) in enumerate(
+        sorted(placed, key=lambda p: (-p[3], -p[2]))
+    ):
         load = parse_hex_address(e.load_addr)
         exe = parse_hex_address(e.exec_addr)
         dir_byte = ord(e.directory) | (0x80 if e.locked else 0)
