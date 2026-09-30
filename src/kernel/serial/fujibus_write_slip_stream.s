@@ -1,3 +1,6 @@
+; The RS423 byte link under fuji_link_slip.s; not in the 1MHz build.
+.ifndef FUJINET_INTERFACE_1MHZ
+
 ; Serial raw-link write implementation for FujiBus.
 ; Shared SLIP framing lives in fuji_link_slip.s.
 ; This is protocol I/O, not MOS output: write bytes directly to the ACIA so
@@ -22,3 +25,5 @@ fuji_link_write_byte:
         pla
         sta     ACIA_DATA
         rts
+
+.endif  ; !FUJINET_INTERFACE_1MHZ

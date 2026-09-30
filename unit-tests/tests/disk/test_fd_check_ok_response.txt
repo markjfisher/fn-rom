@@ -1,0 +1,134 @@
+///////////////////////////////
+marker $$ full sector reply (274 bytes, min 18) is ok $$
+///////////////////////////////
+
+memory load #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+
+symbols remove "__.*"
+
+registers flush
+
+// reply header: rx[5] = 1, rx[6] = status
+memory write #0x4005 0x(01,00)
+// received length (low, high), minimum
+memory write #0x4102 0x(12,01,12)
+memory write $aws_tmp14 0x(84)
+memory write #0x4100 0x(EE)
+
+run $t_check until (CP = $t_check_end OR cycle_count > 2000)
+
+assert CP = $t_check_end $$completed$$
+assert #0x4100 = 0x00 $$ok$$
+assert $aws_tmp14 = 0x84 $$aws_tmp14 (a load's partial-sector count) untouched$$
+
+///////////////////////////////
+marker $$ short reply (7 bytes, min 18) fails $$
+///////////////////////////////
+
+memory load #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+
+symbols remove "__.*"
+
+registers flush
+
+// reply header: rx[5] = 1, rx[6] = status
+memory write #0x4005 0x(01,00)
+// received length (low, high), minimum
+memory write #0x4102 0x(07,00,12)
+memory write $aws_tmp14 0x(84)
+memory write #0x4100 0x(EE)
+
+run $t_check until (CP = $t_check_end OR cycle_count > 2000)
+
+assert CP = $t_check_end $$completed$$
+assert #0x4100 = 0x01 $$fail$$
+assert $aws_tmp14 = 0x84 $$aws_tmp14 (a load's partial-sector count) untouched$$
+
+///////////////////////////////
+marker $$ bad status fails $$
+///////////////////////////////
+
+memory load #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+
+symbols remove "__.*"
+
+registers flush
+
+// reply header: rx[5] = 1, rx[6] = status
+memory write #0x4005 0x(01,92)
+// received length (low, high), minimum
+memory write #0x4102 0x(12,01,12)
+memory write $aws_tmp14 0x(84)
+memory write #0x4100 0x(EE)
+
+run $t_check until (CP = $t_check_end OR cycle_count > 2000)
+
+assert CP = $t_check_end $$completed$$
+assert #0x4100 = 0x01 $$fail$$
+assert $aws_tmp14 = 0x84 $$aws_tmp14 (a load's partial-sector count) untouched$$
+
+///////////////////////////////
+marker $$ exact minimum (7 of 7) is ok $$
+///////////////////////////////
+
+memory load #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+
+symbols remove "__.*"
+
+registers flush
+
+// reply header: rx[5] = 1, rx[6] = status
+memory write #0x4005 0x(01,00)
+// received length (low, high), minimum
+memory write #0x4102 0x(07,00,07)
+memory write $aws_tmp14 0x(84)
+memory write #0x4100 0x(EE)
+
+run $t_check until (CP = $t_check_end OR cycle_count > 2000)
+
+assert CP = $t_check_end $$completed$$
+assert #0x4100 = 0x00 $$ok$$
+assert $aws_tmp14 = 0x84 $$aws_tmp14 (a load's partial-sector count) untouched$$
+
+///////////////////////////////
+marker $$ empty reply fails $$
+///////////////////////////////
+
+memory load #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+
+symbols remove "__.*"
+
+registers flush
+
+// reply header: rx[5] = 1, rx[6] = status
+memory write #0x4005 0x(01,00)
+// received length (low, high), minimum
+memory write #0x4102 0x(00,00,07)
+memory write $aws_tmp14 0x(84)
+memory write #0x4100 0x(EE)
+
+run $t_check until (CP = $t_check_end OR cycle_count > 2000)
+
+assert CP = $t_check_end $$completed$$
+assert #0x4100 = 0x01 $$fail$$
+assert $aws_tmp14 = 0x84 $$aws_tmp14 (a load's partial-sector count) untouched$$

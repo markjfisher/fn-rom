@@ -1,0 +1,9 @@
+name: fd_check_ok_response checks length and status, and leaves aws_tmp14 alone
+
+configs:
+  - ${UNIT_TEST_DIR}/harness/harness.yaml
+
+src_files:
+  - test_fd_check_ok_response.s
+
+test_script: test_fd_check_ok_response.txt

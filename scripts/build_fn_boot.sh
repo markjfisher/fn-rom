@@ -22,6 +22,9 @@ cd "$(dirname "$0")/.."          # repos/fn-rom
 root="$(pwd)"
 
 MACHINE="${BUILD_MACHINE:-BBC}"
+# The utilities call into the ROM they will run with, so build that ROM - same
+# machine and interface - for the addresses they link against.
+INTERFACE="${BUILD_INTERFACE:-SERIAL}"
 OUT="$root/build/fn-boot"        # intermediate objects
 STAGE="$root/build/fn-boot-ssd"  # only the files that go on the disk
 ABISRC="$OUT/rom_abi.s"
@@ -46,7 +49,7 @@ LBL="$root/build/$ROM_BASENAME.lbl"
 UTIL_ABI_SRC="$root/src/kernel/util_abi.s"
 
 # cc65 defines that must match the ROM build the binaries call into.
-ASDEF=(-D "FUJINET_MACHINE_$MACHINE" -D FUJINET_INTERFACE_SERIAL -D FN_UTIL_BINARY)
+ASDEF=(-D "FUJINET_MACHINE_$MACHINE" -D "FUJINET_INTERFACE_$INTERFACE" -D FN_UTIL_BINARY)
 [ "$MACHINE" = "MASTER" ] && CPU=(--cpu 65C02) || CPU=()
 INC=(-I "$root/src" -I "$root/src/inc")
 
@@ -92,7 +95,7 @@ EOF
 echo "==> transient utility load/exec address: $UTIL_INF_ADDR"
 
 echo "==> building product ROM (for resident symbol addresses)"
-make -B -C "$root" BUILD_MACHINE="$MACHINE" all >/dev/null
+make -B -C "$root" BUILD_MACHINE="$MACHINE" BUILD_INTERFACE="$INTERFACE" all >/dev/null
 
 echo "==> generating rom_abi.s from $LBL"
 python3 - "$LBL" "$ABISRC" "$UTIL_ABI_SRC" <<'PY'

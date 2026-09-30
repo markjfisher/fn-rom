@@ -7,6 +7,8 @@
         .import channel_flags_clear_bits
         .import channel_set_dir_drive_get_cat_entry_yintch
         .import cmp_ptr_ext
+        .import fuji_ch_handle_high
+        .import fuji_ch_handle_low
         .import gbpb_buf_0c
         .import gbpbv_table3
         .import load_mem_block
@@ -60,6 +62,17 @@ copyl0:
         dey                             ; loop until 13 bytes copied
         bpl     copyl0
         tay                             ; file handle to Y
+        php                             ; keep C = preserving PTR
+        jsr     a_rolx5                 ; handle to channel workspace offset
+        tax
+        lda     fuji_ch_handle_low,x    ; a network channel has a FujiNet handle
+        ora     fuji_ch_handle_high,x   ; and no sectors on a disc to move:
+        beq     diskch                  ; it goes byte by byte, through BGETV
+        plp
+        ldy     acc                     ; call number
+        jmp     chain                   ; atemp still points at the user's block
+diskch:
+        plp
         ldx     #$03                    ; 4 bytes to copy, $03..$00:
 initl:
         lda     dosram+$05,x            ; copy L in OSGBPB block
@@ -280,5 +293,5 @@ gbpb_load_blkptr:
 	lda     fuji_gbpbv_blk_save_ptr
 	sta     atemp
 	lda     fuji_gbpbv_blk_save_ptr+1
-	sta     atemp
+	sta     atemp+1
 	rts

@@ -1,0 +1,9 @@
+name: scatter send totals the three region lengths as 16-bit numbers
+
+configs:
+  - ${UNIT_TEST_DIR}/harness/harness.yaml
+
+src_files:
+  - test_scatter_total_len.s
+
+test_script: test_scatter_total_len.txt

@@ -1,0 +1,9 @@
+name: OSGBPB on a network channel takes the byte path, never the sector path
+
+configs:
+  - ${UNIT_TEST_DIR}/harness/harness.yaml
+
+src_files:
+  - test_gbpb_network_bytewise.s
+
+test_script: test_gbpb_network_bytewise.txt

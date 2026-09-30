@@ -438,11 +438,15 @@ nw_read_after_receive:
         beq     read_fail
 
 check_descriptor:
-        ; Need at least FujiBus header so descriptor/status are present
+        ; Need at least FujiBus header so descriptor/status are present.
+        ; A reply of 256 bytes or more (X != 0) always has them.
+        sta     aws_tmp05               ; save total packet length (low)
+        stx     aws_tmp03               ; and high, for check_read_length
+        cpx     #$00
+        bne     :+
         cmp     #$07
         bcc     read_fail
-
-        sta     aws_tmp05               ; save total packet length
+:
 
         ; check descriptor byte
         ldy     #$05
@@ -472,9 +476,27 @@ check_read_length:
         sta     aws_tmp04               ; response flags (e.g. EOF)
 
         ; minimum length: 7 + 12 = 19 bytes (FujiBus hdr + network protocol hdr)
+        lda     aws_tmp03               ; 256 bytes or more: long enough
+        bne     :+
         lda     aws_tmp05
         cmp     #$13
         bcc     read_fail
+:
+
+        ; The packet holds (total - 19) data bytes and the channel page takes
+        ; 255 at most: never copy more than both allow, whatever dataLen
+        ; claims. Total length: aws_tmp05 low, aws_tmp03 high.
+        lda     aws_tmp05
+        sec
+        sbc     #NET_RESP_DATA
+        tax                             ; bytes present, low
+        lda     aws_tmp03
+        sbc     #$00
+        beq     :+                      ; fewer than 256: X is the count
+        ldx     #$FF                    ; 256 or more: the page's 255
+:
+        txa
+        pha                             ; the most we may copy
 
         ; get dataLen from response (u16le at NET_RESP_DATALEN = buffer+17)
         ldy     #NET_RESP_DATALEN
@@ -483,6 +505,17 @@ check_read_length:
         iny
         lda     (buffer_ptr),y
         sta     aws_tmp03               ; dataLen high
+
+        pla                             ; clamp dataLen to it
+        ldx     aws_tmp03
+        bne     @clamp_len              ; claims 256 or more
+        cmp     aws_tmp02
+        bcs     @len_ok                 ; the claim fits
+@clamp_len:
+        sta     aws_tmp02
+        lda     #$00
+        sta     aws_tmp03
+@len_ok:
 
         ; store count for caller (u16le)
         lda     aws_tmp02

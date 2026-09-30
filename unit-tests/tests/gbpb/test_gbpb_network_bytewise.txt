@@ -1,0 +1,55 @@
+///////////////////////////////
+marker $$ network channel: upgbpb reads the caller's block, byte by byte $$
+///////////////////////////////
+
+memory load #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+
+symbols remove "__.*"
+
+registers flush
+
+// control block at &0A00: handle &11, address &3000, count 512, P 0
+memory write #0x0A00 0x(11,00,30,00,00,00,02,00,00,00,00,00,00)
+memory write $fuji_gbpbv_blk_save_ptr 0x(00,0A)
+// channel &11 is workspace offset &20: PTR 0, FujiNet handle 1,0
+memory write #0x1130 0x(00,00,00)
+memory write #0x113E 0x(01,00)
+memory write $aws_tmp04 0x(EE,EE)
+
+run $t_read4 until (CP = $upgbpb OR cycle_count > 5000)
+
+assert CP = $upgbpb $$reached upgbpb$$
+assert $aws_tmp04 = 0x00 $$block pointer low$$
+assert $aws_tmp05 = 0x0A $$block pointer high$$
+
+///////////////////////////////
+marker $$ disc channel (control): fastgb aligns through its workspace copy $$
+///////////////////////////////
+
+memory load #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+
+symbols remove "__.*"
+
+registers flush
+
+// control block at &0A00: handle &11, address &3000, count 512, P 0
+memory write #0x0A00 0x(11,00,30,00,00,00,02,00,00,00,00,00,00)
+memory write $fuji_gbpbv_blk_save_ptr 0x(00,0A)
+// channel &11 is workspace offset &20: PTR 0, FujiNet handle 0,0
+memory write #0x1130 0x(00,00,00)
+memory write #0x113E 0x(00,00)
+memory write $aws_tmp04 0x(EE,EE)
+
+run $t_read4 until (CP = $upgbpb OR cycle_count > 5000)
+
+assert CP = $upgbpb $$reached upgbpb$$
+assert $aws_tmp04 = 0x60 $$block pointer low$$
+assert $aws_tmp05 = 0x10 $$block pointer high$$

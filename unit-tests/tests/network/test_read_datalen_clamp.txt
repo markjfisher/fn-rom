@@ -1,0 +1,90 @@
+///////////////////////////////
+marker $$ dataLen claims 512 in a 274-byte reply: 255 copied, page not overrun $$
+///////////////////////////////
+
+memory load #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+
+symbols remove "__.*"
+
+registers flush
+
+memory write $ch5_buf_page 0x(42)
+memory fill #0x4200~#0x43FF 0x00
+memory write #0x4300 0x(C3)
+memory write $reply_buf 0x(FD,02,12,01,00,01,00,01,00,00,00,01,01,00,00,00,00,00,02)
+memory fill #0x4013~#0x4111 0x55
+memory write $reply_len_lo 0x(12)
+memory write $reply_len_hi 0x(01)
+memory write $result_a 0x(EE)
+
+run $t_read_reply until (CP = $t_read_reply_end OR cycle_count > 60000)
+
+assert CP = $t_read_reply_end $$completed$$
+assert $result_a = 0x01 $$read accepted$$
+assert $result_cnt = 0xFF $$count clamped to 255$$
+assert #0x4300 = 0xC3 $$nothing written past the channel page$$
+
+///////////////////////////////
+marker $$ dataLen claims 200 in a 30-byte reply: the 11 present $$
+///////////////////////////////
+
+memory load #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+
+symbols remove "__.*"
+
+registers flush
+
+memory write $ch5_buf_page 0x(42)
+memory fill #0x4200~#0x43FF 0x00
+memory write #0x4300 0x(C3)
+memory write $reply_buf 0x(FD,02,1E,00,00,01,00,01,00,00,00,01,01,00,00,00,00,C8,00)
+memory fill #0x4013~#0x401D 0x55
+memory write $reply_len_lo 0x(1E)
+memory write $reply_len_hi 0x(00)
+memory write $result_a 0x(EE)
+
+run $t_read_reply until (CP = $t_read_reply_end OR cycle_count > 60000)
+
+assert CP = $t_read_reply_end $$completed$$
+assert $result_a = 0x01 $$read accepted$$
+assert $result_cnt = 0x0B $$count clamped to 11$$
+assert #0x4300 = 0xC3 $$nothing written past the channel page$$
+
+///////////////////////////////
+marker $$ an honest dataLen is unchanged $$
+///////////////////////////////
+
+memory load #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+
+symbols remove "__.*"
+
+registers flush
+
+memory write $ch5_buf_page 0x(42)
+memory fill #0x4200~#0x43FF 0x00
+memory write #0x4300 0x(C3)
+memory write $reply_buf 0x(FD,02,12,01,00,01,00,01,00,00,00,01,01,00,00,00,00,FF,00)
+memory fill #0x4013~#0x4111 0x55
+memory write $reply_len_lo 0x(12)
+memory write $reply_len_hi 0x(01)
+memory write $result_a 0x(EE)
+
+run $t_read_reply until (CP = $t_read_reply_end OR cycle_count > 60000)
+
+assert CP = $t_read_reply_end $$completed$$
+assert $result_a = 0x01 $$read accepted$$
+assert $result_cnt = 0xFF $$count clamped to 255$$
+assert #0x4300 = 0xC3 $$nothing written past the channel page$$
+
