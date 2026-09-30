@@ -61,7 +61,7 @@ MOS filing vectors (OSFIND/BGET/BPUT/ARGS/GBPB/FILE)  <- src/vectors/*    [SHARE
 OSWORD &78 network API (long URIs, JSON paths)         <- src/fnnet.s, src/fnnet/*  [network feature, ABI]
 FujiBus device builders                                <- fujibus_disk.s | fujibus_network.s
 FujiBus packet + SLIP framing + shared data ops        <- fujibus.s, fuji_link_slip.s, fuji_data_fujibus.s  [KERNEL]
-Channel (serial / PTY / RS232, userport, 1MHz)         <- src/serial/*, fuji_serial.s, fuji_userport.s      [KERNEL]
+Channel (serial / PTY / RS232, userport, 1MHz)         <- src/serial/*, fuji_serial.s                        [KERNEL]
 ```
 
 ### 2.2 The network/disk coupling is at clean, identifiable branch points

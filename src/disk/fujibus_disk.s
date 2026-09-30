@@ -24,7 +24,6 @@
         .export  fujibus_disk_restore_boot
         .export  fujibus_disk_unmount
         .export  fujibus_disk_write_sector
-        .export  fujibus_resolve_path
         .export  fd_check_ok_response
 
         .importzp aws_tmp00
@@ -789,12 +788,6 @@ fujibus_disk_write_sector:
         rts
 
 @ws_fail:
-        sec
-        rts
-
-; fujibus_resolve_path
-; obsolete: current HOST/path resolution now lives in FujiNet-NIO AppStore helpers.
-fujibus_resolve_path:
         sec
         rts
 
