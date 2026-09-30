@@ -792,17 +792,15 @@ fujibus_disk_write_sector:
         rts
 
 ; Validate a simple disk OK response after FujiBus transport receive.
-; Input: A = minimum total packet length, X = received length high.
-; Output: C clear = ok, C set = fail.
+; Input: A/X = received length (from fujibus_receive_packet), and C from the
+;        caller's `cmp #<minimum total packet length>` on A.
+; Output: C clear = ok, C set = fail. Uses no scratch: sector reads keep
+;         their transfer state in aws_tmp14/15 across calls.
 fd_check_ok_response:
-        sta     aws_tmp14
+        bcs     @fd_len_ok              ; low byte already >= the minimum
         cpx     #$00
-        bne     @fd_len_ok
-        cmp     #$00
-        beq     @fd_fail
+        beq     @fd_fail                ; under 256 bytes and short (or no packet)
 @fd_len_ok:
-        cmp     aws_tmp14
-        bcc     @fd_fail
         ldy     #$05
         lda     (buffer_ptr),y
         cmp     #$01

@@ -1,0 +1,23 @@
+///////////////////////////////
+marker $$ response length is checked against the caller's minimum $$
+///////////////////////////////
+
+memory load rom #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+symbols remove "__.*"
+memory protect ro #0xFF00 0x0100
+
+registers flush
+run $init_harness until (CP = $end_init_harness OR cycle_count > 5000)
+assert CP = $end_init_harness $$completed harness init$$
+
+run $_main until (CP = $t_done OR cycle_count > 20000)
+assert CP = $t_done $$all checks returned$$
+assert $r_full_sector = 0x00 $$full sector reply passes$$
+assert $r_short = 0x01 $$reply shorter than the minimum fails$$
+assert $r_none = 0x01 $$no packet fails$$
+assert $r_long_low_byte = 0x00 $$reply over 256 bytes passes on its high byte$$
+assert $r_bad_status = 0x01 $$non-Ok status fails$$
+assert $aws_tmp14 = 0x2C $$sector read tail count is not clobbered$$
