@@ -61,6 +61,11 @@ cmd_fs_form:
         bpl     :+
         jmp     @not_mounted
 :
+        ; Reinitialize recreates the image as one side: never a DSD's.
+        and     #DRIVE_MAP_DSD
+        beq     :+
+        jmp     @double_sided
+:
 
         jsr     print_string
         .byte   "Format drive "
@@ -104,6 +109,12 @@ cmd_fs_form:
 @not_mounted:
         jsr     print_string
         .byte   "Not mounted", $0D
+        nop
+        jmp     exit_user_ok
+
+@double_sided:
+        jsr     print_string
+        .byte   "Can't FORM DSD", $0D
         nop
         jmp     exit_user_ok
 

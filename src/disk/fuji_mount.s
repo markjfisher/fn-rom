@@ -23,6 +23,7 @@
         .import fuji_mount_disk_data
         .import fuji_reinitialize_disk_data
         .import fuji_restore_boot_disk_data
+        .import fuji_side_offset
         .import fuji_unmount_disk_data
         .import remember_xy_only
 
@@ -85,6 +86,7 @@ fuji_mount_disk:
         
         ; Record the mapping: fuji_drive_disk_map[current_drv] = disk_num
         ldx     current_drv
+        jsr     fuji_drop_side1_alias
         lda     aws_tmp08               ; Low byte of disk number
         sta     fuji_drive_disk_map,x
         
@@ -110,6 +112,12 @@ fuji_unmount_disk:
 
         ldx     current_drv
         lda     fuji_drive_disk_map,x
+        clc
+        and     #DRIVE_MAP_SIDE1
+        bne     @unmap                  ; DSD side 1: the image stays in drive X-2
+
+        lda     fuji_drive_disk_map,x
+        and     #DRIVE_MAP_SLOT_MASK
         sta     fuji_disk_slot
 
         jsr     fuji_begin_transaction
@@ -118,9 +126,24 @@ fuji_unmount_disk:
         jsr     fuji_end_transaction
 
         ldx     current_drv
+        jsr     fuji_drop_side1_alias
+        plp
+@unmap:
         lda     #$FF                    ; $FF = no disk mounted
         sta     fuji_drive_disk_map,x
-        plp
+        rts
+
+; Drive X (0 or 1) is getting a new disk or none: forget the view drive X+2
+; had of its old DSD's second side.
+fuji_drop_side1_alias:
+        cpx     #$02
+        bcs     @done
+        lda     fuji_drive_disk_map+2,x
+        and     #DRIVE_MAP_SIDE1        ; also set in $FF, which is rewritten as is
+        beq     @done
+        lda     #$FF
+        sta     fuji_drive_disk_map+2,x
+@done:
         rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -149,6 +172,7 @@ fuji_restore_boot_disk:
         beq     @restore_boot_exit
 
         ldx     fuji_disk_slot
+        jsr     fuji_drop_side1_alias
         txa
         sta     fuji_drive_disk_map,x
 
@@ -199,11 +223,39 @@ mark_drive0_only_boot_mounted:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; fuji_set_disk_slot_from_mapping_or_error - Get which fujinet SLOT is mounted in current drive
 ; N=1 means no slot was set in mappings, fuji_disk_slot was set to FF
-; N=0 means fuji_disk_slot was correctly set
+; N=0 means fuji_disk_slot was correctly set, and fuji_side_offset to the
+;     first LBA of the DSD side the drive shows; A = the drive's map entry
+; X = current_drv, Y preserved
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 fuji_set_disk_slot_from_mapping_or_error:
+        lda     #$00                            ; side 0 starts at LBA 0
+        sta     fuji_side_offset
+        sta     fuji_side_offset+1
         ldx     current_drv
         lda     fuji_drive_disk_map,x
         sta     fuji_disk_slot                  ; this will change to FF if no slot from FIN
+        bmi     @done
+        and     #DRIVE_MAP_SLOT_MASK
+        sta     fuji_disk_slot
+        lda     fuji_drive_disk_map,x
+        and     #DRIVE_MAP_SIDE1
+        beq     @map_entry
+        ; Side 1 follows all of side 0 in the image's LBAs.
+        lda     fuji_drive_disk_map,x
+        and     #DRIVE_MAP_80_TRACK
+        bne     @side1_80
+        lda     #<400
+        sta     fuji_side_offset
+        lda     #>400
+        bne     @side1_hi                       ; always
+@side1_80:
+        lda     #<800
+        sta     fuji_side_offset
+        lda     #>800
+@side1_hi:
+        sta     fuji_side_offset+1
+@map_entry:
+        lda     fuji_drive_disk_map,x
+@done:
         rts

@@ -41,3 +41,95 @@ run while CP != $t_unmapped_drive_end
 assert CP = $t_unmapped_drive_end $$returned from mapping helper$$
 assert A = 0xFF $$unmapped drive returns FF$$
 assert $fuji_disk_slot = 0xFF $$slot cache cleared to no-disk marker$$
+
+///////////////////////////////
+marker $$ DSD side 1 in drive 2 offsets past 80-track side 0 $$
+///////////////////////////////
+
+memory load rom #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+symbols remove "__.*"
+memory protect ro #0xFF00 0x0100
+
+registers flush
+run $init_harness until (CP = $end_init_harness OR cycle_count > 5000)
+assert CP = $end_init_harness $$completed harness init$$
+
+run $_main while CP != $t_dsd80_side1
+registers set cycle_count = 0
+run while CP != $t_dsd80_side1_end
+assert CP = $t_dsd80_side1_end $$returned from mapping helper$$
+assert A = 0x70 $$drive map entry returned in A$$
+assert $fuji_disk_slot = 0x00 $$side 1 addresses the DSD's own slot$$
+assert $fuji_side_offset ~ 0x(20,03) $$side 1 starts at LBA 800$$
+
+///////////////////////////////
+marker $$ DSD side 0 in drive 0 has no offset $$
+///////////////////////////////
+
+memory load rom #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+symbols remove "__.*"
+memory protect ro #0xFF00 0x0100
+
+registers flush
+run $init_harness until (CP = $end_init_harness OR cycle_count > 5000)
+assert CP = $end_init_harness $$completed harness init$$
+
+run $_main while CP != $t_dsd80_side0
+registers set cycle_count = 0
+run while CP != $t_dsd80_side0_end
+assert CP = $t_dsd80_side0_end $$returned from mapping helper$$
+assert A = 0x30 $$drive map entry returned in A$$
+assert $fuji_disk_slot = 0x00 $$slot flags masked off$$
+assert $fuji_side_offset ~ 0x(00,00) $$side 0 starts at LBA 0$$
+
+///////////////////////////////
+marker $$ DSD side 1 in drive 3 offsets past 40-track side 0 $$
+///////////////////////////////
+
+memory load rom #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+symbols remove "__.*"
+memory protect ro #0xFF00 0x0100
+
+registers flush
+run $init_harness until (CP = $end_init_harness OR cycle_count > 5000)
+assert CP = $end_init_harness $$completed harness init$$
+
+run $_main while CP != $t_dsd40_side1
+registers set cycle_count = 0
+run while CP != $t_dsd40_side1_end
+assert CP = $t_dsd40_side1_end $$returned from mapping helper$$
+assert A = 0x61 $$drive map entry returned in A$$
+assert $fuji_disk_slot = 0x01 $$side 1 addresses the DSD's own slot$$
+assert $fuji_side_offset ~ 0x(90,01) $$side 1 starts at LBA 400$$
+
+///////////////////////////////
+marker $$ unmounting a DSD side 1 leaves side 0 mounted $$
+///////////////////////////////
+
+memory load rom #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+symbols remove "__.*"
+memory protect ro #0xFF00 0x0100
+
+registers flush
+run $init_harness until (CP = $end_init_harness OR cycle_count > 5000)
+assert CP = $end_init_harness $$completed harness init$$
+
+run $_main while CP != $t_unmount_side1
+registers set cycle_count = 0
+run while CP != $t_unmount_side1_end
+assert CP = $t_unmount_side1_end $$returned from mapping helper$$
+assert CP = $t_unmount_side1_end $$no FujiBus Unmount was attempted$$
+assert $fuji_drive_disk_map + 3 = 0xFF $$drive 3 unmapped$$
+assert $fuji_drive_disk_map + 1 = 0x21 $$drive 1 still holds the DSD$$

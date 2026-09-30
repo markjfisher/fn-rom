@@ -75,6 +75,7 @@
         .export  fuji_current_fs_len
         .export  fuji_current_dir_len
         .export  fuji_disk_slot
+        .export  fuji_side_offset
         .export  fuji_current_host_len
         .export  fuji_filename_len
 
@@ -550,6 +551,10 @@ fuji_network_body_len_hi := fuji_workspace_root + $10B8   ; one-shot HTTP reques
 fuji_network_content_profile := fuji_workspace_root + $10B9 ; one-shot request content profile for next open
 fuji_network_open_proto  := fuji_workspace_root + $10BA   ; one-shot protocol flags from last network OPEN
 fuji_network_open_flags  := fuji_workspace_root + $10BB   ; one-shot request flags for next network OPEN
+
+; LBA offset of the DSD side the current drive shows (0, or 400/800 for side 1),
+; staged by fuji_set_disk_slot_from_mapping_or_error with fuji_disk_slot.
+fuji_side_offset         := fuji_workspace_root + $10BC   ; 2 bytes
 
 ; workspace_utils.s references 10C0-10FF and 1100-11BF as static workspace
 ; this is essentially channels/files information for a filing system

@@ -116,3 +116,18 @@ This allows you to have normal file names on a modern system but tokenize them t
 - `*FMOUNT <slot> [drive]` uses `auto`: try writable, fall back to read-only if needed
 - `*FMOUNT <slot> [drive] RO` forces a read-only live mount
 - If the live mount falls back to read-only, the ROM prints `Mounted read-only`
+
+## Double-sided discs (.dsd)
+
+As with a real double-sided drive, a `.dsd` mounted in drive 0 or 1 shows its
+second side as drive 2 or 3:
+
+- `*FMOUNT <slot> 0` of a `.dsd` makes side 0 drive 0 and side 1 drive 2 (drive 1 → drive 3).
+  The mount is eager, not lazy, so FujiNet reports the disc's track count (40 or 80) straight away.
+- Mounting another disc in drive 0, or `*FUMOUNT 0`, also empties drive 2.
+- `*FUMOUNT 2` only empties drive 2; the disc stays in drive 0.
+- `*FORM` refuses either side of a DSD, because it would rewrite the image as a single-sided disc.
+- A `.dsd` mounted directly in drive 2 or 3 shows side 0 only.
+
+FujiNet-NIO also mounts old-map ADFS images (`.ads`/`.adm`/`.adl`) as raw
+256-byte-sector discs for other clients. This ROM is DFS-only, so it can't read them.

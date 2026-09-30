@@ -52,6 +52,7 @@
         .import fuji_current_fs_len
         .import fuji_current_sector
         .import fuji_disk_slot
+        .import fuji_side_offset
         .import fujibus_receive_packet
         .import fujibus_set_payload_buffer_ptr
         .import fujibus_send_packet
@@ -500,11 +501,14 @@ disk_read_sector_common_recv:
         iny                                     ; y=7
         sta     (buffer_ptr),y
 
-        lda     fuji_current_sector
+        lda     fuji_current_sector             ; LBA = sector + DSD side offset
+        clc
+        adc     fuji_side_offset
         iny                                     ; y=8
         sta     (buffer_ptr),y
 
         lda     fuji_current_sector+1
+        adc     fuji_side_offset+1
         iny                                     ; y=9
         sta     (buffer_ptr),y
 
@@ -692,11 +696,14 @@ fujibus_disk_write_sector:
         iny                                     ; Y = 7
         sta     (buffer_ptr),y
 
-        lda     fuji_current_sector
+        lda     fuji_current_sector             ; LBA = sector + DSD side offset
+        clc
+        adc     fuji_side_offset
         iny                                     ; Y = 8
         sta     (buffer_ptr),y
 
         lda     fuji_current_sector+1
+        adc     fuji_side_offset+1
         iny                                     ; Y = 9
         sta     (buffer_ptr),y
 

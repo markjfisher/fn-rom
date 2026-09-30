@@ -552,6 +552,85 @@ def test_form_without_geometry_reports_syntax_and_exits_cleanly(
     ) is None
 
 
+def _mount_dsd_boot_drive(beebium, fuji_device) -> None:
+    """Mount an 80-track DSD in drive 0: FN-BOOT on side 0, OTHER on side 1."""
+    side = 800 * 256
+    dsd = (_SSD.read_bytes()[:side].ljust(side, b"\0")
+           + _OTHER_SSD.read_bytes()[:side].ljust(side, b"\0"))
+    fuji_device.set_responder(_two_image_responder({8: ("sd0:/fn-boot.dsd", dsd)}))
+    command(beebium, "*FHOST sd0:/")
+    wait_for_screen_text(beebium, "HOST: sd0:/", timeout=8.0)
+    command(beebium, "*FIN 8 fn-boot.dsd")
+    assert fuji_device.wait_for_command(
+        SLOT_CATALOG_SERVICE_ID, SLOT_CATALOG_CMD_PUT, timeout=8.0
+    ) is not None
+    fuji_device.clear()
+    command(beebium, "*FMOUNT 8 0")
+    mount = fuji_device.wait_for_command(dp.DISK_DEVICE_ID, dp.CMD_MOUNT, timeout=8.0)
+    assert mount is not None
+    assert not mount.payload[2] & 0x02, "a DSD in drive 0 is mounted eagerly"
+    command(beebium, "CLS")
+    command(beebium, "*CAT :2")
+    wait_for_screen_text(beebium, "HELLO", timeout=8.0)
+    fuji_device.clear()
+
+
+@pytest.mark.skipif(
+    not _OTHER_SSD.is_file(),
+    reason="needs build/OTHER.ssd (a DFS image without FLS) for side 1 of the DSD",
+)
+@pytest.mark.parametrize("drive", [0, 2])
+def test_form_refuses_either_side_of_a_dsd(beebium, fuji_device, drive):
+    _mount_dsd_boot_drive(beebium, fuji_device)
+
+    command(beebium, "CLS")
+    command(beebium, f"*FORM 80 {drive}")
+    screen = wait_for_screen_text(beebium, "Can't FORM DSD", timeout=8.0)
+    assert "Go (Y/N)" not in screen
+    assert "Bad program" not in screen
+    assert fuji_device.wait_for_command(
+        dp.DISK_DEVICE_ID, dp.CMD_REINITIALIZE, timeout=0.2
+    ) is None
+
+
+@pytest.mark.skipif(
+    not _OTHER_SSD.is_file(),
+    reason="needs build/OTHER.ssd (a DFS image without FLS) for side 1 of the DSD",
+)
+def test_fumount_of_dsd_side_1_only_unmaps_that_drive(beebium, fuji_device):
+    _mount_dsd_boot_drive(beebium, fuji_device)
+
+    command(beebium, "*FUMOUNT 2")
+    time.sleep(0.4)
+    assert fuji_device.wait_for_command(
+        dp.DISK_DEVICE_ID, dp.CMD_UNMOUNT, timeout=0.2
+    ) is None, "the image is still in drive 0"
+    command(beebium, "CLS")
+    command(beebium, "*CAT :2")
+    wait_for_screen_text(beebium, "No disk", timeout=8.0)
+    command(beebium, "CLS")
+    command(beebium, "*CAT :0")
+    wait_for_screen_text(beebium, "FLS", timeout=8.0)
+
+
+@pytest.mark.skipif(
+    not _OTHER_SSD.is_file(),
+    reason="needs build/OTHER.ssd (a DFS image without FLS) for side 1 of the DSD",
+)
+def test_fumount_of_dsd_side_0_unmounts_both_sides(beebium, fuji_device):
+    _mount_dsd_boot_drive(beebium, fuji_device)
+
+    command(beebium, "*FUMOUNT 0")
+    unmount = fuji_device.wait_for_command(
+        dp.DISK_DEVICE_ID, dp.CMD_UNMOUNT, timeout=8.0
+    )
+    assert unmount is not None
+    assert unmount.payload == bytes([dp.DISKPROTO_VERSION, 1])
+    command(beebium, "CLS")
+    command(beebium, "*CAT :2")
+    wait_for_screen_text(beebium, "No disk", timeout=8.0)
+
+
 def _answer_confirm_prompt_if_visible(beebium) -> None:
     screen = dump_screen(beebium)
     if "(Y/N)" not in screen:
@@ -655,8 +734,10 @@ def _two_image_responder(by_host_slot: dict[int, tuple[str, bytes]]):
                 uri = pkt.payload[8:8 + uri_len].decode("utf-8")
                 image = images_by_uri.get(uri, b"")
                 mounted_images[slot] = image
+                img_type = dp.TYPE_DSD if uri.endswith(".dsd") else dp.TYPE_SSD
                 return build_disk_mount_response(
-                    slot=slot, sector_count=max(1, len(image) // 256))
+                    slot=slot, img_type=img_type,
+                    sector_count=max(1, len(image) // 256))
             if pkt.command == dp.CMD_INFO:
                 image = mounted_images.get(slot, b"")
                 return build_disk_info_response(

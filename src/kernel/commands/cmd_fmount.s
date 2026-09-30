@@ -22,6 +22,7 @@
         .import fuji_channel_scratch
         .import fuji_current_fs_len
         .import fuji_disk_slot
+        .import fuji_drive_disk_map
         .import fuji_filename_buffer
         .import fuji_fs_uri_ptr
         .import fuji_begin_transaction
@@ -179,14 +180,14 @@ fmount_copy_slot_uri:
         sta     aws_tmp08
         sta     fuji_disk_slot
 
-        lda     fuji_channel_scratch
-        ora     #DISK_MOUNT_FLAG_LAZY
+        jsr     fmount_mount_flags
         jsr     fuji_mount_disk                         ; this uses "remember_xy_only" - can't rely on PLA to keep A set
         bcc     @mount_checked
         pla                             ; discard retained catalog index
         jmp     err_fmount
 
 @mount_checked:
+        jsr     fmount_map_second_side
         ; Disk mount response payload: [7]=version [8]=flags
         ; bit1 on flags means effective read-only.
         ldy     #$08
@@ -218,9 +219,85 @@ fmount_copy_slot_uri:
         jmp     err_fmount
 
 @mount_success:
+        jsr     fmount_clear_second_side_mapping
         lda     #$FF
         sta     current_cat             ; invalidate cached catalog after remapping a drive
         jmp     exit_user_ok
+
+; Mount flags for this FMOUNT: lazy, except for a .dsd in drive 0 or 1. Its
+; second side becomes drive 2 or 3, which needs the image's geometry now, so
+; it is mounted eagerly for NIO to report it.
+; Entry: cws_tmp2/3 -> URI, cws_tmp6 = URI length
+fmount_mount_flags:
+        ldx     current_drv
+        cpx     #$02
+        bcs     @lazy
+        ldy     cws_tmp6
+        cpy     #$04
+        bcc     @lazy
+        ldx     #$03
+@match_ext:
+        dey
+        lda     (cws_tmp2),y
+        ora     #$20                    ; lower case; '.' is unchanged
+        cmp     fmount_dsd_ext,x
+        bne     @lazy
+        dex
+        bpl     @match_ext
+        lda     fuji_channel_scratch
+        rts
+@lazy:
+        lda     fuji_channel_scratch
+        ora     #DISK_MOUNT_FLAG_LAZY
+        rts
+
+fmount_dsd_ext:
+        .byte   ".dsd"
+
+; A DSD mounted in drive 0 or 1 shows its second side as drive 2 or 3.
+; Entry: buffer holds the Mount response (+12 image type, +15 sector count)
+fmount_map_second_side:
+        ldx     current_drv
+        cpx     #$02
+        bcs     @done
+        ldy     #$0C
+        lda     (buffer_ptr),y
+        cmp     #DISK_IMAGE_TYPE_DSD
+        bne     @done
+        ldy     #$10                    ; sector count bits 8-15: 800 or 1600
+        lda     (buffer_ptr),y
+        cmp     #>1600
+        lda     #DRIVE_MAP_DSD
+        bcc     :+
+        ora     #DRIVE_MAP_80_TRACK
+:
+        ora     fuji_drive_disk_map,x
+        sta     fuji_drive_disk_map,x
+        ora     #DRIVE_MAP_SIDE1
+        sta     fuji_drive_disk_map+2,x
+@done:
+        rts
+
+; The shared config-nio mapping for drive 2 or 3 no longer describes what
+; that drive shows once it is a DSD's second side: clear it.
+fmount_clear_second_side_mapping:
+        ldx     current_drv
+        cpx     #$02
+        bcs     @done
+        lda     fuji_drive_disk_map+2,x
+        bmi     @done
+        and     #DRIVE_MAP_SIDE1
+        beq     @done
+        inx
+        inx
+        stx     current_drv
+        lda     #$00
+        tax
+        jsr     fmount_update_mapping
+        dec     current_drv
+        dec     current_drv
+@done:
+        rts
 
 
 str_fmount_readonly:

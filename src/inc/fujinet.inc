@@ -69,6 +69,18 @@ DISK_MOUNT_FLAG_LAZY          = $02
 DISK_MOUNT_RESP_FLAG_MOUNTED  = $01
 DISK_MOUNT_RESP_FLAG_READONLY = $02
 
+; DiskDevice image type reported in a mount response
+DISK_IMAGE_TYPE_DSD           = $03
+
+; fuji_drive_disk_map entries: $FF = no disk, otherwise the runtime DiskDevice
+; slot in the low nibble plus flags for a double-sided DFS image (bit 7 stays
+; clear, so N still means "no disk"). A DSD in drive 0/1 shows its second side
+; as drive 2/3: both drives map the same slot, and SIDE1 offsets the LBA.
+DRIVE_MAP_SLOT_MASK           = $0F
+DRIVE_MAP_80_TRACK            = $10
+DRIVE_MAP_DSD                 = $20
+DRIVE_MAP_SIDE1               = $40
+
 ; File Commands
 FILE_CMD_STAT          = $01
 FILE_CMD_LIST_DIRECTORY = $02

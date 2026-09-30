@@ -121,6 +121,9 @@ fuji_write_catalog:
 
         ; For FujiNet, we need to send the updated catalog to the network
         ; This is NOT writing physical sectors - it's updating directory info
+        ; A cached catalogue may not have been read through this drive's
+        ; mapping since fuji_disk_slot was last reused, so look it up again.
+        jsr     fuji_set_disk_slot_from_mapping_or_error
         jsr     fuji_write_catalog_data
         jmp     fuji_end_transaction
 
