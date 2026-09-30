@@ -549,15 +549,18 @@ disk_read_sector_common_recv:
 
 fujibus_disk_read_sector_partial:
         lda     aws_tmp14
-        sta     cws_tmp1
         jmp     disk_read_sector_body
 
 fujibus_disk_read_sector:
         lda     #$00
-        sta     cws_tmp1
 
 disk_read_sector_body:
+        ; The copy cap can't sit in cws_tmp1 during the exchange: the serial
+        ; byte reader returns its status there. Keep it on the stack instead.
+        pha
         jsr     disk_read_sector_common_recv
+        pla                             ; (carry from the receive survives)
+        sta     cws_tmp1
         bcs     @drs_fail
 
         ; length at rx[16/17]; only 0..256 expected here
