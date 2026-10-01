@@ -498,10 +498,12 @@ current_cat             := fuji_workspace_root + $1082
 
 ; $10D7/10D8 copied from GBPBV_TABLE indexed by command, but in fujinet it's fuji_param_block_lo
 
-; 1090 seems to be a copy of BC to CB, restoring it in MMC_END / transaction_end
+; 1090 seems to be a copy of BC to CB, restoring it in MMC_END / transaction_end.
+; FujiNet also saves BA/BB (the filename pointer) at 108E/108F, as its FujiBus
+; transport uses them as scratch where MMC code did not.
 
-; 1090-109F
-fuji_buf_ws_tmp_buf     := fuji_workspace_root + $1090
+; 108E-109F: copy of BA-CB
+fuji_buf_ws_tmp_buf     := fuji_workspace_root + $108E
 
 ; TubeNoTransferIf0       := fuji_workspace_root + $10AE
 

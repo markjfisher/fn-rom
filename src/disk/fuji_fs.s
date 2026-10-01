@@ -11,6 +11,7 @@
         .export fuji_write_catalog
         .export fuji_write_mem_block
 
+        .importzp aws_tmp10
         .importzp aws_tmp12
 
         .importzp data_ptr
@@ -162,11 +163,13 @@ fuji_begin_transaction:
 
         ; jsr     set_fuji_data_buffer_ptr
 
-        ; Save workspace variables - this is saving $BC-$CB (aws_tmp12-15 & pws_tmp00-11) into 1090-109f
+        ; Save workspace variables - this is saving $BA-$CB (aws_tmp10-15 & pws_tmp00-11) into 108E-109F
         ; At least *RUN fails if this isn't done. ARCHITECTURE doc suggests which values are needed to be restored.
-        ldx     #$0F
+        ; $BA/$BB hold the filename pointer (MMFS &BA), which OPENOUT re-reads after
+        ; a catalogue load, and the FujiBus receive uses them as scratch.
+        ldx     #$11
 @save_loop:
-        lda     aws_tmp12,x
+        lda     aws_tmp10,x
         sta     fuji_buf_ws_tmp_buf,x
         dex
         bpl     @save_loop
@@ -188,12 +191,12 @@ fuji_begin_transaction:
 
 fuji_end_transaction:
 
-        ; Restore workspace variables from 1090-109F into BC-CB
+        ; Restore workspace variables from 108E-109F into BA-CB
         ; we don't reach into 10A0
-        ldx     #$0F
+        ldx     #$11
 @restore_loop:
         lda     fuji_buf_ws_tmp_buf,x
-        sta     aws_tmp12,x
+        sta     aws_tmp10,x
         dex
         bpl     @restore_loop
 
