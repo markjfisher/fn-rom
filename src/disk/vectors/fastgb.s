@@ -280,5 +280,5 @@ gbpb_load_blkptr:
 	lda     fuji_gbpbv_blk_save_ptr
 	sta     atemp
 	lda     fuji_gbpbv_blk_save_ptr+1
-	sta     atemp
+	sta     atemp+1
 	rts

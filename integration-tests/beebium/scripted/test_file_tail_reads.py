@@ -90,11 +90,6 @@ def test_load_of_a_sector_plus_tail_delivers_every_byte(
     _assert_loaded(beebium)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="OSGBPB on disc files is broken: call 3 raises 'Disc changed' for "
-    "any length, and call 4 returns with nothing transferred",
-)
 def test_osgbpb_read_of_a_sector_plus_tail_delivers_every_byte(
     beebium, fuji_device, tail_disk
 ):
