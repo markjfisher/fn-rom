@@ -35,6 +35,19 @@ Override any derived path with the usual env var (`BEEBIUM_SERVER`, `BEEBIUM_MOS
 - **basictool**, **dfstool** — SSD helpers for some tests
 - **soft65c02** — unit tests only ([unit-tests/README.md](../unit-tests/README.md))
 
+After updating Beebium, rebuild both the server and RPC-serial plugin from
+that same checkout (adjust the build directory if needed):
+
+```bash
+cmake --build "$BEEBIUM_HOME/build-release" \
+  --target beebium-model-b beebium_ext_rpc_serial_plugin -j4
+```
+
+Building only the server can leave an old `rpc-serial.so` that the new server
+rejects for an extension ABI mismatch. The fixtures use the current `server=`
+launch argument and key/value `--sideways` syntax, then wait for the BASIC
+prompt before keyboard input; server READY alone does not mean MOS has booted.
+
 Optional for `real/` interop tests: build fujinet-nio and set `FUJINET_BIN`.
 
 ## Common commands
