@@ -1,0 +1,6 @@
+name: BBC bulk read independent buffer and boundary vectors
+configs:
+  - ${UNIT_TEST_DIR}/harness/harness.yaml
+src_files:
+  - test_bulk_read.s
+test_script: test_bulk_read.txt

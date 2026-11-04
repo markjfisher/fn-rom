@@ -53,6 +53,8 @@
         .import fujibus_receive_packet
         .import fujibus_receive_packet_to_payload
         .import fujibus_send_packet_scatter
+        .import bgetv_entry, fuji_ch_handle_low, fuji_ch_handle_high
+        .import fuji_ch_1118, fuji_ch_buf_page
         .import network_flush_write
 
         .include "fujinet.inc"
@@ -68,7 +70,7 @@ fnnet_dispatch:
 
         ldy     #$00
         lda     (aws_tmp00),y
-        cmp     #$07
+        cmp     #$08
         bcs     fnnet_dispatch_fail
         tax
         lda     fnnet_jmp_hi,x
@@ -86,7 +88,8 @@ fnnet_dispatch:
                 fnnet_reason_set_content_profile - 1, \
                 fnnet_reason_set_open_url        - 1, \
                 fnnet_reason_set_open_flags      - 1, \
-                fnnet_reason_device_call         - 1
+                fnnet_reason_device_call         - 1, \
+                fnnet_reason_read_data           - 1
 
 fnnet_jmp_lo: .lobytes FNNET_JMP_TABLE
 fnnet_jmp_hi: .hibytes FNNET_JMP_TABLE
@@ -104,3 +107,5 @@ fnnet_dispatch_fail:
         .include "fnnet/reason_set_open_url.inc"
         .include "fnnet/reason_set_open_flags.inc"
         .include "fnnet/reason_device_call.inc"
+
+        .include "fnnet/reason_read_data.inc"

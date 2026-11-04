@@ -1,0 +1,238 @@
+marker $$bulk buffered read 1 bytes$$
+memory load #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+registers flush
+run $init_case until (CP = $end_init OR cycle_count > 20000)
+assert CP = $end_init $$initialized$$
+memory write $capacity 0x(01)
+registers flush
+run $call_bulk until (CP = $end_bulk OR cycle_count > 300000)
+registers show cycle_count $$bulk cycles$$
+assert CP = $end_bulk $$returned$$
+assert $block1 = 0 $$success$$
+assert $block7 = 0 $$no EOF/NotReady$$
+assert $block8 = 1 $$exact count$$
+assert #0x24FF = 0xA5 $$leading guard$$
+assert #0x2500 = 0 $$first byte$$
+assert #0x2500 = 0 $$last byte$$
+assert #0x2501 = 0xCC $$trailing guard$$
+assert $test_fuji_ch_bptr_low = 1 $$cursor advances exactly$$
+
+marker $$bulk buffered read 32 bytes$$
+memory load #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+registers flush
+run $init_case until (CP = $end_init OR cycle_count > 20000)
+assert CP = $end_init $$initialized$$
+memory write $capacity 0x(20)
+registers flush
+run $call_bulk until (CP = $end_bulk OR cycle_count > 300000)
+registers show cycle_count $$bulk cycles$$
+assert CP = $end_bulk $$returned$$
+assert $block1 = 0 $$success$$
+assert $block7 = 0 $$no EOF/NotReady$$
+assert $block8 = 32 $$exact count$$
+assert #0x24FF = 0xA5 $$leading guard$$
+assert #0x2500 = 0 $$first byte$$
+assert #0x251F = 31 $$last byte$$
+assert #0x2520 = 0xCC $$trailing guard$$
+assert $test_fuji_ch_bptr_low = 32 $$cursor advances exactly$$
+
+marker $$bulk buffered read 120 bytes$$
+memory load #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+registers flush
+run $init_case until (CP = $end_init OR cycle_count > 20000)
+assert CP = $end_init $$initialized$$
+memory write $capacity 0x(78)
+registers flush
+run $call_bulk until (CP = $end_bulk OR cycle_count > 300000)
+registers show cycle_count $$bulk cycles$$
+assert CP = $end_bulk $$returned$$
+assert $block1 = 0 $$success$$
+assert $block7 = 0 $$no EOF/NotReady$$
+assert $block8 = 120 $$exact count$$
+assert #0x24FF = 0xA5 $$leading guard$$
+assert #0x2500 = 0 $$first byte$$
+assert #0x2577 = 119 $$last byte$$
+assert #0x2578 = 0xCC $$trailing guard$$
+assert $test_fuji_ch_bptr_low = 120 $$cursor advances exactly$$
+
+marker $$bulk buffered read 255 bytes$$
+memory load #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+registers flush
+run $init_case until (CP = $end_init OR cycle_count > 20000)
+assert CP = $end_init $$initialized$$
+memory write $capacity 0x(FF)
+registers flush
+run $call_bulk until (CP = $end_bulk OR cycle_count > 300000)
+registers show cycle_count $$bulk cycles$$
+assert CP = $end_bulk $$returned$$
+assert $block1 = 0 $$success$$
+assert $block7 = 0 $$no EOF/NotReady$$
+assert $block8 = 255 $$exact count$$
+assert #0x24FF = 0xA5 $$leading guard$$
+assert #0x2500 = 0 $$first byte$$
+assert #0x25FE = 254 $$last byte$$
+assert #0x25FF = 0xCC $$trailing guard$$
+assert $test_fuji_ch_bptr_low = 255 $$cursor advances exactly$$
+
+marker $$byte-loop baseline read 1 bytes$$
+memory load #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+registers flush
+run $init_case until (CP = $end_init OR cycle_count > 20000)
+assert CP = $end_init $$initialized$$
+memory write $capacity 0x(01)
+registers flush
+run $call_legacy until (CP = $end_legacy OR cycle_count > 300000)
+registers show cycle_count $$byte-loop cycles$$
+assert CP = $end_legacy $$returned$$
+assert $block1 = 0 $$success$$
+assert $block7 = 0 $$no EOF/NotReady$$
+assert $block8 = 1 $$exact count$$
+assert #0x24FF = 0xA5 $$leading guard$$
+assert #0x2500 = 0 $$first byte$$
+assert #0x2500 = 0 $$last byte$$
+assert #0x2501 = 0xCC $$trailing guard$$
+assert $test_fuji_ch_bptr_low = 1 $$cursor advances exactly$$
+
+
+marker $$byte-loop baseline read 32 bytes$$
+memory load #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+registers flush
+run $init_case until (CP = $end_init OR cycle_count > 20000)
+assert CP = $end_init $$initialized$$
+memory write $capacity 0x(20)
+registers flush
+run $call_legacy until (CP = $end_legacy OR cycle_count > 300000)
+registers show cycle_count $$byte-loop cycles$$
+assert CP = $end_legacy $$returned$$
+assert $block1 = 0 $$success$$
+assert $block7 = 0 $$no EOF/NotReady$$
+assert $block8 = 32 $$exact count$$
+assert #0x24FF = 0xA5 $$leading guard$$
+assert #0x2500 = 0 $$first byte$$
+assert #0x251F = 31 $$last byte$$
+assert #0x2520 = 0xCC $$trailing guard$$
+assert $test_fuji_ch_bptr_low = 32 $$cursor advances exactly$$
+
+
+marker $$byte-loop baseline read 120 bytes$$
+memory load #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+registers flush
+run $init_case until (CP = $end_init OR cycle_count > 20000)
+assert CP = $end_init $$initialized$$
+memory write $capacity 0x(78)
+registers flush
+run $call_legacy until (CP = $end_legacy OR cycle_count > 300000)
+registers show cycle_count $$byte-loop cycles$$
+assert CP = $end_legacy $$returned$$
+assert $block1 = 0 $$success$$
+assert $block7 = 0 $$no EOF/NotReady$$
+assert $block8 = 120 $$exact count$$
+assert #0x24FF = 0xA5 $$leading guard$$
+assert #0x2500 = 0 $$first byte$$
+assert #0x2577 = 119 $$last byte$$
+assert #0x2578 = 0xCC $$trailing guard$$
+assert $test_fuji_ch_bptr_low = 120 $$cursor advances exactly$$
+
+
+marker $$byte-loop baseline read 255 bytes$$
+memory load #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+registers flush
+run $init_case until (CP = $end_init OR cycle_count > 20000)
+assert CP = $end_init $$initialized$$
+memory write $capacity 0x(FF)
+registers flush
+run $call_legacy until (CP = $end_legacy OR cycle_count > 300000)
+registers show cycle_count $$byte-loop cycles$$
+assert CP = $end_legacy $$returned$$
+assert $block1 = 0 $$success$$
+assert $block7 = 0 $$no EOF/NotReady$$
+assert $block8 = 255 $$exact count$$
+assert #0x24FF = 0xA5 $$leading guard$$
+assert #0x2500 = 0 $$first byte$$
+assert #0x25FE = 254 $$last byte$$
+assert #0x25FF = 0xCC $$trailing guard$$
+assert $test_fuji_ch_bptr_low = 255 $$cursor advances exactly$$
+
+marker $$EOF preserves destination$$
+memory load #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+registers flush
+run $init_case until (CP = $end_init OR cycle_count > 20000)
+assert CP = $end_init $$initialized$$
+memory write $buffer_count 0x(00)
+memory write $test_fuji_ch_bptr_low 0x(FF)
+memory write $pointer_mid 0x(FF)
+memory write $pointer_hi 0x(FF)
+run $call_bulk until (CP = $end_bulk OR cycle_count > 300000)
+assert CP = $end_bulk $$returned$$
+assert $block1 = 0 $$success$$
+assert $block7 = 1 $$precise terminal flag$$
+assert $block8 = 0 $$zero bytes$$
+assert #0x2500 = 0xCC $$no destination write$$
+
+marker $$NotReady preserves destination$$
+memory load #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+registers flush
+run $init_case until (CP = $end_init OR cycle_count > 20000)
+assert CP = $end_init $$initialized$$
+memory write $buffer_count 0x(00)
+memory write $fujibus_network_read 0x(4C)
+memory write $patch_read $stub_not_ready
+run $call_bulk until (CP = $end_bulk OR cycle_count > 300000)
+assert CP = $end_bulk $$returned$$
+assert $block1 = 0 $$success$$
+assert $block7 = 2 $$precise terminal flag$$
+assert $block8 = 0 $$zero bytes$$
+assert #0x2500 = 0xCC $$no destination write$$
+
+marker $$512 bytes spanning three chunks$$
+memory load #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+registers flush
+run $init_case until (CP = $end_init OR cycle_count > 20000)
+assert CP = $end_init $$initialized$$
+memory write $fujibus_network_read 0x(4C)
+memory write $patch_read $stub_refill
+registers flush
+run $call_bulk512 until (CP = $end_bulk512 OR cycle_count > 300000)
+registers show cycle_count $$512-byte bulk cycles including two stub refills$$
+assert CP = $end_bulk512 $$returned$$
+assert $refill_count = 2 $$two refills for three chunks$$
+assert $pointer_mid = 2 $$512 bytes consumed$$
+assert $test_fuji_ch_bptr_low = 0 $$low cursor wrapped$$
+assert #0x24FF = 0xA5 $$leading guard$$
+assert #0x2500 = 0 $$first chunk$$
+assert #0x25FF = 0 $$second chunk$$
+assert #0x26FE = 0 $$third chunk$$
+assert #0x26FF = 1 $$last byte$$

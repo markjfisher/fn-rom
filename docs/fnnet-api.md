@@ -169,3 +169,17 @@ BBC BASIC reserves the `FN` prefix for user functions (case-insensitive) — use
 Integer scratch buffers use `DIM finBlock% 16` (note `%` on the DIM name). Byte pokes use `finBlock%?0`; the base address for `(X,Y)` is `finBlock%`. With `DIM finBlock 16` (no `%`), use `finBlock?0` and `finBlock` as the address instead — `%` on the reference only works when `%` was on the DIM.
 
 The default BASIC template records the most recent API result in `finLastStatus%`. Recoverable JSON query failures do not raise `ERROR`; callers should inspect `finLastStatus%` if they need to distinguish `OK` from `JSON query failed`.
+
+## Reason &07 — buffered network read
+
+Input: destination pointer at +2/3, capacity 1–255 at +4, MOS network handle
+at +6. Output: flags at +7 (1 EOF, 2 temporary NotReady), actual count at +8.
+Byte +10 is private scratch. The block and destination must not overlap, and
+the destination range must not wrap through address zero. Disk handles are
+rejected. Count and flags are cleared before validating the request.
+
+One call consumes at most the current buffered chunk. BGET performs any needed
+refill and retains its existing EOF, streaming and no-probe semantics. Callers
+loop over successful nonempty chunks to satisfy a larger read; EOF/NotReady
+returns zero bytes with its flag. No new persistent ROM workspace is reserved.
+Old ROMs reject this reason with status 1; callers may fall back to OSBGET.
