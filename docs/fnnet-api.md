@@ -191,3 +191,22 @@ local read-ready +7 (buffered data or known EOF). This performs no bus request
 and does not consume data. It rejects disk/closed channels. Ready callers must
 combine this local view with firmware readiness and return MOS handles to apps.
 Reason &07 additionally returns remaining ROM-buffered bytes at +9.
+
+## Reason &09 — caller-owned Network Open payload
+
+Input: pointer at +2/3 and length at +4/5 to a complete Network Open v1 payload
+in caller RAM, 13–512 bytes. The ROM validates version 1, the length bound and
+address wrap; firmware validates the payload fields. Status is 0 on success,
+1 for invalid input or on an older ROM. This arms a one-shot sentinel open:
+call OSFIND with `"://"` (CR terminated for assembly callers). Use the appropriate
+OSFIND mode for the encoded method. The payload's open flags are retained in
+the channel, including no-probe behavior.
+
+Keep the buffer valid and unchanged until OSFIND returns. The ROM scatter-sends
+it without reserving a second payload buffer. Pending content-profile/body-length hints are cleared; the explicit payload
+owns those settings. The payload contains method,
+flags, URL, request headers, body length and response-header selection using
+the existing NetworkDevice Open wire format. Reason &09 with zero length
+cancels any pending descriptor (returns status 1); always cancel after OSFIND
+in case it failed before consuming the descriptor. Ordinary opens are then
+unaffected. This shares the one-shot long-URL descriptor and is not reentrant.

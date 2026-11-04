@@ -118,6 +118,13 @@
 ;     contentProfile (u8)
 
 fujibus_network_open:
+        pha
+        lda fuji_ext_str_flags
+        and #FUJI_EXT_STR_OPEN_PAYLOAD
+        beq :+
+        pla
+        jmp @open_payload
+:       pla
         stx     aws_tmp05               ; save flags
         sta     aws_tmp04               ; save method
 
@@ -293,6 +300,36 @@ fujibus_network_open:
         lda     #$00
         sta     fuji_ext_str_flags
 
+        jmp @open_receive
+@open_payload:
+        lda #FN_DEVICE_NETWORK
+        sta fuji_bus_tx_device
+        lda #NET_CMD_OPEN
+        sta fuji_bus_tx_command
+        lda buffer_ptr
+        sta aws_tmp00
+        lda buffer_ptr+1
+        sta aws_tmp01
+        lda #FN_HEADER_SIZE
+        sta aws_tmp02
+        lda #0
+        sta aws_tmp03
+        sta cws_tmp6
+        sta cws_tmp7
+        sta fuji_network_body_len
+        sta fuji_network_body_len_hi
+        sta fuji_network_content_profile ; explicit payload overrides one-shot hints
+        lda fuji_ext_str_ptr
+        sta aws_tmp06
+        lda fuji_ext_str_ptr+1
+        sta aws_tmp07
+        lda fuji_ext_str_len
+        sta aws_tmp08
+        lda fuji_ext_str_len_hi
+        sta aws_tmp09
+        jsr fujibus_send_packet_scatter
+        lda #0
+        sta fuji_ext_str_flags
 @open_receive:
         ; receive response
 nw_open_before_receive:

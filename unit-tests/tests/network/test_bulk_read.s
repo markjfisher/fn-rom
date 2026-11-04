@@ -149,3 +149,6 @@ block4=block+4
 block5=block+5
 block6=block+6
 block9=block+9
+
+.export block2
+block2=block+2

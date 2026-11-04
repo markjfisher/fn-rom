@@ -259,3 +259,40 @@ assert $block4 = 1 $$firmware handle high$$
 assert $block5 = 255 $$buffered count$$
 assert $block6 = 0 $$count high cleared$$
 assert $block7 = 1 $$read ready from local data$$
+
+marker $$encoded Open payload one-shot validation$$
+memory load #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+registers flush
+run $init_case until (CP = $end_init OR cycle_count > 20000)
+assert CP = $end_init $$initialized$$
+memory write $block 0x(09)
+memory write $block3 0x(23)
+memory write $block4 0x(0D)
+memory write #0x2300 0x(01)
+run $call_bulk until (CP = $end_bulk OR cycle_count > 30000)
+assert CP = $end_bulk $$arm returned$$
+assert $block1 = 0 $$valid payload accepted$$
+assert $fuji_ext_str_flags = 0x1B $$armed external payload$$
+assert $fuji_ext_str_len = 13 $$bounded length$$
+memory write $block 0x(09)
+memory write $block4 0x(00)
+run $call_bulk until (CP = $end_bulk OR cycle_count > 30000)
+assert CP = $end_bulk $$cancel returned$$
+assert $fuji_ext_str_flags = 0 $$cancel removes pointer state$$
+memory write $block 0x(09)
+memory write $block4 0x(0D)
+memory write #0x2300 0x(02)
+run $call_bulk until (CP = $end_bulk OR cycle_count > 30000)
+assert CP = $end_bulk $$bad version returned$$
+assert $block1 = 1 $$foreign version rejected$$
+assert $fuji_ext_str_flags = 0 $$invalid payload not armed$$
+memory write $block 0x(09)
+memory write $block2 0x(FF)
+memory write $block3 0x(FF)
+run $call_bulk until (CP = $end_bulk OR cycle_count > 30000)
+assert CP = $end_bulk $$wrapping pointer returned$$
+assert $block1 = 1 $$wrapping buffer rejected$$
+assert $fuji_ext_str_flags = 0 $$wrapping payload not armed$$

@@ -204,6 +204,7 @@ FUJI_EXT_STR_ACTIVE = $01
 FUJI_EXT_STR_IS_URL = $02
 FUJI_EXT_STR_IS_JSON = $04
 FUJI_EXT_STR_OPEN_ARMED = $08
+FUJI_EXT_STR_OPEN_PAYLOAD = $10
 
 ; FujiNet OSWORD/CALL API (see docs/fnnet-api.md)
 ; Must be < &80 so MOS offers it via service call 8 (&EF/&F0/&F1).

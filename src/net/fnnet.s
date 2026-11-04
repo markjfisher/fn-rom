@@ -70,7 +70,7 @@ fnnet_dispatch:
 
         ldy     #$00
         lda     (aws_tmp00),y
-        cmp     #$09
+        cmp     #$0A
         bcs     fnnet_dispatch_fail
         tax
         lda     fnnet_jmp_hi,x
@@ -90,7 +90,8 @@ fnnet_dispatch:
                 fnnet_reason_set_open_flags      - 1, \
                 fnnet_reason_device_call         - 1, \
                 fnnet_reason_read_data           - 1, \
-                fnnet_reason_channel_info        - 1
+                fnnet_reason_channel_info        - 1, \
+                fnnet_reason_set_open_payload    - 1
 
 fnnet_jmp_lo: .lobytes FNNET_JMP_TABLE
 fnnet_jmp_hi: .hibytes FNNET_JMP_TABLE
@@ -112,3 +113,5 @@ fnnet_dispatch_fail:
         .include "fnnet/reason_read_data.inc"
 
         .include "fnnet/reason_channel_info.inc"
+
+        .include "fnnet/reason_set_open_payload.inc"
