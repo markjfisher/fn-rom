@@ -1,5 +1,6 @@
 ; Serial utility functions for FujiNet commands
 ; Provides common functions for serial communication
+.ifndef FUJINET_INTERFACE_1MHZ   ; the 1MHz link has no RS423 to set up
 
         .export flush_serial
         .export restore_output_to_screen
@@ -138,3 +139,5 @@ read_rs423_char:
         ; No character available set cws_tmp1 to -1
         dec     cws_tmp1
         rts
+
+.endif  ; FUJINET_INTERFACE_1MHZ
