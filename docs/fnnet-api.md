@@ -182,7 +182,8 @@ One call consumes at most the current buffered chunk. BGET performs any needed
 refill and retains its existing EOF, streaming and no-probe semantics. Callers
 loop over successful nonempty chunks to satisfy a larger read; EOF/NotReady
 returns zero bytes with its flag. No new persistent ROM workspace is reserved.
-Old ROMs reject this reason with status 1; callers may fall back to OSBGET.
+Applications using this API require the current ROM. The BBC NIO library
+uses this bulk-read path exclusively; it has no OSBGET compatibility fallback.
 
 ## Reason &08 — local network channel information
 
