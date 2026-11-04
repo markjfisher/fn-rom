@@ -183,3 +183,11 @@ refill and retains its existing EOF, streaming and no-probe semantics. Callers
 loop over successful nonempty chunks to satisfy a larger read; EOF/NotReady
 returns zero bytes with its flag. No new persistent ROM workspace is reserved.
 Old ROMs reject this reason with status 1; callers may fall back to OSBGET.
+
+## Reason &08 — local network channel information
+
+Input MOS handle at +2. Outputs: firmware handle +3/4, ROM-buffered bytes +5/6,
+local read-ready +7 (buffered data or known EOF). This performs no bus request
+and does not consume data. It rejects disk/closed channels. Ready callers must
+combine this local view with firmware readiness and return MOS handles to apps.
+Reason &07 additionally returns remaining ROM-buffered bytes at +9.

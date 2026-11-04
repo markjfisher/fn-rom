@@ -236,3 +236,26 @@ assert #0x2500 = 0 $$first chunk$$
 assert #0x25FF = 0 $$second chunk$$
 assert #0x26FE = 0 $$third chunk$$
 assert #0x26FF = 1 $$last byte$$
+
+marker $$local metadata maps handle without bus access$$
+memory load #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+registers flush
+run $init_case until (CP = $end_init OR cycle_count > 20000)
+assert CP = $end_init $$initialized$$
+memory write $block 0x(08)
+memory write $block3 0x(AA)
+memory write $block4 0x(AA)
+memory write $block5 0x(AA)
+memory write $block6 0x(AA)
+memory write #0x2202 0x(15)
+run $call_bulk until (CP = $end_bulk OR cycle_count > 30000)
+assert CP = $end_bulk $$returned$$
+assert $block1 = 0 $$success$$
+assert $block3 = 1 $$firmware handle low$$
+assert $block4 = 1 $$firmware handle high$$
+assert $block5 = 255 $$buffered count$$
+assert $block6 = 0 $$count high cleared$$
+assert $block7 = 1 $$read ready from local data$$

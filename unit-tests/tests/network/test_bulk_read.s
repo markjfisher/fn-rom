@@ -142,3 +142,10 @@ call_bulk512:
     sta capacity
     jsr call_bulk
 end_bulk512: rts
+
+.export block3, block4, block5, block6, block9
+block3=block+3
+block4=block+4
+block5=block+5
+block6=block+6
+block9=block+9

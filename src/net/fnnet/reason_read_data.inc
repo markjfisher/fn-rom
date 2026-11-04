@@ -4,8 +4,10 @@
 ; Existing BGET owns refills, EOF and no-probe boundaries; copy remaining
 ; buffered bytes directly, without repeatedly entering MOS for every byte.
 fnnet_reason_read_data:
-        ldy #8
+        ldy #9
         lda #0
+        sta (aws_tmp00),y
+        dey
         sta (aws_tmp00),y
         dey
         sta (aws_tmp00),y
@@ -103,6 +105,14 @@ fnnet_reason_read_data:
         iny
         bne @copy
 @copied:
+        lda fuji_ch_sect_cnt,x
+        sec
+        sbc aws_tmp10
+        sec
+        sbc aws_tmp12
+        ldy #9
+        sta (aws_tmp14),y
+        ldy aws_tmp12
         tya
         clc
         adc fuji_ch_bptr_low,x
