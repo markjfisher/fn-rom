@@ -39,25 +39,6 @@ resolved by retaining current tests and adding the new cases once.
   a new error; this follows the contributed behavior and prevents over-copying.
 - The serial emulator suite is run separately; results recorded below.
 
-## Note for Dominic (draft; not sent)
-
-I've brought the outstanding changes from your PR onto our current ROM on
-`review/dominic-pr1`, retaining your network/disk fixes and Pi1MHz interface.
-Several later fixes were already integrated, so the table above maps every
-original commit to its disposition. The obsolete fuji_host.s edit was dropped;
-current utility ABI and emulator launch changes were retained.
-
-Please test the Pi1MHz BBC/Master ROM and matching FN-BOOT disk, particularly
-reply timing, Escape/timeout, network reads/seeks and partial-sector saves.
-Once the branch is published, you can base subsequent work on it instead of
-rebasing the complete old series. Hardware validation remains yours to confirm.
-
-Serial Beebium run: 42 passed, 56 skipped, one obsolete assertion expecting
-256-byte requests. That assertion now expects 255, and all eight network
-integration tests pass on rerun. Skips include the separate boot-utility lane
-and optional real-firmware/service tests. DFS writer regression passes.
-Final serial ROM free space: BBC 358 bytes, Master 305 bytes.
-
 ## Pi1MHz build and hardware handoff
 
 Source the workspace environment first. Object paths are machine-specific but
