@@ -1,0 +1,9 @@
+name: network read accepts replies of 256 bytes or more
+
+configs:
+  - ${UNIT_TEST_DIR}/harness/harness.yaml
+
+src_files:
+  - test_read_reply_over_255.s
+
+test_script: test_read_reply_over_255.txt

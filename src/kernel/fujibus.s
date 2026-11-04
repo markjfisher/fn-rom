@@ -47,6 +47,7 @@
         .export scatter_after_checksum_r3
         .export scatter_store_checksum
         .export scatter_before_write
+        .export fujibus_send_packet_scatter_store_total_len
 
 fujibus_header_size = 6
 fujibus_response_header_size = 7
@@ -221,18 +222,26 @@ scatter_before_write:
         jmp     fuji_link_write_slip_frame_triple
 
 fujibus_send_packet_scatter_store_total_len:
-        ; total_len = region1 + region2 + region3
-        lda     aws_tmp02
-        clc
-        adc     aws_tmp08
-        adc     cws_tmp6
+        ; total_len = region1 + region2 + region3, as two 16-bit adds: the
+        ; carry out of each low-byte add belongs to its high byte.
         ldy     #$02
+        clc
+        lda     aws_tmp02
+        adc     aws_tmp08
         sta     (buffer_ptr),y
-
+        iny
         lda     aws_tmp03
         adc     aws_tmp09
-        adc     cws_tmp7
+        sta     (buffer_ptr),y
+
+        dey
+        clc
+        lda     (buffer_ptr),y
+        adc     cws_tmp6
+        sta     (buffer_ptr),y
         iny
+        lda     (buffer_ptr),y
+        adc     cws_tmp7
         sta     (buffer_ptr),y
 
         rts

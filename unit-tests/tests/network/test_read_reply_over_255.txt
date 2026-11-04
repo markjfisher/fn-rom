@@ -1,0 +1,65 @@
+///////////////////////////////
+marker $$ network read accepts a 274-byte reply (255 bytes of data) $$
+///////////////////////////////
+
+memory load #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+
+symbols remove "__.*"
+
+registers flush
+
+memory write $ch5_buf_page 0x(42)
+memory fill #0x4200~#0x42FF 0x00
+
+; header: device FD, command 02, length 0x0112, checksum, descriptor 1, status Ok
+; network: version 1, flags 02 (truncated), reserved, handle 0x0101, offset 0, dataLen 0x00FF
+memory write $reply_buf 0x(FD,02,12,01,00,01,00,01,02,00,00,01,01,00,00,00,00,FF,00)
+memory fill #0x4013~#0x4111 0x55
+memory write #0x4013 0x(41)
+memory write #0x4111 0x(5A)
+memory write $reply_len_lo 0x(12)
+memory write $reply_len_hi 0x(01)
+memory write $result_a 0x(EE)
+
+run $t_read_reply until (CP = $t_read_reply_end OR cycle_count > 50000)
+
+assert CP = $t_read_reply_end $$completed the read$$
+assert $result_a = 0x01 $$274-byte reply accepted as data, not EOF$$
+assert $result_cnt = 0xFF $$255 bytes counted$$
+assert #0x4200 = 0x41 $$first data byte copied to the channel buffer$$
+assert #0x42FE = 0x5A $$last data byte copied to the channel buffer$$
+
+///////////////////////////////
+marker $$ network read accepts a 260-byte reply (241 bytes of data) $$
+///////////////////////////////
+
+memory load #0x8000 "${WS_ROOT}/build/fujinet.rom"
+symbols load "${WS_ROOT}/build/fujinet.rom.lbl"
+
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+
+symbols remove "__.*"
+
+registers flush
+
+memory write $ch5_buf_page 0x(42)
+memory fill #0x4200~#0x42FF 0x00
+memory write $reply_buf 0x(FD,02,04,01,00,01,00,01,02,00,00,01,01,00,00,00,00,F1,00)
+memory write #0x4013 0x(41)
+memory write #0x4103 0x(5A)
+memory write $reply_len_lo 0x(04)
+memory write $reply_len_hi 0x(01)
+memory write $result_a 0x(EE)
+
+run $t_read_reply until (CP = $t_read_reply_end OR cycle_count > 50000)
+
+assert CP = $t_read_reply_end $$completed the read$$
+assert $result_a = 0x01 $$260-byte reply accepted as data, not EOF$$
+assert $result_cnt = 0xF1 $$241 bytes counted$$
+assert #0x4200 = 0x41 $$first data byte copied to the channel buffer$$
+assert #0x42F0 = 0x5A $$last data byte copied to the channel buffer$$
