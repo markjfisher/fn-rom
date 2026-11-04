@@ -97,4 +97,3 @@ run $t_total until (CP = $t_total_end OR cycle_count > 5000)
 assert CP = $t_total_end $$completed$$
 assert #0x4002 = 0x06 $$total low byte (261+511+2=774)$$
 assert #0x4003 = 0x03 $$total high byte$$
-

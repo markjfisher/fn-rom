@@ -87,4 +87,3 @@ assert CP = $t_read_reply_end $$completed$$
 assert $result_a = 0x01 $$read accepted$$
 assert $result_cnt = 0xFF $$count clamped to 255$$
 assert #0x4300 = 0xC3 $$nothing written past the channel page$$
-

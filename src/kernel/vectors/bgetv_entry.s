@@ -145,13 +145,23 @@ network_bget:
         ;   $1C (fuji_ch_sect_lo):  buf_start_mid  — mid byte of buffer start
         ;   $1D (fuji_ch_sect_hi):  buf_start_hi   — high byte of buffer start
         ;
-        ; Buffer index = PTR - buf_start. Since the buffer is ≤256 bytes,
-        ; and buf_start ≤ PTR ≤ buf_start + 256 within one fill, the
-        ; 8-bit subtraction PTR_low - buf_start_low gives the correct index.
+        ; Buffer index = PTR - buf_start. The buffer holds fewer than 256
+        ; bytes, so PTR is in it only when the full 24-bit difference is below
+        ; buf_cnt: PTR# can move anywhere, so the middle and high bytes must
+        ; match too, or a byte at the same low offset of the old buffer would
+        ; be returned.
 
         ; sty     aws_tmp02               ; save intch
 
         ; Check if buffer has data for current PTR position
+        lda     fuji_ch_bptr_low,y      ; C = no borrow from the low byte
+        cmp     fuji_ch_1118,y
+        lda     fuji_ch_bptr_mid,y
+        sbc     fuji_ch_sect_lo,y       ; buf_start_mid
+        bne     nwbg_no_data_available
+        lda     fuji_ch_bptr_hi,y
+        sbc     fuji_ch_sect_hi,y       ; buf_start_hi
+        bne     nwbg_no_data_available
         lda     fuji_ch_bptr_low,y      ; PTR low
         sec
         sbc     fuji_ch_1118,y          ; subtract buf_start_low
