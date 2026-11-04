@@ -138,4 +138,3 @@ run $t_bget until (CP = $t_bget_end OR cycle_count > 5000)
 assert CP = $t_bget_end $$completed bget call$$
 assert $call_count = 0x00 $$no network read for a buffered byte$$
 assert $result_a = 0x5A $$the buffered byte$$
-

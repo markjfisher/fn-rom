@@ -120,7 +120,7 @@ def test_openin_bget_close_cycle_emits_open_read_close(beebium, fuji_device):
     assert req_version == netp.NETPROTO_VERSION
     assert req_handle == handle_seen == handle
     assert req_offset == offset_seen == 0
-    assert req_max == 256
+    assert req_max == 255  # reply framing and the one-byte buffered count
     assert data_seen == body
 
     close_pkt = fuji_device.wait_for_command(netp.NETWORK_DEVICE_ID, netp.CMD_CLOSE, timeout=8.0)
